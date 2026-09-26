@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Мои проекты · Co-Founder.AI{% endblock %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">ВАШИ ИДЕИ И ИХ ПРОГРЕСС</span><h1>Мои проекты</h1><p>У каждого проекта свой радар, разговоры с Бруно и история изменений.</p><p><a class="account-link" href="{% url 'password_change' %}">Сменить пароль аккаунта</a></p></div><a href="{% url 'startup_create' %}" class="button primary">+ Добавить проект</a></div>
+<section class="project-carousel" aria-label="Радары проектов" aria-roledescription="карусель">
+  <div class="carousel-toolbar"><span class="muted small">Листайте свайпом или стрелками</span><div class="carousel-controls"><button type="button" class="button ghost carousel-arrow" data-carousel-prev aria-label="Предыдущий проект" aria-controls="project-slides" disabled>←</button><span data-carousel-counter aria-live="polite" aria-atomic="true">1 / {{ project_cards|length }}</span><button type="button" class="button ghost carousel-arrow" data-carousel-next aria-label="Следующий проект" aria-controls="project-slides" {% if project_cards|length < 2 %}disabled{% endif %}>→</button></div></div>
+  <div class="project-slides" id="project-slides" tabindex="0" aria-label="Проекты; используйте стрелки влево и вправо">
+    {% for card in project_cards %}<article class="card project-slide" aria-roledescription="слайд" aria-label="{{ forloop.counter }} из {{ project_cards|length }}: {{ card.startup.name }}">
+      <div class="section-top"><div><span class="eyebrow">{{ card.startup.get_stage_display }}</span><h2>{{ card.startup.name }}</h2></div><span class="score-badge">{% if card.latest %}{{ card.latest.overall_score }}/100{% else %}Без оценки{% endif %}</span></div>
+      <p class="muted project-description">{{ card.startup.one_line_pitch|default:"Расскажите Бруно об идее, чтобы получить первый радар." }}</p>
+      <div class="radar-layout"><div class="radar-wrap">{% include 'founder/_radar_svg.html' with points=card.points %}</div><div class="metric-list">{% for label, score in card.axes %}<div class="metric-row"><span>{{ label }}</span><strong>{% if score is not None %}{{ score }}{% else %}—{% endif %}</strong><div class="metric-bar"><i style="width:{{ score|default:0 }}%"></i></div></div>{% endfor %}</div></div>
+      <p class="muted small">{% if card.latest %}{{ card.latest.get_source_display }} · {{ card.latest.assessed_at|date:"d.m.Y H:i" }}{% else %}Проект сохранён. Оценку можно получить после разговора.{% endif %}</p>
+      <a class="button primary" href="{% url 'dashboard' card.startup.id %}">Открыть профиль <span aria-hidden="true">→</span></a>
+    </article>{% endfor %}
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/projects.js' %}" defer></script>{% endblock %}

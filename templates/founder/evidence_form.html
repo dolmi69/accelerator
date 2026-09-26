@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}Запись в дневнике · {{ startup.name }}{% endblock %}
+{% block content %}
+{% include 'founder/_workspace_nav.html' %}
+<div class="page-heading work-heading"><div><span class="eyebrow">{{ startup.name }}</span><h1>{% if entry %}Уточнить наблюдение{% else %}Записать результат{% endif %}</h1><p>Опишите, что произошло на практике. Если данных не хватило, так и отметьте.</p></div></div>
+<form method="post" class="card work-card evidence-form">{% csrf_token %}
+{{ form.non_field_errors }}
+{% for field in form %}<label class="field"><span>{{ field.label }}{% if field.field.required %} *{% endif %}</span>{{ field }}{% if field.errors %}<span class="field-error">{{ field.errors|striptags }}</span>{% endif %}</label>{% endfor %}
+<p class="muted small">При сохранении результата связанное задание в работе будет отмечено выполненным. Отрицательный результат тоже завершает проверку.</p><div class="work-actions"><button class="button primary">Сохранить наблюдение</button><a class="button ghost" href="{% url 'evidence_list' startup.id %}">Отмена</a></div></form>
+{% endblock %}

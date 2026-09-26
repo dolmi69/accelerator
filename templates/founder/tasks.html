@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Задания Бруно · {{ startup.name }}{% endblock %}
+{% block content %}
+{% include 'founder/_workspace_nav.html' %}
+<div class="page-heading work-heading"><div><span class="eyebrow">МАЛЕНЬКИЕ ШАГИ К ЯСНОСТИ</span><h1>Задания Бруно</h1><p>{{ startup.name }} · До трёх проверок за раз. Результат сохраняется в дневник.</p></div>
+<form method="post" action="{% url 'tasks_generate' startup.id %}" data-busy-form>{% csrf_token %}<button class="button primary" data-busy-label="Бруно подбирает задания…">{% if open_tasks %}Добавить задания{% else %}Получить задания{% endif %}</button><span class="muted small" role="status"></span></form></div>
+{% if is_demo %}<p class="work-notice">Деморежим: задания выбираются из готовых примеров по слабым направлениям.</p>{% endif %}
+<div class="work-grid">
+{% for task in open_tasks %}<article class="card work-card"><span class="eyebrow">{{ task.get_axis_display }}</span><h2>{{ task.title }}</h2><p>{{ task.instructions|linebreaksbr }}</p><div class="task-criterion"><strong>Когда завершить</strong><p>{{ task.success_criterion }}</p></div><div class="work-actions"><a class="button primary" href="{% url 'evidence_create' startup.id %}?task={{ task.id }}">Записать результат</a><form method="post" action="{% url 'task_skip' startup.id task.id %}">{% csrf_token %}<button class="button ghost">Отложить</button></form></div></article>
+{% empty %}<div class="card work-card work-empty"><h2>Выберем следующий шаг</h2><p>Бруно учтёт описание, разговоры, последний радар и записи дневника. Нажмите «Получить задания».</p></div>{% endfor %}
+</div>
+<p class="work-notice">Проверка может опровергнуть идею — это тоже результат. Выполнение задания само по себе не повышает радар.</p>
+{% if past_tasks %}<section class="card work-card"><h2>Предыдущие задания</h2>{% for task in past_tasks %}<div class="work-history-row"><div><strong>{{ task.title }}</strong><p class="muted small">{{ task.get_axis_display }} · {{ task.get_status_display }} · {{ task.created_at|date:'d.m.Y' }}</p></div><a href="{% url 'evidence_list' startup.id %}?axis={{ task.axis }}">Смотреть дневник →</a></div>{% endfor %}</section>{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}" defer></script>{% endblock %}

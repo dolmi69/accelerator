@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Редактировать стартап{% else %}Новый стартап{% endif %} · Co-Founder.AI{% endblock %}
+{% block content %}
+<div class="page-heading narrow"><span class="eyebrow">ПРОФИЛЬ СТАРТАПА</span><h1>{% if is_edit %}Уточним описание{% else %}Как называется ваш сервис?{% endif %}</h1><p>{% if is_edit %}Здесь можно поправить описание. Таблица по пяти направлениям редактируется в профиле.{% else %}Достаточно названия. Дальше Бруно выслушает вашу идею и поможет собрать таблицу по пяти направлениям.{% endif %}</p></div>
+<form method="post" class="card startup-form">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
+  {% for field in form %}
+    <label class="field"><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small class="field-help">{{ field.help_text }}</small>{% endif %}{% if field.errors %}<small class="field-error">{{ field.errors|striptags }}</small>{% endif %}</label>
+  {% endfor %}
+  <div class="form-actions"><button type="submit" class="button primary">{% if is_edit %}Сохранить изменения{% else %}Создать и поговорить с Бруно{% endif %} <span aria-hidden="true">→</span></button>{% if is_edit %}<a class="button ghost" href="{% url 'dashboard' startup.id %}">Отмена</a>{% endif %}</div>
+</form>
+{% endblock %}

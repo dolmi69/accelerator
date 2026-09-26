@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Вход · Co-Founder.AI{% endblock %}
+{% block content %}
+<section class="auth-wrap">
+  <div class="auth-intro"><span class="eyebrow">С ВОЗВРАЩЕНИЕМ</span><h1>Продолжим строить<br><em>ваш бизнес.</em></h1><p>Бруно сохранил ваши оценки и историю разговоров.</p></div>
+  <div class="card auth-card">
+    <h2>Войти в аккаунт</h2>
+    <form method="post" class="form-stack">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}<label class="field"><span>{{ field.label }}</span>{{ field }}{% if field.errors %}<small class="field-error">{{ field.errors|striptags }}</small>{% endif %}</label>{% endfor %}
+      <button type="submit" class="button primary wide">Войти <span aria-hidden="true">→</span></button>
+    </form>
+    <p class="auth-bottom">Ещё нет аккаунта? <a href="{% url 'register' %}">Зарегистрироваться</a></p>
+  </div>
+</section>
+{% endblock %}

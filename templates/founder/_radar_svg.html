@@ -1,0 +1,6 @@
+<svg viewBox="0 0 220 220" class="radar-svg" role="img" aria-label="Радар пяти направлений">
+  <polygon points="{{ radar_grid_100 }}" class="radar-grid"/><polygon points="{{ radar_grid_75 }}" class="radar-grid"/><polygon points="{{ radar_grid_50 }}" class="radar-grid"/><polygon points="{{ radar_grid_25 }}" class="radar-grid"/>
+  <line x1="110" y1="110" x2="110" y2="28" class="radar-axis"/><line x1="110" y1="110" x2="188" y2="85" class="radar-axis"/><line x1="110" y1="110" x2="158" y2="176" class="radar-axis"/><line x1="110" y1="110" x2="62" y2="176" class="radar-axis"/><line x1="110" y1="110" x2="32" y2="85" class="radar-axis"/>
+  {% if previous_points %}<polygon points="{{ previous_points }}" class="radar-previous"/>{% endif %}
+  {% if points %}<polygon points="{{ points }}" class="radar-value"/>{% endif %}
+</svg>

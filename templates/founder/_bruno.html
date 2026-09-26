@@ -1,0 +1,25 @@
+{% load static %}
+{# Display original reference pixels through SVG viewports; no generated redraw. #}
+<div class="bruno-art bruno-reference {% if investor %}bruno-investor{% else %}bruno-{{ mascot.mood }}{% endif %}">
+  <svg class="bruno-stage" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Бруно — {% if investor %}строгий инвестор{% else %}{{ mascot.get_mood_display }}{% endif %}" focusable="false">
+    <g class="bruno-character">
+      {% if investor %}
+        <svg x="20" y="25" width="260" height="265" viewBox="967 112 287 275" overflow="hidden">
+          <defs><clipPath id="bruno-reference-investor-{{ instance_id|default:"card" }}"><path d="M997 112 H1254 V390 H967 V150 H997 Z"/></clipPath></defs>
+      {% elif mascot.mood == 'sleepy' %}
+        <svg x="5" y="127" width="290" height="165" viewBox="20 790 370 204" overflow="hidden">
+      {% elif mascot.mood == 'focused' %}
+        <svg x="30" y="20" width="240" height="273" viewBox="690 730 248 275" overflow="hidden">
+      {% elif mascot.mood == 'confident' %}
+        <svg x="10" y="5" width="280" height="285" viewBox="640 60 340 322" overflow="hidden">
+          <defs><clipPath id="bruno-reference-happy-{{ instance_id|default:"card" }}"><path d="M640 60 H980 V160 H962 V390 H710 V275 H640 Z"/></clipPath></defs>
+      {% else %}
+        <svg x="10" y="0" width="280" height="295" viewBox="30 25 680 690" overflow="hidden">
+          <defs><clipPath id="bruno-reference-wave-{{ instance_id|default:"card" }}"><path d="M30 25 H635 V295 H705 V485 H625 V720 H30 Z"/></clipPath></defs>
+      {% endif %}
+          <image href="{% static 'founder/img/bruno-reference.png' %}" width="1280" height="1066" {% if investor %}clip-path="url(#bruno-reference-investor-{{ instance_id|default:"card" }})"{% elif mascot.mood == 'confident' %}clip-path="url(#bruno-reference-happy-{{ instance_id|default:"card" }})"{% elif mascot.mood != 'sleepy' and mascot.mood != 'focused' and mascot.mood != 'confident' %}clip-path="url(#bruno-reference-wave-{{ instance_id|default:"card" }})"{% endif %}/>
+        </svg>
+    </g>
+  </svg>
+  {% if not pet %}<button type="button" class="bruno-greet" aria-label="Поздороваться с Бруно" title="Поздороваться с Бруно" hidden="hidden"><span aria-hidden="true">✦</span></button>{% endif %}
+</div>

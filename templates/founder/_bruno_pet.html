@@ -1,0 +1,18 @@
+{% if bruno_pet %}
+<aside class="bruno-pet" data-bruno-pet data-user="{{ request.user.pk }}" aria-label="Ваш помощник Бруно">
+  <button class="pet-toggle" type="button" aria-label="Свернуть Бруно" aria-expanded="true" aria-controls="bruno-pet-body" hidden>−</button>
+  <div id="bruno-pet-body" class="pet-body">
+    <a class="pet-project" href="{% if bruno_pet.project %}{% url 'dashboard' bruno_pet.project.id %}{% else %}{% url 'startup_create' %}{% endif %}" aria-label="{% if bruno_pet.project %}Открыть проект {{ bruno_pet.project.name }}{% else %}Создать первый проект с Бруно{% endif %}">
+      <span class="pet-bubble"><strong>{% if bruno_pet.project %}К твоему проекту?{% else %}Начнём с идеи?{% endif %}</strong><span>{{ bruno_pet.project.name|default:'Создать проект' }}</span></span>
+      {% include 'founder/_bruno.html' with mascot=bruno_pet.mascot investor=False pet=True instance_id='pet' only %}
+    </a>
+    <div class="pet-actions">
+      {% if bruno_pet.project %}
+        {% if bruno_pet.chat %}<a href="{% url 'chat_detail' bruno_pet.project.id bruno_pet.chat.id %}">Поговорить</a>
+        {% else %}<form method="post" action="{% url 'chat_create' bruno_pet.project.id %}">{% csrf_token %}<button type="submit">Поговорить</button></form>{% endif %}
+        <a href="{% url 'home' %}" aria-label="Все мои проекты">Проекты</a>
+      {% endif %}
+    </div>
+  </div>
+</aside>
+{% endif %}

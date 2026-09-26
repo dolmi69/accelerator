@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Дневник доказательств · {{ startup.name }}{% endblock %}
+{% block content %}
+{% include 'founder/_workspace_nav.html' %}
+<div class="page-heading work-heading"><div><span class="eyebrow">ОТ ПРЕДПОЛОЖЕНИЙ К НАБЛЮДЕНИЯМ</span><h1>Дневник доказательств</h1><p>{{ startup.name }} · Что проверили, что узнали и что ещё предстоит выяснить.</p></div><a class="button primary" href="{% url 'evidence_create' startup.id %}">+ Записать наблюдение</a></div>
+<p class="work-notice">Это сведения, добавленные вами. Наличие записи или ссылки ещё не означает независимую проверку.</p>
+<form method="get" class="work-filter"><label for="evidence-axis">Направление</label><select name="axis" id="evidence-axis"><option value="">Все направления</option>{% for value, label in axes %}<option value="{{ value }}" {% if selected_axis == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="button ghost">Показать</button></form>
+<div class="evidence-list">
+{% for entry in entries %}<article class="card work-card" id="entry-{{ entry.id }}"><div class="section-top"><span class="eyebrow">{{ entry.get_axis_display }} · {{ entry.observed_on|date:'d.m.Y' }}</span><span class="outcome outcome-{{ entry.outcome }}">{{ entry.get_outcome_display }}</span></div><h2>{{ entry.claim }}</h2><p class="evidence-observation">{{ entry.observation|linebreaksbr }}</p><p class="muted small">Источник: {{ entry.source|default:'не указан' }}{% if entry.source_url %} · <a href="{{ entry.source_url }}" target="_blank" rel="noopener noreferrer">Открыть источник ↗</a>{% endif %}</p>{% if entry.next_question %}<div class="task-criterion"><strong>Что ещё выяснить</strong><p>{{ entry.next_question }}</p></div>{% endif %}{% if entry.task %}<p class="muted small">Задание: {{ entry.task.title }}</p>{% endif %}<a class="button ghost" href="{% url 'evidence_edit' startup.id entry.id %}">Уточнить запись</a></article>
+{% empty %}<article class="card work-card work-empty"><h2>Здесь появятся результаты проверок</h2><p>Добавьте наблюдение сами или сохраните результат задания Бруно. Подойдут текстовые заметки, числа с периодом и ссылки на источники.</p></article>{% endfor %}
+</div>
+{% if entries.has_other_pages %}<nav class="work-actions" aria-label="Страницы дневника">{% if entries.has_previous %}<a href="?axis={{ selected_axis }}&page={{ entries.previous_page_number }}">← Назад</a>{% endif %}<span>{{ entries.number }} / {{ entries.paginator.num_pages }}</span>{% if entries.has_next %}<a href="?axis={{ selected_axis }}&page={{ entries.next_page_number }}">Далее →</a>{% endif %}</nav>{% endif %}
+{% if entries.paginator.count %}<div class="card work-card"><h2>Учесть результаты в радаре</h2><p>Бруно перечитает сведения проекта и дневник. Изменение оценки зависит от содержания результатов.</p><form method="post" action="{% url 'metrics_assess' startup.id %}" data-busy-form>{% csrf_token %}<button class="button primary" data-busy-label="Бруно обновляет радар…">Обновить радар с Бруно</button><span class="muted small" role="status"></span></form></div>{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}" defer></script>{% endblock %}

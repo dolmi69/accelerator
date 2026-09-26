@@ -1,0 +1,8 @@
+Django>=6.0,<6.1
+python-dotenv>=1.0,<2.0
+dj-database-url>=3.0,<4.0
+psycopg[binary]>=3.2,<4.0
+httpx>=0.28,<1.0
+truststore>=0.10,<1.0
+openai>=2.0,<3.0
+anthropic>=0.70,<1.0

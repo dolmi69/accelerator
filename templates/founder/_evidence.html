@@ -1,0 +1,5 @@
+<div class="evidence-box">
+  <span class="evidence-status evidence-{{ evidence.status }}">{{ evidence.status_label }}</span>
+  {% if evidence.quote %}<blockquote>«{{ evidence.quote }}»</blockquote>{% if evidence.url %}<a class="evidence-link" href="{{ evidence.url }}">{{ evidence.label }} →</a>{% endif %}
+  {% elif evidence.status == 'unlinked' %}<p class="muted small">Для этой оценки нет проверенной ссылки на фрагмент рассказа. Обновите оценку с Бруно.</p>{% endif %}
+</div>
