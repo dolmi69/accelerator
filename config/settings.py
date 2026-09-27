@@ -23,6 +23,7 @@ ALLOWED_HOSTS = [
 ]
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -55,12 +56,21 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "founder.context_processors.bruno_pet",
+                "founder.context_processors.community",
             ],
         },
     },
 ]
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
+
+# One process is enough for local development. Redis shares events between
+# multiple workers (and the optional second Telegram server).
+REDIS_URL = os.getenv("REDIS_URL", "")
+CHANNEL_LAYERS = {"default": (
+    {"BACKEND": "channels_redis.core.RedisChannelLayer", "CONFIG": {"hosts": [REDIS_URL]}}
+    if REDIS_URL else {"BACKEND": "channels.layers.InMemoryChannelLayer"}
+)}
 
 DATABASES = {
     "default": dj_database_url.config(

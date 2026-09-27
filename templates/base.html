@@ -9,6 +9,7 @@
   {% if request.telegram_miniapp %}<script src="https://telegram.org/js/telegram-web-app.js?63"></script>{% endif %}
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="{% static 'founder/css/app.css' %}?v=workbench-6">
+  <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=1">
 </head>
 <body>
   <div class="app-shell">
@@ -19,6 +20,8 @@
       <nav class="topnav" aria-label="Основная навигация">
         {% if request.user.is_authenticated %}
           <a href="{% url 'home' %}">Мои проекты</a>
+          <a href="{% url 'community' %}">Сообщество</a>
+          <a href="{% url 'inbox' %}">Сообщения <span class="unread-badge" data-unread-count {% if not direct_unread %}hidden{% endif %}>{{ direct_unread }}</span></a>
           {% if startup %}<a href="{% url 'dashboard' startup.id %}">Профиль</a>{% endif %}
           <a href="{% url 'startup_create' %}">+ Стартап</a>
           <span class="user-pill">{{ request.user.username }}</span>
@@ -53,6 +56,7 @@
   {% include 'founder/_bruno_pet.html' %}
   {% if request.telegram_miniapp %}<script src="{% static 'founder/js/telegram.js' %}" defer></script>{% endif %}
   <script src="{% static 'founder/js/bruno.js' %}?v=5" defer></script>
+  {% if request.user.is_authenticated %}<script src="{% static 'founder/js/messages.js' %}?v=1" defer></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

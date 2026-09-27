@@ -38,3 +38,10 @@ def bruno_pet(request):
         'mascot': mascot or MascotState(mood=MascotState.Mood.CURIOUS),
         'chat': chat,
     }}
+
+
+def community(request):
+    if not request.user.is_authenticated:
+        return {}
+    from founder.services.messaging import unread_count
+    return {'direct_unread': unread_count(request.user.pk)}

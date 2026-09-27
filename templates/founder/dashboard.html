@@ -5,6 +5,7 @@
 {% include 'founder/_workspace_nav.html' %}
 <div class="page-heading"><div><span class="eyebrow">ПРОФИЛЬ СТАРТАПА</span><h1>{{ startup.name }}</h1><p>{{ startup.one_line_pitch|default:"Расскажите Бруно о сервисе — описание и оценки можно уточнять по ходу работы." }}</p></div><a href="{% url 'startup_edit' startup.id %}" class="button ghost">Редактировать описание</a></div>
 
+<section class="card publishing-note" style="margin:0 0 22px"><span class="eyebrow">ВАШ ПРОЕКТ В СООБЩЕСТВЕ</span><h2>Идея, с которой хочется познакомиться</h2><p class="muted">Соберите короткую карточку вместе с Бруно, опубликуйте её и находите партнёров среди основателей.</p><a class="button primary" href="{% url 'card_edit' startup.id %}">Карточка проекта →</a></section>
 <section class="card profile-table-card">
   <div class="section-top"><div><span class="eyebrow">КАРТИНА БИЗНЕСА</span><h2>Таблица по пяти направлениям</h2></div><span class="score-badge">{% if latest %}{{ latest.overall_score }}/100{% else %}Пока без оценки{% endif %}</span></div>
   <p class="muted small">Бруно собирает её из вашего рассказа. Оценки показывают, насколько понятны и подтверждены сведения; их можно доработать.</p>

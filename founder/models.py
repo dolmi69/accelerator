@@ -316,3 +316,88 @@ class EvidenceEntry(models.Model):
                 raise ValidationError({'task': 'Задание должно принадлежать этому проекту.'})
             if self.task.axis != self.axis:
                 raise ValidationError({'axis': 'Выберите направление связанного задания.'})
+
+
+class ProjectCard(models.Model):
+    """Private working copy; community reads only the explicitly published snapshot."""
+
+    startup = models.OneToOneField(StartupProfile, on_delete=models.CASCADE, related_name='project_card')
+    name = models.CharField('Название', max_length=160)
+    tagline = models.CharField('Идея в одном предложении', max_length=240, blank=True)
+    summary = models.TextField('Коротко о проекте', max_length=600, blank=True)
+    problem = models.TextField('Проблема', max_length=400, blank=True)
+    solution = models.TextField('Решение', max_length=400, blank=True)
+    audience = models.CharField('Для кого', max_length=300, blank=True)
+    business_model = models.CharField('Как зарабатываем', max_length=300, blank=True)
+    traction = models.TextField('Что уже получилось', max_length=400, blank=True)
+    looking_for = models.CharField('Кого или что ищем', max_length=300, blank=True)
+    stage = models.CharField('Стадия', max_length=20, choices=StartupProfile.Stage.choices, default='idea')
+    website = models.URLField('Сайт', blank=True)
+    share_radar = models.BooleanField('Показывать баллы радара в опубликованной карточке', default=False)
+    revision = models.PositiveIntegerField(default=0)
+    published_data = models.JSONField(default=dict, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class ProjectBookmark(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='project_bookmarks')
+    card = models.ForeignKey(ProjectCard, on_delete=models.CASCADE, related_name='bookmarks')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'card'], name='unique_project_bookmark')]
+
+
+class DirectConversation(models.Model):
+    """One private thread per pair, regardless of which card opened it."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user_low = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conversations_low')
+    user_high = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conversations_high')
+    source_card = models.ForeignKey(ProjectCard, on_delete=models.SET_NULL, null=True, blank=True)
+    low_read_id = models.PositiveBigIntegerField(default=0)
+    high_read_id = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-updated_at', '-id']
+        constraints = [
+            models.UniqueConstraint(fields=['user_low', 'user_high'], name='unique_direct_pair'),
+            models.CheckConstraint(condition=Q(user_low__lt=models.F('user_high')), name='ordered_direct_pair'),
+        ]
+
+    def other_user(self, user_id):
+        if user_id not in (self.user_low_id, self.user_high_id):
+            raise ValueError('Not a conversation participant')
+        return self.user_high if user_id == self.user_low_id else self.user_low
+
+    def read_id_for(self, user_id):
+        if user_id not in (self.user_low_id, self.user_high_id):
+            raise ValueError('Not a conversation participant')
+        return self.low_read_id if user_id == self.user_low_id else self.high_read_id
+
+
+class DirectMessage(models.Model):
+    conversation = models.ForeignKey(DirectConversation, on_delete=models.CASCADE, related_name='direct_messages')
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='direct_messages')
+    client_id = models.UUIDField()
+    content = models.TextField(max_length=4000)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['id']
+        indexes = [models.Index(fields=['conversation', 'id'], name='direct_message_history')]
+        constraints = [models.UniqueConstraint(fields=['sender', 'client_id'], name='unique_direct_message_retry')]
+
+
+class UserBlock(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='blocked_users')
+    blocked = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='blocked_by')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'blocked'], name='unique_user_block'),
+            models.CheckConstraint(condition=~Q(user=models.F('blocked')), name='no_self_block'),
+        ]

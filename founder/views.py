@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from asgiref.sync import sync_to_async
 
 from django.conf import settings
 from django import forms
@@ -328,7 +329,20 @@ def chat_send(request, startup_id, session_id):
         # Keep the frontend event format, but deliver one ordinary HTTP body.
         response = HttpResponse("".join(generate()), content_type="text/plain; charset=utf-8")
     else:
-        response = StreamingHttpResponse(generate(), content_type="text/event-stream; charset=utf-8")
+        events = generate()
+        if hasattr(request, 'scope'):
+            # Daphne serves ASGI. Advance the sync provider/ORM iterator off the
+            # event loop so existing Bruno chat keeps genuinely streaming.
+            sync_events = events
+            async def async_events():
+                sentinel = object()
+                while True:
+                    event = await sync_to_async(next, thread_sensitive=True)(sync_events, sentinel)
+                    if event is sentinel:
+                        break
+                    yield event
+            events = async_events()
+        response = StreamingHttpResponse(events, content_type="text/event-stream; charset=utf-8")
     response["Cache-Control"] = "no-cache"
     response["X-Accel-Buffering"] = "no"
     return response
