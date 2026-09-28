@@ -25,12 +25,16 @@ def blocked_pair(a, b):
 
 
 def open_conversation(user, card):
-    other_id = card.startup.owner_id
-    if other_id == user.pk or blocked_pair(user.pk, other_id):
+    return start_direct_conversation(user, card.startup.owner, source_card=card)
+
+
+def start_direct_conversation(user, recipient, *, source_card=None):
+    other_id = recipient.pk
+    if not recipient.is_active or other_id == user.pk or blocked_pair(user.pk, other_id):
         raise PermissionDenied('Нельзя начать этот диалог.')
     low, high = sorted((user.pk, other_id))
     thread, _ = DirectConversation.objects.get_or_create(user_low_id=low, user_high_id=high,
-                                                         defaults={'source_card': card})
+                                                         defaults={'source_card': source_card})
     return thread
 
 

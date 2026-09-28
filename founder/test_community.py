@@ -100,7 +100,7 @@ class CommunityTests(TestCase):
             self.assertEqual(self.client.post(start_url).status_code, 302)
         self.assertEqual(DirectConversation.objects.count(), 1)
         thread = DirectConversation.objects.get()
-        self.assertContains(self.client.get(reverse('conversation', args=[thread.pk])), '@alice')
+        self.assertContains(self.client.get(reverse('conversation', args=[thread.pk])), '@' + self.owner.handle)
         self.client.post(reverse('block_contact', args=[thread.pk]), {'block': '1'})
         self.assertEqual(self.client.post(start_url).status_code, 403)
         self.client.post(reverse('block_contact', args=[thread.pk]), {'block': '0'})

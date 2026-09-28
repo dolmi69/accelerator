@@ -5,14 +5,17 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
 from founder.models import EvidenceEntry, StartupMetrics, StartupProfile, User
+from founder.profile_forms import HandleValidationMixin
 
 
-class RegisterForm(UserCreationForm):
+class RegisterForm(HandleValidationMixin, UserCreationForm):
     email = forms.EmailField(label="Email")
+    handle = forms.CharField(label="Тег (можно выбрать позже)", max_length=33, required=False,
+                             widget=forms.TextInput(attrs={'placeholder': '@your_name'}))
 
     class Meta(UserCreationForm.Meta):
         model = User
-        fields = ("username", "email", "password1", "password2")
+        fields = ("username", "handle", "email", "password1", "password2")
 
 
 class StartupForm(forms.ModelForm):

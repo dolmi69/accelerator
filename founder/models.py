@@ -6,10 +6,25 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator
+from django.core.validators import MaxValueValidator, RegexValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+from django.urls import reverse
+
+
+def default_user_handle():
+    return f"founder_{uuid.uuid4().hex[:12]}"
+
+
+def avatar_upload_path(instance, filename):
+    return f"avatars/{instance.pk}/{uuid.uuid4().hex}.jpg"
+
+
+handle_validator = RegexValidator(
+    r"\A[a-z][a-z0-9_]{2,31}\Z",
+    "Тег: 3–32 символа, латинские буквы, цифры и _. Первый символ — буква.",
+)
 
 
 def attachment_upload_path(instance, filename):
@@ -24,6 +39,32 @@ def attachment_upload_path(instance, filename):
 class User(AbstractUser):
     # Для первого релиза вход по username; email обязателен и уникален.
     email = models.EmailField(unique=True)
+    handle = models.CharField('Тег', max_length=32, unique=True, default=default_user_handle,
+                              validators=[handle_validator])
+    display_name = models.CharField('Имя в профиле', max_length=80, blank=True)
+    bio = models.TextField('О себе', max_length=600, blank=True)
+    occupation = models.CharField('Чем занимаетесь', max_length=120, blank=True)
+    location = models.CharField('Город', max_length=100, blank=True)
+    profile_website = models.URLField('Сайт или портфолио', blank=True)
+    avatar = models.ImageField(upload_to=avatar_upload_path, blank=True)
+
+    class Meta(AbstractUser.Meta):
+        constraints = [models.CheckConstraint(
+            condition=Q(handle__regex=r'^[a-z][a-z0-9_]{2,31}$'), name='user_handle_format',
+        )]
+
+    @property
+    def public_name(self):
+        return self.display_name or self.username
+
+    def get_absolute_url(self):
+        return reverse('user_profile', kwargs={'handle': self.handle})
+
+    @property
+    def avatar_url(self):
+        if not self.avatar:
+            return ''
+        return reverse('user_avatar', kwargs={'user_id': self.pk}) + '?v=' + Path(self.avatar.name).stem
 
 
 class StartupProfile(models.Model):

@@ -7,7 +7,13 @@ from founder.models import (
 )
 
 
-admin.site.register(User, UserAdmin)
+@admin.register(User)
+class FounderUserAdmin(UserAdmin):
+    fieldsets = UserAdmin.fieldsets + (
+        ('Профиль сообщества', {'fields': ('handle', 'display_name', 'occupation', 'bio', 'location', 'profile_website')}),
+    )
+    list_display = (*UserAdmin.list_display, 'handle')
+    search_fields = (*UserAdmin.search_fields, 'handle', 'display_name')
 admin.site.register(StartupProfile)
 admin.site.register(StartupMetrics)
 admin.site.register(MascotState)

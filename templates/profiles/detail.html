@@ -1,0 +1,20 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}{{ author.public_name }} · @{{ author.handle }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'member_directory' %}">← Участники сообщества</a>
+<section class="card member-profile">
+  <div class="member-cover"><span>ИДЕИ НАЧИНАЮТСЯ С ЛЮДЕЙ</span><span class="cover-star" aria-hidden="true">✦</span></div>
+  <div class="member-profile-body">
+    <div class="member-profile-top">{% include 'profiles/_avatar.html' with member=author avatar_class='avatar-xl' %}<div class="profile-actions">{% if is_owner %}<a class="button primary" href="{% url 'profile_edit' %}">Редактировать профиль</a>{% elif can_message %}<form method="post" action="{% url 'profile_message' author.pk %}">{% csrf_token %}<button class="button primary" type="submit">Написать ↗</button></form>{% else %}<span class="muted small">Переписка недоступна</span>{% endif %}<button class="button ghost" type="button" data-copy-profile data-profile-url="{{ author.get_absolute_url }}">Скопировать ссылку</button></div></div>
+    <h1>{{ author.public_name }}</h1><p class="member-handle">@{{ author.handle }}</p>
+    {% if author.occupation %}<p class="member-occupation">{{ author.occupation }}</p>{% endif %}
+    <p class="member-bio">{{ author.bio|default:'Здесь пока нет описания.'|linebreaksbr }}</p>
+    <div class="member-meta">{% if author.location %}<span>{{ author.location }}</span>{% endif %}{% if author.profile_website %}<a class="evidence-link" href="{{ author.profile_website }}" rel="noopener noreferrer nofollow" target="_blank">Сайт / портфолио ↗</a>{% endif %}<span>В сообществе с {{ author.date_joined|date:'F Y' }}</span></div>
+    <p class="small muted" data-copy-status role="status"></p>
+  </div>
+</section>
+<div class="section-top community-feed-heading"><div><span class="eyebrow">НАД ЧЕМ РАБОТАЕТ ОСНОВАТЕЛЬ</span><h2>Опубликованные проекты</h2></div><span class="community-tag">{{ page.paginator.count }}</span></div>
+<div class="discovery-grid">{% for card in page %}{% include 'community/_project_card.html' %}{% empty %}<div class="card community-empty"><h2>{% if is_owner %}Расскажите о своём проекте{% else %}Проекты пока не опубликованы{% endif %}</h2><p class="muted">{% if is_owner %}Соберите карточку с Бруно и опубликуйте её — она появится здесь и в сообществе.{% else %}Автор может добавить их позже.{% endif %}</p>{% if is_owner %}<a class="button primary" href="{% url 'home' %}">Мои проекты →</a>{% endif %}</div>{% endfor %}</div>
+{% if page.has_other_pages %}<nav class="community-pagination">{% if page.has_previous %}<a class="button ghost" href="?page={{ page.previous_page_number }}">← Назад</a>{% endif %}<span>{{ page.number }}/{{ page.paginator.num_pages }}</span>{% if page.has_next %}<a class="button ghost" href="?page={{ page.next_page_number }}">Далее →</a>{% endif %}</nav>{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/profile.js' %}?v=1" defer></script>{% endblock %}
