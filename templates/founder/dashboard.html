@@ -17,7 +17,7 @@
     </td></tr>{% endfor %}
   </tbody></table></div>
   <p class="muted small">Цитаты показывают, на каких словах основана оценка. Сведения основателя ещё не прошли независимую проверку.</p>
-  {% if latest %}<p class="muted small table-meta">{{ latest.get_source_display }}{% if latest.ai_model %} · {{ latest.ai_model }}{% endif %} · {{ latest.assessed_at|date:"d.m.Y H:i" }}</p>{% endif %}
+  {% if latest %}<p class="muted small table-meta">{{ latest.get_source_display }} · {{ latest.assessed_at|date:"d.m.Y H:i" }}</p>{% endif %}
   {% if latest.assessment_notes %}<p class="radar-summary">{{ latest.assessment_notes }}</p>{% endif %}
   {% if ai_explanations %}<p class="muted small">Почему Бруно поставил эти оценки — пояснения приведены в таблице.</p>{% endif %}
   <div class="table-actions">
@@ -29,7 +29,7 @@
 <section class="dashboard-grid">
   <div class="card radar-card">
     <div class="section-top"><div><span class="eyebrow">СИГНАЛЫ БИЗНЕСА</span><h2>Startup Radar</h2></div><span class="score-badge">{% if latest %}{{ latest.overall_score }}/100{% else %}Нет оценки{% endif %}</span></div>
-    {% if latest %}<p class="muted small radar-source">{{ latest.get_source_display }}{% if latest.ai_model %} · {{ latest.ai_model }}{% endif %}</p>{% endif %}
+    {% if latest %}<p class="muted small radar-source">{{ latest.get_source_display }}</p>{% endif %}
     <div class="radar-layout">
       <div class="radar-wrap">
         <svg viewBox="0 0 220 220" class="radar-svg" role="img" aria-label="Радар пяти направлений стартапа">

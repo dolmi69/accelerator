@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}Мои проекты · Co-Founder.AI{% endblock %}
 {% block content %}
-<div class="page-heading"><div><span class="eyebrow">ВАШИ ИДЕИ И ИХ ПРОГРЕСС</span><h1>Мои проекты</h1><p>У каждого проекта свой радар, разговоры с Бруно и история изменений.</p><p><a class="account-link" href="{% url 'password_change' %}">Сменить пароль аккаунта</a></p></div><a href="{% url 'startup_create' %}" class="button primary">+ Добавить проект</a></div>
+<div class="page-heading"><div><span class="eyebrow">ВАШИ ИДЕИ И ИХ ПРОГРЕСС</span><h1>Мои проекты</h1><p>У каждого проекта свой радар, разговоры с Бруно и история изменений.</p></div><a href="{% url 'startup_create' %}" class="button primary">+ Добавить проект</a></div>
 <section class="project-carousel" aria-label="Радары проектов" aria-roledescription="карусель">
   <div class="carousel-toolbar"><span class="muted small">Листайте свайпом или стрелками</span><div class="carousel-controls"><button type="button" class="button ghost carousel-arrow" data-carousel-prev aria-label="Предыдущий проект" aria-controls="project-slides" disabled>←</button><span data-carousel-counter aria-live="polite" aria-atomic="true">1 / {{ project_cards|length }}</span><button type="button" class="button ghost carousel-arrow" data-carousel-next aria-label="Следующий проект" aria-controls="project-slides" {% if project_cards|length < 2 %}disabled{% endif %}>→</button></div></div>
   <div class="project-slides" id="project-slides" tabindex="0" aria-label="Проекты; используйте стрелки влево и вправо">

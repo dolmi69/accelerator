@@ -3,7 +3,7 @@
 {% block title %}{% if is_pitch %}Питч{% else %}Чат с Бруно{% endif %} · Co-Founder.AI{% endblock %}
 {% block content %}
 {% include 'founder/_workspace_nav.html' %}
-<div class="chat-heading"><div><a class="back-link" href="{% url 'dashboard' startup.id %}">← К профилю</a><span class="eyebrow">{% if is_pitch %}ТРЕНИРОВОЧНОЕ ИНТЕРВЬЮ{% else %}РАЗГОВОР С БРУНО{% endif %}</span><h1>{% if is_pitch %}Встреча с инвестором{% else %}Расскажите о сервисе{% endif %}</h1><p>{% if is_pitch %}Продажи, цена, клиенты и спрос. Один вопрос за раз. Тренировочные ответы не меняют радар.{% else %}Говорите своими словами. Бруно уточнит детали и поможет собрать таблицу в профиле.{% endif %}</p></div><span class="provider-badge">{% if ai_provider == 'demo' %}ДЕМОРЕЖИМ{% elif ai_provider == 'cloudru' %}GIGACHAT · CLOUD.RU{% else %}{{ ai_provider|upper }}{% endif %}</span></div>
+<div class="chat-heading"><div><a class="back-link" href="{% url 'dashboard' startup.id %}">← К профилю</a><span class="eyebrow">{% if is_pitch %}ТРЕНИРОВОЧНОЕ ИНТЕРВЬЮ{% else %}РАЗГОВОР С БРУНО{% endif %}</span><h1>{% if is_pitch %}Встреча с инвестором{% else %}Расскажите о сервисе{% endif %}</h1><p>{% if is_pitch %}Продажи, цена, клиенты и спрос. Один вопрос за раз. Тренировочные ответы не меняют радар.{% else %}Говорите своими словами. Бруно уточнит детали и поможет собрать таблицу в профиле.{% endif %}</p></div></div>
 
 {% if session.focus_axis %}<div class="focus-banner"><strong>Уточняем: {{ session.get_focus_axis_display }}</strong><span>Добавьте детали, затем нажмите «Составить таблицу», чтобы обновить радар.</span></div>{% endif %}
 <div class="chat-layout">

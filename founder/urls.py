@@ -14,6 +14,7 @@ urlpatterns = [
     path('startups/<uuid:startup_id>/evidence/<uuid:entry_id>/', workbench_views.evidence_edit, name='evidence_edit'),
     path('startups/<uuid:startup_id>/investor/', workbench_views.investor, name='investor'),
     path("", views.home, name="home"),
+    path("about/", views.about, name="about"),
     path("register/", views.register, name="register"),
     path("login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),

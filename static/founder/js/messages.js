@@ -22,7 +22,7 @@
     document.querySelectorAll('[data-unread-count]').forEach(node => { node.textContent = value > 99 ? '99+' : value; node.hidden = value === 0; });
   }
   function readVisible() {
-    if (threadId && lastId > lastRead && document.visibilityState === 'visible' && nearBottom()) {
+    if (threadId && !box.classList.contains('is-showing-list') && lastId > lastRead && document.visibilityState === 'visible' && nearBottom()) {
       if (send({type: 'read', conversation: threadId, id: lastId})) lastRead = lastId;
     }
   }
@@ -152,4 +152,66 @@
   // Session expiry and unread counts stay fresh even on a quiet page.
   setInterval(() => send({type: 'ping'}), 30000);
   connect();
+})();
+
+(() => {
+  const messenger = document.querySelector('[data-messenger].has-active');
+  const chat = messenger?.querySelector('.direct-chat');
+  const back = messenger?.querySelector('[data-mobile-chat-back]');
+  const sidebar = messenger?.querySelector('.inbox-sidebar');
+  if (!chat || !back) return;
+
+  const mobile = window.matchMedia('(max-width: 820px)');
+  const setLayerAccessibility = () => {
+    const chatOpen = mobile.matches && !messenger.classList.contains('is-showing-list');
+    sidebar.inert = chatOpen;
+    sidebar.setAttribute('aria-hidden', String(chatOpen));
+    chat.inert = mobile.matches && !chatOpen;
+    chat.setAttribute('aria-hidden', String(mobile.matches && !chatOpen));
+  };
+  setLayerAccessibility();
+  mobile.addEventListener('change', setLayerAccessibility);
+  const showList = () => {
+    if (!mobile.matches || messenger.classList.contains('is-showing-list')) return;
+    chat.style.transition = '';
+    // Let the browser restore the transition before moving the panel away.
+    void chat.offsetWidth;
+    chat.style.transform = '';
+    messenger.classList.add('is-showing-list');
+    setLayerAccessibility();
+    window.history.replaceState(window.history.state, '', messenger.dataset.inboxUrl);
+  };
+  back.addEventListener('click', showList);
+
+  let gesture = null;
+  chat.addEventListener('pointerdown', event => {
+    if (!mobile.matches || messenger.classList.contains('is-showing-list') || event.button !== 0 ||
+        event.clientX > messenger.getBoundingClientRect().left + 32) return;
+    gesture = {id:event.pointerId, x:event.clientX, y:event.clientY, distance:0, dragging:false};
+    chat.setPointerCapture(event.pointerId);
+  });
+  chat.addEventListener('pointermove', event => {
+    if (!gesture || event.pointerId !== gesture.id) return;
+    const dx = event.clientX - gesture.x;
+    const dy = event.clientY - gesture.y;
+    if (!gesture.dragging && (dx < 10 || Math.abs(dy) > dx)) return;
+    gesture.dragging = true;
+    gesture.distance = Math.max(0, dx);
+    chat.style.transition = 'none';
+    chat.style.transform = `translate3d(${gesture.distance}px,0,0)`;
+    if (event.cancelable) event.preventDefault();
+  });
+  const finishGesture = event => {
+    if (!gesture || event.pointerId !== gesture.id) return;
+    const shouldClose = event.type === 'pointerup' && gesture.dragging &&
+      gesture.distance > Math.min(120, messenger.clientWidth * .28);
+    gesture = null;
+    if (shouldClose) { showList(); return; }
+    chat.style.transition = '';
+    void chat.offsetWidth;
+    chat.style.transform = '';
+  };
+  chat.addEventListener('pointerup', finishGesture);
+  chat.addEventListener('pointercancel', finishGesture);
+  chat.addEventListener('lostpointercapture', finishGesture);
 })();

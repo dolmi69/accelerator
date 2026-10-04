@@ -11,7 +11,7 @@ from django.db import transaction
 from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from founder.forms import ChatSendForm, MetricsForm, RegisterForm, StartupForm
 from founder.models import (
@@ -37,6 +37,11 @@ def register(request):
         login(request, user)
         return redirect("startup_create")
     return render(request, "registration/register.html", {"form": form})
+
+
+@require_GET
+def about(request):
+    return render(request, "founder/about.html")
 
 
 @login_required
@@ -261,7 +266,6 @@ def chat_detail(request, startup_id, session_id):
         "is_pitch": session.mode == ChatSession.Mode.PITCH,
         "has_founder_messages": session.messages.filter(role=ChatMessage.Role.USER).exists(),
         "ai_available": settings.AI_PROVIDER != "demo",
-        "ai_provider": provider_label()[0],
     })
 
 

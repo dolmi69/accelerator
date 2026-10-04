@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}О сервисе · Co-Founder.AI{% endblock %}
+{% block content %}
+<div class="about-page">
+  <div class="page-heading narrow">
+    <span class="eyebrow">СОЗДАНО КОМАНДОЙ MBB</span>
+    <h1>О сервисе</h1>
+  </div>
+
+  <section class="card about-intro">
+    <h2>От идеи — к понятному следующему шагу</h2>
+    <p>Co-Founder.AI помогает начинающим основателям разобраться в своей идее и постепенно развивать проект. Когда вопросов много, бывает сложно понять, какие сведения уже есть, чего не хватает и что проверять первым.</p>
+    <p>Наш ИИ-помощник Бруно выслушивает основателя, задаёт уточняющие вопросы и помогает превратить рассказ о стартапе в конкретный план работы.</p>
+  </section>
+
+  <div class="about-grid">
+    <section class="card about-feature">
+      <span class="eyebrow">РАЗОБРАТЬСЯ</span>
+      <h3>Карточка и радар</h3>
+      <p>Описание проекта можно редактировать вместе с Бруно или вручную. Радар показывает, насколько проработаны продукт, рынок, финансы, команда и ясность идеи.</p>
+    </section>
+    <section class="card about-feature">
+      <span class="eyebrow">ПРОВЕРИТЬ</span>
+      <h3>Задания и результаты</h3>
+      <p>Бруно предлагает следующие шаги, а дневник доказательств помогает сохранить, что удалось выяснить и какие вопросы появились дальше.</p>
+    </section>
+    <section class="card about-feature">
+      <span class="eyebrow">ПОДГОТОВИТЬСЯ</span>
+      <h3>Практика и сообщество</h3>
+      <p>В режиме инвестора можно потренировать ответы о продажах. Карточкой проекта можно поделиться с другими участниками и начать разговор.</p>
+    </section>
+  </div>
+
+  <div class="about-outro">
+    <p>Co-Founder.AI создан командой <strong>MBB</strong>, чтобы основателям было проще превращать предположения в проверяемые действия.</p>
+    {% if request.user.is_authenticated %}<a class="button primary" href="{% url 'home' %}">Мои проекты →</a>{% else %}<a class="button primary" href="{% url 'register' %}">Начать с Бруно →</a>{% endif %}
+  </div>
+</div>
+{% endblock %}

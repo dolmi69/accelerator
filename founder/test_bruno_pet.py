@@ -32,10 +32,11 @@ class BrunoPetTests(TestCase):
         self.assertEqual(response.context['bruno_pet']['project'], self.project)
         self.assertNotContains(response, 'Private project')
 
-    def test_new_user_has_create_link_and_anonymous_has_no_pet(self):
+    def test_new_user_reaches_project_list_and_anonymous_has_no_pet(self):
         self.client.force_login(self.other)
         response = self.client.get(reverse('startup_create'))
-        self.assertContains(response, 'Создать первый проект с Бруно')
+        self.assertContains(response, 'Перейти к моим проектам')
+        self.assertRedirects(self.client.get(reverse('home')), reverse('startup_create'))
         self.assertEqual(ChatSession.objects.count(), 0)
         self.client.logout()
         self.assertNotContains(self.client.get(reverse('login')), 'data-bruno-pet')
