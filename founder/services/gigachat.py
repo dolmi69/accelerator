@@ -1,7 +1,6 @@
 """GigaChat REST API: OAuth, TLS и потоковые ответы без Python SDK."""
 
 import hashlib
-import json
 import os
 import ssl
 import threading
@@ -12,6 +11,7 @@ from pathlib import Path
 import httpx
 import truststore
 from django.conf import settings
+from founder.services.json_utils import bounded_json_loads
 
 
 OAUTH_URL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"
@@ -163,10 +163,12 @@ def stream_chat(system_prompt, messages):
                         completed = True
                         break
                     try:
-                        event = json.loads(data)
+                        event = bounded_json_loads(data)
                         delta = event["choices"][0]["delta"].get("content")
-                    except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
+                    except (ValueError, KeyError, IndexError, TypeError, AttributeError) as exc:
                         raise GigaChatError("GigaChat вернул некорректное потоковое событие.") from exc
+                    if delta is not None and not isinstance(delta, str):
+                        raise GigaChatError("GigaChat вернул некорректный текст ответа.")
                     if delta:
                         yield delta
                 if not completed:

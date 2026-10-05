@@ -4,13 +4,13 @@ from channels.layers import get_channel_layer
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Count, Exists, OuterRef, Q
+from django.db.models import Case, Count, Exists, F, OuterRef, Q, Subquery, When
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from founder.community_forms import CARD_FIELDS, CardRefineForm, ProjectCardForm
-from founder.models import DirectConversation, ProjectBookmark, ProjectCard, StartupProfile, UserBlock
+from founder.models import DirectConversation, DirectMessage, ProjectBookmark, ProjectCard, StartupProfile, UserBlock
 from founder.services.ai import AIServiceError
 from founder.services.messaging import blocked_pair, open_conversation, participant_filter
 from founder.services.project_cards import (StaleCardError, card_values, generate_card, get_card, save_card)
@@ -149,12 +149,17 @@ def conversation_start(request, startup_id):
 def inbox(request, conversation_id=None):
     query = DirectConversation.objects.filter(participant_filter(request.user.pk)).select_related('user_low', 'user_high', 'source_card')
     active = get_object_or_404(query, pk=conversation_id) if conversation_id else None
-    page = Paginator(query, 30).get_page(request.GET.get('page'))
+    query = query.annotate(
+        read_cursor=Case(When(user_low_id=request.user.pk, then=F('low_read_id')), default=F('high_read_id')),
+        last_content=Subquery(DirectMessage.objects.filter(conversation_id=OuterRef('pk')).order_by('-id').values('content')[:1]),
+    ).annotate(unread_total=Count('direct_messages', filter=(
+        Q(direct_messages__id__gt=F('read_cursor')) & ~Q(direct_messages__sender_id=request.user.pk)
+    )))
+    page = Paginator(query.order_by('-updated_at', '-id'), 30).get_page(request.GET.get('page'))
     threads = []
     for thread in page:
         threads.append({'thread': thread, 'other': thread.other_user(request.user.pk),
-                        'last': thread.direct_messages.last(),
-                        'unread': thread.direct_messages.filter(id__gt=thread.read_id_for(request.user.pk)).exclude(sender=request.user).count()})
+                        'last': {'content': thread.last_content}, 'unread': thread.unread_total})
     return render(request, 'community/inbox.html', {
         'threads': threads, 'page': page, 'active': active,
         'other': active.other_user(request.user.pk) if active else None,

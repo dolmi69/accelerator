@@ -6,6 +6,7 @@ from django.db import transaction
 
 from founder.models import BrunoTask, BusinessAxis, StartupProfile
 from founder.services.ai import AIServiceError, complete_text, provider_label
+from founder.services.json_utils import bounded_json_loads
 
 TASK_SCHEMA = {
     'type': 'object', 'properties': {'tasks': {
@@ -82,7 +83,7 @@ def generate_tasks(startup):
         context += '\nПредыдущие задания: ' + json.dumps(previous, ensure_ascii=False)
         raw = complete_text(TASK_PROMPT, context, json_schema=TASK_SCHEMA)
         try:
-            items = json.loads(raw.strip().removeprefix('```json').removesuffix('```').strip())['tasks']
+            items = bounded_json_loads(raw.strip().removeprefix('```json').removesuffix('```').strip())['tasks']
         except (ValueError, TypeError, KeyError) as exc:
             raise AIServiceError('Бруно не смог оформить задания. Попробуйте ещё раз.') from exc
     if not isinstance(items, list) or not 1 <= len(items) <= 3:

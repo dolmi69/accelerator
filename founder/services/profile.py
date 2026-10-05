@@ -44,7 +44,7 @@ def evidence_display(startup, snapshot, key):
         elif item.get("kind") == "diary" and item.get("entry_id"):
             item["url"] = reverse("evidence_edit", args=[startup.id, item["entry_id"]])
         elif item.get("session_id") and item.get("message_id"):
-            item["url"] = reverse("chat_detail", args=[startup.id, item["session_id"]]) + f'#message-{item["message_id"]}'
+            item["url"] = reverse("chat_detail", args=[startup.id, item["session_id"]]) + f'?message={item["message_id"]}#message-{item["message_id"]}'
     return item
 
 

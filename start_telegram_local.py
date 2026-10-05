@@ -14,6 +14,7 @@ import time
 
 import httpx
 from dotenv import dotenv_values
+from start_shared_events import ensure_shared_events
 
 
 BASE = Path(__file__).resolve().parent
@@ -59,10 +60,14 @@ def main():
     config = dotenv_values(BASE / ".env")
     if not config.get("TELEGRAM_BOT_TOKEN"):
         raise RuntimeError("В .env отсутствует TELEGRAM_BOT_TOKEN.")
+    ensure_shared_events()
     binary = BASE / ".tools" / "cloudflared"
     if not binary.exists():
         raise RuntimeError("Не найден .tools/cloudflared.")
     with socket.socket() as check:
+        # Recently closed connections can keep the port in TIME_WAIT. Match the
+        # server's reuse option while still rejecting an active listener.
+        check.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             check.bind(("127.0.0.1", 8001))
         except OSError:

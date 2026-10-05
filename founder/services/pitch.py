@@ -1,6 +1,5 @@
 """Финальный отчёт по тренировочному питчу."""
 
-import json
 import re
 
 from django.conf import settings
@@ -9,6 +8,7 @@ from django.utils import timezone
 
 from founder.models import ChatSession, PitchReport
 from founder.services.ai import AIServiceError, complete_text
+from founder.services.json_utils import bounded_json_loads
 
 
 REPORT_SCHEMA = {
@@ -103,9 +103,9 @@ def finish_pitch(session):
     if existing:
         return existing
 
-    user_messages = list(
-        session.messages.filter(role="user").order_by("created_at").values_list("content", flat=True)
-    )
+    # Bound both database loading and quote matching for unusually long interviews.
+    turns = list(reversed(session.messages.order_by('-created_at', '-id')[:100]))
+    user_messages = [message.content for message in turns if message.role == 'user']
     if not user_messages:
         raise ValueError("Сначала ответьте хотя бы на один вопрос инвестора.")
 
@@ -114,7 +114,6 @@ def finish_pitch(session):
     else:
         # Only answered turns are material for the report. A pending question
         # must not turn into a fabricated failure to answer it.
-        turns = list(session.messages.all().order_by('created_at', 'id'))
         last_answer = max(i for i, message in enumerate(turns) if message.role == 'user')
         transcript = '\n'.join(
             f'{message.get_role_display()}: {message.content}'
@@ -124,10 +123,10 @@ def finish_pitch(session):
         diary, _ = evidence_context(session.startup, limit=4)
         context = (f'Проект: {session.startup.name}. {session.startup.one_line_pitch}. '
                    f'Клиент: {session.startup.target_customer[:1500]}.\n{diary}\n'
-                   f'Тренировочное интервью:\n{transcript}')
+                   f'Последняя часть тренировочного интервью (разбирай только её):\n{transcript}')
         raw = complete_text(REPORT_PROMPT, context, json_schema=REPORT_SCHEMA)
         try:
-            data = json.loads(raw.strip().removeprefix("```json").removesuffix("```").strip())
+            data = bounded_json_loads(raw.strip().removeprefix("```json").removesuffix("```").strip())
         except (ValueError, TypeError) as exc:
             raise AIServiceError("Модель вернула отчёт в неверном формате. Попробуйте ещё раз.") from exc
 

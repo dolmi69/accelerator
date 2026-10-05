@@ -5,6 +5,7 @@ if [[ ! -x .venv/bin/python ]]; then
   read -k 1
   exit 1
 fi
+.venv/bin/python start_shared_events.py || exit 1
 .venv/bin/python manage.py runserver &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null' EXIT

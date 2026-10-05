@@ -442,3 +442,17 @@ class UserBlock(models.Model):
             models.UniqueConstraint(fields=['user', 'blocked'], name='unique_user_block'),
             models.CheckConstraint(condition=~Q(user=models.F('blocked')), name='no_self_block'),
         ]
+
+
+class RequestLimit(models.Model):
+    """Short-lived counters; keys are hashes, never raw IP addresses."""
+    key = models.CharField(max_length=64, primary_key=True)
+    count = models.PositiveIntegerField(default=0)
+    expires_at = models.DateTimeField(db_index=True)
+
+
+class AIRequestLease(models.Model):
+    """One expensive operation per account, shared across processes and tabs."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    token = models.UUIDField(default=uuid.uuid4)
+    expires_at = models.DateTimeField()

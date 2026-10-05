@@ -1,5 +1,4 @@
 """Authenticated WebSocket endpoint for inbox notifications and personal conversations."""
-import json
 import time
 from importlib import import_module
 from types import SimpleNamespace
@@ -9,9 +8,12 @@ from channels.generic.websocket import JsonWebsocketConsumer
 from django.conf import settings
 from django.contrib.auth import get_user
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied, ValidationError
+from django.db import OperationalError
 
 from founder.services.messaging import (history, mark_read, owned_conversation, send_message,
                                         serialize_message, unread_count)
+from founder.services.json_utils import bounded_json_loads
+from founder.services.request_limits import consume_limit, RequestLimitExceeded
 
 
 class MessagesConsumer(JsonWebsocketConsumer):
@@ -54,7 +56,14 @@ class MessagesConsumer(JsonWebsocketConsumer):
             self.close(code=4400)
             return
         try:
-            payload = json.loads(text_data)
+            consume_limit(f"socket:{self.user_id}", 360, 60)
+            payload = bounded_json_loads(text_data, max_chars=24000)
+        except RequestLimitExceeded:
+            self.close(code=4429)
+            return
+        except OperationalError:
+            self.close(code=1013)
+            return
         except ValueError:
             self.send_json({'type': 'error', 'message': 'Неверный формат сообщения.'})
             return
@@ -68,6 +77,8 @@ class MessagesConsumer(JsonWebsocketConsumer):
         conversation_id = data.get('conversation')
         client_id = data.get('client_id')
         try:
+            if action in {"sync", "send", "read"} and not isinstance(conversation_id, str):
+                raise ValidationError('Неверный идентификатор диалога.')
             if action == 'sync':
                 after, before = data.get('after'), data.get('before')
                 if any(value is not None and (type(value) is not int or not 0 <= value <= 2**63-1)

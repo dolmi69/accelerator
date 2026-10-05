@@ -49,19 +49,24 @@
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (button.disabled) return;
     const text = input.value.trim();
     const attachment = fileInput.files[0];
     if (!text && !attachment) return;
 
     const payload = new FormData(form);
     button.disabled = true;
+    input.disabled = true;
+    fileInput.disabled = true;
     const finishButton = document.querySelector('[data-pitch-finish] button');
     if (finishButton) finishButton.disabled = true;
-    addMessage("user", text || `Файл: ${attachment.name}`);
+    const sent = addMessage("user", text || `Файл: ${attachment.name}`);
     const answer = addMessage("assistant", "Бруно думает…");
-    input.value = "";
-    fileInput.value = "";
-    fileName.textContent = "Прикрепить файл";
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000);
+    let accepted = false;
+    let rejected = false;
+    let completed = false;
 
     try {
       const response = await fetch(form.action, {
@@ -69,20 +74,36 @@
         body: payload,
         headers: { Accept: "text/event-stream" },
         credentials: "same-origin",
+        signal: controller.signal,
       });
+      if (response.redirected) {
+        rejected = true;
+        throw new Error("Сессия завершилась. Войдите в аккаунт снова. Текст остался в поле ввода.");
+      }
       if (!response.ok) {
-        const result = await response.json();
+        rejected = true;
+        const result = await response.json().catch(() => ({}));
         throw new Error(typeof result.error === "string"
           ? result.error
+          : response.status === 403 ? "Сессия устарела. Скопируйте текст и обновите страницу."
+          : response.status >= 500 ? "Сервис временно недоступен. Текст остался в поле ввода."
           : "Проверьте текст сообщения и формат файла.");
       }
+      const type = response.headers.get("Content-Type") || "";
+      if (!type.includes("text/event-stream") && !type.includes("text/plain")) {
+        throw new Error("Сервер вернул неожиданный ответ.");
+      }
+      // The backend saves the founder's message before starting the AI stream.
+      accepted = true;
+      input.value = "";
+      fileInput.value = "";
+      fileName.textContent = "Прикрепить файл";
       if (!response.body) throw new Error("Браузер не поддерживает потоковый ответ.");
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       let started = false;
-      let completed = false;
 
       while (true) {
         const { value, done } = await reader.read();
@@ -96,6 +117,7 @@
           if (!line) continue;
           const data = JSON.parse(line.slice(6));
           if (data.type === "delta") {
+            if (typeof data.text !== "string") throw new Error("Неверный формат ответа.");
             if (!started) { answer.textContent = ""; started = true; }
             answer.textContent += data.text;
             scrollToBottom();
@@ -107,13 +129,29 @@
         }
       }
       if (!completed) throw new Error("Соединение прервалось до завершения ответа.");
-      window.location.reload();
+      window.location.assign(window.location.pathname);
     } catch (error) {
-      answer.textContent = `Не удалось получить ответ: ${error.message}`;
+      const reason = error.name === "AbortError" ? "Истекло время ожидания." : error.message;
+      answer.textContent = `Не удалось получить ответ: ${reason}`;
+      if (rejected) sent.closest(".message").remove();
+      if (!rejected) {
+        answer.append(document.createTextNode(accepted
+          ? " Ваше сообщение сохранено. Обновите чат, чтобы проверить ответ. "
+          : " Сообщение могло сохраниться. Текст остался в поле ввода — скопируйте его и проверьте чат перед повторной отправкой. "));
+        const refresh = document.createElement("a");
+        refresh.href = window.location.pathname;
+        refresh.textContent = "Обновить чат";
+        answer.append(refresh);
+      }
       answer.classList.add("stream-error");
       scrollToBottom();
     } finally {
-      button.disabled = false;
+      clearTimeout(timeout);
+      controller.abort();
+      // Do not resend an ambiguous network request and create a duplicate.
+      button.disabled = !rejected && !completed;
+      input.disabled = false;
+      fileInput.disabled = false;
       if (finishButton) finishButton.disabled = false;
     }
   });

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}{% if is_edit %}Редактировать стартап{% else %}Новый стартап{% endif %} · Co-Founder.AI{% endblock %}
 {% block content %}
-<div class="page-heading narrow"><span class="eyebrow">ПРОФИЛЬ СТАРТАПА</span><h1>{% if is_edit %}Уточним описание{% else %}Как называется ваш сервис?{% endif %}</h1><p>{% if is_edit %}Здесь можно поправить описание. Таблица по пяти направлениям редактируется в профиле.{% else %}Достаточно названия. Дальше Бруно выслушает вашу идею и поможет собрать таблицу по пяти направлениям.{% endif %}</p></div>
+<div class="page-heading narrow"><span class="eyebrow">ПРОФИЛЬ СТАРТАПА</span><h1>{% if is_edit %}Уточним описание{% else %}Как называется ваш сервис?{% endif %}</h1><p>{% if is_edit %}Здесь можно поправить описание. Бруно учтёт изменения в следующем ответе. Таблица по пяти направлениям редактируется в профиле.{% else %}Достаточно названия. Всё, что заполните ниже, Бруно учтёт в разговоре — повторять анкету в чате не нужно.{% endif %}</p></div>
 <form method="post" class="card startup-form">
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}

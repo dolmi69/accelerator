@@ -1,11 +1,12 @@
-import json
 from pathlib import Path
 
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
+from django.core.validators import MaxLengthValidator
 
 from founder.models import EvidenceEntry, StartupMetrics, StartupProfile, User
 from founder.profile_forms import HandleValidationMixin
+from founder.services.json_utils import bounded_json_loads
 
 
 class RegisterForm(HandleValidationMixin, UserCreationForm):
@@ -19,6 +20,13 @@ class RegisterForm(HandleValidationMixin, UserCreationForm):
 
 
 class StartupForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in ("problem", "solution", "target_customer"):
+            self.fields[field].max_length = 6000
+            self.fields[field].validators.append(MaxLengthValidator(6000))
+            self.fields[field].widget.attrs["maxlength"] = 6000
+
     class Meta:
         model = StartupProfile
         fields = (
@@ -35,6 +43,8 @@ class StartupForm(forms.ModelForm):
 
 
 class MetricsForm(forms.ModelForm):
+    assessment_notes = forms.CharField(label="Общий вывод и следующий шаг", max_length=3000,
+                                      required=False, widget=forms.Textarea(attrs={"rows": 3}))
     product_reason = forms.CharField(label="Что известно о продукте", max_length=500, required=False)
     market_reason = forms.CharField(label="Что известно о рынке", max_length=500, required=False)
     finance_reason = forms.CharField(label="Что известно о финансах", max_length=500, required=False)
@@ -97,11 +107,15 @@ class ChatSendForm(forms.Form):
             text = raw.decode("utf-8-sig")
         except UnicodeDecodeError as exc:
             raise forms.ValidationError("Файл должен быть в кодировке UTF-8.") from exc
+        if not text.strip():
+            raise forms.ValidationError("Файл пуст. Добавьте текст или выберите другой файл.")
+        if any(ord(char) < 32 and char not in "\n\r\t" for char in text):
+            raise forms.ValidationError("В файле обнаружены двоичные данные. Загрузите текстовый файл.")
         if Path(attachment.name).suffix.lower() == ".json":
             try:
-                json.loads(text)
-            except json.JSONDecodeError as exc:
-                raise forms.ValidationError("Файл JSON содержит ошибку.") from exc
+                bounded_json_loads(text, max_chars=2 * 1024 * 1024)
+            except (ValueError, RecursionError) as exc:
+                raise forms.ValidationError("Файл JSON содержит ошибку или слишком глубокую вложенность.") from exc
         return text[:12000]
 
 

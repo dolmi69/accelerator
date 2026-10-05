@@ -1,0 +1,11 @@
+{
+  "name": "cofounder-ai-styles",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.cjs -i assets/tailwind.css -o static/founder/css/tailwind.css --minify",
+    "test:chat": "node --test tests/chat_client.test.cjs"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

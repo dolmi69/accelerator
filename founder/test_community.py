@@ -280,3 +280,30 @@ class WebSocketTests(TransactionTestCase):
         with self.assertRaises(ValidationError):
             send_message(self.alice.pk, self.thread.pk, uuid4(), 'Too fast')
         self.assertEqual(unread_count(self.bob.pk), 55)
+
+    def test_deep_json_and_non_string_conversation_do_not_break_socket(self):
+        async def run():
+            alice = await self.connected(self.alice)
+            await alice.send_to(text_data='['*65+'0'+']'*65)
+            self.assertEqual((await alice.receive_json_from())['type'], 'error')
+            for value in (True, 1, [], {}):
+                await alice.send_json_to({'type': 'sync', 'conversation': value})
+                self.assertEqual((await alice.receive_json_from())['type'], 'error')
+            await alice.send_json_to({'type': 'ping'})
+            self.assertEqual((await alice.receive_json_from())['type'], 'pong')
+            await alice.disconnect()
+        async_to_sync(run)()
+
+    def test_reconnecting_does_not_reset_account_frame_limit(self):
+        from founder.services.request_limits import consume_limit
+        async def run():
+            alice = await self.connected(self.alice)
+            await database_sync_to_async(consume_limit)(f'socket:{self.alice.pk}', 1, 60)
+            from founder.models import RequestLimit
+            await database_sync_to_async(RequestLimit.objects.update)(count=360)
+            await alice.disconnect()
+            alice = await self.connected(self.alice)
+            await alice.send_json_to({'type': 'ping'})
+            self.assertEqual((await alice.receive_output())['code'], 4429)
+            await alice.disconnect()
+        async_to_sync(run)()

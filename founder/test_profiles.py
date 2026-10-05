@@ -104,7 +104,7 @@ class ProfileTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.owner.refresh_from_db(); self.assertEqual(self.owner.display_name, '')
         oversized = SimpleUploadedFile('large.jpg', b'X'*(5*1024*1024+1))
-        self.assertEqual(self.client.post(self.url, self.data(avatar_upload=oversized)).status_code, 400)
+        self.assertEqual(self.client.post(self.url, self.data(avatar_upload=oversized)).status_code, 413)
         self.assertEqual(self.client.post(self.url, self.data(avatar_upload=image_upload(), remove_avatar='on')).status_code, 400)
         self.assertEqual(list(Path(self.temp.name).rglob('*.jpg')), [])
 

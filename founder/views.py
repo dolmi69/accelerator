@@ -1,4 +1,5 @@
 import json
+from uuid import UUID
 from pathlib import Path
 from asgiref.sync import sync_to_async
 
@@ -7,7 +8,9 @@ from django import forms
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -21,6 +24,7 @@ from founder.models import (
 from founder.services.ai import AIServiceError, provider_label, stream_reply
 from founder.services.mascot import update_mascot
 from founder.services.memory import conversation_context, remember_user_message
+from founder.services.onboarding import cofounder_opening, has_founder_conversation, has_profile_description
 from founder.services.metrics import AXES, radar_grid, radar_points
 from founder.services.pitch import finish_pitch
 from founder.services.radar_assessment import assess_startup
@@ -181,9 +185,7 @@ def _create_cofounder_session(startup):
     ChatMessage.objects.create(
         session=session,
         role=ChatMessage.Role.ASSISTANT,
-        content=("Привет, я Бруно. Расскажи своими словами, что делает твой сервис, "
-                 "для кого он и какую проблему решает. Потом соберём понятную "
-                 "таблицу по пяти направлениям. Начнём с самого главного: что за идея?"),
+        content=cofounder_opening(startup),
         provider="system",
     )
     return session
@@ -255,16 +257,28 @@ def _owned_session(request, startup_id, session_id):
 @login_required
 def chat_detail(request, startup_id, session_id):
     session = _owned_session(request, startup_id, session_id)
+    history = session.messages.order_by("-created_at", "-id")
+    page_number = request.GET.get("page", 1)
+    if request.GET.get("message"):
+        try:
+            cited_id = UUID(request.GET["message"])
+        except ValueError as exc:
+            raise Http404("Сообщение не найдено") from exc
+        cited = get_object_or_404(history, pk=cited_id)
+        newer = history.filter(Q(created_at__gt=cited.created_at) | Q(created_at=cited.created_at, id__gt=cited.id)).count()
+        page_number = newer // 50 + 1
+    page = Paginator(history.prefetch_related("attachments"), 50).get_page(page_number)
     report = PitchReport.objects.filter(session=session).first()
     mascot, _ = MascotState.objects.get_or_create(startup=session.startup)
     return render(request, "founder/chat.html", {
         "startup": session.startup,
         "mascot": mascot,
         "session": session,
-        "chat_messages": session.messages.prefetch_related("attachments").all(),
+        "chat_messages": list(reversed(page.object_list)),
+        "chat_page": page,
         "report": report,
         "is_pitch": session.mode == ChatSession.Mode.PITCH,
-        "has_founder_messages": session.messages.filter(role=ChatMessage.Role.USER).exists(),
+        "has_assessment_context": has_profile_description(session.startup) or has_founder_conversation(session.startup),
         "ai_available": settings.AI_PROVIDER != "demo",
     })
 
@@ -311,8 +325,14 @@ def chat_send(request, startup_id, session_id):
 
     def generate():
         chunks = []
+        total_chars = 0
         try:
             for delta in stream_reply(session, context_messages, memories):
+                if not isinstance(delta, str):
+                    raise AIServiceError("Модель вернула некорректный ответ. Попробуйте ещё раз.")
+                total_chars += len(delta)
+                if total_chars > 60_000:
+                    raise AIServiceError("Ответ слишком большой. Попросите Бруно ответить короче.")
                 chunks.append(delta)
                 yield _sse({"type": "delta", "text": delta})
             answer = "".join(chunks).strip()
@@ -340,11 +360,14 @@ def chat_send(request, startup_id, session_id):
             sync_events = events
             async def async_events():
                 sentinel = object()
-                while True:
-                    event = await sync_to_async(next, thread_sensitive=True)(sync_events, sentinel)
-                    if event is sentinel:
-                        break
-                    yield event
+                try:
+                    while True:
+                        event = await sync_to_async(next, thread_sensitive=True)(sync_events, sentinel)
+                        if event is sentinel:
+                            break
+                        yield event
+                finally:
+                    await sync_to_async(sync_events.close, thread_sensitive=True)()
             events = async_events()
         response = StreamingHttpResponse(events, content_type="text/event-stream; charset=utf-8")
     response["Cache-Control"] = "no-cache"

@@ -1,0 +1,22 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} · Co-Founder.AI</title>
+  <link rel="stylesheet" href="{% static 'founder/css/tailwind.css' %}?v=1">
+  <link rel="stylesheet" href="{% static 'founder/css/app.css' %}?v=pet-drag-1">
+</head>
+<body>
+  <main class="main-content">
+    <section class="card auth-card">
+      <span class="eyebrow">CO-FOUNDER.AI</span>
+      <h1>{{ title }}</h1>
+      <p role="alert">{{ error_message }}</p>
+      <p class="muted">Вернитесь к предыдущей странице, чтобы продолжить работу.</p>
+      <a class="button primary" href="{{ back_url }}">← Вернуться</a>
+    </section>
+  </main>
+</body>
+</html>

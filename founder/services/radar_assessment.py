@@ -190,10 +190,11 @@ def _assessment_context(startup, *, include_sources=False):
 
 
 def _json_payload(raw):
+    from founder.services.json_utils import bounded_json_loads
     cleaned = raw.strip().lstrip("\ufeff")
     if cleaned.startswith("```"):
         cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-    return json.loads(cleaned)
+    return bounded_json_loads(cleaned)
 
 
 def _verified_evidence(raw, sources):
@@ -217,7 +218,7 @@ def _verified_evidence(raw, sources):
             if ref.startswith("[") and ref.endswith("]"):
                 ref = ref[1:-1].strip()
         source = sources.get(ref) if isinstance(ref, str) else None
-        if status not in {"stated", "assumption"} or not source or not isinstance(quote, str):
+        if not isinstance(status, str) or status not in {"stated", "assumption"} or not source or not isinstance(quote, str):
             continue
         quote = quote.strip()
         if quote and len(quote) <= 220 and " ".join(quote.split()) in " ".join(source["text"].split()):
