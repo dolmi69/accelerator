@@ -181,9 +181,10 @@ def _create_cofounder_session(startup):
     ChatMessage.objects.create(
         session=session,
         role=ChatMessage.Role.ASSISTANT,
-        content=("Привет, я Бруно. Расскажи своими словами, что делает твой сервис, "
-                 "для кого он и какую проблему решает. Потом соберём понятную "
-                 "таблицу по пяти направлениям. Начнём с самого главного: что за идея?"),
+        content=("Привет! Я Бруно, твой AI-сооснователь. Расскажи своими словами, "
+                 "что за идея — можно сумбурно, как другу. Я буду задавать по одному "
+                 "вопросу, а когда картина сложится, соберём радар по пяти направлениям. "
+                 "Итак, в чём идея и кому она поможет?"),
         provider="system",
     )
     return session
@@ -207,11 +208,11 @@ def chat_refine(request, startup_id, axis):
     session = startup.chat_sessions.filter(focus_axis=axis, completed_at__isnull=True).first()
     if session is None:
         questions = {
-            "product": "Что уже работает в продукте и кто им пользуется?",
-            "market": "Кто ваш покупатель и какие признаки интереса вы уже заметили?",
-            "finance": "Как вы берёте оплату и какие доходы и расходы уже известны?",
-            "team": "Кто входит в команду и за что отвечает каждый?",
-            "pitch": "Как бы вы объяснили пользу сервиса клиенту в двух предложениях?",
+            "product": "Что в продукте уже работает и кто им пользуется?",
+            "market": "Кто твой покупатель и какие признаки интереса уже видны?",
+            "finance": "Как планируешь брать оплату и какие доходы или расходы уже известны?",
+            "team": "Кто сейчас в команде и за что отвечает каждый?",
+            "pitch": "Как объяснить пользу сервиса клиенту в двух предложениях?",
         }
         latest = startup.metric_snapshots.first()
         reason = latest.assessment_details.get(axis, "") if latest else ""
@@ -222,7 +223,9 @@ def chat_refine(request, startup_id, axis):
             )
             ChatMessage.objects.create(
                 session=session, role=ChatMessage.Role.ASSISTANT, provider="system",
-                content=f"Давайте уточним направление «{labels[axis]}».\n{reason}\n\n{questions[axis]}",
+                content=(f"Давай подтянем направление «{labels[axis]}». "
+                         + (f"Вот что я отметил в прошлый раз: {reason}\n\n" if reason else "\n\n")
+                         + questions[axis]),
             )
     return redirect("chat_detail", startup_id=startup.id, session_id=session.id)
 

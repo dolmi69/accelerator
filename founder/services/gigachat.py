@@ -17,6 +17,8 @@ from django.conf import settings
 OAUTH_URL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"
 CHAT_URL = "https://api.giga.chat/v1/chat/completions"
 ALLOWED_SCOPES = {"GIGACHAT_API_PERS", "GIGACHAT_API_B2B", "GIGACHAT_API_CORP"}
+# Живой диалог: чуть меньше случайности, штраф за повторы фраз.
+CHAT_SAMPLING = {"temperature": 0.7, "top_p": 0.9, "repetition_penalty": 1.1}
 _token_lock = threading.Lock()
 _token_state = {"token": "", "expires_at": 0.0, "fingerprint": ""}
 
@@ -42,8 +44,11 @@ def _tls_context():
 
 
 def _client():
+    context = _tls_context()
     return httpx.Client(
-        verify=_tls_context(),
+        verify=context,
+        # Повторяем только неудачное подключение (обрыв TLS-рукопожатия и т.п.).
+        transport=httpx.HTTPTransport(verify=context, retries=2),
         timeout=httpx.Timeout(60.0, connect=15.0),
         follow_redirects=True,
     )
@@ -154,7 +159,7 @@ def stream_chat(system_prompt, messages):
             with client.stream(
                 "POST", CHAT_URL,
                 headers=_headers(stream=True),
-                json=_payload(system_prompt, messages, stream=True),
+                json={**_payload(system_prompt, messages, stream=True), **CHAT_SAMPLING},
             ) as response:
                 _raise_for_status(response)
                 completed = False
