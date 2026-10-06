@@ -114,6 +114,10 @@ GIGACHAT_MODEL = os.getenv("GIGACHAT_MODEL", "GigaChat-3-Pro")
 GIGACHAT_SCOPE = os.getenv("GIGACHAT_SCOPE", "GIGACHAT_API_PERS")
 GIGACHAT_CA_BUNDLE = os.getenv("GIGACHAT_CA_BUNDLE", "")
 CLOUDRU_MODEL = os.getenv("CLOUDRU_MODEL", "ai-sage/GigaChat3-10B-A1.8B")
+# Independent from AI_PROVIDER: website generation must not switch Bruno's model.
+QWEN_CODE_MODEL = os.getenv("QWEN_CODE_MODEL", "Qwen/Qwen3-Coder-Next")
+QWEN_CODE_MAX_TOKENS = int(os.getenv("QWEN_CODE_MAX_TOKENS", "8192"))
+QWEN_CODE_TIMEOUT = float(os.getenv("QWEN_CODE_TIMEOUT", "180"))
 AI_MAX_OUTPUT_TOKENS = 900
 AI_REQUESTS_PER_MINUTE = int(os.getenv("AI_REQUESTS_PER_MINUTE", "12"))
 AI_REQUESTS_PER_DAY = int(os.getenv("AI_REQUESTS_PER_DAY", "200"))
