@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 
 from founder.models import (
     BrunoTask, EvidenceEntry, ChatAttachment, ChatMessage, ChatSession, MascotState, PitchReport,
-    StartupMemory, StartupMetrics, StartupProfile, User,
+    ProjectReview, StartupMemory, StartupMetrics, StartupProfile, User,
 )
 
 
@@ -26,3 +26,4 @@ admin.site.register(PitchReport)
 
 admin.site.register(BrunoTask)
 admin.site.register(EvidenceEntry)
+admin.site.register(ProjectReview)

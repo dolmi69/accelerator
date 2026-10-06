@@ -37,9 +37,20 @@ def provider_label():
     }.get(settings.AI_PROVIDER, (settings.AI_PROVIDER, "unknown"))
 
 
-def system_prompt(session, memories, messages=None):
+def _last_founder_text(messages):
+    return next((m["content"] for m in reversed(messages or []) if m["role"] == "user"), "")
+
+
+def long_answer_requested(session, messages):
+    from founder.services.bruno import wants_long_answer
+
+    return session.mode == ChatSession.Mode.COFOUNDER and wants_long_answer(_last_founder_text(messages))
+
+
+def system_prompt(session, memories, messages=None, economics=""):
     from founder.services.bruno import (
-        EXAMPLES, PERSONA, SITUATIONS, STYLE, conversation_notes, founder_name,
+        EXAMPLES, LONG_ANSWER_GUIDE, MENTOR_CHECKS, PERSONA, REVIEW_HINT, SITUATIONS, STYLE,
+        WRITING_RULES, conversation_notes, founder_name, stage_playbook, wants_review,
     )
     from founder.services.workbench import evidence_context
 
@@ -65,6 +76,8 @@ def system_prompt(session, memories, messages=None):
     )
     notes = conversation_notes(messages or [])
     notes = notes + "\n" if notes else ""
+    if economics:
+        notes += economics + "\n"
 
     if session.mode == ChatSession.Mode.PITCH:
         latest = startup.metric_snapshots.first()
@@ -91,20 +104,24 @@ def system_prompt(session, memories, messages=None):
             'Никогда не пиши «как языковая модель» и не выходи из роли. '
             'Ответы в этой сессии — тренировочные и не изменяют профиль или радар. '
             'После 6–8 содержательных ответов предложи получить разбор кнопкой '
-            '«Завершить интервью», но сам отчёт здесь не выдавай. '
-            + safety + notes + profile
+            '«Завершить интервью», но сам отчёт здесь не выдавай.\n'
+            + WRITING_RULES + '\n' + safety + notes + profile
             + '\nРанее сказанное основателем:\n' + history + '\nПоследняя оценка:\n' + radar
+            + '\nГлавное: 1–3 предложения на «вы», реакция на ответ и ровно один вопрос '
+            'без второго через «и». Если основатель противоречит своим прежним словам, '
+            'назовите обе версии.'
         )
 
     common = "\n\n".join([
-        "Отвечай на русском.\n" + PERSONA, STYLE, SITUATIONS, EXAMPLES,
-        "Суть работы: помоги основателю рассказать о сервисе по пяти направлениям — "
-        "продукт, рынок, финансы, команда и ясность идеи. Опирайся на данные, отделяй "
-        "факты от предположений и не придумывай цифры. При числовых утверждениях мягко "
-        "уточняй период, источник и размер выборки. Если новые слова конфликтуют со "
-        "старыми, назови обе версии и попроси объяснить изменение. Не требуй "
-        "консультаций, записей встреч, аудио или документов как условие оценки: "
-        "основатель может рассказать всё своими словами.",
+        "Отвечай на русском.\n" + PERSONA, WRITING_RULES, STYLE,
+        stage_playbook(startup.stage), SITUATIONS, EXAMPLES,
+        "Суть работы: помоги основателю разобраться в проекте по пяти направлениям "
+        "(продукт, рынок, финансы, команда, ясность идеи) и понять, что делать дальше. "
+        "Опирайся на данные, отделяй факты от предположений и не придумывай цифры. "
+        "При числовых утверждениях мягко уточняй период, источник и размер выборки. "
+        "Если новые слова конфликтуют со старыми, назови обе версии и попроси "
+        "объяснить изменение. Не требуй консультаций, записей встреч, аудио или "
+        "документов как условие оценки: основатель может рассказать всё своими словами.",
     ]) + "\n" + name_line + safety + notes + f"{profile}\nРанее сказанное основателем:\n{history}"
     if session.focus_axis:
         latest = startup.metric_snapshots.first()
@@ -115,13 +132,16 @@ def system_prompt(session, memories, messages=None):
             "Продолжай обсуждать это направление, учитывая уже сказанное. "
             "Не начинай знакомство заново. Задавай по одному вопросу. "
         )
-    return common + ("\nВ приложении есть кнопка «Составить таблицу»: она сохраняет "
-                     "пять оценок и строит радар в профиле на основе рассказа. Если "
-                     "основатель просит оценку или говорит, что готов, направь к этой "
-                     "кнопке без новых вопросов. Не утверждай, что таблица уже "
-                     "сохранена самим текстовым ответом.\n"
-                     "Главное: отвечай коротко и по-человечески, в конце — ровно "
-                     "один вопрос, без второго вопроса через «и».")
+    common += ("\nВ приложении есть кнопка «Составить таблицу»: она сохраняет "
+               "пять оценок и строит радар в профиле на основе рассказа. Если "
+               "основатель просит баллы или радар, направь к этой кнопке без новых "
+               "вопросов. Не утверждай, что таблица уже сохранена самим текстовым ответом.\n")
+    # Важное ставим в конец: последние инструкции модель соблюдает лучше всего.
+    common += MENTOR_CHECKS + "\n"
+    if long_answer_requested(session, messages):
+        return common + LONG_ANSWER_GUIDE + (REVIEW_HINT if wants_review(_last_founder_text(messages)) else "")
+    return common + ("Главное: отвечай коротко и по-человечески, до 500 знаков, в конце "
+                     "ровно один вопрос, без второго вопроса через «и».")
 
 
 def _demo_reply(session, messages):
@@ -155,9 +175,11 @@ def _demo_reply(session, messages):
 
 def stream_reply(session, messages, memories):
     """Возвращает текстовые фрагменты без привязки view к поставщику API."""
-    from founder.services.bruno import tidy_stream
+    from founder.services.bruno import polish_stream, tidy_stream
 
-    yield from tidy_stream(_provider_stream(session, messages, memories))
+    single_question = not long_answer_requested(session, messages)
+    yield from polish_stream(tidy_stream(_provider_stream(session, messages, memories)),
+                             single_question=single_question)
 
 
 def _provider_stream(session, messages, memories):
@@ -166,12 +188,17 @@ def _provider_stream(session, messages, memories):
         yield from _demo_reply(session, messages)
         return
 
-    prompt = system_prompt(session, memories, messages)
+    from founder.services.economics import economics_note, unit_economics
+
+    economics = economics_note(unit_economics([m["content"] for m in messages if m["role"] == "user"]))
+    prompt = system_prompt(session, memories, messages, economics=economics)
+    # Разбору и плану нужен запас длины; обычные ответы остаются короткими.
+    max_tokens = settings.AI_MAX_OUTPUT_TOKENS * (2 if long_answer_requested(session, messages) else 1)
     if provider == "gigachat":
         from founder.services.gigachat import GigaChatError, stream_chat
 
         try:
-            yield from stream_chat(prompt, messages)
+            yield from stream_chat(prompt, messages, max_tokens)
         except GigaChatError as exc:
             raise AIServiceError(str(exc)) from exc
         return
@@ -180,7 +207,7 @@ def _provider_stream(session, messages, memories):
         from founder.services.cloudru import CloudRuError, stream_chat
 
         try:
-            yield from stream_chat(prompt, messages)
+            yield from stream_chat(prompt, messages, max_tokens)
         except CloudRuError as exc:
             raise AIServiceError(str(exc)) from exc
         return
@@ -195,7 +222,7 @@ def _provider_stream(session, messages, memories):
                 model=settings.OPENAI_MODEL,
                 instructions=prompt,
                 input=messages,
-                max_output_tokens=settings.AI_MAX_OUTPUT_TOKENS,
+                max_output_tokens=max_tokens,
                 stream=True,
             )
             for event in stream:
@@ -218,7 +245,7 @@ def _provider_stream(session, messages, memories):
             client = Anthropic(timeout=60.0, max_retries=1)
             with client.messages.stream(
                 model=settings.ANTHROPIC_MODEL,
-                max_tokens=settings.AI_MAX_OUTPUT_TOKENS,
+                max_tokens=max_tokens,
                 system=prompt,
                 messages=messages,
             ) as stream:

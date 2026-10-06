@@ -26,12 +26,12 @@ def _messages(system_prompt, messages):
     return [{"role": "system", "content": system_prompt}, *messages]
 
 
-def stream_chat(system_prompt, messages):
+def stream_chat(system_prompt, messages, max_tokens=None):
     try:
         stream = _client().chat.completions.create(
             model=settings.CLOUDRU_MODEL,
             messages=_messages(system_prompt, messages),
-            max_tokens=settings.AI_MAX_OUTPUT_TOKENS,
+            max_tokens=max_tokens or settings.AI_MAX_OUTPUT_TOKENS,
             stream=True,
         )
         for chunk in stream:

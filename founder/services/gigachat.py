@@ -15,10 +15,13 @@ from django.conf import settings
 
 
 OAUTH_URL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"
-CHAT_URL = "https://api.giga.chat/v1/chat/completions"
+# Оба адреса официальные; второй выручает, если первый недоступен из сети.
+API_URL = os.getenv("GIGACHAT_API_URL", "https://api.giga.chat/v1").rstrip("/")
+CHAT_URL = f"{API_URL}/chat/completions"
 ALLOWED_SCOPES = {"GIGACHAT_API_PERS", "GIGACHAT_API_B2B", "GIGACHAT_API_CORP"}
 # Живой диалог: чуть меньше случайности, штраф за повторы фраз.
 CHAT_SAMPLING = {"temperature": 0.7, "top_p": 0.9, "repetition_penalty": 1.1}
+RATE_LIMIT_RETRIES = 2
 _token_lock = threading.Lock()
 _token_state = {"token": "", "expires_at": 0.0, "fingerprint": ""}
 
@@ -152,30 +155,42 @@ def _sse_data(lines):
         yield "\n".join(current)
 
 
-def stream_chat(system_prompt, messages):
+def _rate_limit_wait(response, attempt):
+    """Пауза перед повтором после 429: личный ключ ограничивает параллельные запросы."""
+    try:
+        delay = float(response.headers.get("Retry-After", ""))
+    except ValueError:
+        delay = 1.5 * (attempt + 1)
+    time.sleep(min(max(delay, 0.5), 5.0))
+
+
+def stream_chat(system_prompt, messages, max_tokens=None):
     """Возвращать текстовые части ответа GigaChat по мере их прихода."""
+    payload = {**_payload(system_prompt, messages, stream=True, max_tokens=max_tokens), **CHAT_SAMPLING}
     try:
         with _client() as client:
-            with client.stream(
-                "POST", CHAT_URL,
-                headers=_headers(stream=True),
-                json={**_payload(system_prompt, messages, stream=True), **CHAT_SAMPLING},
-            ) as response:
-                _raise_for_status(response)
-                completed = False
-                for data in _sse_data(response.iter_lines()):
-                    if data == "[DONE]":
-                        completed = True
-                        break
-                    try:
-                        event = json.loads(data)
-                        delta = event["choices"][0]["delta"].get("content")
-                    except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
-                        raise GigaChatError("GigaChat вернул некорректное потоковое событие.") from exc
-                    if delta:
-                        yield delta
-                if not completed:
-                    raise GigaChatError("Потоковый ответ GigaChat оборвался.")
+            for attempt in range(RATE_LIMIT_RETRIES + 1):
+                with client.stream("POST", CHAT_URL, headers=_headers(stream=True), json=payload) as response:
+                    # Повтор безопасен: при 429 пользователь ещё не получил ни одного фрагмента.
+                    if response.status_code == 429 and attempt < RATE_LIMIT_RETRIES:
+                        _rate_limit_wait(response, attempt)
+                        continue
+                    _raise_for_status(response)
+                    completed = False
+                    for data in _sse_data(response.iter_lines()):
+                        if data == "[DONE]":
+                            completed = True
+                            break
+                        try:
+                            event = json.loads(data)
+                            delta = event["choices"][0]["delta"].get("content")
+                        except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
+                            raise GigaChatError("GigaChat вернул некорректное потоковое событие.") from exc
+                        if delta:
+                            yield delta
+                    if not completed:
+                        raise GigaChatError("Потоковый ответ GigaChat оборвался.")
+                    return
     except (httpx.HTTPError, ssl.SSLError) as exc:
         raise GigaChatError(
             "Не удалось связаться с GigaChat. Проверьте сеть и сертификат Минцифры."
@@ -201,11 +216,11 @@ def complete_chat(system_prompt, content, *, json_schema=None):
         }
     try:
         with _client() as client:
-            response = client.post(
-                CHAT_URL,
-                headers=_headers(),
-                json=payload,
-            )
+            for attempt in range(RATE_LIMIT_RETRIES + 1):
+                response = client.post(CHAT_URL, headers=_headers(), json=payload)
+                if response.status_code != 429 or attempt == RATE_LIMIT_RETRIES:
+                    break
+                _rate_limit_wait(response, attempt)
         _raise_for_status(response)
         choice = response.json()["choices"][0]
         if choice.get("finish_reason") in {"length", "error"}:
