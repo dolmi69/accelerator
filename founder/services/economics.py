@@ -5,13 +5,13 @@
 отдельным вызовом, а итог считается здесь и передаётся Бруно как готовый факт.
 """
 
-import json
 import logging
 import re
 
 from django.conf import settings
 
 from founder.services.ai import AIServiceError, complete_text
+from founder.services.model_json import load_model_json
 
 
 logger = logging.getLogger(__name__)
@@ -95,7 +95,9 @@ def summarize(values):
         profit = revenue * v["margin_percent"] / 100
         lines.append(f"Прибыль с клиента при марже {v['margin_percent']:g}%: {_rub(profit)} в месяц.")
     if profit is not None and profit <= 0:
-        lines.append("Каждый активный клиент приносит убыток: рост числа клиентов увеличит потери.")
+        lines.append("Каждый активный клиент приносит убыток: рост числа клиентов увеличит потери. "
+                     "Убыток уменьшают только три вещи: поднять цену для клиента, снизить затраты "
+                     "на него (например, выплату партнёру) или ограничить, сколько он получает.")
     if profit and profit > 0 and v["cac"]:
         lines.append(f"Привлечение {_rub(v['cac'])} окупается за {v['cac'] / profit:.1f} мес.")
     if profit is not None and v["lifetime_months"]:
@@ -114,8 +116,7 @@ def unit_economics(texts, *, latest_only=True):
     content = "\n".join(text[:1500] for text in texts[-12:])
     try:
         raw = complete_text(EXTRACT_PROMPT, content, json_schema=EXTRACT_SCHEMA)
-        cleaned = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-        values = json.loads(cleaned)
+        values = load_model_json(raw)
     except (AIServiceError, ValueError, TypeError, AttributeError):
         # Расчёт — подсказка, а не условие ответа: без него Бруно всё равно ответит.
         logger.warning("Unit economics extraction failed: provider=%s", settings.AI_PROVIDER)

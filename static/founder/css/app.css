@@ -374,3 +374,10 @@ p { line-height:1.6; }
 .review-step .task-criterion { margin:10px 0 14px; }
 @media(max-width:900px) { .work-grid.review-grid { grid-template-columns:1fr; } }
 @media(max-width:680px) { .review-step { grid-template-columns:1fr; gap:6px; } }
+/* Оценка ответа Бруно и запись результата в дневник */
+.feedback-form { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px; }
+.feedback-button { border:1px solid #d8e5df; background:#fff; border-radius:16px; padding:2px 9px; font-size:13px; cursor:pointer; opacity:.55; }
+.feedback-button:hover, .feedback-button.is-active { opacity:1; border-color:#16877d; }
+.feedback-comment { flex:1 1 180px; min-width:0; border:1px solid #d8e5df; border-radius:10px; padding:5px 9px; font-size:12px; }
+.feedback-save { border:0; background:#16877d; color:#fff; border-radius:10px; padding:5px 10px; font-size:12px; cursor:pointer; }
+.evidence-link { display:inline-block; margin-top:6px; font-size:12px; font-weight:700; color:#16877d; }

@@ -15,15 +15,21 @@ from django.conf import settings
 
 
 OAUTH_URL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"
-# Оба адреса официальные; второй выручает, если первый недоступен из сети.
+# Оба адреса официальные. Основной бывает недоступен из некоторых сетей, тогда
+# запрос сам уходит на запасной адрес со своей моделью (там нет GigaChat-3).
 API_URL = os.getenv("GIGACHAT_API_URL", "https://api.giga.chat/v1").rstrip("/")
-CHAT_URL = f"{API_URL}/chat/completions"
+FALLBACK_URL = os.getenv("GIGACHAT_FALLBACK_URL", "https://gigachat.devices.sberbank.ru/api/v1").rstrip("/")
+FALLBACK_MODEL = os.getenv("GIGACHAT_FALLBACK_MODEL", "GigaChat-2-Max")
+# Сколько не стучаться в недоступный основной адрес, чтобы не ждать каждый раз.
+PRIMARY_PAUSE_SECONDS = 300
 ALLOWED_SCOPES = {"GIGACHAT_API_PERS", "GIGACHAT_API_B2B", "GIGACHAT_API_CORP"}
 # Живой диалог: чуть меньше случайности, штраф за повторы фраз.
 CHAT_SAMPLING = {"temperature": 0.7, "top_p": 0.9, "repetition_penalty": 1.1}
 RATE_LIMIT_RETRIES = 2
+UNREACHABLE = "Не удалось связаться с GigaChat. Проверьте сеть и сертификат Минцифры."
 _token_lock = threading.Lock()
 _token_state = {"token": "", "expires_at": 0.0, "fingerprint": ""}
+_route_state = {"primary_down_until": 0.0}
 
 
 class GigaChatError(Exception):
@@ -50,9 +56,10 @@ def _client():
     context = _tls_context()
     return httpx.Client(
         verify=context,
-        # Повторяем только неудачное подключение (обрыв TLS-рукопожатия и т.п.).
-        transport=httpx.HTTPTransport(verify=context, retries=2),
-        timeout=httpx.Timeout(60.0, connect=15.0),
+        # Один повтор неудачного подключения; дальше выручает запасной адрес.
+        # Короткий connect: пользователь не ждёт минуту, чтобы узнать о сбое сети.
+        transport=httpx.HTTPTransport(verify=context, retries=1),
+        timeout=httpx.Timeout(60.0, connect=6.0),
         follow_redirects=True,
     )
 
@@ -111,9 +118,7 @@ def _access_token():
             if expires_at > 1e12:  # API может вернуть миллисекунды.
                 expires_at /= 1000
         except (httpx.HTTPError, ssl.SSLError) as exc:
-            raise GigaChatError(
-                "Не удалось связаться с GigaChat. Проверьте сеть и сертификат Минцифры."
-            ) from exc
+            raise GigaChatError(UNREACHABLE) from exc
         except (KeyError, ValueError, TypeError) as exc:
             raise GigaChatError("GigaChat вернул неверный ответ авторизации.") from exc
 
@@ -132,9 +137,30 @@ def _headers(stream=False):
     }
 
 
-def _payload(system_prompt, messages, stream, max_tokens=None):
+def _routes():
+    """Адреса и модели по порядку попыток: основной, затем запасной."""
+    primary = (API_URL, settings.GIGACHAT_MODEL)
+    if not FALLBACK_URL or FALLBACK_URL == API_URL:
+        return [primary]
+    fallback = (FALLBACK_URL, FALLBACK_MODEL)
+    if time.time() < _route_state["primary_down_until"]:
+        return [fallback]
+    return [primary, fallback]
+
+
+def active_model():
+    """Модель, которая ответит на ближайший запрос (для подписи сообщений)."""
+    return _routes()[0][1]
+
+
+def _mark_unreachable(url):
+    if url == API_URL:
+        _route_state["primary_down_until"] = time.time() + PRIMARY_PAUSE_SECONDS
+
+
+def _payload(system_prompt, messages, stream, max_tokens=None, model=None):
     return {
-        "model": settings.GIGACHAT_MODEL,
+        "model": model or settings.GIGACHAT_MODEL,
         "messages": [{"role": "system", "content": system_prompt}, *messages],
         "stream": stream,
         "max_tokens": max_tokens or settings.AI_MAX_OUTPUT_TOKENS,
@@ -164,37 +190,71 @@ def _rate_limit_wait(response, attempt):
     time.sleep(min(max(delay, 0.5), 5.0))
 
 
+def _connection_failed(exc):
+    """Сбой до ответа сервера: адрес недоступен, можно пробовать запасной."""
+    return isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout))
+
+
 def stream_chat(system_prompt, messages, max_tokens=None):
     """Возвращать текстовые части ответа GigaChat по мере их прихода."""
-    payload = {**_payload(system_prompt, messages, stream=True, max_tokens=max_tokens), **CHAT_SAMPLING}
-    try:
-        with _client() as client:
-            for attempt in range(RATE_LIMIT_RETRIES + 1):
-                with client.stream("POST", CHAT_URL, headers=_headers(stream=True), json=payload) as response:
-                    # Повтор безопасен: при 429 пользователь ещё не получил ни одного фрагмента.
-                    if response.status_code == 429 and attempt < RATE_LIMIT_RETRIES:
-                        _rate_limit_wait(response, attempt)
-                        continue
-                    _raise_for_status(response)
-                    completed = False
-                    for data in _sse_data(response.iter_lines()):
-                        if data == "[DONE]":
-                            completed = True
-                            break
-                        try:
-                            event = json.loads(data)
-                            delta = event["choices"][0]["delta"].get("content")
-                        except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
-                            raise GigaChatError("GigaChat вернул некорректное потоковое событие.") from exc
-                        if delta:
-                            yield delta
-                    if not completed:
-                        raise GigaChatError("Потоковый ответ GigaChat оборвался.")
-                    return
-    except (httpx.HTTPError, ssl.SSLError) as exc:
-        raise GigaChatError(
-            "Не удалось связаться с GigaChat. Проверьте сеть и сертификат Минцифры."
-        ) from exc
+    last_error = None
+    for url, model in _routes():
+        payload = {**_payload(system_prompt, messages, stream=True, max_tokens=max_tokens, model=model),
+                   **CHAT_SAMPLING}
+        try:
+            with _client() as client:
+                for attempt in range(RATE_LIMIT_RETRIES + 1):
+                    with client.stream("POST", f"{url}/chat/completions", headers=_headers(stream=True),
+                                       json=payload) as response:
+                        # Повтор безопасен: при 429 пользователь ещё не получил ни одного фрагмента.
+                        if response.status_code == 429 and attempt < RATE_LIMIT_RETRIES:
+                            _rate_limit_wait(response, attempt)
+                            continue
+                        _raise_for_status(response)
+                        completed = False
+                        for data in _sse_data(response.iter_lines()):
+                            if data == "[DONE]":
+                                completed = True
+                                break
+                            try:
+                                event = json.loads(data)
+                                delta = event["choices"][0]["delta"].get("content")
+                            except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
+                                raise GigaChatError("GigaChat вернул некорректное потоковое событие.") from exc
+                            if delta:
+                                yield delta
+                        if not completed:
+                            raise GigaChatError("Потоковый ответ GigaChat оборвался.")
+                        return
+        except (httpx.HTTPError, ssl.SSLError) as exc:
+            # Подключение не состоялось: ни одного фрагмента ещё не отдано.
+            if _connection_failed(exc):
+                _mark_unreachable(url)
+                last_error = exc
+                continue
+            raise GigaChatError(UNREACHABLE) from exc
+    raise GigaChatError(UNREACHABLE) from last_error
+
+
+def _post_chat(payload):
+    """Обычный запрос с повтором при 429 и переходом на запасной адрес."""
+    last_error = None
+    for url, model in _routes():
+        try:
+            with _client() as client:
+                for attempt in range(RATE_LIMIT_RETRIES + 1):
+                    response = client.post(f"{url}/chat/completions", headers=_headers(),
+                                           json={**payload, "model": model})
+                    if response.status_code != 429 or attempt == RATE_LIMIT_RETRIES:
+                        return response
+                    _rate_limit_wait(response, attempt)
+        except (httpx.HTTPError, ssl.SSLError) as exc:
+            if _connection_failed(exc):
+                _mark_unreachable(url)
+                last_error = exc
+                continue
+            raise GigaChatError(UNREACHABLE) from exc
+    raise GigaChatError(UNREACHABLE) from last_error
 
 
 def complete_chat(system_prompt, content, *, json_schema=None):
@@ -202,6 +262,8 @@ def complete_chat(system_prompt, content, *, json_schema=None):
 
     Схема GigaChat v1 задаётся в response_format.schema (не json_schema).
     https://developers.sber.ru/docs/ru/gigachat/guides/structured-output
+    Запасная модель схему не соблюдает, поэтому вызывающие сервисы дублируют
+    формат в промпте и разбирают ответ терпимо.
     """
     payload = _payload(
         system_prompt,
@@ -214,13 +276,8 @@ def complete_chat(system_prompt, content, *, json_schema=None):
         payload["response_format"] = {
             "type": "json_schema", "schema": json_schema, "strict": True,
         }
+    response = _post_chat(payload)
     try:
-        with _client() as client:
-            for attempt in range(RATE_LIMIT_RETRIES + 1):
-                response = client.post(CHAT_URL, headers=_headers(), json=payload)
-                if response.status_code != 429 or attempt == RATE_LIMIT_RETRIES:
-                    break
-                _rate_limit_wait(response, attempt)
         _raise_for_status(response)
         choice = response.json()["choices"][0]
         if choice.get("finish_reason") in {"length", "error"}:
@@ -231,9 +288,5 @@ def complete_chat(system_prompt, content, *, json_schema=None):
         if not isinstance(answer, str) or not answer.strip():
             raise GigaChatFormatError("GigaChat вернул ответ без текста.")
         return answer
-    except (httpx.HTTPError, ssl.SSLError) as exc:
-        raise GigaChatError(
-            "Не удалось связаться с GigaChat. Проверьте сеть и сертификат Минцифры."
-        ) from exc
     except (ValueError, KeyError, IndexError, TypeError) as exc:
         raise GigaChatFormatError("GigaChat вернул ответ в неверном формате.") from exc

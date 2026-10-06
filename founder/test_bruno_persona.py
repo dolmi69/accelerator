@@ -136,7 +136,10 @@ class BrunoV2Tests(TestCase):
         self.assertEqual("".join(polish_stream([long_form], single_question=False)), long_form)
 
     def test_polish_neutralises_gendered_and_canned_phrases(self):
-        self.assertEqual("".join(polish_stream(["Важно понимать спрос. Готов начать?"])),
-                         "Надо понять спрос. Начнём?")
+        # «Готов начать?» становится «Начнём?», а пустая концовка после совета убирается.
+        self.assertEqual("".join(polish_stream(["Важно понимать спрос. Готов начать?"])).strip(),
+                         "Надо понять спрос.")
+        self.assertEqual("".join(polish_stream(["Готов начать?"])), "Начнём?")
+        self.assertEqual("".join(polish_stream(["Рада слышать! Я рада помочь."])), "Рад слышать! Я рад помочь.")
         self.assertEqual("".join(polish_stream(["Ты готов попробовать с пятью клиентами?"])),
                          "Попробуем с пятью клиентами?")

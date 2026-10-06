@@ -1,4 +1,4 @@
-"""Обычный текстовый поиск сейчас; поле embedding_ref готово для векторов."""
+"""Поиск прежних слов основателя по основам слов; поле embedding_ref готово для векторов."""
 
 import re
 
@@ -8,6 +8,33 @@ from founder.models import ChatSession, StartupMemory
 
 
 WORD_RE = re.compile(r"[\w-]{3,}", re.UNICODE)
+# Служебные слова вопроса не помогают найти прежний рассказ.
+STOP_WORDS = frozenset(
+    "что как какой какая какую какие каким это эти этот эта для или его она они оно ещё уже "
+    "так вот там тут где когда сейчас теперь тоже надо нужно можно очень просто давай напомни "
+    "называл называла говорил говорила рассказывал рассказывала был была были есть если мне "
+    "тебе тебя меня мой моя мои наш наша наши ваш ваша про при над под без чем чего кто ним ней "
+    "них всё все всех сколько почему зачем делать сделать начале раньше".split()
+)
+
+
+def stem(word):
+    """Грубая основа русского слова: «конверсию» и «конверсия» дают «конве».
+
+    Хватает для поиска по памяти без морфологического словаря: длинные слова
+    режем до пяти букв, короткие теряют окончание.
+    """
+    word = word.lower()
+    if len(word) >= 6:
+        return word[:5]
+    if len(word) >= 4:
+        return word[:-1]
+    return word
+
+
+def query_stems(text, limit=10):
+    words = (word.lower() for word in WORD_RE.findall(text or ""))
+    return list(dict.fromkeys(stem(word) for word in words if word not in STOP_WORDS))[:limit]
 
 
 def remember_user_message(message):
@@ -34,7 +61,7 @@ def remember_user_message(message):
 
 def relevant_memories(startup, query, exclude_message_ids=(), limit=6):
     """Ищем прежние слова основателя во всех сессиях одного стартапа."""
-    terms = list(dict.fromkeys(word.lower() for word in WORD_RE.findall(query)))[:10]
+    terms = query_stems(query)
     queryset = StartupMemory.objects.filter(startup=startup, is_active=True, source_message__session__mode=ChatSession.Mode.COFOUNDER).exclude(
         source_message_id__in=exclude_message_ids
     )
@@ -43,12 +70,14 @@ def relevant_memories(startup, query, exclude_message_ids=(), limit=6):
 
     condition = Q()
     for term in terms:
-        condition |= Q(content__icontains=term)
+        # SQLite сравнивает кириллицу без учёта регистра только для ASCII,
+        # поэтому ищем и слово с заглавной буквы в начале предложения.
+        condition |= Q(content__icontains=term) | Q(content__icontains=term.capitalize())
     candidates = list(queryset.filter(condition).order_by("-created_at")[:80])
     terms_set = set(terms)
     candidates.sort(
         key=lambda item: (
-            len(terms_set.intersection(word.lower() for word in WORD_RE.findall(item.content))),
+            len(terms_set.intersection(stem(word) for word in WORD_RE.findall(item.content))),
             item.created_at,
         ),
         reverse=True,

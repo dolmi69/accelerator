@@ -11,6 +11,7 @@ from founder.models import BrunoTask, BusinessAxis, ChatMessage, ChatSession, Pr
 from founder.services.ai import AIResponseFormatError, AIServiceError, complete_text, provider_label
 from founder.services.bruno import STARTUP_PLAYBOOK, WRITING_RULES
 from founder.services.metrics import AXES
+from founder.services.model_json import load_model_json
 
 
 logger = logging.getLogger(__name__)
@@ -135,7 +136,12 @@ def _axis(item, text):
         return item["axis"]
     if item.get("axis") is not None and item.get("axis") not in ("", None):
         raise ValueError("Неизвестное направление")
-    lowered = text.lower()
+    return guess_axis(text)
+
+
+def guess_axis(text):
+    """Направление по словам текста, «рынок», если ничего не подошло."""
+    lowered = (text or "").lower()
     return next((axis for axis, pattern in AXIS_KEYWORDS if re.search(pattern, lowered)), "market")
 
 
@@ -168,10 +174,7 @@ def _step(item, index):
 def parse_review(raw):
     """Проверяем разбор целиком; неполный ответ не сохраняем."""
     try:
-        cleaned = raw.strip().lstrip("﻿")
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-        payload = json.loads(cleaned)
+        payload = load_model_json(raw)
         if not isinstance(payload, dict):
             raise ValueError("Ответ не объект")
         stage = payload.get("stage")

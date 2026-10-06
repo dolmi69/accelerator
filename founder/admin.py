@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 
 from founder.models import (
     BrunoTask, EvidenceEntry, ChatAttachment, ChatMessage, ChatSession, MascotState, PitchReport,
-    ProjectReview, StartupMemory, StartupMetrics, StartupProfile, User,
+    MessageFeedback, ProjectReview, StartupMemory, StartupMetrics, StartupProfile, User,
 )
 
 
@@ -27,3 +27,11 @@ admin.site.register(PitchReport)
 admin.site.register(BrunoTask)
 admin.site.register(EvidenceEntry)
 admin.site.register(ProjectReview)
+
+
+@admin.register(MessageFeedback)
+class MessageFeedbackAdmin(admin.ModelAdmin):
+    list_display = ('updated_at', 'rating', 'comment', 'message')
+    list_filter = ('rating',)
+    search_fields = ('comment', 'message__content')
+    raw_id_fields = ('message',)

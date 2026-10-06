@@ -15,10 +15,11 @@ from django.views.decorators.http import require_GET, require_POST
 
 from founder.forms import ChatSendForm, MetricsForm, RegisterForm, StartupForm
 from founder.models import (
-    ChatAttachment, ChatMessage, ChatSession, MascotState,
+    ChatAttachment, ChatMessage, ChatSession, MascotState, MessageFeedback,
     PitchReport, StartupProfile,
 )
 from founder.services.ai import AIServiceError, provider_label, stream_reply
+from founder.services.bruno import looks_like_evidence
 from founder.services.mascot import update_mascot
 from founder.services.memory import conversation_context, remember_user_message
 from founder.services.metrics import AXES, radar_grid, radar_points
@@ -260,16 +261,39 @@ def chat_detail(request, startup_id, session_id):
     session = _owned_session(request, startup_id, session_id)
     report = PitchReport.objects.filter(session=session).first()
     mascot, _ = MascotState.objects.get_or_create(startup=session.startup)
+    chat_messages = list(session.messages.prefetch_related("attachments").all())
+    feedback = {item.message_id: item for item in MessageFeedback.objects.filter(message__session=session)}
+    for message in chat_messages:
+        # Кнопка дневника под сообщением с результатом проверки; оценка под ответом Бруно.
+        message.evidence_candidate = (session.mode == ChatSession.Mode.COFOUNDER
+                                      and message.role == ChatMessage.Role.USER
+                                      and looks_like_evidence(message.content))
+        message.rateable = message.role == ChatMessage.Role.ASSISTANT and message.provider != "system"
+        message.user_feedback = feedback.get(message.id)
     return render(request, "founder/chat.html", {
         "startup": session.startup,
         "mascot": mascot,
         "session": session,
-        "chat_messages": session.messages.prefetch_related("attachments").all(),
+        "chat_messages": chat_messages,
         "report": report,
         "is_pitch": session.mode == ChatSession.Mode.PITCH,
         "has_founder_messages": session.messages.filter(role=ChatMessage.Role.USER).exists(),
         "ai_available": settings.AI_PROVIDER != "demo",
     })
+
+
+@login_required
+@require_POST
+def message_feedback(request, startup_id, session_id, message_id):
+    session = _owned_session(request, startup_id, session_id)
+    message = get_object_or_404(session.messages.exclude(provider="system"), pk=message_id,
+                                role=ChatMessage.Role.ASSISTANT)
+    rating = {"up": MessageFeedback.Rating.UP, "down": MessageFeedback.Rating.DOWN}.get(request.POST.get("rating"))
+    if rating is None:
+        return HttpResponse("Неизвестная оценка.", status=400)
+    comment = request.POST.get("comment", "").strip()[:500] if rating == MessageFeedback.Rating.DOWN else ""
+    MessageFeedback.objects.update_or_create(message=message, defaults={"rating": rating, "comment": comment})
+    return redirect(reverse("chat_detail", args=[startup_id, session_id]) + f"#message-{message.id}")
 
 
 def _sse(payload):

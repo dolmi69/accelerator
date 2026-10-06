@@ -6,6 +6,7 @@ import os
 import re
 
 from django.conf import settings
+from django.utils import timezone
 
 from founder.models import ChatSession
 
@@ -28,9 +29,13 @@ def _require_key(provider):
 
 
 def provider_label():
+    if settings.AI_PROVIDER == "gigachat":
+        from founder.services.gigachat import active_model
+
+        # При недоступном основном адресе отвечает запасная модель: подписываем её.
+        return "gigachat", active_model()
     return {
         "demo": ("demo", "local-demo"),
-        "gigachat": ("gigachat", settings.GIGACHAT_MODEL),
         "cloudru": ("cloudru", settings.CLOUDRU_MODEL),
         "openai": ("openai", settings.OPENAI_MODEL),
         "anthropic": ("anthropic", settings.ANTHROPIC_MODEL),
@@ -50,7 +55,7 @@ def long_answer_requested(session, messages):
 def system_prompt(session, memories, messages=None, economics=""):
     from founder.services.bruno import (
         EXAMPLES, LONG_ANSWER_GUIDE, MENTOR_CHECKS, PERSONA, REVIEW_HINT, SITUATIONS, STYLE,
-        WRITING_RULES, conversation_notes, founder_name, stage_playbook, wants_review,
+        WRITING_RULES, conversation_notes, founder_name, project_status, stage_playbook, wants_review,
     )
     from founder.services.workbench import evidence_context
 
@@ -123,6 +128,10 @@ def system_prompt(session, memories, messages=None, economics=""):
         "объяснить изменение. Не требуй консультаций, записей встреч, аудио или "
         "документов как условие оценки: основатель может рассказать всё своими словами.",
     ]) + "\n" + name_line + safety + notes + f"{profile}\nРанее сказанное основателем:\n{history}"
+    status = project_status(startup)
+    if status:
+        common += "\n" + status
+    common += f"\nСегодня {timezone.localdate():%d.%m.%Y}."
     if session.focus_axis:
         latest = startup.metric_snapshots.first()
         reason = latest.assessment_details.get(session.focus_axis, "") if latest else ""
@@ -175,11 +184,13 @@ def _demo_reply(session, messages):
 
 def stream_reply(session, messages, memories):
     """Возвращает текстовые фрагменты без привязки view к поставщику API."""
-    from founder.services.bruno import polish_stream, tidy_stream
+    from founder.services.bruno import founder_gender, polish_stream, tidy_stream
 
     single_question = not long_answer_requested(session, messages)
+    # Инвестор в тренировке обращается на «вы», там род не угадывается.
+    gender = founder_gender(messages) if session.mode == ChatSession.Mode.COFOUNDER else "male"
     yield from polish_stream(tidy_stream(_provider_stream(session, messages, memories)),
-                             single_question=single_question)
+                             single_question=single_question, gender=gender)
 
 
 def _provider_stream(session, messages, memories):

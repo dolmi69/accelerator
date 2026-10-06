@@ -13,9 +13,9 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from founder.forms import EvidenceForm
-from founder.models import BrunoTask, BusinessAxis, ChatSession, EvidenceEntry, StartupProfile
+from founder.models import BrunoTask, BusinessAxis, ChatMessage, ChatSession, EvidenceEntry, StartupProfile
 from founder.services.ai import AIServiceError
-from founder.services.review import create_review, step_to_task
+from founder.services.review import create_review, guess_axis, step_to_task
 from founder.services.workbench import generate_tasks
 
 
@@ -82,6 +82,16 @@ def evidence_edit(request, startup_id, entry_id=None):
             raise Http404('Задание не найдено') from exc
         task = get_object_or_404(startup.bruno_tasks, pk=task_id)
         initial = {'task': task, 'axis': task.axis, 'claim': task.title}
+    elif not entry and request.GET.get('message'):
+        # Черновик записи из сообщения в чате: основатель проверит и дополнит поля.
+        try:
+            message_id = UUID(request.GET['message'])
+        except (ValueError, TypeError) as exc:
+            raise Http404('Сообщение не найдено') from exc
+        message = get_object_or_404(ChatMessage, pk=message_id, role=ChatMessage.Role.USER,
+                                    session__startup=startup, session__mode=ChatSession.Mode.COFOUNDER)
+        initial = {'axis': guess_axis(message.content), 'observation': message.content[:4000],
+                   'observed_on': timezone.localtime(message.created_at).date()}
     form = EvidenceForm(request.POST if request.method == 'POST' else None,
                         instance=entry, initial=initial, startup=startup)
     if request.method == 'POST' and form.is_valid():
