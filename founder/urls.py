@@ -16,6 +16,10 @@ urlpatterns = [
     path('startups/<uuid:startup_id>/evidence/new/', workbench_views.evidence_edit, name='evidence_create'),
     path('startups/<uuid:startup_id>/evidence/<uuid:entry_id>/', workbench_views.evidence_edit, name='evidence_edit'),
     path('startups/<uuid:startup_id>/investor/', workbench_views.investor, name='investor'),
+    path('startups/<uuid:startup_id>/review/', workbench_views.review, name='review'),
+    path('startups/<uuid:startup_id>/review/generate/', workbench_views.review_generate, name='review_generate'),
+    path('startups/<uuid:startup_id>/review/<uuid:review_id>/steps/<int:index>/task/', workbench_views.review_step_task,
+         name='review_step_task'),
     path("", views.home, name="home"),
     path("about/", views.about, name="about"),
     path("register/", views.register, name="register"),
@@ -35,4 +39,6 @@ urlpatterns = [
     path("startups/<uuid:startup_id>/chat/<uuid:session_id>/", views.chat_detail, name="chat_detail"),
     path("startups/<uuid:startup_id>/chat/<uuid:session_id>/send/", views.chat_send, name="chat_send"),
     path("startups/<uuid:startup_id>/chat/<uuid:session_id>/finish/", views.pitch_finish, name="pitch_finish"),
+    path("startups/<uuid:startup_id>/chat/<uuid:session_id>/messages/<uuid:message_id>/feedback/",
+         views.message_feedback, name="message_feedback"),
 ]

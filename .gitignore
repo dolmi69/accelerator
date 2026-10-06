@@ -15,3 +15,4 @@ artifacts/
 *.db
 .env.*
 !.env.example
+.idea/

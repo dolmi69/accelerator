@@ -1,0 +1,14 @@
+{% if message.evidence_candidate %}
+<a class="evidence-link" href="{% url 'evidence_create' startup.id %}?message={{ message.id }}">Записать в дневник →</a>
+{% endif %}
+{% if message.rateable %}
+<form method="post" action="{% url 'message_feedback' startup.id session.id message.id %}" class="feedback-form">
+  {% csrf_token %}
+  <button name="rating" value="up" class="feedback-button{% if message.user_feedback.rating == 1 %} is-active{% endif %}" title="Полезный ответ" aria-label="Полезный ответ" aria-pressed="{% if message.user_feedback.rating == 1 %}true{% else %}false{% endif %}">👍</button>
+  <button name="rating" value="down" class="feedback-button{% if message.user_feedback.rating == -1 %} is-active{% endif %}" title="Неудачный ответ" aria-label="Неудачный ответ" aria-pressed="{% if message.user_feedback.rating == -1 %}true{% else %}false{% endif %}">👎</button>
+  {% if message.user_feedback.rating == -1 %}
+  <input name="comment" maxlength="500" value="{{ message.user_feedback.comment }}" placeholder="Что было не так?" class="feedback-comment" aria-label="Что было не так">
+  <button name="rating" value="down" class="feedback-save">Сохранить</button>
+  {% endif %}
+</form>
+{% endif %}

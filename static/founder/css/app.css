@@ -387,3 +387,23 @@ p { line-height:1.6; }
 .work-heading p { max-width:680px; }
 
 .investor-quote { border-left:3px solid #81b7a1; padding:10px 14px; margin:16px 0; background:#f2f7f3; font-size:13px; line-height:1.6; }
+/* Разбор и план */
+.work-grid.review-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.review-summary h2 { font-size:24px; }
+.review-risk { padding:12px 0; border-top:1px solid #e3ece7; }
+.review-risk:first-of-type { border-top:0; }
+.review-risk p { margin:6px 0 0; }
+.review-step { display:grid; grid-template-columns:110px minmax(0,1fr); gap:18px; padding:18px 0; border-top:1px solid #e3ece7; }
+.review-step:first-of-type { border-top:0; }
+.review-week { color:#16877d; font-size:13px; font-weight:800; padding-top:2px; }
+.review-step-body p { margin:8px 0 12px; }
+.review-step .task-criterion { margin:10px 0 14px; }
+@media(max-width:900px) { .work-grid.review-grid { grid-template-columns:1fr; } }
+@media(max-width:680px) { .review-step { grid-template-columns:1fr; gap:6px; } }
+/* Оценка ответа Бруно и запись результата в дневник */
+.feedback-form { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px; }
+.feedback-button { border:1px solid #d8e5df; background:#fff; border-radius:16px; padding:2px 9px; font-size:13px; cursor:pointer; opacity:.55; }
+.feedback-button:hover, .feedback-button.is-active { opacity:1; border-color:#16877d; }
+.feedback-comment { flex:1 1 180px; min-width:0; border:1px solid #d8e5df; border-radius:10px; padding:5px 9px; font-size:12px; }
+.feedback-save { border:0; background:#16877d; color:#fff; border-radius:10px; padding:5px 10px; font-size:12px; cursor:pointer; }
+.evidence-link { display:inline-block; margin-top:6px; font-size:12px; font-weight:700; color:#16877d; }

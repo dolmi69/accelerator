@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Разбор и план · {{ startup.name }}{% endblock %}
+{% block content %}
+{% include 'founder/_workspace_nav.html' %}
+<div class="page-heading work-heading"><div><span class="eyebrow">ПОЛНЫЙ РАЗБОР ПРОЕКТА</span><h1>Разбор и план</h1><p>{{ startup.name }} · Где проект сейчас, что ему угрожает и что сделать за ближайший месяц.</p></div>
+<form method="post" action="{% url 'review_generate' startup.id %}" data-busy-form>{% csrf_token %}<button class="button primary" data-busy-label="Бруно разбирает проект…"{% if not has_story %} disabled{% endif %}>{% if review %}Обновить разбор{% else %}Получить разбор{% endif %}</button><span class="muted small" role="status"></span></form></div>
+{% if is_demo %}<p class="work-notice">Деморежим: разбор строится по радару из готовых примеров. Подключите AI-провайдера для настоящего анализа.</p>{% endif %}
+{% if not review %}
+<div class="card work-card work-empty"><h2>{% if has_story %}Бруно готов разобрать проект{% else %}Сначала расскажите о проекте{% endif %}</h2>
+<p>{% if has_story %}Бруно учтёт описание, ваши разговоры, радар, задания и дневник. Он определит стадию, назовёт главные риски и распишет шаги по неделям.{% else %}Опишите идею в профиле или поговорите с Бруно в чате. Без рассказа о проекте разбирать нечего.{% endif %}</p>
+{% if not has_story %}<form method="post" action="{% url 'chat_create' startup.id %}">{% csrf_token %}<button class="button primary">Поговорить с Бруно →</button></form>{% endif %}</div>
+{% else %}
+<section class="card work-card review-summary"><span class="eyebrow">СТАДИЯ ПО ФАКТАМ: {{ stage_label|upper }}</span><h2>{{ data.focus }}</h2><p>{{ data.summary }}</p><p class="muted small">{{ data.stage_reason }}</p>
+<p class="muted small">Разбор от {{ review.created_at|date:'d.m.Y H:i' }}. Это мнение Бруно по вашему рассказу, а не независимая проверка фактов.</p></section>
+<div class="work-grid review-grid">
+<section class="card work-card"><span class="eyebrow">ЧТО УЖЕ ЕСТЬ</span><h2>Сильные стороны</h2>{% for item in data.strengths %}<p>✓ {{ item }}</p>{% empty %}<p class="muted">Пока нет подтверждённых сильных сторон. Первые шаги плана как раз помогут их найти.</p>{% endfor %}</section>
+<section class="card work-card review-risks"><span class="eyebrow">ЧТО МОЖЕТ ПОМЕШАТЬ</span><h2>Главные риски</h2>{% for risk in risks %}<div class="review-risk"><strong>{{ forloop.counter }}. {{ risk.title }}</strong><span class="muted small"> · {{ risk.axis_label }}</span><p>{{ risk.why }}</p></div>{% endfor %}</section>
+</div>
+<section class="card work-card"><span class="eyebrow">ПЛАН НА МЕСЯЦ</span><h2>Шаги по неделям</h2>
+{% for step in steps %}<article class="review-step"><div class="review-week">Неделя {{ step.week }}</div><div class="review-step-body"><strong>{{ step.title }}</strong><span class="muted small"> · {{ step.axis_label }}</span><p>{{ step.action }}</p><div class="task-criterion"><strong>Когда шаг закончен</strong><p>{{ step.done_when }}</p></div>
+{% if step.axis_busy %}<p class="muted small">По направлению «{{ step.axis_label }}» уже есть задание в работе.</p>{% else %}<form method="post" action="{% url 'review_step_task' startup.id review.id step.index %}">{% csrf_token %}<button class="button ghost">Взять в задания</button></form>{% endif %}</div></article>{% endfor %}
+</section>
+{% if history|length > 1 %}<section class="card work-card"><h2>Прошлые разборы</h2>{% for item in history %}<a class="history-row" href="?id={{ item.id }}"><span><strong>{{ item.data.focus|truncatechars:90 }}</strong><small>{{ item.created_at|date:'d.m.Y H:i' }}{% if item.id == review.id %} · открыт сейчас{% endif %}</small></span><span aria-hidden="true">→</span></a>{% endfor %}</section>{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}" defer></script>{% endblock %}

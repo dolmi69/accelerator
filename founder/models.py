@@ -344,6 +344,39 @@ class BrunoTask(models.Model):
         )]
 
 
+class ProjectReview(models.Model):
+    """Полный разбор проекта от Бруно: диагноз стадии, риски и план шагов.
+
+    Разбор — мнение по словам основателя, а не проверка фактов. Шаги плана
+    становятся заданиями только по явному выбору основателя.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='reviews')
+    data = models.JSONField(default=dict)
+    ai_model = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+
+class MessageFeedback(models.Model):
+    """Оценка ответа Бруно основателем. Неудачные ответы становятся новыми
+    сценариями проверки (`manage.py bruno_feedback`)."""
+    class Rating(models.IntegerChoices):
+        UP = 1, 'Полезно'
+        DOWN = -1, 'Мимо'
+
+    message = models.OneToOneField(ChatMessage, on_delete=models.CASCADE, related_name='feedback')
+    rating = models.SmallIntegerField(choices=Rating.choices)
+    comment = models.CharField('Что было не так', max_length=500, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+
 class EvidenceEntry(models.Model):
     """Founder-reported observations, including negative and inconclusive results."""
     class Outcome(models.TextChoices):

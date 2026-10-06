@@ -8,12 +8,14 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from founder.forms import EvidenceForm
-from founder.models import BrunoTask, BusinessAxis, ChatSession, EvidenceEntry, StartupProfile
+from founder.models import BrunoTask, BusinessAxis, ChatMessage, ChatSession, EvidenceEntry, StartupProfile
 from founder.services.ai import AIServiceError
+from founder.services.review import create_review, guess_axis, step_to_task
 from founder.services.workbench import generate_tasks
 
 
@@ -80,6 +82,16 @@ def evidence_edit(request, startup_id, entry_id=None):
             raise Http404('Задание не найдено') from exc
         task = get_object_or_404(startup.bruno_tasks, pk=task_id)
         initial = {'task': task, 'axis': task.axis, 'claim': task.title}
+    elif not entry and request.GET.get('message'):
+        # Черновик записи из сообщения в чате: основатель проверит и дополнит поля.
+        try:
+            message_id = UUID(request.GET['message'])
+        except (ValueError, TypeError) as exc:
+            raise Http404('Сообщение не найдено') from exc
+        message = get_object_or_404(ChatMessage, pk=message_id, role=ChatMessage.Role.USER,
+                                    session__startup=startup, session__mode=ChatSession.Mode.COFOUNDER)
+        initial = {'axis': guess_axis(message.content), 'observation': message.content[:4000],
+                   'observed_on': timezone.localtime(message.created_at).date()}
     form = EvidenceForm(request.POST if request.method == 'POST' else None,
                         instance=entry, initial=initial, startup=startup)
     if request.method == 'POST' and form.is_valid():
@@ -103,3 +115,57 @@ def investor(request, startup_id):
         'startup': startup, 'workspace_tab': 'investor',
         'sessions': startup.chat_sessions.filter(mode=ChatSession.Mode.PITCH).select_related('pitch_report')[:20],
     })
+
+
+@login_required
+def review(request, startup_id):
+    startup = owned_startup(request, startup_id)
+    reviews = startup.reviews.all()
+    current = reviews.first()
+    if request.GET.get('id'):
+        try:
+            current = get_object_or_404(reviews, pk=UUID(request.GET['id']))
+        except (ValueError, TypeError) as exc:
+            raise Http404('Разбор не найден') from exc
+    open_axes = set(startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list('axis', flat=True))
+    axis_labels = dict(BusinessAxis.choices)
+    data = current.data if current else {}
+    return render(request, 'founder/review.html', {
+        'startup': startup, 'workspace_tab': 'review', 'review': current, 'data': data,
+        'stage_label': dict(StartupProfile.Stage.choices).get(data.get('stage'), ''),
+        'risks': [{**risk, 'axis_label': axis_labels.get(risk['axis'], '')} for risk in data.get('risks', [])],
+        'steps': [{**step, 'index': index, 'axis_label': axis_labels.get(step['axis'], ''),
+                   'axis_busy': step['axis'] in open_axes} for index, step in enumerate(data.get('steps', []))],
+        'history': reviews[:8], 'is_demo': settings.AI_PROVIDER == 'demo',
+        'has_story': (any((startup.one_line_pitch, startup.problem, startup.solution, startup.target_customer))
+                      or startup.chat_sessions.filter(messages__role='user').exists()
+                      or startup.evidence_entries.exists()),
+    })
+
+
+@login_required
+@require_POST
+def review_generate(request, startup_id):
+    startup = owned_startup(request, startup_id)
+    try:
+        create_review(startup)
+        messages.success(request, 'Бруно разобрал проект и составил план на месяц.')
+    except AIServiceError as exc:
+        messages.error(request, str(exc))
+    return redirect('review', startup_id=startup.pk)
+
+
+@login_required
+@require_POST
+def review_step_task(request, startup_id, review_id, index):
+    startup = owned_startup(request, startup_id)
+    current = get_object_or_404(startup.reviews, pk=review_id)
+    try:
+        task = step_to_task(current, index)
+    except AIServiceError as exc:
+        raise Http404(str(exc)) from exc
+    if task is None:
+        messages.error(request, 'По этому направлению уже есть задание в работе. Сначала завершите или отложите его.')
+        return redirect(f"{reverse('review', args=[startup.pk])}?id={current.pk}")
+    messages.success(request, 'Шаг добавлен в задания. Результат запишите в дневник, когда сделаете.')
+    return redirect('tasks', startup_id=startup.pk)

@@ -18,10 +18,11 @@ from django.views.decorators.http import require_GET, require_POST
 
 from founder.forms import ChatSendForm, MetricsForm, RegisterForm, StartupForm
 from founder.models import (
-    ChatAttachment, ChatMessage, ChatSession, MascotState,
+    ChatAttachment, ChatMessage, ChatSession, MascotState, MessageFeedback,
     PitchReport, StartupProfile,
 )
 from founder.services.ai import AIServiceError, provider_label, stream_reply
+from founder.services.bruno import looks_like_evidence
 from founder.services.mascot import update_mascot
 from founder.services.memory import conversation_context, remember_user_message
 from founder.services.onboarding import cofounder_opening, has_founder_conversation, has_profile_description
@@ -209,11 +210,11 @@ def chat_refine(request, startup_id, axis):
     session = startup.chat_sessions.filter(focus_axis=axis, completed_at__isnull=True).first()
     if session is None:
         questions = {
-            "product": "Что уже работает в продукте и кто им пользуется?",
-            "market": "Кто ваш покупатель и какие признаки интереса вы уже заметили?",
-            "finance": "Как вы берёте оплату и какие доходы и расходы уже известны?",
-            "team": "Кто входит в команду и за что отвечает каждый?",
-            "pitch": "Как бы вы объяснили пользу сервиса клиенту в двух предложениях?",
+            "product": "Что в продукте уже работает и кто им пользуется?",
+            "market": "Кто твой покупатель и какие признаки интереса уже видны?",
+            "finance": "Как планируешь брать оплату и какие доходы или расходы уже известны?",
+            "team": "Кто сейчас в команде и за что отвечает каждый?",
+            "pitch": "Как объяснить пользу сервиса клиенту в двух предложениях?",
         }
         latest = startup.metric_snapshots.first()
         reason = latest.assessment_details.get(axis, "") if latest else ""
@@ -224,7 +225,9 @@ def chat_refine(request, startup_id, axis):
             )
             ChatMessage.objects.create(
                 session=session, role=ChatMessage.Role.ASSISTANT, provider="system",
-                content=f"Давайте уточним направление «{labels[axis]}».\n{reason}\n\n{questions[axis]}",
+                content=(f"Давай подтянем направление «{labels[axis]}». "
+                         + (f"Вот что я отметил в прошлый раз: {reason}\n\n" if reason else "\n\n")
+                         + questions[axis]),
             )
     return redirect("chat_detail", startup_id=startup.id, session_id=session.id)
 
@@ -270,17 +273,40 @@ def chat_detail(request, startup_id, session_id):
     page = Paginator(history.prefetch_related("attachments"), 50).get_page(page_number)
     report = PitchReport.objects.filter(session=session).first()
     mascot, _ = MascotState.objects.get_or_create(startup=session.startup)
+    chat_messages = list(reversed(page.object_list))
+    feedback = {item.message_id: item for item in MessageFeedback.objects.filter(message__session=session)}
+    for message in chat_messages:
+        # Кнопка дневника под сообщением с результатом проверки; оценка под ответом Бруно.
+        message.evidence_candidate = (session.mode == ChatSession.Mode.COFOUNDER
+                                      and message.role == ChatMessage.Role.USER
+                                      and looks_like_evidence(message.content))
+        message.rateable = message.role == ChatMessage.Role.ASSISTANT and message.provider != "system"
+        message.user_feedback = feedback.get(message.id)
     return render(request, "founder/chat.html", {
         "startup": session.startup,
         "mascot": mascot,
         "session": session,
-        "chat_messages": list(reversed(page.object_list)),
+        "chat_messages": chat_messages,
         "chat_page": page,
         "report": report,
         "is_pitch": session.mode == ChatSession.Mode.PITCH,
         "has_assessment_context": has_profile_description(session.startup) or has_founder_conversation(session.startup),
         "ai_available": settings.AI_PROVIDER != "demo",
     })
+
+
+@login_required
+@require_POST
+def message_feedback(request, startup_id, session_id, message_id):
+    session = _owned_session(request, startup_id, session_id)
+    message = get_object_or_404(session.messages.exclude(provider="system"), pk=message_id,
+                                role=ChatMessage.Role.ASSISTANT)
+    rating = {"up": MessageFeedback.Rating.UP, "down": MessageFeedback.Rating.DOWN}.get(request.POST.get("rating"))
+    if rating is None:
+        return HttpResponse("Неизвестная оценка.", status=400)
+    comment = request.POST.get("comment", "").strip()[:500] if rating == MessageFeedback.Rating.DOWN else ""
+    MessageFeedback.objects.update_or_create(message=message, defaults={"rating": rating, "comment": comment})
+    return redirect(reverse("chat_detail", args=[startup_id, session_id]) + f"#message-{message.id}")
 
 
 def _sse(payload):
@@ -325,14 +351,10 @@ def chat_send(request, startup_id, session_id):
 
     def generate():
         chunks = []
-        total_chars = 0
         try:
             for delta in stream_reply(session, context_messages, memories):
                 if not isinstance(delta, str):
-                    raise AIServiceError("Модель вернула некорректный ответ. Попробуйте ещё раз.")
-                total_chars += len(delta)
-                if total_chars > 60_000:
-                    raise AIServiceError("Ответ слишком большой. Попросите Бруно ответить короче.")
+                    raise AIServiceError("Модель вернула некорректный текст ответа.")
                 chunks.append(delta)
                 yield _sse({"type": "delta", "text": delta})
             answer = "".join(chunks).strip()
@@ -360,14 +382,11 @@ def chat_send(request, startup_id, session_id):
             sync_events = events
             async def async_events():
                 sentinel = object()
-                try:
-                    while True:
-                        event = await sync_to_async(next, thread_sensitive=True)(sync_events, sentinel)
-                        if event is sentinel:
-                            break
-                        yield event
-                finally:
-                    await sync_to_async(sync_events.close, thread_sensitive=True)()
+                while True:
+                    event = await sync_to_async(next, thread_sensitive=True)(sync_events, sentinel)
+                    if event is sentinel:
+                        break
+                    yield event
             events = async_events()
         response = StreamingHttpResponse(events, content_type="text/event-stream; charset=utf-8")
     response["Cache-Control"] = "no-cache"

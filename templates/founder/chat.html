@@ -13,7 +13,7 @@
       {% for message in chat_messages %}
         <div id="message-{{ message.id }}" class="message {% if message.role == 'user' %}message-user{% else %}message-assistant{% endif %}">
           <div class="message-avatar">{% if message.role == 'user' %}{{ request.user.public_name|first|upper }}{% else %}Б{% endif %}</div>
-          <div class="message-body"><div class="message-meta">{% if message.role == 'user' %}Вы{% else %}Бруно{% endif %}<span>{{ message.created_at|date:"H:i" }}</span></div><div class="message-text">{{ message.content|linebreaksbr }}</div>{% for attachment in message.attachments.all %}<div class="attachment-label">▣ {{ attachment.original_name }}</div>{% endfor %}</div>
+          <div class="message-body"><div class="message-meta">{% if message.role == 'user' %}Вы{% else %}Бруно{% endif %}<span>{{ message.created_at|date:"H:i" }}</span></div><div class="message-text">{{ message.content|linebreaksbr }}</div>{% for attachment in message.attachments.all %}<div class="attachment-label">▣ {{ attachment.original_name }}</div>{% endfor %}{% include 'founder/_message_actions.html' %}</div>
         </div>
       {% endfor %}
     </div>
