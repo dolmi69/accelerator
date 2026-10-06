@@ -407,3 +407,37 @@ p { line-height:1.6; }
 .feedback-comment { flex:1 1 180px; min-width:0; border:1px solid #d8e5df; border-radius:10px; padding:5px 9px; font-size:12px; }
 .feedback-save { border:0; background:#16877d; color:#fff; border-radius:10px; padding:5px 10px; font-size:12px; cursor:pointer; }
 .evidence-link { display:inline-block; margin-top:6px; font-size:12px; font-weight:700; color:#16877d; }
+
+/* Панель акул: у каждой акулы свой цвет — бирюза у Тимура, фиолетовый у Олега, коралл у Маргариты. */
+.shark-timur { --shark:#16877d; --shark-soft:#e1f5ee; }
+.shark-oleg { --shark:#534ab7; --shark-soft:#eeedfe; }
+.shark-margarita { --shark:#d85a30; --shark-soft:#faece7; }
+.message-assistant[class*="shark-"] .message-avatar { background:var(--shark); }
+.message-assistant[class*="shark-"] .message-meta { color:var(--shark); }
+.shark-avatar { display:grid; place-items:center; flex:none; width:36px; height:36px; border-radius:50%; color:#fff; background:var(--shark,var(--teal)); font-weight:800; font-size:14px; }
+.panel-card { text-align:left; }
+.panel-sharks { list-style:none; margin:12px 0 0; padding:0; display:grid; gap:8px; }
+.panel-sharks li { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--line); border-radius:12px; transition:border-color .3s,background .3s; }
+.panel-sharks li.is-current { border-color:var(--shark); background:var(--shark-soft); }
+.panel-sharks strong { display:block; font-size:13px; }
+.panel-sharks small { display:block; color:var(--muted); font-size:11px; line-height:1.4; }
+.panel-progress-label { margin:16px 0 6px; font-size:12px; font-weight:700; }
+.panel-progress { height:6px; border-radius:99px; background:#edf2ef; overflow:hidden; }
+.panel-progress i { display:block; height:100%; border-radius:99px; background:var(--teal); }
+.panel-intro { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:24px; align-items:center; }
+.panel-sharks-wide li { padding:12px 14px; }
+.panel-verdict .vote-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin-top:16px; }
+.vote-card { padding:18px; border-radius:14px; border:1px solid #e5e9e6; border-top:4px solid var(--shark); background:#fbfcfa; font-size:13px; line-height:1.6; transition:opacity .5s,transform .5s; }
+.vote-card.is-pending { opacity:.08; transform:translateY(8px); }
+.vote-card .task-criterion { margin:12px 0; }
+.vote-head { display:flex; align-items:center; gap:10px; }
+.vote-head strong { display:block; font-size:14px; }
+.vote-head small { display:block; color:var(--muted); font-size:11px; }
+.vote-badge { margin-left:auto; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:800; white-space:nowrap; }
+.vote-invest { color:#0b625e; background:#e1f5ee; }
+.vote-pass { color:#993c1d; background:#faece7; }
+.panel-reveal-status { min-height:1.4em; margin:6px 0 0; color:var(--muted); font-size:13px; font-weight:700; }
+.investor-history .history-row { grid-template-columns:1fr auto; }
+.vote-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:18px; }
+@media (prefers-reduced-motion:reduce) { .vote-card,.panel-sharks li { transition:none; } }
+@media(max-width:900px) { .panel-intro { grid-template-columns:1fr; } }

@@ -44,7 +44,17 @@
     node.append(avatar, body);
     list.append(node);
     scrollToBottom();
+    content.bubble = { node, avatar, meta };
     return content;
+  }
+
+  // Панель акул: сервер называет говорящего до текста его реплики.
+  function setSpeaker(content, data) {
+    const { node, avatar, meta } = content.bubble;
+    node.className = `message message-assistant shark-${data.speaker}`;
+    avatar.textContent = data.initial || data.name.charAt(0);
+    meta.textContent = data.title ? `${data.name} · ${data.title}` : data.name;
+    content.textContent = `${data.name} думает…`;
   }
 
   form.addEventListener("submit", async (event) => {
@@ -61,7 +71,7 @@
     const finishButton = document.querySelector('[data-pitch-finish] button');
     if (finishButton) finishButton.disabled = true;
     const sent = addMessage("user", text || `Файл: ${attachment.name}`);
-    const answer = addMessage("assistant", "Бруно думает…");
+    let answer = addMessage("assistant", "Бруно думает…");
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 120000);
     let accepted = false;
@@ -116,7 +126,12 @@
           const line = eventText.split("\n").find(item => item.startsWith("data: "));
           if (!line) continue;
           const data = JSON.parse(line.slice(6));
-          if (data.type === "delta") {
+          if (data.type === "speaker") {
+            if (typeof data.name !== "string" || typeof data.speaker !== "string") throw new Error("Неверный формат ответа.");
+            // Пока реплика пуста, переименовываем её; иначе следующий говорящий получает свою.
+            if (started) { answer = addMessage("assistant", ""); started = false; }
+            setSpeaker(answer, data);
+          } else if (data.type === "delta") {
             if (typeof data.text !== "string") throw new Error("Неверный формат ответа.");
             if (!started) { answer.textContent = ""; started = true; }
             answer.textContent += data.text;

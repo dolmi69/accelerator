@@ -6,8 +6,8 @@
 
 Каждая реплика проверяется на стиль (штампы, лишние вопросы, род, Markdown),
 а реплики с полями expect/reject — ещё и по сути: поймано ли противоречие,
-верно ли посчитаны деньги. Сценарии с флагами review/tasks/report заодно
-проверяют радар, «Разбор и план», задания Бруно и разбор тренировки питча.
+верно ли посчитаны деньги. Сценарии с флагами review/tasks/report/vote заодно
+проверяют радар, «Разбор и план», задания Бруно, разбор питча и голосование акул.
 
     python manage.py bruno_eval                 # все сценарии
     python manage.py bruno_eval -s novice -s pitch
@@ -22,6 +22,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from founder.models import ChatMessage, ChatSession, StartupProfile, User
+from founder.services import panel
 from founder.services.ai import AIServiceError, stream_reply
 from founder.services.bruno import founder_gender, style_issues, wants_long_answer
 from founder.services.memory import conversation_context, remember_user_message
@@ -174,6 +175,26 @@ SCENARIOS = {
             {"text": "Не знаю, сколько стоит привлечение", "reject": [r"(?<!\w)ты(?!\w)"]},
         ],
     },
+    "panel": {
+        "about": "Панель акул: три характера, дожим и голосование",
+        "mode": "panel",
+        "vote": True,
+        "startup": {
+            "name": "ДентаСлот", "stage": "validation",
+            "one_line_pitch": "Онлайн-запись и напоминания для частных стоматологий",
+            "target_customer": "Частные стоматологии на 2–6 кресел",
+        },
+        "turns": [
+            "Администратор клиники обзванивала пациентов вручную, два часа в день",
+            "Пока ищем клиентов через знакомых врачей",
+            {"text": "Не знаю, сколько стоит привлечение", "reject": [r"(?<!\w)ты(?!\w)"]},
+            "Прикидываю тысячи три рублей на клинику через рекламу",
+            "Берём 4900 в месяц, за СМС платим около 700",
+            "Три клиники пользуются бесплатно с сентября",
+            "Конкуренты продают большие CRM, мы делаем только запись",
+            {"text": "Команда: я продаю, друг программирует", "reject": [r"(?<!\w)ты(?!\w)"]},
+        ],
+    },
 }
 
 
@@ -236,15 +257,22 @@ class Command(BaseCommand):
                         session=session, role=ChatMessage.Role.ASSISTANT, provider="system",
                         content="Сегодня я инвестор. Кто конкретно принимает решение заплатить за ваш продукт?",
                     )
+                elif scenario.get("mode") == "panel":
+                    session = panel.create_panel(startup)
                 else:
                     session = _create_cofounder_session(startup)
-                lines.append(f"**Бруно:** {session.messages.first().content}\n")
+                for opening in session.messages.order_by("created_at", "id"):
+                    lines.append(f"**{panel.speaker_name(opening.speaker) or 'Бруно'}:** {opening.content}\n")
                 for turn in scenario["turns"]:
                     turn = turn if isinstance(turn, dict) else {"text": turn}
                     text = turn["text"]
                     message = ChatMessage.objects.create(session=session, role=ChatMessage.Role.USER, content=text)
                     remember_user_message(message)
                     context, memories = conversation_context(session, message)
+                    lines.append(f"**Основатель:** {text}\n")
+                    if session.mode == ChatSession.Mode.PANEL:
+                        issues += self.panel_turn(session, context, memories, turn, lines)
+                        continue
                     started = time.monotonic()
                     try:
                         answer = "".join(stream_reply(session, context, memories)).strip()
@@ -257,10 +285,13 @@ class Command(BaseCommand):
                                          gender="male" if pitch else founder_gender(context))
                     found += content_issues(answer, turn)
                     issues += len(found)
-                    lines.append(f"**Основатель:** {text}\n")
                     lines.append(f"**Бруно** ({elapsed:.1f} с, {len(answer)} симв.): {answer}\n")
                     if found:
                         lines.append("> ⚠ " + "; ".join(found) + "\n")
+                if scenario.get("vote"):
+                    report, found = self.panel_vote(session)
+                    lines.extend(report)
+                    issues += found
                 if scenario.get("review") or scenario.get("radar_reject_above"):
                     report, found = self.radar_and_review(startup, scenario)
                     lines.extend(report)
@@ -277,6 +308,57 @@ class Command(BaseCommand):
         except _Rollback:
             pass
         return lines, issues
+
+    def panel_turn(self, session, context, memories, turn, lines):
+        """Ход акулы: реплика соседа отдельно, основной ответ проверяется как реплика инвестора."""
+        current = panel.next_turn(session)
+        parts = [[current.speaker, ""]]
+        started = time.monotonic()
+        try:
+            for kind, value in panel.split_aside(stream_reply(session, context, memories, turn=current),
+                                                 current.speaker):
+                if kind == "speaker":
+                    parts.append([value, ""])
+                else:
+                    parts[-1][1] += value
+        except AIServiceError as exc:
+            parts = [[current.speaker, f"[ОШИБКА] {exc}"]]
+        elapsed = time.monotonic() - started
+        parts = [(speaker, text.strip()) for speaker, text in parts if text.strip()]
+        found = []
+        for index, (speaker, text) in enumerate(parts):
+            ChatMessage.objects.create(session=session, role=ChatMessage.Role.ASSISTANT, speaker=speaker, content=text)
+            aside = index < len(parts) - 1
+            label = f"{panel.speaker_name(speaker)}{' (реплика)' if aside else ''}"
+            if current.pressing and not aside:
+                label += ", дожим"
+            lines.append(f"**{label}** ({elapsed:.1f} с, {len(text)} симв.): {text}\n")
+            if aside:
+                if "?" in text or len(text) > panel.ASIDE_LIMIT:
+                    found.append("реплика соседа с вопросом или слишком длинная")
+                continue
+            found += style_issues(text, pitch=True, gender="male", self_female=speaker == "margarita")
+            found += content_issues(text, turn)
+        if found:
+            lines.append("> ⚠ " + "; ".join(found) + "\n")
+        return len(found)
+
+    def panel_vote(self, session):
+        started = time.monotonic()
+        try:
+            verdict = panel.run_vote(session)
+        except (AIServiceError, ValueError) as exc:
+            return [f"\n### Голосование\n\n[ОШИБКА] {exc}\n"], 1
+        lines = [f"\n### Голосование ({time.monotonic() - started:.1f} с): {verdict.invested} из 3\n"]
+        issues = 0
+        for vote in verdict.votes:
+            lines.append(f"- {panel.speaker_name(vote['shark'])}: {vote['decision']}. {vote['reason']} "
+                         f"Цитата: «{vote['quote'] or 'нет'}». Условие: {vote['condition']['title']}. "
+                         f"{vote['condition']['success_criterion']}")
+            issues += 0 if vote["quote"] else 1
+        if not issues:
+            return lines + [""], 0
+        return lines + [f"> ⚠ голосов без настоящей цитаты: {issues}", ""], issues
 
     def radar_and_review(self, startup, scenario):
         from founder.services.radar_assessment import assess_startup

@@ -53,7 +53,12 @@ def long_answer_requested(session, messages):
     return session.mode == ChatSession.Mode.COFOUNDER and wants_long_answer(_last_founder_text(messages))
 
 
-def system_prompt(session, memories, messages=None, economics=""):
+def system_prompt(session, memories, messages=None, economics="", turn=None):
+    if session.mode == ChatSession.Mode.PANEL:
+        from founder.services.panel import next_turn, panel_prompt
+
+        return panel_prompt(session, turn or next_turn(session), memories, messages, economics)
+
     from founder.services.bruno import (
         EXAMPLES, LONG_ANSWER_GUIDE, MENTOR_CHECKS, PERSONA, REVIEW_HINT, SITUATIONS, STYLE,
         WRITING_RULES, conversation_notes, founder_name, project_status, stage_playbook, wants_review,
@@ -160,9 +165,13 @@ def system_prompt(session, memories, messages=None, economics=""):
                      "ровно один вопрос, без второго вопроса через «и».")
 
 
-def _demo_reply(session, messages):
+def _demo_reply(session, messages, turn=None):
     latest = next((item["content"] for item in reversed(messages) if item["role"] == "user"), "")
-    if session.mode == ChatSession.Mode.PITCH:
+    if session.mode == ChatSession.Mode.PANEL:
+        from founder.services.panel import demo_reply, next_turn
+
+        reply = demo_reply(session, turn or next_turn(session))
+    elif session.mode == ChatSession.Mode.PITCH:
         prompts = [
             "Какую конкретную проблему вы решаете и сколько клиентов уже подтвердили, что готовы платить?",
             "Какие у вас выручка, рост за последние три месяца и источник этих цифр?",
@@ -189,27 +198,42 @@ def _demo_reply(session, messages):
         yield reply[index:index + 28]
 
 
-def stream_reply(session, messages, memories):
-    """Возвращает текстовые фрагменты без привязки view к поставщику API."""
+def stream_reply(session, messages, memories, turn=None):
+    """Возвращает текстовые фрагменты без привязки view к поставщику API.
+
+    turn — ход панели акул (кто говорит и как); для остальных режимов не нужен.
+    """
     from founder.services.bruno import founder_gender, polish_stream, tidy_stream
 
+    if session.mode == ChatSession.Mode.PANEL and turn is None:
+        from founder.services.panel import next_turn
+
+        turn = next_turn(session)
     single_question = not long_answer_requested(session, messages)
     # Инвестор в тренировке обращается на «вы», там род не угадывается.
     gender = founder_gender(messages) if session.mode == ChatSession.Mode.COFOUNDER else "male"
-    yield from polish_stream(tidy_stream(_provider_stream(session, messages, memories)),
-                             single_question=single_question, gender=gender)
+    self_male = not (turn and turn.speaker == "margarita")
+    yield from polish_stream(tidy_stream(_provider_stream(session, messages, memories, turn)),
+                             single_question=single_question, gender=gender, self_male=self_male)
 
 
-def _provider_stream(session, messages, memories):
+def _provider_stream(session, messages, memories, turn=None):
     provider = settings.AI_PROVIDER
     if provider == "demo":
-        yield from _demo_reply(session, messages)
+        yield from _demo_reply(session, messages, turn)
         return
 
     from founder.services.economics import economics_note, unit_economics
 
-    economics = economics_note(unit_economics([m["content"] for m in messages if m["role"] == "user"]))
-    prompt = system_prompt(session, memories, messages, economics=economics)
+    founder_texts = [m["content"] for m in messages if m["role"] == "user"]
+    if turn is None:
+        economics = economics_note(unit_economics(founder_texts))
+    elif turn.speaker == "margarita":
+        # В панели деньги считает только Маргарита, зато по всему рассказу, а не по последней реплике.
+        economics = economics_note(unit_economics(founder_texts, latest_only=False))
+    else:
+        economics = ""
+    prompt = system_prompt(session, memories, messages, economics=economics, turn=turn)
     # Разбору и плану нужен запас длины; обычные ответы остаются короткими.
     max_tokens = settings.AI_MAX_OUTPUT_TOKENS * (2 if long_answer_requested(session, messages) else 1)
     token_override = (max_tokens,) if max_tokens != settings.AI_MAX_OUTPUT_TOKENS else ()

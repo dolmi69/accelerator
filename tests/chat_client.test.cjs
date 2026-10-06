@@ -99,3 +99,24 @@ test('double submit makes only one HTTP request', async () => {
   resolve(rejectedResponse(429, 'Подождите'));
   await first;
 });
+
+test('panel stream names each shark and gives the main reply its own bubble', async () => {
+  const margarita = { type: 'speaker', speaker: 'margarita', name: 'Маргарита', title: 'финансист-скептик', initial: 'М' };
+  const app = setup(async () => streamResponse([
+    margarita,
+    { type: 'speaker', speaker: 'timur', name: 'Тимур', title: 'продуктовик', initial: 'Т' },
+    { type: 'delta', text: 'Дай человеку рассказать.' },
+    margarita,
+    { type: 'delta', text: 'Сколько стоит клиент?' },
+    { type: 'done' },
+  ]));
+  await app.submit();
+  const [, aside, main] = app.elements['message-list'].children;
+  assert.equal(app.elements['message-list'].children.length, 3); // Founder, Timur's aside, Margarita.
+  assert.equal(aside.className, 'message message-assistant shark-timur');
+  assert.equal(aside.children[1].children[1].textContent, 'Дай человеку рассказать.');
+  assert.equal(main.children[0].textContent, 'М');
+  assert.equal(main.children[1].children[0].textContent, 'Маргарита · финансист-скептик');
+  assert.equal(main.children[1].children[1].textContent, 'Сколько стоит клиент?');
+  assert.equal(app.destination(), '/chat/test/');
+});

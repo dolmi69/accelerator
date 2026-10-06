@@ -332,7 +332,7 @@ def stage_playbook(stage):
     return STARTUP_PLAYBOOK_COMMON + "\n" + STAGE_PLAYBOOK.get(stage, STAGE_PLAYBOOK["idea"])
 
 
-def style_issues(text, *, long_form=False, pitch=False, gender=None):
+def style_issues(text, *, long_form=False, pitch=False, gender=None, self_female=False):
     """Замечания к ответу для прогонов bruno_eval и тестов."""
     issues = []
     lowered = text.lower()
@@ -358,7 +358,7 @@ def style_issues(text, *, long_form=False, pitch=False, gender=None):
     gendered = GENDERED_YOU_RE.search(text) if gender is None else None
     if gendered:
         issues.append(f"угадан род: «{gendered.group()}»")
-    if re.search(r"(?<!\w)(?:Рада|я рада)(?!\w)", text):
+    if not self_female and re.search(r"(?<!\w)(?:Рада|я рада)(?!\w)", text):
         issues.append("Бруно о себе в женском роде")
     last_sentence = re.split(r"(?<=[.!?…])\s+", text.strip())[-1] if text.strip() else ""
     if GENERIC_CLOSER_RE.fullmatch(last_sentence):
@@ -584,7 +584,9 @@ PHRASE_FIXES = (
     (re.compile(r"(?<!\w)Важно понимать"), "Надо понять"),
     (re.compile(r"(?<!\w)важно понимать"), "надо понять"),
     (re.compile(r"[Уу]никальн\w* торгов\w* предложени\w*"), "отличие от конкурентов"),
-    # Бруно говорит о себе в мужском роде.
+)
+# Бруно говорит о себе в мужском роде. Маргарите из панели акул эта правка не нужна.
+MALE_SELF_FIXES = (
     (re.compile(r"(?<!\w)Рада(?=\s+(?:слышать|видеть|помочь|знать|что|за\b))"), "Рад"),
     (re.compile(r"(?<!\w)([Яя]) рада(?!\w)"), r"\1 рад"),
 )
@@ -604,13 +606,13 @@ def _fit_gender(sentence, gender):
 SELF_CONTAINED_QUESTION = 40
 
 
-def _fix_phrases(sentence):
-    for pattern, replacement in PHRASE_FIXES:
+def _fix_phrases(sentence, self_male=True):
+    for pattern, replacement in PHRASE_FIXES + (MALE_SELF_FIXES if self_male else ()):
         sentence = pattern.sub(replacement, sentence)
     return sentence
 
 
-def polish_stream(chunks, *, single_question=True, gender=None):
+def polish_stream(chunks, *, single_question=True, gender=None, self_male=True):
     """Правка по предложениям без отказа от потоковой выдачи.
 
     Исправляет частые штампы и, если нужен один вопрос, из двух вопросов подряд
@@ -621,7 +623,7 @@ def polish_stream(chunks, *, single_question=True, gender=None):
 
     def process(sentence):
         nonlocal held
-        sentence = _fit_gender(_fix_phrases(sentence), gender)
+        sentence = _fit_gender(_fix_phrases(sentence, self_male), gender)
         is_question = sentence.rstrip().rstrip("»\")").endswith("?")
         if not single_question or not is_question:
             out, held = held + sentence, ""

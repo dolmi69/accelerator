@@ -39,7 +39,7 @@ def query_stems(text, limit=10):
 
 def remember_user_message(message):
     """Сохранить исходный текст без выдачи непроверенных слов за факты."""
-    if message.session.mode == ChatSession.Mode.PITCH:
+    if message.session.is_training:
         return None
     attachment_text = "\n".join(
         attachment.extracted_text[:4000]
@@ -98,6 +98,8 @@ def conversation_context(session, latest_message):
     )
     memories = relevant_memories(session.startup, query, recent_ids)
 
+    from founder.services.panel import speaker_name
+
     messages = []
     for message in recent:
         parts = [message.content.strip()]
@@ -108,6 +110,12 @@ def conversation_context(session, latest_message):
                 if attachment.extracted_text
             )
         content = "\n\n".join(part for part in parts if part)
+        if content and message.speaker:
+            # Панель акул: модель видит, кто из акул что спросил; подряд идущие реплики склеиваем.
+            content = f"{speaker_name(message.speaker)}: {content}"
+            if messages and messages[-1]["role"] == message.role:
+                messages[-1]["content"] = (messages[-1]["content"] + "\n" + content)[-9000:]
+                continue
         if content:
             messages.append({"role": message.role, "content": content[:9000]})
     return messages, memories

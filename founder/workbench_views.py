@@ -15,6 +15,7 @@ from django.views.decorators.http import require_POST
 from founder.forms import EvidenceForm
 from founder.models import BrunoTask, BusinessAxis, ChatMessage, ChatSession, EvidenceEntry, StartupProfile
 from founder.services.ai import AIServiceError
+from founder.services.panel import ORDER as SHARK_ORDER, shark_info
 from founder.services.review import create_review, guess_axis, step_to_task
 from founder.services.workbench import generate_tasks
 
@@ -111,9 +112,11 @@ def evidence_edit(request, startup_id, entry_id=None):
 @login_required
 def investor(request, startup_id):
     startup = owned_startup(request, startup_id)
+    sessions = list(startup.chat_sessions.filter(mode__in=[ChatSession.Mode.PITCH, ChatSession.Mode.PANEL])
+                    .select_related('pitch_report', 'panel_verdict')[:20])
     return render(request, 'founder/investor.html', {
-        'startup': startup, 'workspace_tab': 'investor',
-        'sessions': startup.chat_sessions.filter(mode=ChatSession.Mode.PITCH).select_related('pitch_report')[:20],
+        'startup': startup, 'workspace_tab': 'investor', 'sessions': sessions,
+        'sharks': [shark_info(key) for key in SHARK_ORDER],
     })
 
 

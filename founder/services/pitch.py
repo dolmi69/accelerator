@@ -26,10 +26,7 @@ REPORT_SCHEMA = {
         }},
     }, 'required': ['score', 'summary', 'mistakes'], 'additionalProperties': False,
 }
-REPORT_PROMPT = (
-    'Ты Бруно, тренер разговора с инвестором. Оцени на русском качество ответов '
-    'основателя о продажах: ясность покупателя, цена, реальные сделки, период выручки, '
-    'каналы и стоимость привлечения, цикл продажи и повторные покупки. '
+REPORT_RULES = (
     'Оцени именно ответы, а не вероятность успеха бизнеса. Не снижай оценку только '
     'из-за ранней стадии и отсутствия выручки: оцени честность и план проверки. '
     'Верни JSON по схеме. summary: сильные стороны, пробелы и ограниченность разбора '
@@ -53,6 +50,11 @@ REPORT_PROMPT = (
     '{"score": 0-100, "summary": "строка", "mistakes": [{"title": "...", '
     '"detail": "...", "recommendation": "...", "quote": "дословно из ответа основателя"}]}'
 )
+REPORT_PROMPT = (
+    'Ты Бруно, тренер разговора с инвестором. Оцени на русском качество ответов '
+    'основателя о продажах: ясность покупателя, цена, реальные сделки, период выручки, '
+    'каналы и стоимость привлечения, цикл продажи и повторные покупки. '
+) + REPORT_RULES
 SUMMARY_LABELS = (('strengths', 'Сильные стороны'), ('gaps', 'Пробелы'), ('weaknesses', 'Пробелы'),
                   ('limitations', 'Ограничения'))
 
@@ -167,6 +169,38 @@ def _source_quote(quote, answers):
     raise ValueError('Unsupported quote')
 
 
+def _transcript(session):
+    # Only answered turns are material for the report. A pending question
+    # must not turn into a fabricated failure to answer it.
+    turns = list(session.messages.all().order_by('created_at', 'id'))
+    last_answer = max(i for i, message in enumerate(turns) if message.role == 'user')
+    return '\n'.join(
+        f'{message.get_role_display()}: {message.content}'
+        for message in turns[:last_answer + 1]
+    )[-18000:]
+
+
+def report_payload(session, user_messages, prompt=REPORT_PROMPT, *, transcript=_transcript):
+    """Оценка, итог и замечания по ответам основателя; один повтор при неверном формате."""
+    if settings.AI_PROVIDER == "demo":
+        return normalise_report(_demo_report(user_messages), user_messages, verify_quotes=False)
+    from founder.services.workbench import evidence_context
+    diary, _ = evidence_context(session.startup, limit=4)
+    context = (f'Проект: {session.startup.name}. {session.startup.one_line_pitch}. '
+               f'Клиент: {session.startup.target_customer[:1500]}.\n{diary}\n'
+               f'Последняя часть тренировочного интервью (разбирай только её):\n{transcript(session)}')
+    request = prompt
+    for attempt in range(2):
+        try:
+            return normalise_report(
+                load_model_json(complete_text(request, context, json_schema=REPORT_SCHEMA)), user_messages)
+        except (ValueError, AIResponseFormatError) as exc:
+            if attempt == 1:
+                raise AIServiceError('Модель вернула неполный отчёт. Попробуйте ещё раз.') from exc
+            request = prompt + ('\nПрошлый ответ не прошёл проверку. Верни один JSON с полями '
+                                'score (целое 0–100), summary (строка) и mistakes (список).')
+
+
 def finish_pitch(session):
     if session.mode != ChatSession.Mode.PITCH:
         raise ValueError("Это не сессия питча.")
@@ -180,35 +214,7 @@ def finish_pitch(session):
     if not user_messages:
         raise ValueError("Сначала ответьте хотя бы на один вопрос инвестора.")
 
-    if settings.AI_PROVIDER == "demo":
-        data = _demo_report(user_messages)
-    else:
-        # Only answered turns are material for the report. A pending question
-        # must not turn into a fabricated failure to answer it.
-        turns = list(session.messages.all().order_by('created_at', 'id'))
-        last_answer = max(i for i, message in enumerate(turns) if message.role == 'user')
-        transcript = '\n'.join(
-            f'{message.get_role_display()}: {message.content}'
-            for message in turns[:last_answer + 1]
-        )[-18000:]
-        from founder.services.workbench import evidence_context
-        diary, _ = evidence_context(session.startup, limit=4)
-        context = (f'Проект: {session.startup.name}. {session.startup.one_line_pitch}. '
-                   f'Клиент: {session.startup.target_customer[:1500]}.\n{diary}\n'
-                   f'Последняя часть тренировочного интервью (разбирай только её):\n{transcript}')
-        prompt = REPORT_PROMPT
-        for attempt in range(2):
-            try:
-                score, summary, mistakes = normalise_report(
-                    load_model_json(complete_text(prompt, context, json_schema=REPORT_SCHEMA)), user_messages)
-                break
-            except (ValueError, AIResponseFormatError) as exc:
-                if attempt == 1:
-                    raise AIServiceError('Модель вернула неполный отчёт. Попробуйте ещё раз.') from exc
-                prompt = REPORT_PROMPT + ('\nПрошлый ответ не прошёл проверку. Верни один JSON с полями '
-                                          'score (целое 0–100), summary (строка) и mistakes (список).')
-    if settings.AI_PROVIDER == 'demo':
-        score, summary, mistakes = normalise_report(data, user_messages, verify_quotes=False)
+    score, summary, mistakes = report_payload(session, user_messages)
 
     with transaction.atomic():
         locked = ChatSession.objects.select_for_update().get(pk=session.pk)
