@@ -2,10 +2,13 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.urls import reverse_lazy
 
-from founder import views, workbench_views
+from founder import views, workbench_views, lab_views
 
 
 urlpatterns = [
+    path('startups/<uuid:startup_id>/lab/', lab_views.lab, name='lab'),
+    path('startups/<uuid:startup_id>/lab/generate/', lab_views.lab_generate, name='lab_generate'),
+    path('startups/<uuid:startup_id>/lab/<uuid:version_id>/preview/', lab_views.lab_preview, name='lab_preview'),
     path('startups/<uuid:startup_id>/tasks/', workbench_views.tasks, name='tasks'),
     path('startups/<uuid:startup_id>/tasks/generate/', workbench_views.tasks_generate, name='tasks_generate'),
     path('startups/<uuid:startup_id>/tasks/<uuid:task_id>/skip/', workbench_views.task_skip, name='task_skip'),

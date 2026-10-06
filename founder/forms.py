@@ -42,6 +42,18 @@ class StartupForm(forms.ModelForm):
         }
 
 
+class LabPromptForm(forms.Form):
+    prompt = forms.CharField(
+        label="Что создать или изменить",
+        max_length=2000,
+        widget=forms.Textarea(attrs={
+            "rows": 5,
+            "maxlength": 2000,
+            "placeholder": "Например: сделай адаптивную страницу о здоровом сне с тремя советами и раскрывающимися карточками",
+        }),
+    )
+
+
 class MetricsForm(forms.ModelForm):
     assessment_notes = forms.CharField(label="Общий вывод и следующий шаг", max_length=3000,
                                       required=False, widget=forms.Textarea(attrs={"rows": 3}))

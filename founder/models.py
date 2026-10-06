@@ -97,6 +97,24 @@ class StartupProfile(models.Model):
         return self.name
 
 
+class LabSiteVersion(models.Model):
+    """Private, immutable versions of a generated single-page site."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="lab_versions")
+    source = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name="derived_versions")
+    prompt = models.TextField(max_length=2000)
+    html = models.TextField(max_length=128000)
+    model = models.CharField(max_length=100)
+    input_tokens = models.PositiveIntegerField(null=True, blank=True)
+    output_tokens = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
 class StartupMetrics(models.Model):
     """Снимок радара: старые оценки не перезаписываются."""
 

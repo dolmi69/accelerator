@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Лаборатория сайтов · {{ startup.name }}{% endblock %}
+{% block content %}
+{% include 'founder/_workspace_nav.html' %}
+
+<div class="page-heading work-heading">
+  <div>
+    <span class="eyebrow">ПРОТОТИП ПРЯМО В ПРОЕКТЕ</span>
+    <h1>Лаборатория сайтов</h1>
+    <p>{{ startup.name }} · Опишите страницу, и Бруно соберёт рабочий макет.</p>
+  </div>
+</div>
+
+<div class="lab-layout">
+  <section class="card lab-editor" aria-labelledby="lab-editor-title">
+    <span class="eyebrow">СОЗДАТЬ ИЛИ ДОРАБОТАТЬ</span>
+    <h2 id="lab-editor-title">Расскажите, что должно быть на сайте</h2>
+    <p class="muted small">Можно описать внешний вид, текст и поведение кнопок. Создание занимает до нескольких минут.</p>
+    <form method="post" action="{% url 'lab_generate' startup.id %}" id="lab-form">
+      {% csrf_token %}
+      {% if selected %}<input type="hidden" name="source_version" value="{{ selected.id }}">{% endif %}
+      {% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      <label class="field lab-field" for="{{ form.prompt.id_for_label }}">
+        <span>{{ form.prompt.label }}</span>
+        {{ form.prompt }}
+        {% if form.prompt.errors %}<small class="field-error">{{ form.prompt.errors|striptags }}</small>{% endif %}
+      </label>
+      {% if selected %}<label class="lab-new-option"><input type="checkbox" name="start_new" value="1"> Создать новый сайт вместо правки этой версии</label>{% endif %}
+      <div class="work-actions">
+        <button type="submit" class="button primary">{% if selected %}Доработать сайт{% else %}Создать сайт{% endif %}</button>
+        <span class="muted small" id="lab-status" role="status" aria-live="polite"></span>
+      </div>
+    </form>
+    <p class="muted small lab-privacy">Макет виден только вам. Это черновик: проверьте тексты, факты и контакты. Сейчас страница не собирает действия посетителей и не публикуется для других людей.</p>
+  </section>
+
+  <section class="card lab-preview-card" aria-labelledby="lab-preview-title">
+    <div class="section-top">
+      <div><span class="eyebrow">РЕЗУЛЬТАТ</span><h2 id="lab-preview-title">Просмотр сайта</h2></div>
+      {% if selected %}<span class="score-badge">{{ selected.created_at|date:'d.m.Y H:i' }}</span>{% endif %}
+    </div>
+    {% if selected %}
+      <p class="muted small">Версия создана по запросу: {{ selected.prompt }}</p>
+      <div class="lab-browser">
+        <div class="lab-browser-bar" aria-hidden="true"><span></span><span></span><span></span><strong>Предпросмотр</strong></div>
+        <iframe class="lab-frame" title="Предпросмотр сайта для проекта {{ startup.name }}" src="{% url 'lab_preview' startup.id selected.id %}" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
+      </div>
+    {% else %}
+      <div class="lab-empty"><span aria-hidden="true">✦</span><h3>Здесь появится ваш сайт</h3><p>Опишите простую страницу слева. После создания её можно будет дорабатывать сообщениями.</p></div>
+    {% endif %}
+  </section>
+</div>
+
+{% if versions %}
+<section class="card lab-versions" aria-labelledby="lab-versions-title">
+  <div class="section-top"><div><span class="eyebrow">ИСТОРИЯ</span><h2 id="lab-versions-title">Сохранённые версии</h2></div></div>
+  <div class="lab-version-list">
+    {% for version in versions %}
+      <a href="{% url 'lab' startup.id %}?version={{ version.id }}" {% if selected.id == version.id %}aria-current="page"{% endif %}>
+        <strong>{{ version.prompt|truncatechars:110 }}</strong>
+        <small>{{ version.created_at|date:'d.m.Y H:i' }}{% if not version.source_id %} · новый сайт{% endif %}</small>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/lab.js' %}" defer></script>{% endblock %}

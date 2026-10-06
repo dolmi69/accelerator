@@ -358,6 +358,32 @@ p { line-height:1.6; }
 }
 
 .work-heading h1 { font-size:clamp(26px,3.5vw,40px); line-height:1.2; margin:10px 0; }
+.lab-layout { display:grid; grid-template-columns:minmax(280px,.75fr) minmax(0,1.5fr); gap:20px; align-items:start; }
+.lab-editor,.lab-preview-card,.lab-versions { padding:28px; }
+.lab-editor h2,.lab-preview-card h2,.lab-versions h2 { margin:10px 0 12px; font-size:22px; }
+.lab-editor p,.lab-preview-card p { line-height:1.55; }
+.lab-field { display:grid; gap:10px; margin:18px 0 12px; }
+.lab-field textarea { display:block; width:100%; min-height:160px; padding:14px; border:1px solid #d7e2dc; border-radius:12px; background:#fff; resize:vertical; }
+.lab-new-option { display:flex; align-items:flex-start; gap:8px; margin:10px 0; color:var(--muted); font-size:13px; }
+.lab-new-option input { margin-top:2px; }
+.lab-privacy { margin-top:22px; }
+.lab-browser { overflow:hidden; border:1px solid #d8e5df; border-radius:14px; background:#fff; }
+.lab-browser-bar { display:flex; align-items:center; gap:6px; height:38px; padding:0 13px; background:#eff4f1; border-bottom:1px solid #d8e5df; }
+.lab-browser-bar span { width:8px; height:8px; border-radius:50%; background:#a8c9bb; }
+.lab-browser-bar strong { margin-left:8px; color:#5a766b; font-size:11px; font-weight:600; }
+.lab-frame { display:block; width:100%; height:620px; border:0; background:#fff; }
+.lab-empty { display:grid; justify-items:center; align-content:center; min-height:400px; padding:30px; border:1px dashed #cbded3; border-radius:14px; text-align:center; background:#f8fbf8; }
+.lab-empty span { font-size:42px; color:var(--teal); }
+.lab-empty h3 { margin:10px 0 0; }
+.lab-empty p { max-width:360px; }
+.lab-versions { margin-top:20px; }
+.lab-version-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+.lab-version-list a { display:grid; gap:8px; padding:14px; border:1px solid #d9e7de; border-radius:12px; text-decoration:none; color:var(--ink); overflow-wrap:anywhere; }
+.lab-version-list a[aria-current="page"],.lab-version-list a:hover { border-color:var(--teal); background:#f0f8f3; }
+.lab-version-list small { color:var(--muted); }
+@media(max-width:950px) { .lab-layout { grid-template-columns:1fr; } }
+@media(max-width:680px) { .lab-editor,.lab-preview-card,.lab-versions { padding:20px; } .lab-frame { height:540px; } }
+@media(max-width:680px) { body:has(.lab-field textarea:focus) .bruno-pet { visibility:hidden; } }
 .work-heading p { max-width:680px; }
 
 .investor-quote { border-left:3px solid #81b7a1; padding:10px 14px; margin:16px 0; background:#f2f7f3; font-size:13px; line-height:1.6; }
