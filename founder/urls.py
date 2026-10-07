@@ -2,12 +2,24 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.urls import reverse_lazy
 
-from founder import views, workbench_views, lab_views
+from founder import views, workbench_views, lab_views, lab_testing_views
 
 
 urlpatterns = [
     path('startups/<uuid:startup_id>/lab/', lab_views.lab, name='lab'),
     path('startups/<uuid:startup_id>/lab/generate/', lab_views.lab_generate, name='lab_generate'),
+    path('startups/<uuid:startup_id>/lab/customize/', lab_views.lab_customize, name='lab_customize'),
+    path('startups/<uuid:startup_id>/lab/backend/create/', lab_views.lab_backend_create, name='lab_backend_create'),
+    path('startups/<uuid:startup_id>/lab/backend/stop/', lab_views.lab_stop, name='lab_stop'),
+    path('startups/<uuid:startup_id>/lab/<uuid:version_id>/download/', lab_views.lab_download, name='lab_download'),
+    path('startups/<uuid:startup_id>/lab/<uuid:version_id>/run/', lab_views.lab_run, name='lab_run'),
+    path('startups/<uuid:startup_id>/lab/publish/', lab_testing_views.lab_publish, name='lab_publish'),
+    path('community/<uuid:startup_id>/lab/', lab_testing_views.lab_trial, name='lab_trial'),
+    path('community/<uuid:startup_id>/lab/<uuid:version_id>/preview/', lab_testing_views.lab_public_preview, name='lab_public_preview'),
+    path('community/<uuid:startup_id>/lab/start/', lab_testing_views.lab_test_start, name='lab_test_start'),
+    path('community/<uuid:startup_id>/lab/tests/<uuid:session_id>/preview/', lab_testing_views.lab_test_preview, name='lab_test_preview'),
+    path('community/<uuid:startup_id>/lab/tests/<uuid:session_id>/events/', lab_testing_views.lab_test_events, name='lab_test_events'),
+    path('community/<uuid:startup_id>/lab/tests/<uuid:session_id>/finish/', lab_testing_views.lab_test_finish, name='lab_test_finish'),
     path('startups/<uuid:startup_id>/lab/<uuid:version_id>/preview/', lab_views.lab_preview, name='lab_preview'),
     path('startups/<uuid:startup_id>/tasks/', workbench_views.tasks, name='tasks'),
     path('startups/<uuid:startup_id>/tasks/generate/', workbench_views.tasks_generate, name='tasks_generate'),

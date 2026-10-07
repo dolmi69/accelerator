@@ -120,6 +120,22 @@ QWEN_CODE_MAX_TOKENS = int(os.getenv("QWEN_CODE_MAX_TOKENS", "8192"))
 QWEN_CODE_TIMEOUT = float(os.getenv("QWEN_CODE_TIMEOUT", "180"))
 LAB_REQUESTS_PER_DAY = int(os.getenv("LAB_REQUESTS_PER_DAY", "10"))
 LAB_GLOBAL_REQUESTS_PER_DAY = int(os.getenv("LAB_GLOBAL_REQUESTS_PER_DAY", "30"))
+# Trusted local blueprint only. Public deployment needs a separate runtime host.
+LAB_BACKEND_RUNTIME_ENABLED = os.getenv("LAB_BACKEND_RUNTIME_ENABLED", "1" if DEBUG else "0") == "1"
+LAB_BACKEND_MAX_RUNNING = 3
+LAB_CREATE_MAX_TOKENS = int(os.getenv("LAB_CREATE_MAX_TOKENS", "6144"))
+LAB_PATCH_MAX_TOKENS = int(os.getenv("LAB_PATCH_MAX_TOKENS", "2048"))
+QWEN_INPUT_BYTE_LIMIT = int(os.getenv("QWEN_INPUT_BYTE_LIMIT", "32000"))
+# RUB / million tokens, native Cloud.ru Qwen3-Coder-Next daytime rate incl. VAT.
+# A model change requires its own matching price settings; no cheap-model fallback.
+QWEN_PRICE_MODEL = os.getenv("QWEN_PRICE_MODEL", "Qwen/Qwen3-Coder-Next")
+QWEN_INPUT_RUB_PER_MILLION = os.getenv("QWEN_INPUT_RUB_PER_MILLION", "122")
+QWEN_OUTPUT_RUB_PER_MILLION = os.getenv("QWEN_OUTPUT_RUB_PER_MILLION", "244")
+LAB_MAX_REQUEST_RUB = os.getenv("LAB_MAX_REQUEST_RUB", "10")
+LAB_USER_DAILY_RUB = os.getenv("LAB_USER_DAILY_RUB", "20")
+LAB_USER_MONTHLY_RUB = os.getenv("LAB_USER_MONTHLY_RUB", "100")
+LAB_GLOBAL_DAILY_RUB = os.getenv("LAB_GLOBAL_DAILY_RUB", "200")
+LAB_GLOBAL_MONTHLY_RUB = os.getenv("LAB_GLOBAL_MONTHLY_RUB", "2000")
 AI_MAX_OUTPUT_TOKENS = 900
 AI_REQUESTS_PER_MINUTE = int(os.getenv("AI_REQUESTS_PER_MINUTE", "12"))
 AI_REQUESTS_PER_DAY = int(os.getenv("AI_REQUESTS_PER_DAY", "200"))
@@ -150,3 +166,4 @@ CSRF_TRUSTED_ORIGINS = [value.strip() for value in os.getenv("DJANGO_CSRF_TRUSTE
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_MINI_APP_URL = os.getenv("TELEGRAM_MINI_APP_URL", "")
 CHAT_BUFFERED_RESPONSES = os.getenv("CHAT_BUFFERED_RESPONSES", "0") == "1"
+BRUNO_HISTORY_CHAR_LIMIT = max(9000, min(60000, int(os.getenv("BRUNO_HISTORY_CHAR_LIMIT", "20000"))))

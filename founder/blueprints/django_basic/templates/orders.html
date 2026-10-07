@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block content %}<section class="card"><h1>Заказы</h1>{% for order in page %}<a class="list-row" href="{% url 'order' order.pk %}"><span>Заказ №{{ order.pk }} · {{ order.get_status_display }}</span><strong>{{ order.total }} ₽</strong></a>{% empty %}<p>Заказов пока нет.</p>{% endfor %}{% include 'pagination.html' %}</section>{% endblock %}

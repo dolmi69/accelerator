@@ -1,0 +1,14 @@
+{% if selected %}
+<div class="lab-publish-compact" id="lab-publication">
+  <form method="post" action="{% url 'lab_publish' startup.id %}" class="lab-publish-row">
+    {% csrf_token %}<input type="hidden" name="version" value="{{ selected.pk }}">
+    <button class="button ghost" type="submit">Добавить в карточку</button>
+    <fieldset class="lab-audience"><legend class="sr-only">Доступ к прототипу</legend>
+      <label><input type="radio" name="visibility" value="private" {% if not publication or publication.visibility == 'private' %}checked{% endif %}><span>Приватно</span></label>
+      <label><input type="radio" name="visibility" value="public" {% if publication.visibility == 'public' %}checked{% endif %}><span>Для всех</span></label>
+    </fieldset>
+  </form>
+  {% if publication %}<p class="muted small">В карточке: {{ publication.version.created_at|date:'d.m.Y H:i' }} · {{ publication.get_visibility_display }}.</p>{% endif %}
+  <details class="lab-publish-help"><summary>Кто увидит прототип?</summary><p class="muted small">Приватно — только вы. Для всех — посетители опубликованной карточки. В карточке показывается макет главной страницы; локальные аккаунты и чаты не публикуются.</p>{% if not card_published %}<a class="evidence-link" href="{% url 'card_edit' startup.id %}">Опубликовать карточку проекта →</a>{% endif %}</details>
+</div>
+{% endif %}

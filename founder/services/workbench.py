@@ -88,7 +88,10 @@ def evidence_context(startup, limit=12):
         entries.append(f'{entry.observed_on:%Y-%m-%d} [{ref}] {text}')
     heading = ('Дневник содержит сведения со слов основателя. Источники не проверялись '
                'независимо; отрицательные и неясные результаты тоже учитывай.\n')
-    return heading + ('\n'.join(entries) or 'Пока нет записей.'), sources
+    from founder.services.lab_testing import laboratory_context
+    lab_text, lab_sources = laboratory_context(startup)
+    sources.update(lab_sources)
+    return heading + ('\n'.join(entries) or 'Пока нет записей.') + ('\n' + lab_text if lab_text else ''), sources
 
 
 def demo_tasks(axes):

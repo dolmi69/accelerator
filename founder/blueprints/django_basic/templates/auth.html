@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block content %}<section class="card auth"><span class="eyebrow">{{ project_site.name }}</span><h1>{{ heading }}</h1>
+<form method="post">{% csrf_token %}{{ form.as_p }}
+{% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}<button type="submit">{{ heading }}</button></form>
+<p>{% if request.path == '/register/' %}Есть аккаунт? <a href="{% url 'login' %}">Войти</a>{% elif modules.registration %}Нет аккаунта? <a href="{% url 'register' %}">Зарегистрироваться</a>{% endif %}</p>
+{% if modules.password_reset %}<p><a href="{% url 'password_reset' %}">Забыли пароль?</a></p>{% endif %}
+</section>{% endblock %}

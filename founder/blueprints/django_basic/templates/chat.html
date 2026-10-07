@@ -1,0 +1,10 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Чат с {{ other.username }} · {{ project_site.name }}{% endblock %}
+{% block content %}<section class="card chat" id="chat" data-conversation="{{ conversation.pk }}" data-user="{{ user.pk }}" data-history="{% url 'history' conversation.pk %}">
+<div class="chat-heading"><a href="{% url 'inbox' %}" aria-label="Назад к сообщениям">←</a><h1>@{{ other.username }}</h1><span id="connection" role="status">Подключаемся…</span></div>
+<div id="messages" class="messages" role="log" aria-live="polite">{% for message in recent %}
+<article class="message{% if message.sender_id == user.pk %} own{% endif %}" data-id="{{ message.pk }}"><strong>@{{ message.sender.username }}</strong><p>{{ message.content }}</p><time>{{ message.created_at|date:'H:i' }}</time></article>
+{% endfor %}</div><p id="chat-error" class="error" role="alert"></p>
+<form id="send-form"><label for="content" class="sr-only">Сообщение</label><textarea id="content" maxlength="2000" rows="2" placeholder="Напишите сообщение…" required></textarea><button id="send" type="submit" disabled>Отправить</button></form>
+<small class="muted">Enter — отправить · Shift + Enter — новая строка</small></section>{% endblock %}
+{% block scripts %}<script src="{% static 'chat.js' %}" defer></script>{% endblock %}

@@ -32,5 +32,8 @@
     <div class="card publishing-note"><h3>Вы управляете публикацией</h3><p class="muted">Сохранение черновика не меняет карточку в ленте. Публикуйте обновления, когда они готовы.</p>{% if card.published_at %}<a class="button ghost wide" href="{% url 'card_detail' startup.id %}">Открыть опубликованную карточку</a><form method="post" action="{% url 'card_unpublish' startup.id %}">{% csrf_token %}<button type="submit" class="link-button danger-link">Снять с публикации</button></form>{% else %}<a class="evidence-link" href="{% url 'community' %}">Посмотреть сообщество →</a>{% endif %}</div>
   </aside>
 </div>
+{% if lab_version %}{% include 'founder/_lab_publication.html' with selected=lab_version publication=lab_publication card_published=card.published_at %}{% endif %}
+{% if lab_publication %}<details class="lab-history"><summary><span>Прототип в вашей карточке</span><small>{{ lab_publication.get_visibility_display }}</small></summary><div class="lab-browser"><iframe class="lab-frame lab-card-frame" loading="lazy" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Прототип {{ startup.name }}" src="{% url 'lab_public_preview' startup.id lab_publication.version_id %}"></iframe></div></details>{% endif %}
+<section class="card lab-card-link"><span class="eyebrow">ЛАБОРАТОРИЯ</span><h2>Рабочий прототип вашего проекта</h2><p class="muted">Создайте сайт с Бруно, выберите версию для карточки и соберите первые отзывы.</p><a class="button ghost" href="{% url 'lab' startup.id %}">{% if lab_version %}Открыть лабораторию и результаты{% else %}Создать прототип{% endif %} →</a></section>
 {% endblock %}
 {% block scripts %}<script src="{% static 'founder/js/cards.js' %}" defer></script>{% endblock %}

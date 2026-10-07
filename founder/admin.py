@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 
 from founder.models import (
     BrunoTask, EvidenceEntry, ChatAttachment, ChatMessage, ChatSession, MascotState, PitchReport,
-    MessageFeedback, ProjectReview, StartupMemory, StartupMetrics, StartupProfile, User,
+    MessageFeedback, ProjectReview, StartupMemory, StartupMetrics, StartupProfile, User, LabAIUsage,
 )
 
 
@@ -35,3 +35,26 @@ class MessageFeedbackAdmin(admin.ModelAdmin):
     list_filter = ('rating',)
     search_fields = ('comment', 'message__content')
     raw_id_fields = ('message',)
+
+
+@admin.register(LabAIUsage)
+class LabAIUsageAdmin(admin.ModelAdmin):
+    """Audit trail is read-only; budget adjustments need explicit reconciliation."""
+    list_display = ('created_at', 'user', 'operation', 'status', 'input_tokens', 'output_tokens', 'accounted_rub')
+    list_filter = ('status', 'operation', 'model')
+    readonly_fields = tuple(field.name for field in LabAIUsage._meta.fields)
+    actions = None
+
+    @admin.display(description='Учтено, ₽')
+    def accounted_rub(self, obj):
+        from decimal import Decimal
+        return Decimal(obj.accounted_micro_rub) / 1_000_000
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

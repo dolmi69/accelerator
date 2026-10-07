@@ -14,6 +14,7 @@ from founder.models import DirectConversation, DirectMessage, ProjectBookmark, P
 from founder.services.ai import AIServiceError
 from founder.services.messaging import blocked_pair, open_conversation, participant_filter
 from founder.services.project_cards import (StaleCardError, card_values, generate_card, get_card, save_card)
+from founder.services.lab_testing import publication_for
 
 
 def published_cards():
@@ -24,7 +25,8 @@ def editor_context(startup, card, form=None, refine_form=None, generated=False):
     return {'startup': startup, 'card': card, 'workspace_tab': 'card', 'generated': generated,
             'form': form if form is not None else ProjectCardForm(instance=card, initial={'revision': card.revision}),
             'refine_form': refine_form if refine_form is not None else CardRefineForm(),
-            'latest': startup.metric_snapshots.first()}
+            'latest': startup.metric_snapshots.first(), 'lab_version': startup.lab_versions.first(),
+            'lab_publication': publication_for(startup)}
 
 
 @login_required
@@ -118,11 +120,15 @@ def community_feed(request):
 @login_required
 def card_detail(request, startup_id):
     card = get_object_or_404(published_cards(), startup_id=startup_id)
+    publication = publication_for(card.startup)
+    if publication and publication.visibility == 'private' and card.startup.owner_id != request.user.pk:
+        publication = None
     return render(request, 'community/card_detail.html', {
         'card': card, 'public': card.published_data, 'author': card.startup.owner,
         'is_owner': card.startup.owner_id == request.user.pk,
         'is_saved': card.bookmarks.filter(user=request.user).exists(),
         'can_message': not blocked_pair(request.user.pk, card.startup.owner_id),
+        'lab_publication': publication,
     })
 
 

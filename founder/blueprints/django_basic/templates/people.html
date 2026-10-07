@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block content %}<section class="card"><span class="eyebrow">СООБЩЕСТВО</span><h1>Участники</h1>
+<form method="get" class="search"><input name="q" value="{{ query }}" maxlength="80" placeholder="Найти по имени" aria-label="Имя пользователя"><button>Найти</button></form>
+<div class="list">{% for person in people %}<div class="list-row"><a href="{% url 'public_profile' person.pk %}"><strong>@{{ person.username }}</strong></a>
+<form method="post" action="{% url 'start_chat' person.pk %}">{% csrf_token %}<button>Написать</button></form></div>
+{% empty %}<p class="muted">Пока никого нет. Откройте сайт в другом браузере и зарегистрируйте второго участника.</p>{% endfor %}</div></section>{% endblock %}

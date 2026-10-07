@@ -70,15 +70,12 @@ class RequestProtectionMiddleware(MiddlewareMixin):
             if not request.user.is_authenticated:
                 return None
             consume_limit(f"write:{request.user.pk}", 120, 60)
-            ai_request = route in {"chat_send", "metrics_assess", "pitch_finish", "tasks_generate", "card_generate", "lab_generate"}
+            ai_request = route in {"chat_send", "metrics_assess", "pitch_finish", "tasks_generate", "card_generate"}
             if route == "card_edit":
                 ai_request = request.POST.get("action") in {"generate", "refine"}
             if ai_request and StartupProfile.objects.filter(pk=kwargs.get("startup_id"), owner=request.user).exists():
                 consume_limit(f"ai-minute:{request.user.pk}", settings.AI_REQUESTS_PER_MINUTE, 60)
                 consume_limit(f"ai-day:{request.user.pk}", settings.AI_REQUESTS_PER_DAY, 86400)
-                if route == "lab_generate":
-                    consume_limit(f"lab-day:{request.user.pk}", settings.LAB_REQUESTS_PER_DAY, 86400)
-                    consume_limit("lab-global-day", settings.LAB_GLOBAL_REQUESTS_PER_DAY, 86400)
                 request.ai_lease = acquire_ai_lease(request.user.pk)
         except RequestLimitExceeded as exc:
             return self.error_response(request, str(exc), 429, retry_after=exc.retry_after)

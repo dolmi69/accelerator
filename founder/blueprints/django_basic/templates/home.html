@@ -1,0 +1,4 @@
+{% extends 'base.html' %}
+{% block content %}
+<iframe class="prototype" src="{% url 'prototype' %}" title="Главная страница {{ project_site.name }}" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
+{% endblock %}

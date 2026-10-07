@@ -9,11 +9,12 @@ import httpx
 from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import SimpleTestCase, override_settings
+from django.test import TestCase, override_settings
 from openai import OpenAI
 
 from founder.services.qwen import CodeResult, QwenError, QwenOutputError, generate_code
 from founder.services.site_generator import generate_site
+from founder.models import LabAIUsage
 
 HTML = '<!doctype html><html lang="ru"><head><title>Demo</title></head><body>Привет</body></html>'
 
@@ -30,7 +31,7 @@ def completion(text=HTML, *, finish="stop", usage=True):
 
 @override_settings(AI_PROVIDER="gigachat", QWEN_CODE_MODEL="Qwen/Qwen3-Coder-Next",
                    QWEN_CODE_MAX_TOKENS=8192, QWEN_CODE_TIMEOUT=90)
-class QwenTests(SimpleTestCase):
+class QwenTests(TestCase):
     def setUp(self):
         self.key = patch.dict(os.environ, {"CLOUDRU_API_KEY": "test-cloudru-secret"})
         self.key.start()
@@ -88,6 +89,9 @@ class QwenTests(SimpleTestCase):
         with self.assertRaisesMessage(QwenError, "автоматического повтора нет"):
             generate_site("Тест")
         self.assertEqual(len(calls), 1)
+        record = LabAIUsage.objects.get()
+        self.assertEqual(record.status, "unknown")
+        self.assertGreater(record.accounted_micro_rub, 0)
 
     def test_truncated_or_malformed_responses_are_not_treated_as_complete(self):
         for data in (completion(finish="length"), completion(text=""), completion(finish="tool_calls"),
@@ -98,6 +102,10 @@ class QwenTests(SimpleTestCase):
                 )):
                     with self.assertRaises(QwenOutputError):
                         generate_site("Тест")
+                record = LabAIUsage.objects.latest("created_at")
+                if "usage" in data:
+                    self.assertEqual(record.status, "output_error")
+                    self.assertEqual(record.output_tokens, 80)
 
     def test_missing_usage_is_unknown_not_zero(self):
         self.use_transport(lambda request: httpx.Response(200, json=completion(usage=False)))
@@ -119,16 +127,20 @@ class QwenTests(SimpleTestCase):
                     generate_site("ok")
             client.assert_not_called()
 
-    def test_revisions_send_previous_document_and_accept_single_html_fence(self):
+    def test_revisions_send_fragments_and_return_only_replacements(self):
         requests = []
         def handler(request):
             requests.append(json.loads(request.content))
-            return httpx.Response(200, json=completion("```html\n" + HTML + "\n```"))
+            change = {"changes": [{"target": "full", "find": "Привет", "replace": "Здравствуйте"}]}
+            return httpx.Response(200, json=completion(json.dumps(change, ensure_ascii=False)))
         self.use_transport(handler)
-        result = generate_site("Измени цвет", previous_html=HTML)
-        self.assertEqual(result.text, HTML)
-        self.assertEqual(requests[0]["messages"][-2], {"role": "assistant", "content": HTML})
-        self.assertEqual(requests[0]["messages"][-1]["content"], "Измени цвет")
+        result = generate_site("Измени приветствие", previous_html=HTML)
+        self.assertEqual(result.text, HTML.replace("Привет", "Здравствуйте"))
+        self.assertEqual(result.edit_method, "patch")
+        self.assertEqual(requests[0]["max_tokens"], 2048)
+        self.assertEqual(len(requests[0]["messages"]), 2)
+        payload = json.loads(requests[0]["messages"][-1]["content"])
+        self.assertEqual(payload["fragments"], [{"id":"full", "html":HTML}])
 
     def test_command_saves_new_artifact_and_usage_without_overwriting_source(self):
         with tempfile.TemporaryDirectory() as directory, override_settings(BASE_DIR=Path(directory)):

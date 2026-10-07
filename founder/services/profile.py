@@ -43,6 +43,9 @@ def evidence_display(startup, snapshot, key):
             item["url"] = reverse("startup_edit", args=[startup.id])
         elif item.get("kind") == "diary" and item.get("entry_id"):
             item["url"] = reverse("evidence_edit", args=[startup.id, item["entry_id"]])
+        elif item.get("kind") == "lab" and item.get("version_id"):
+            item["url"] = reverse("lab", args=[startup.id]) + f'?version={item["version_id"]}'
+            item["status_label"] = "Наблюдение в прототипе"
         elif item.get("session_id") and item.get("message_id"):
             item["url"] = reverse("chat_detail", args=[startup.id, item["session_id"]]) + f'?message={item["message_id"]}#message-{item["message_id"]}'
     return item
