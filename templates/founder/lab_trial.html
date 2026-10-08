@@ -1,0 +1,29 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Попробовать {{ public.name }} · Лаборатория{% endblock %}
+{% block content %}
+{% if is_owner %}<a class="back-link" href="{% url 'lab' publication.startup_id %}?version={{ publication.version_id }}&amp;section=globalization">← Лаборатория</a>{% else %}<a class="back-link" href="{% url 'card_detail' publication.startup_id %}">← Карточка проекта</a>{% endif %}
+<div class="page-heading"><div><span class="eyebrow">ПОМОГИТЕ АВТОРУ УЛУЧШИТЬ ПРОЕКТ</span><h1>Попробуйте {{ public.name }}</h1><p>{{ public.tagline }}</p></div></div>
+{% if is_owner %}<p class="work-notice">Вы проверяете свой прототип. Этот тест сохранится отдельно и не попадёт в показатели тестирования другими людьми.</p>{% endif %}
+<section class="card lab-test-intro" id="lab-test-intro">
+  <h2>Пройдите основной сценарий</h2>
+  <p>Посмотрите сайт, нажмите на кнопки и попробуйте формы. После теста расскажите, что было понятно, а где возникли трудности.</p>
+  <p class="muted small">После нажатия «Начать тест» автор получит клики по кнопкам, глубину прокрутки, активное время, ошибки страницы и ваш отзыв. Значения полей, пароли, экран и движения мыши не записываются. Это демонстрационный сайт; формы не отправляют реальные заявки.</p>
+  <form id="lab-start-form" action="{% url 'lab_test_start' publication.startup_id %}" method="post">{% csrf_token %}<input type="hidden" name="version" value="{{ publication.version_id }}"><button class="button primary" type="submit">Начать тест</button></form>
+</section>
+<p id="lab-test-status" class="work-notice" role="status" aria-live="polite" hidden></p>
+<div id="lab-test-active" hidden>
+  <div class="lab-test-toolbar"><span class="community-tag">Тест идёт · до 30 минут</span><button type="button" class="button ghost" id="lab-leave-test">Завершить и оставить отзыв</button></div>
+  <div class="lab-browser"><div class="lab-browser-bar"><span></span><span></span><span></span><strong>Прототип {{ public.name }}</strong></div><iframe id="lab-test-frame" class="lab-frame lab-test-frame" sandbox="allow-scripts" title="Прототип {{ public.name }}" referrerpolicy="no-referrer"></iframe></div>
+</div>
+<section class="card lab-test-review" id="lab-test-review" hidden>
+  <h2>Что получилось, а что мешало?</h2>
+  <form id="lab-review-form">
+    <label class="field"><span>Насколько понятен сайт?</span><select name="rating"><option value="">Без оценки</option><option value="1">1 — ничего не понятно</option><option value="2">2 — трудно разобраться</option><option value="3">3 — местами понятно</option><option value="4">4 — почти всё понятно</option><option value="5">5 — всё понятно</option></select></label>
+    <label class="field"><span>Отзыв автору</span><textarea name="feedback" maxlength="1000" rows="4" placeholder="Что вы пытались сделать? Где остановились? Что стоит улучшить?"></textarea></label>
+    <p class="muted small">Отзыв необязателен. Не добавляйте пароли и личные сведения; текст увидит автор, и Бруно использует его для разбора.</p>
+    <div class="work-actions"><button class="button primary" type="submit">Отправить результат</button><button class="button ghost" type="button" id="lab-resume-test">Продолжить тест</button></div>
+  </form>
+</section>
+<section class="card lab-test-thanks" id="lab-test-thanks" hidden><h2>Спасибо за помощь!</h2><p>Результат сохранён. Автор увидит ваши действия и отзыв в лаборатории.</p>{% if is_owner %}<a class="button primary" href="{% url 'lab' publication.startup_id %}?version={{ publication.version_id }}&amp;section=globalization">Вернуться в лабораторию</a>{% else %}<a class="button primary" href="{% url 'card_detail' publication.startup_id %}">Вернуться к проекту</a>{% endif %}</section>
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/lab-testing.js' %}?v=1" defer></script>{% endblock %}

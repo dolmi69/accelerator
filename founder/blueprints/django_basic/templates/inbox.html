@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% block content %}<section class="card"><span class="eyebrow">НА СВЯЗИ</span><h1>Личные сообщения</h1>
+<div class="list">{% for conversation in conversations %}<a class="list-row" href="{% url 'chat' conversation.pk %}">@{% if conversation.first_id == user.pk %}{{ conversation.second.username }}{% else %}{{ conversation.first.username }}{% endif %}<span>Открыть →</span></a>
+{% empty %}<p class="muted">Начните разговор на странице участников.</p>{% endfor %}</div>
+<a class="button" href="{% url 'people' %}">Найти участника</a></section>{% endblock %}

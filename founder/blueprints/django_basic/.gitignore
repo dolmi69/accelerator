@@ -1,0 +1,8 @@
+.venv/
+.env
+.local-secret
+*.sqlite3
+*.sqlite3-*
+__pycache__/
+*.pyc
+staticfiles/

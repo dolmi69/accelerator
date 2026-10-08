@@ -98,13 +98,22 @@ class StartupProfile(models.Model):
 
 
 class LabSiteVersion(models.Model):
-    """Private, immutable versions of a generated single-page site."""
+    """Immutable frontend versions, optionally paired with our Django blueprint."""
+
+    class Kind(models.TextChoices):
+        STATIC = "static", "Статический сайт"
+        DJANGO = "django", "Django: готовые модули"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="lab_versions")
     source = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True,
                                related_name="derived_versions")
     prompt = models.TextField(max_length=2000)
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.STATIC)
+    presentation = models.JSONField(default=dict, blank=True)
+    backend_modules = models.JSONField(default=list, blank=True)
+    generation_key = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    edit_method = models.CharField(max_length=20, default="full")
     html = models.TextField(max_length=128000)
     model = models.CharField(max_length=100)
     input_tokens = models.PositiveIntegerField(null=True, blank=True)
@@ -113,6 +122,95 @@ class LabSiteVersion(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+
+
+class LabAIUsage(models.Model):
+    """One paid attempt, including rejected output or uncertain provider billing."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.SET_NULL, null=True, blank=True)
+    version = models.ForeignKey(LabSiteVersion, on_delete=models.SET_NULL, null=True, blank=True)
+    model = models.CharField(max_length=100)
+    operation = models.CharField(max_length=20, default="code")
+    status = models.CharField(max_length=20, default="reserved")
+    input_bound = models.PositiveIntegerField()
+    output_limit = models.PositiveIntegerField()
+    input_tokens = models.PositiveIntegerField(null=True, blank=True)
+    output_tokens = models.PositiveIntegerField(null=True, blank=True)
+    input_price = models.DecimalField(max_digits=12, decimal_places=4)
+    output_price = models.DecimalField(max_digits=12, decimal_places=4)
+    accounted_micro_rub = models.PositiveBigIntegerField()
+    bucket_keys = models.JSONField(default=list)
+    created_at = models.DateTimeField(default=timezone.now)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "created_at"], name="lab_usage_user_date")]
+
+
+class LabSpendBucket(models.Model):
+    """Atomic reservations shared by all website/Telegram workers and CLI jobs."""
+    key = models.CharField(max_length=100, primary_key=True)
+    micro_rub = models.PositiveBigIntegerField(default=0)
+
+
+class LabPublication(models.Model):
+    """A selected card prototype with explicitly controlled audience."""
+
+    class Visibility(models.TextChoices):
+        PRIVATE = 'private', 'Приватно'
+        PUBLIC = 'public', 'Для всех'
+
+    startup = models.OneToOneField(StartupProfile, on_delete=models.CASCADE, related_name="lab_publication")
+    version = models.ForeignKey(LabSiteVersion, on_delete=models.CASCADE, related_name="publications")
+    published_at = models.DateTimeField(default=timezone.now)
+    visibility = models.CharField(max_length=10, choices=Visibility.choices, default=Visibility.PUBLIC)
+
+    def clean(self):
+        if self.version_id and self.version.startup_id != self.startup_id:
+            raise ValidationError("Нельзя публиковать версию другого проекта.")
+
+
+class LabTestSession(models.Model):
+    """An opted-in test; no IP address, field values or recording is stored."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    version = models.ForeignKey(LabSiteVersion, on_delete=models.CASCADE, related_name="test_sessions")
+    tester = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="lab_tests")
+    created_at = models.DateTimeField(default=timezone.now)
+    last_activity_at = models.DateTimeField(default=timezone.now)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.PositiveIntegerField(default=0)
+    rating = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MaxValueValidator(5)])
+    feedback = models.TextField(max_length=1000, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["version", "-created_at"], name="lab_tests_recent")]
+        constraints = [models.CheckConstraint(
+            condition=Q(rating__isnull=True) | Q(rating__gte=1, rating__lte=5), name="lab_rating_range",
+        )]
+
+
+class LabTestEvent(models.Model):
+    class Kind(models.TextChoices):
+        READY = "ready", "Страница открылась"
+        CLICK = "click", "Клик"
+        SCROLL = "scroll", "Прокрутка"
+        FORM = "form", "Попытка отправить форму"
+        ERROR = "error", "Ошибка страницы"
+
+    session = models.ForeignKey(LabTestSession, on_delete=models.CASCADE, related_name="events")
+    sequence = models.PositiveIntegerField()
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    target = models.CharField(max_length=160, blank=True)
+    label = models.CharField(max_length=80, blank=True)
+    depth = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(100)])
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["sequence"]
+        constraints = [models.UniqueConstraint(fields=["session", "sequence"], name="lab_event_sequence")]
 
 
 class StartupMetrics(models.Model):
@@ -225,7 +323,7 @@ class ChatMessage(models.Model):
     role = models.CharField(max_length=10, choices=Role.choices)
     content = models.TextField(blank=True)
     # Кто из акул говорит в панели; пусто для Бруно и основателя.
-    speaker = models.CharField(max_length=12, blank=True)
+    speaker = models.CharField(max_length=12, blank=True, db_default="")
     provider = models.CharField(max_length=40, blank=True)
     model_name = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)

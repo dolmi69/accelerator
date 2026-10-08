@@ -4,7 +4,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.core.validators import MaxLengthValidator
 
-from founder.models import EvidenceEntry, StartupMetrics, StartupProfile, User
+from founder.models import EvidenceEntry, LabSiteVersion, StartupMetrics, StartupProfile, User
 from founder.profile_forms import HandleValidationMixin
 from founder.services.json_utils import bounded_json_loads
 
@@ -43,6 +43,25 @@ class StartupForm(forms.ModelForm):
 
 
 class LabPromptForm(forms.Form):
+    edit_scope = forms.ChoiceField(label="Что дорабатываем", required=False, choices=[("auto", "Автоматически")])
+    rebuild = forms.BooleanField(label="Полностью пересобрать сайт (больше расход AI)", required=False)
+
+    def __init__(self, *args, source=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.source = source
+        if source:
+            from founder.services.site_patches import fragments
+            self.fields["edit_scope"].choices += [(part.key, part.label) for part in fragments(source.html)]
+
+    kind = forms.ChoiceField(
+        label="Какой сайт создаём", choices=LabSiteVersion.Kind.choices,
+        initial=LabSiteVersion.Kind.STATIC, required=False,
+    )
+
+    def clean_kind(self):
+        # The compact UI inherits the backend of the selected version.
+        return self.cleaned_data.get("kind") or (self.source.kind if self.source else LabSiteVersion.Kind.STATIC)
+
     prompt = forms.CharField(
         label="Что создать или изменить",
         max_length=2000,
@@ -52,6 +71,19 @@ class LabPromptForm(forms.Form):
             "placeholder": "Например: сделай адаптивную страницу о здоровом сне с тремя советами и раскрывающимися карточками",
         }),
     )
+
+
+class LabCustomizeForm(forms.Form):
+    title = forms.CharField(label="Название сайта", max_length=100, required=False)
+    palette = forms.ChoiceField(label="Цветовая тема", required=False, choices=[("", "Исходная"), ("blue", "Синяя"), ("green", "Зелёная"), ("purple", "Фиолетовая"), ("dark", "Тёмная")])
+    font = forms.ChoiceField(label="Шрифт", required=False, choices=[("", "Исходный"), ("system", "Современный"), ("serif", "Классический"), ("mono", "Моноширинный")])
+    radius = forms.ChoiceField(label="Форма кнопок", required=False, choices=[("", "Исходная"), ("0", "Прямые углы"), ("8", "Слегка округлые"), ("24", "Округлые")])
+
+
+class LabBackendModulesForm(forms.Form):
+    from founder.services.backend_modules import MODULE_CHOICES
+    modules = forms.MultipleChoiceField(label='Готовые модули',choices=MODULE_CHOICES,
+        required=False,widget=forms.CheckboxSelectMultiple)
 
 
 class MetricsForm(forms.ModelForm):

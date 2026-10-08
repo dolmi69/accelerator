@@ -50,7 +50,8 @@ class LabTests(TestCase):
         self.assertContains(page, "Добавь кнопку")
 
         preview = self.client.get(self.route("lab_preview", self.startup.pk, first.pk))
-        self.assertEqual(preview.content.decode(), HTML)
+        self.assertIn('<button>OK</button>', preview.content.decode())
+        self.assertIn('cofounder:lab-exit', preview.content.decode())
         self.assertIn("sandbox allow-scripts", preview["Content-Security-Policy"])
         self.assertIn("connect-src 'none'", preview["Content-Security-Policy"])
         self.assertNotIn("allow-same-origin", preview["Content-Security-Policy"])
@@ -95,6 +96,27 @@ class LabTests(TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertContains(response, "Время ожидания вышло", status_code=503)
         self.assertFalse(LabSiteVersion.objects.exists())
+
+    def test_compact_laboratory_sections_and_grouped_tools(self):
+        version = LabSiteVersion.objects.create(startup=self.startup, prompt='Проверка', html=HTML, model='Qwen')
+        page = self.client.get(self.route('lab') + f'?version={version.pk}')
+        self.assertContains(page, 'Разработка прототипа')
+        self.assertContains(page, 'Глобализация')
+        self.assertContains(page, '<details class="lab-tools" id="lab-tools">')
+        self.assertContains(page, '<details class="lab-history" id="lab-history">')
+        self.assertNotContains(page, 'id_kind')
+        self.assertNotContains(page, 'id_edit_scope')
+        self.assertNotContains(page, 'id_rebuild')
+        self.assertNotContains(page, 'name="start_new"')
+        self.assertNotContains(page, 'ПРОТОТИП В КАРТОЧКЕ')
+        self.assertContains(page, 'form="lab-form"')
+        self.assertEqual(page.context['lab_section'], 'development')
+        keys = [field.data['value'] for group in page.context['module_groups'] for field in group['fields']]
+        self.assertEqual(keys, ['registration', 'password_reset', 'chat', 'notifications', 'leads', 'catalog', 'pages', 'uploads', 'favorites', 'reviews', 'booking', 'orders', 'payments'])
+        global_page = self.client.get(self.route('lab') + f'?version={version.pk}&section=globalization')
+        self.assertEqual(global_page.context['lab_section'], 'globalization')
+        self.assertContains(global_page, 'data-lab-panel="development" hidden')
+        self.assertContains(global_page, 'data-lab-panel="globalization"  aria-labelledby')
 
     @override_settings(LAB_REQUESTS_PER_DAY=1)
     def test_paid_generation_has_daily_cap(self):

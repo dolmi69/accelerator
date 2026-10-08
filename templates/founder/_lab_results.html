@@ -1,0 +1,19 @@
+<section class="card lab-results" id="lab-results">
+  <div class="section-top"><div><span class="eyebrow">ОБРАТНАЯ СВЯЗЬ</span><h2>Как люди пробуют эту версию</h2></div><span class="score-badge">{{ results.testers }} участников</span></div>
+  <p class="muted small">Проверки владельца исключены. Один человек может пройти несколько тестов. Действия фиксирует браузер: это наблюдения о прототипе, а не доказательство продаж.</p>
+  {% if results.owner_tests %}<p class="muted small">Ваши проверки: {{ results.owner_tests }}. В показатели ниже они не входят.</p>{% endif %}
+  {% if results.total %}
+  <div class="lab-stats">
+    <div><strong>{{ results.total }}</strong><span>Начатых тестов</span></div>
+    <div><strong>{{ results.completed }}</strong><span>Завершённых тестов</span></div>
+    <div><strong>{{ results.clicks }}</strong><span>Кликов по элементам</span></div>
+    <div><strong>{{ results.forms }}</strong><span>Попыток отправить форму</span></div>
+    <div><strong>{{ results.depth }}%</strong><span>Максимальная прокрутка</span></div>
+    <div><strong>{{ results.average_rating|default_if_none:'—' }}</strong><span>Понятность сайта, до 5</span></div>
+  </div>
+  <p class="muted small">Среднее активное время завершённых тестов: {{ results.average_duration }} сек. Зафиксировано ошибок страницы: {{ results.errors }}. Формы прототипа демонстрационные — это не реальные заявки.</p>
+  {% if results.targets %}<h3>На что нажимали</h3><ul class="lab-targets">{% for target in results.targets %}<li><span>{{ target.label|default:target.target }}</span><strong>{{ target.count }}</strong></li>{% endfor %}</ul>{% endif %}
+  {% if results.feedback %}<h3>Последние отзывы</h3><div class="lab-feedback-list">{% for item in results.feedback %}<article><p>{{ item.feedback|linebreaksbr }}</p><small>{{ item.created_at|date:'d.m.Y H:i' }}{% if item.rating %} · {{ item.rating }}/5{% endif %}</small></article>{% endfor %}</div>{% endif %}
+  <p class="work-notice">Бруно теперь учитывает эти результаты в чате и разборе проекта. Можно спросить, что доработать по итогам тестирования.</p>
+  {% else %}<p>Пока никто не начал тест. Покажите прототип в карточке и отправьте её потенциальным пользователям.</p>{% endif %}
+</section>

@@ -1,0 +1,6 @@
+Django>=6.0,<6.1
+channels[daphne]>=4.3,<5.0
+channels-redis>=4.3,<5.0
+Pillow>=12.3,<13.0
+httpx>=0.28,<1.0
+python-dotenv>=1.0,<2.0

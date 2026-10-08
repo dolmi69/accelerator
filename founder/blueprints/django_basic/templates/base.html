@@ -1,0 +1,20 @@
+{% load static %}
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ project_site.name }}{% endblock %}</title><link rel="stylesheet" href="{% static 'site.css' %}"><link rel="stylesheet" href="{% static 'modules.css' %}"><link rel="stylesheet" href="{% static 'site-theme.css' %}"></head>
+<body>{% if lab_launcher %}<div class="lab-return-bar" data-lab-origin="{{ lab_launcher.origin }}">
+<span>Просмотр в лаборатории</span><a href="{{ lab_launcher.url }}" data-lab-return aria-label="Вернуться в лабораторию">Вернуться в лабораторию <span aria-hidden="true">×</span></a>
+</div><script src="{% static 'lab-viewer.js' %}" defer></script>{% endif %}
+<header><a class="brand" href="{% url 'home' %}">{{ project_site.name }}</a><nav aria-label="Меню сайта">
+{% if modules.catalog %}<a href="{% url 'catalog' %}">Каталог</a>{% endif %}
+{% if modules.pages %}<a href="{% url 'pages' %}">Публикации</a>{% endif %}
+{% if modules.leads %}<a href="{% url 'lead_create' %}">Оставить заявку</a>{% endif %}
+{% if modules.orders %}<a href="{% url 'cart' %}">Корзина</a>{% endif %}
+{% if user.is_authenticated %}
+{% if modules.chat %}<a href="{% url 'people' %}">Участники</a><a href="{% url 'inbox' %}">Сообщения</a>{% endif %}
+<a href="{% url 'manage_site' %}">Кабинет</a>{% if modules.notifications %}<a href="{% url 'notifications' %}">Уведомления{% if unread_notifications %} ({{ unread_notifications }}){% endif %}</a>{% endif %}
+<a class="account" href="{% url 'profile' %}">@{{ user.username }}</a>
+{% else %}<a href="{% url 'login' %}">Войти</a>{% if modules.registration %}<a class="button" href="{% url 'register' %}">Регистрация</a>{% endif %}{% endif %}
+</nav></header>
+<main>{% for message in messages %}<div class="notice" role="status">{{ message }}</div>{% endfor %}{% block content %}{% endblock %}</main>
+<footer>Создано в лаборатории Co-Founder.AI</footer>{% block scripts %}{% endblock %}</body></html>

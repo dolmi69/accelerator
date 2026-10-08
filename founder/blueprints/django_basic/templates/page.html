@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block content %}<article class="card prose"><a href="{% url 'pages' %}">← Публикации</a><h1>{{ page.title }}</h1>{{ page.text|linebreaks }}{% if site_editor %}<a href="{% url 'page_edit' page.pk %}">Редактировать</a>{% endif %}</article>{% endblock %}

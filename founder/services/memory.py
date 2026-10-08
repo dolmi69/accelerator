@@ -1,6 +1,7 @@
 """Поиск прежних слов основателя по основам слов; поле embedding_ref готово для векторов."""
 
 import re
+from django.conf import settings
 
 from django.db.models import Q
 
@@ -91,17 +92,20 @@ def conversation_context(session, latest_message):
         session.messages.prefetch_related("attachments").order_by("-created_at", "-id")[:18]
     )
     recent.reverse()
-    recent_ids = {message.id for message in recent}
     query = latest_message.content + " " + " ".join(
         attachment.extracted_text[:2000]
         for attachment in latest_message.attachments.all()
     )
-    memories = relevant_memories(session.startup, query, recent_ids)
-
     from founder.services.panel import speaker_name
 
     messages = []
-    for message in recent:
+    kept_ids = set()
+    # No paid summarization. Preserve the newest input first, then recent turns.
+    # Older omitted user statements remain searchable through StartupMemory.
+    remaining = settings.BRUNO_HISTORY_CHAR_LIMIT
+    for message in reversed(recent):
+        newest = message.pk == latest_message.pk
+        cap = min(remaining, 9000 if newest else (4000 if message.role == message.Role.USER else 1800))
         parts = [message.content.strip()]
         if message.role == message.Role.USER:
             parts.extend(
@@ -113,9 +117,15 @@ def conversation_context(session, latest_message):
         if content and message.speaker:
             # Панель акул: модель видит, кто из акул что спросил; подряд идущие реплики склеиваем.
             content = f"{speaker_name(message.speaker)}: {content}"
-            if messages and messages[-1]["role"] == message.role:
-                messages[-1]["content"] = (messages[-1]["content"] + "\n" + content)[-9000:]
-                continue
-        if content:
-            messages.append({"role": message.role, "content": content[:9000]})
+        if content and cap > 80:
+            shortened = content if len(content) <= cap else content[:cap-30] + "\n[длинное сообщение сокращено]"
+            if message.speaker and messages and messages[-1]["role"] == message.role:
+                # Список идёт от новых к старым: более ранняя реплика встаёт перед более поздней.
+                messages[-1]["content"] = shortened + "\n" + messages[-1]["content"]
+            else:
+                messages.append({"role": message.role, "content": shortened})
+            remaining -= len(shortened)
+            kept_ids.add(message.pk)
+    messages.reverse()
+    memories = relevant_memories(session.startup, query, kept_ids)
     return messages, memories
