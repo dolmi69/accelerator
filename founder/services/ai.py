@@ -183,7 +183,7 @@ def system_prompt(session, memories, messages=None, economics="", turn=None, pla
         return common + BRAINSTORM_GUIDE
     if kind == "long":
         return common + LONG_ANSWER_GUIDE + (REVIEW_HINT if wants_review(_last_founder_text(messages)) else "")
-    return common + ("Главное: отвечай по-человечески, до 600 знаков. Реакция на конкретную деталь, "
+    return common + ("Главное: отвечай по-человечески и на «вы», до 600 знаков. Реакция на конкретную деталь, "
                      "твоя мысль наставника про этот проект, в конце ровно один вопрос, без второго "
                      "вопроса через «и».")
 
@@ -207,10 +207,10 @@ def _demo_reply(session, messages, turn=None):
     else:
         text = latest.lower().strip()
         if re.fullmatch(r"(привет|здравствуй\w*|хай|добр\w+ \w+)[!. ]*", text):
-            reply = "Привет! Рад тебя видеть. Расскажешь, что за проект, или продолжим с прошлого места?"
+            reply = "Здравствуйте! Рад вас видеть. Расскажете, что за проект, или продолжим с прошлого места?"
         elif re.search(r"не знаю|хз|сложно сказать|без понятия", text):
-            reply = ("Это нормально, на старте мало кто знает точно. Давай навскидку: "
-                     "кто сильнее всех страдает без твоего сервиса?")
+            reply = ("Это нормально, на старте мало кто знает точно. Давайте навскидку: "
+                     "кто сильнее всех страдает без вашего сервиса?")
         elif re.search(r"\d", text):
             reply = ("Цифра — это уже не теория, круто. За какой период она получена "
                      "и откуда она взялась?")
@@ -250,7 +250,8 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
     gender = founder_gender(messages) if session.mode == ChatSession.Mode.COFOUNDER else "male"
     self_male = not (turn and turn.speaker == "margarita")
     yield from polish_stream(tidy_stream(_provider_stream(session, messages, memories, turn, plan, economics)),
-                             single_question=single_question, gender=gender, self_male=self_male)
+                             single_question=single_question, gender=gender, self_male=self_male,
+                             formal=turn is None)
 
 
 def _provider_stream(session, messages, memories, turn=None, plan=None, economics=None):

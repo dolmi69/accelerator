@@ -32,9 +32,10 @@ class BehaviourNotesTests(TestCase):
         self.assertEqual(founder_gender(user_turns("Я сама сшила первые сумки")), "female")
         self.assertEqual(founder_gender(user_turns("Я уже решил продавать на ярмарках")), "male")
         self.assertIsNone(founder_gender(user_turns("Мы делаем запись для клиник")))
+        # Бруно всегда на «вы»: пол основателя в обращении больше не нужен.
         notes = conversation_notes(user_turns("Мы делаем запись для клиник"))
-        self.assertIn("Пол основателя неизвестен", notes)
-        self.assertIn("женском роде", conversation_notes(user_turns("Я сама сшила первые сумки")))
+        self.assertIn("строго на «вы»", notes)
+        self.assertIn("строго на «вы»", conversation_notes(user_turns("Я сама сшила первые сумки")))
 
     def test_one_word_streak_asks_for_summary_instead_of_new_tasks(self):
         messages = user_turns("Делаем бота для подготовки к сессии", "ок", "понял", "угу")
@@ -188,12 +189,12 @@ class ChatActionsTests(TestCase):
 class GenderAndPlanTests(TestCase):
     def test_past_tense_follows_known_gender_or_stays_neutral(self):
         from founder.services.bruno import polish_stream
+        # «Ты» переводится в «вы», а форма на «вы» не зависит от пола.
         self.assertEqual("".join(polish_stream(["Какие доказательства ты показал?"])),
-                         "Какие доказательства ты показал(а)?")
-        self.assertEqual("".join(polish_stream(["Ты уже решил, кому продавать?"], gender="female")),
-                         "Ты уже решила, кому продавать?")
-        self.assertEqual("".join(polish_stream(["Ты уже решил, кому продавать?"], gender="male")),
-                         "Ты уже решил, кому продавать?")
+                         "Какие доказательства вы показали?")
+        for gender in ("female", "male", None):
+            self.assertEqual("".join(polish_stream(["Ты уже решил, кому продавать?"], gender=gender)),
+                             "Вы уже решили, кому продавать?")
 
     def test_word_plan_alone_does_not_switch_to_long_answer(self):
         from founder.services.bruno import wants_long_answer
@@ -203,8 +204,8 @@ class GenderAndPlanTests(TestCase):
 
     def test_generic_closer_is_dropped_in_long_answers_but_specific_question_stays(self):
         from founder.services.bruno import polish_stream
-        self.assertEqual("".join(polish_stream(["1. Позвони.\n2. Запиши.\nЧерез неделю увидим. Начнем?"],
+        self.assertEqual("".join(polish_stream(["1. Позвоните.\n2. Запишите.\nЧерез неделю увидим. Начнем?"],
                                                single_question=False)).strip(),
-                         "1. Позвони.\n2. Запиши.\nЧерез неделю увидим.")
-        self.assertTrue("".join(polish_stream(["1. Позвони.\nС какого шага начнём?"], single_question=False))
+                         "1. Позвоните.\n2. Запишите.\nЧерез неделю увидим.")
+        self.assertTrue("".join(polish_stream(["1. Позвоните.\nС какого шага начнём?"], single_question=False))
                         .endswith("С какого шага начнём?"))

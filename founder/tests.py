@@ -253,7 +253,7 @@ class MVPFlowTests(TestCase):
         self.assertEqual(session.mode, ChatSession.Mode.COFOUNDER)
         self.assertEqual(response.url, reverse("chat_detail", args=[startup.id, session.id]))
         page = self.client.get(response.url)
-        self.assertContains(page, "Расскажи своими словами")
+        self.assertContains(page, "Расскажите своими словами")
         self.assertNotContains(page, "Составить таблицу</button>")
 
     def test_founder_can_edit_all_five_table_explanations(self):

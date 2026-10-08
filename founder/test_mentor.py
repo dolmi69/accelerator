@@ -185,10 +185,20 @@ class MentorTextTests(TestCase):
         self.assertIsNone(number_change(plans))  # план не спорит с фактом
 
     def test_formal_greeting_and_list_dashes(self):
-        from founder.services.bruno import prefers_formal
-        self.assertTrue(prefers_formal([{"role": "user", "content": "Здравствуйте. Мы сделали бота."}]))
+        from founder.services.bruno import to_formal
+        self.assertEqual(to_formal("Смотри, у тебя готов лендинг? Попробуй показать его."), "Смотрите, у вас готов лендинг? Попробуйте показать его.")
         text = "".join(polish_stream(iter(["Итог:\n— Есть пилоты.\n— Цена 1500 ₽. "]), single_question=False))
         self.assertEqual(text.strip(), "Итог:\n• Есть пилоты.\n• Цена 1500 ₽.")
+
+    def test_bruno_answers_formally_even_when_founder_writes_informally(self):
+        from founder.services.bruno import conversation_notes, style_issues, to_formal
+        self.assertIn("строго на «вы»", conversation_notes([{"role": "user", "content": "слушай, а ты что умеешь?"}]))
+        self.assertEqual(to_formal("Займись этим завтра и постарайся, если сможешь. Твоя цель — 10 оплат."),
+                         "Займитесь этим завтра и постарайтесь, если сможете. Ваша цель — 10 оплат.")
+        self.assertIn("на «ты»: «Тебе»", style_issues("Тебе стоит позвонить клиентам."))
+        self.assertEqual(style_issues("Вам стоит позвонить клиентам. Сделайте лендинг."), [])
+        self.assertEqual(to_formal("Ух ты, вот это результат!"), "Ух ты, вот это результат!")
+        self.assertEqual(style_issues("Ух ты, вот это результат!"), [])
 
     def test_repeated_question_is_detected(self):
         asked = mentor.asked_questions([{"role": "assistant", "content":

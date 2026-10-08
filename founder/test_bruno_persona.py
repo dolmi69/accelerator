@@ -131,8 +131,8 @@ class BrunoV2Tests(TestCase):
         self.assertEqual("".join(polish_stream(["Кто клиент? Студенты или школьники?"])),
                          "Кто клиент? Студенты или школьники?")
         self.assertEqual("".join(polish_stream(["Зачем? Чтобы проверить спрос. Кому позвонишь первым?"])),
-                         "Зачем? Чтобы проверить спрос. Кому позвонишь первым?")
-        long_form = "1. Позвони клиентам.\n2. Что они скажут? Запиши ответы дословно?\n"
+                         "Зачем? Чтобы проверить спрос. Кому позвоните первым?")
+        long_form = "1. Позвоните клиентам.\n2. Что они скажут? Запишите ответы дословно?\n"
         self.assertEqual("".join(polish_stream([long_form], single_question=False)), long_form)
 
     def test_polish_neutralises_gendered_and_canned_phrases(self):
@@ -141,5 +141,6 @@ class BrunoV2Tests(TestCase):
                          "Надо понять спрос.")
         self.assertEqual("".join(polish_stream(["Готов начать?"])), "Начнём?")
         self.assertEqual("".join(polish_stream(["Рада слышать! Я рада помочь."])), "Рад слышать! Я рад помочь.")
+        # На «вы» род не угадывается, поэтому «ты готов» просто становится «вы готовы».
         self.assertEqual("".join(polish_stream(["Ты готов попробовать с пятью клиентами?"])),
-                         "Попробуем с пятью клиентами?")
+                         "Вы готовы попробовать с пятью клиентами?")
