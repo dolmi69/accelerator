@@ -11,8 +11,9 @@
   <link rel="stylesheet" href="{% static 'founder/css/app.css' %}?v=lab-8">
   <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=3">
   <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=2">
+  <link rel="stylesheet" href="{% static 'founder/css/coins.css' %}?v=2">
 </head>
-<body>
+<body{% if startup.user_role == 'viewer' %} class="is-viewer"{% endif %}>
   <div class="app-shell">
     <header class="topbar">
       <a class="brand" href="{% url 'home' %}" aria-label="Co-Founder.AI — главная">
@@ -21,10 +22,11 @@
       <nav class="topnav" aria-label="Основная навигация">
         <a href="{% url 'about' %}" {% if request.resolver_match.url_name == 'about' %}aria-current="page"{% endif %}>О сервисе</a>
         {% if request.user.is_authenticated %}
-          <a href="{% url 'home' %}">Мои проекты</a>
+          <a href="{% url 'home' %}">Мои проекты{% if project_invites_count %} <span class="unread-badge" aria-label="приглашений: {{ project_invites_count }}">{{ project_invites_count }}</span>{% endif %}</a>
           <a href="{% url 'community' %}">Сообщество</a>
           <a href="{% url 'inbox' %}">Сообщения <span class="unread-badge" data-unread-count {% if not direct_unread %}hidden{% endif %}>{{ direct_unread }}</span></a>
           {% if startup %}<a href="{% url 'dashboard' startup.id %}">Проект</a>{% endif %}
+          <a class="coin-chip" href="{% url 'wallet' %}" aria-label="Монеты: {{ request.user.coins }}" {% if request.resolver_match.url_name == 'wallet' %}aria-current="page"{% endif %}><span aria-hidden="true">🪙</span> <span data-coin-balance>{{ request.user.coins }}</span></a>
           <a class="account-profile-link" href="{% url 'my_profile' %}" aria-label="Открыть профиль">{% include 'profiles/_avatar.html' with member=request.user %}</a>
         {% else %}
           <a href="{% url 'login' %}">Войти</a>
@@ -36,7 +38,7 @@
     {% if request.user.is_authenticated and startup %}
       <div class="startup-strip">
         <span class="eyebrow">ВАШИ ПРОЕКТЫ</span>
-        {% for item in request.user.startups.all %}
+        {% for item in my_projects %}
           <a class="startup-chip {% if item.id == startup.id %}selected{% endif %}" href="{% url 'dashboard' item.id %}">{{ item.name }}</a>
         {% endfor %}
       </div>
@@ -56,7 +58,7 @@
   {% include 'founder/_bruno_pet.html' %}
   {% if request.telegram_miniapp %}<script src="{% static 'founder/js/telegram.js' %}" defer></script>{% endif %}
   <script src="{% static 'founder/js/bruno.js' %}?v=6" defer></script>
-  {% if request.user.is_authenticated %}<script src="{% static 'founder/js/messages.js' %}?v=3" defer></script>{% endif %}
+  {% if request.user.is_authenticated %}<script src="{% static 'founder/js/messages.js' %}?v=3" defer></script><script src="{% static 'founder/js/coins.js' %}?v=1" defer></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

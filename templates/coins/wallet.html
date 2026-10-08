@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}Монеты · Co-Founder.AI{% endblock %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">ВНУТРЕННЯЯ ВАЛЮТА</span><h1>Монеты</h1><p>Монеты начисляются за работу над проектом: разговоры с Бруно, проверки гипотез и помощь другим основателям. Их можно потратить на продвижение проекта в сообществе.</p></div><div class="coin-balance-big" aria-label="Баланс"><span aria-hidden="true">🪙</span><strong>{{ balance }}</strong></div></div>
+
+<div class="team-layout">
+<section class="card work-card">
+  <h2>Как заработать</h2>
+  <p class="muted small">Каждый новый аккаунт получает {{ welcome_bonus }} монет. Начисления ограничены за день, чтобы монеты отражали реальную работу.</p>
+  {% for item in rules %}
+  <div class="team-row coin-rule">
+    <div><strong>+{{ item.rule.amount }}</strong> {{ item.rule.description }}</div>
+    <span class="muted small">сегодня {{ item.today }} из {{ item.rule.daily_cap }}</span>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="card work-card">
+  <h2>На что потратить</h2>
+  <p class="muted small">Продвижение покупается на странице проекта: «Проект» → «Продвижение».</p>
+  {% for offer in offers %}
+  <div class="team-row coin-rule">
+    <div><strong>{{ offer.title }}</strong><p class="muted small">{{ offer.description }} На {{ offer.days }} дн.</p></div>
+    <span class="coin-price">{{ offer.cost }} 🪙</span>
+  </div>
+  {% endfor %}
+  {% if my_projects %}<p class="muted small">Ваши проекты: {% for item in my_projects %}<a class="evidence-link" href="{% url 'promote' item.id %}">{{ item.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+</section>
+</div>
+
+<section class="card work-card">
+  <h2>История</h2>
+  {% for tx in history %}
+  <div class="work-history-row">
+    <div><strong>{{ tx.get_kind_display }}</strong><p class="muted small">{{ tx.created_at|date:'d.m.Y H:i' }}{% if tx.note %} · {{ tx.note }}{% endif %}</p></div>
+    <span class="coin-amount {% if tx.amount < 0 %}negative{% endif %}">{% if tx.amount > 0 %}+{% endif %}{{ tx.amount }}</span>
+  </div>
+  {% empty %}<p class="muted">Операций пока нет.</p>{% endfor %}
+  {% if history.has_other_pages %}<nav class="community-pagination" aria-label="Страницы истории">{% if history.has_previous %}<a class="button ghost" href="?page={{ history.previous_page_number }}">← Новее</a>{% endif %}<span>{{ history.number }} / {{ history.paginator.num_pages }}</span>{% if history.has_next %}<a class="button ghost" href="?page={{ history.next_page_number }}">Старее →</a>{% endif %}</nav>{% endif %}
+</section>
+{% endblock %}

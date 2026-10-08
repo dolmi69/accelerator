@@ -2,7 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.urls import reverse_lazy
 
-from founder import views, workbench_views, lab_views, lab_testing_views
+from founder import views, workbench_views, lab_views, lab_testing_views, team_views, coin_views
 
 
 urlpatterns = [
@@ -32,6 +32,14 @@ urlpatterns = [
     path('startups/<uuid:startup_id>/review/generate/', workbench_views.review_generate, name='review_generate'),
     path('startups/<uuid:startup_id>/review/<uuid:review_id>/steps/<int:index>/task/', workbench_views.review_step_task,
          name='review_step_task'),
+    path('startups/<uuid:startup_id>/team/', team_views.team, name='team'),
+    path('startups/<uuid:startup_id>/team/invite/', team_views.team_invite, name='team_invite'),
+    path('startups/<uuid:startup_id>/team/<int:member_id>/', team_views.team_member_update, name='team_member_update'),
+    path('startups/<uuid:startup_id>/team/leave/', team_views.team_leave, name='team_leave'),
+    path('invites/<int:member_id>/', team_views.invite_respond, name='invite_respond'),
+    path('startups/<uuid:startup_id>/promote/', coin_views.promote, name='promote'),
+    path('startups/<uuid:startup_id>/promote/buy/', coin_views.promote_buy, name='promote_buy'),
+    path('coins/', coin_views.wallet, name='wallet'),
     path("", views.home, name="home"),
     path("about/", views.about, name="about"),
     path("register/", views.register, name="register"),

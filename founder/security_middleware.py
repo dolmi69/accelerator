@@ -9,7 +9,7 @@ from django.template.loader import render_to_string
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.deprecation import MiddlewareMixin
 
-from founder.models import StartupProfile
+from founder.services.access import can_edit
 from founder.services.request_limits import (
     RequestLimitExceeded, acquire_ai_lease, consume_limit, release_ai_lease,
 )
@@ -73,7 +73,7 @@ class RequestProtectionMiddleware(MiddlewareMixin):
             ai_request = route in {"chat_send", "metrics_assess", "pitch_finish", "tasks_generate", "card_generate"}
             if route == "card_edit":
                 ai_request = request.POST.get("action") in {"generate", "refine"}
-            if ai_request and StartupProfile.objects.filter(pk=kwargs.get("startup_id"), owner=request.user).exists():
+            if ai_request and can_edit(request.user, kwargs.get("startup_id")):
                 consume_limit(f"ai-minute:{request.user.pk}", settings.AI_REQUESTS_PER_MINUTE, 60)
                 consume_limit(f"ai-day:{request.user.pk}", settings.AI_REQUESTS_PER_DAY, 86400)
                 request.ai_lease = acquire_ai_lease(request.user.pk)

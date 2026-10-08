@@ -18,6 +18,7 @@ from django.db import OperationalError, transaction
 
 from founder.forms import LabPromptForm, LabCustomizeForm, LabBackendModulesForm
 from founder.models import LabSiteVersion, StartupProfile, LabAIUsage
+from founder.services.access import get_startup
 from founder.services.qwen import QwenError
 from founder.services.site_generator import generate_site
 from founder.services.lab_testing import publication_for, test_results
@@ -28,8 +29,8 @@ from founder.services.backend_modules import module_command, normalize_modules, 
 from founder.services.request_limits import RequestLimitExceeded, acquire_ai_lease, consume_limit
 
 
-def _owned_startup(request, startup_id):
-    return get_object_or_404(StartupProfile, pk=startup_id, owner=request.user)
+def _owned_startup(request, startup_id, *, edit=True):
+    return get_startup(request, startup_id, edit=edit)
 
 
 def _version(startup, value):
@@ -74,7 +75,7 @@ def _lab_page(request, startup, form=None, *, status=200):
 @login_required
 @require_GET
 def lab(request, startup_id):
-    return _lab_page(request, _owned_startup(request, startup_id))
+    return _lab_page(request, _owned_startup(request, startup_id, edit=False))
 
 
 def generation_key(startup, source, prompt, kind, scope="auto", rebuild=False):
@@ -285,7 +286,7 @@ def lab_stop(request, startup_id):
 @login_required
 @require_GET
 def lab_preview(request, startup_id, version_id):
-    startup = _owned_startup(request, startup_id)
+    startup = _owned_startup(request, startup_id, edit=False)
     version = get_object_or_404(startup.lab_versions, pk=version_id)
     return preview_response(version.html, exit_viewer=True)
 

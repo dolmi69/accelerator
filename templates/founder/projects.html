@@ -3,17 +3,20 @@
 {% block title %}Мои проекты · Co-Founder.AI{% endblock %}
 {% block content %}
 <div class="page-heading"><div><span class="eyebrow">ВАШИ ИДЕИ И ИХ ПРОГРЕСС</span><h1>Мои проекты</h1><p>У каждого проекта свой радар, разговоры с Бруно и история изменений.</p></div><a href="{% url 'startup_create' %}" class="button primary">+ Добавить проект</a></div>
-<section class="project-carousel" aria-label="Радары проектов" aria-roledescription="карусель">
+{% if invites %}<section class="card work-card invites-card" aria-label="Приглашения в проекты"><span class="eyebrow">ВАС ЗОВУТ В КОМАНДУ</span>
+{% for invite in invites %}<div class="team-row"><div><strong>{{ invite.startup.name }}</strong><p class="muted small">{% if invite.invited_by %}@{{ invite.invited_by.handle }} приглашает{% else %}Приглашение{% endif %} · роль: {{ invite.get_role_display|lower }}</p></div><div class="team-actions"><form method="post" action="{% url 'invite_respond' invite.id %}">{% csrf_token %}<input type="hidden" name="accept" value="1"><button class="button primary" type="submit">Принять</button></form><form method="post" action="{% url 'invite_respond' invite.id %}">{% csrf_token %}<button class="button ghost" type="submit">Отклонить</button></form></div></div>{% endfor %}
+</section>{% endif %}
+{% if project_cards %}<section class="project-carousel" aria-label="Радары проектов" aria-roledescription="карусель">
   <div class="carousel-toolbar"><span class="muted small">Листайте свайпом или стрелками</span><div class="carousel-controls"><button type="button" class="button ghost carousel-arrow" data-carousel-prev aria-label="Предыдущий проект" aria-controls="project-slides" disabled>←</button><span data-carousel-counter aria-live="polite" aria-atomic="true">1 / {{ project_cards|length }}</span><button type="button" class="button ghost carousel-arrow" data-carousel-next aria-label="Следующий проект" aria-controls="project-slides" {% if project_cards|length < 2 %}disabled{% endif %}>→</button></div></div>
   <div class="project-slides" id="project-slides" tabindex="0" aria-label="Проекты; используйте стрелки влево и вправо">
     {% for card in project_cards %}<article class="card project-slide" aria-roledescription="слайд" aria-label="{{ forloop.counter }} из {{ project_cards|length }}: {{ card.startup.name }}">
-      <div class="section-top"><div><span class="eyebrow">{{ card.startup.get_stage_display }}</span><h2>{{ card.startup.name }}</h2></div><span class="score-badge">{% if card.latest %}{{ card.latest.overall_score }}/100{% else %}Без оценки{% endif %}</span></div>
+      <div class="section-top"><div><span class="eyebrow">{{ card.startup.get_stage_display }}{% if card.role_label %} · {{ card.role_label|upper }} · @{{ card.startup.owner.handle }}{% endif %}</span><h2>{{ card.startup.name }}</h2></div><span class="score-badge">{% if card.latest %}{{ card.latest.overall_score }}/100{% else %}Без оценки{% endif %}</span></div>
       <p class="muted project-description">{{ card.startup.one_line_pitch|default:"Расскажите Бруно об идее, чтобы получить первый радар." }}</p>
       <div class="radar-layout"><div class="radar-wrap">{% include 'founder/_radar_svg.html' with points=card.points %}</div><div class="metric-list">{% for label, score in card.axes %}<div class="metric-row"><span>{{ label }}</span><strong>{% if score is not None %}{{ score }}{% else %}—{% endif %}</strong><div class="metric-bar"><i style="width:{{ score|default:0 }}%"></i></div></div>{% endfor %}</div></div>
       <p class="muted small">{% if card.latest %}{{ card.latest.get_source_display }} · {{ card.latest.assessed_at|date:"d.m.Y H:i" }}{% else %}Проект сохранён. Оценку можно получить после разговора.{% endif %}</p>
-      <a class="button primary" href="{% url 'dashboard' card.startup.id %}">Открыть профиль <span aria-hidden="true">→</span></a> <a class="button ghost" href="{% url 'card_edit' card.startup.id %}">Карточка проекта</a>
+      <a class="button primary" href="{% url 'dashboard' card.startup.id %}">Открыть профиль <span aria-hidden="true">→</span></a> {% if card.role != 'viewer' %}<a class="button ghost" href="{% url 'card_edit' card.startup.id %}">Карточка проекта</a>{% endif %}
     </article>{% endfor %}
   </div>
-</section>
+</section>{% endif %}
 {% endblock %}
 {% block scripts %}<script src="{% static 'founder/js/projects.js' %}" defer></script>{% endblock %}

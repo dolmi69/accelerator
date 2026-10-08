@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.urls import reverse
 
 from founder.models import StartupMetrics
+from founder.services.access import ROLE_LABELS, accessible_startups, project_role
 from founder.services.metrics import AXES, radar_grid, radar_points
 
 
@@ -17,14 +18,16 @@ def grid_context():
 
 
 def project_cards(user):
-    projects = user.startups.prefetch_related(Prefetch(
+    projects = accessible_startups(user).select_related("owner").prefetch_related(Prefetch(
         "metric_snapshots", queryset=StartupMetrics.objects.all()[:1], to_attr="latest_snapshots",
     ))
     cards = []
     for startup in projects:
         latest = startup.latest_snapshots[0] if startup.latest_snapshots else None
+        role = project_role(user, startup)
         cards.append({
             "startup": startup, "latest": latest, "points": radar_points(latest) if latest else "",
+            "role": role, "role_label": ROLE_LABELS[role] if startup.is_shared else "",
             "axes": [(label, getattr(latest, key, None)) for key, label in AXES],
         })
     return cards

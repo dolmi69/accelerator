@@ -26,4 +26,4 @@
 </section>
 <section class="card lab-test-thanks" id="lab-test-thanks" hidden><h2>Спасибо за помощь!</h2><p>Результат сохранён. Автор увидит ваши действия и отзыв в лаборатории.</p>{% if is_owner %}<a class="button primary" href="{% url 'lab' publication.startup_id %}?version={{ publication.version_id }}&amp;section=globalization">Вернуться в лабораторию</a>{% else %}<a class="button primary" href="{% url 'card_detail' publication.startup_id %}">Вернуться к проекту</a>{% endif %}</section>
 {% endblock %}
-{% block scripts %}<script src="{% static 'founder/js/lab-testing.js' %}?v=1" defer></script>{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/lab-testing.js' %}?v=2" defer></script>{% endblock %}

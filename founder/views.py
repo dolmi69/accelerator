@@ -18,9 +18,10 @@ from django.views.decorators.http import require_GET, require_POST
 
 from founder.forms import ChatSendForm, MetricsForm, RegisterForm, StartupForm
 from founder.models import (
-    ChatAttachment, ChatMessage, ChatSession, MascotState, MessageFeedback,
+    ChatAttachment, ChatMessage, ChatSession, CoinTransaction, MascotState, MessageFeedback,
     PitchReport, StartupProfile,
 )
+from founder.services.access import get_startup, has_team, pending_invites
 from founder.services.ai import AIServiceError, provider_label, stream_reply
 from founder.services.bruno import looks_like_evidence
 from founder.services.mascot import update_mascot
@@ -29,6 +30,7 @@ from founder.services.onboarding import cofounder_opening, has_founder_conversat
 from founder.services.metrics import AXES, radar_grid, radar_points
 from founder.services.pitch import finish_pitch
 from founder.services.radar_assessment import assess_startup
+from founder.services.coins import CHAT_MIN_LENGTH, award, balance, coins_note
 from founder.services.achievements import achievement_cards, award_achievements
 from founder.services.profile import evidence_display, grid_context, history_context, project_cards
 
@@ -52,9 +54,10 @@ def about(request):
 @login_required
 def home(request):
     cards = project_cards(request.user)
-    if not cards:
+    invites = list(pending_invites(request.user))
+    if not cards and not invites:
         return redirect("startup_create")
-    return render(request, "founder/projects.html", {"project_cards": cards, **grid_context()})
+    return render(request, "founder/projects.html", {"project_cards": cards, "invites": invites, **grid_context()})
 
 
 @login_required
@@ -73,7 +76,7 @@ def startup_create(request):
 
 @login_required
 def startup_edit(request, startup_id):
-    startup = get_object_or_404(StartupProfile, id=startup_id, owner=request.user)
+    startup = get_startup(request, startup_id, edit=True)
     form = StartupForm(request.POST or None, instance=startup)
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -132,7 +135,7 @@ def _dashboard_context(startup, metrics_form=None, *, snapshot_id=None, history_
 
 @login_required
 def dashboard(request, startup_id):
-    startup = get_object_or_404(StartupProfile, id=startup_id, owner=request.user)
+    startup = get_startup(request, startup_id)
     return render(request, "founder/dashboard.html", _dashboard_context(
         startup, snapshot_id=request.GET.get("snapshot"), history_page=request.GET.get("history_page", 1),
     ))
@@ -141,7 +144,7 @@ def dashboard(request, startup_id):
 @login_required
 @require_POST
 def metrics_create(request, startup_id):
-    startup = get_object_or_404(StartupProfile, id=startup_id, owner=request.user)
+    startup = get_startup(request, startup_id, edit=True)
     form = MetricsForm(request.POST)
     if form.is_valid():
         with transaction.atomic():
@@ -172,7 +175,7 @@ def metrics_create(request, startup_id):
 @login_required
 @require_POST
 def metrics_assess(request, startup_id):
-    startup = get_object_or_404(StartupProfile, id=startup_id, owner=request.user)
+    startup = get_startup(request, startup_id, edit=True)
     try:
         assess_startup(startup)
         messages.success(request, "Бруно составил таблицу по пяти направлениям. Её можно доработать вручную.")
@@ -195,7 +198,7 @@ def _create_cofounder_session(startup):
 @login_required
 @require_POST
 def chat_create(request, startup_id):
-    startup = get_object_or_404(StartupProfile, id=startup_id, owner=request.user)
+    startup = get_startup(request, startup_id, edit=True)
     session = _create_cofounder_session(startup)
     return redirect("chat_detail", startup_id=startup.id, session_id=session.id)
 
@@ -203,7 +206,7 @@ def chat_create(request, startup_id):
 @login_required
 @require_POST
 def chat_refine(request, startup_id, axis):
-    startup = get_object_or_404(StartupProfile, id=startup_id, owner=request.user)
+    startup = get_startup(request, startup_id, edit=True)
     labels = dict(AXES)
     if axis not in labels:
         raise Http404("Направление не найдено")
@@ -235,7 +238,7 @@ def chat_refine(request, startup_id, axis):
 @login_required
 @require_POST
 def pitch_create(request, startup_id):
-    startup = get_object_or_404(StartupProfile, id=startup_id, owner=request.user)
+    startup = get_startup(request, startup_id, edit=True)
     session = ChatSession.objects.create(startup=startup, mode=ChatSession.Mode.PITCH, title="Инвестор: продажи и спрос")
     ChatMessage.objects.create(
         session=session,
@@ -248,19 +251,17 @@ def pitch_create(request, startup_id):
     return redirect("chat_detail", startup_id=startup.id, session_id=session.id)
 
 
-def _owned_session(request, startup_id, session_id):
-    return get_object_or_404(
-        ChatSession.objects.select_related("startup"),
-        id=session_id,
-        startup_id=startup_id,
-        startup__owner=request.user,
-    )
+def _owned_session(request, startup_id, session_id, *, edit=True):
+    startup = get_startup(request, startup_id, edit=edit)
+    session = get_object_or_404(ChatSession, id=session_id, startup=startup)
+    session.startup = startup
+    return session
 
 
 @login_required
 def chat_detail(request, startup_id, session_id):
-    session = _owned_session(request, startup_id, session_id)
-    history = session.messages.order_by("-created_at", "-id")
+    session = _owned_session(request, startup_id, session_id, edit=False)
+    history = session.messages.select_related("author").order_by("-created_at", "-id")
     page_number = request.GET.get("page", 1)
     if request.GET.get("message"):
         try:
@@ -290,6 +291,8 @@ def chat_detail(request, startup_id, session_id):
         "chat_page": page,
         "report": report,
         "is_pitch": session.mode == ChatSession.Mode.PITCH,
+        "can_edit": session.startup.user_role != "viewer",
+        "show_authors": has_team(session.startup),
         "has_assessment_context": has_profile_description(session.startup) or has_founder_conversation(session.startup),
         "ai_available": settings.AI_PROVIDER != "demo",
     })
@@ -332,6 +335,7 @@ def chat_send(request, startup_id, session_id):
         user_message = ChatMessage.objects.create(
             session=session,
             role=ChatMessage.Role.USER,
+            author=request.user,
             content=form.cleaned_data["content"],
         )
         upload = form.cleaned_data.get("attachment")
@@ -367,7 +371,14 @@ def chat_send(request, startup_id, session_id):
                 provider=provider,
                 model_name=model_name,
             )
-            yield _sse({"type": "done", "message_id": str(assistant_message.id)})
+            done = {"type": "done", "message_id": str(assistant_message.id)}
+            # Монеты только за ответ, который Бруно действительно дал, и за осмысленный вопрос.
+            if len(user_message.content.strip()) >= CHAT_MIN_LENGTH:
+                earned = award(request.user, CoinTransaction.Kind.CHAT, key=user_message.pk,
+                               startup=session.startup, note=session.startup.name)
+                if earned:
+                    done.update(coins_earned=earned, coins=balance(request.user))
+            yield _sse(done)
         except AIServiceError as exc:
             yield _sse({"type": "error", "message": str(exc)})
 
@@ -402,7 +413,9 @@ def pitch_finish(request, startup_id, session_id):
         raise Http404("Это не сессия питча.")
     try:
         finish_pitch(session)
-        messages.success(request, "Бруно подготовил разбор питча.")
+        earned = award(request.user, CoinTransaction.Kind.PITCH, key=session.pk,
+                       startup=session.startup, note=session.startup.name)
+        messages.success(request, "Бруно подготовил разбор питча." + coins_note(earned))
     except (AIServiceError, ValueError) as exc:
         messages.error(request, str(exc))
     return redirect("chat_detail", startup_id=startup_id, session_id=session_id)

@@ -4,7 +4,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.core.validators import MaxLengthValidator
 
-from founder.models import EvidenceEntry, LabSiteVersion, StartupMetrics, StartupProfile, User
+from founder.models import EvidenceEntry, LabSiteVersion, ProjectMember, StartupMetrics, StartupProfile, User
 from founder.profile_forms import HandleValidationMixin
 from founder.services.json_utils import bounded_json_loads
 
@@ -188,3 +188,27 @@ class EvidenceForm(forms.ModelForm):
         if value > timezone.localdate():
             raise forms.ValidationError('Для планов используйте задания. Укажите дату уже состоявшегося наблюдения.')
         return value
+
+
+class TeamInviteForm(forms.Form):
+    handle = forms.CharField(label="Тег участника", max_length=33,
+                             widget=forms.TextInput(attrs={"placeholder": "@founder_tag", "autocomplete": "off"}))
+    role = forms.ChoiceField(label="Роль", choices=ProjectMember.Role.choices, initial=ProjectMember.Role.EDITOR)
+
+    def __init__(self, *args, startup, **kwargs):
+        self.startup = startup
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned = super().clean()
+        handle = cleaned.get("handle", "").strip().lstrip("@").lower()
+        if not handle:
+            return cleaned
+        user = User.objects.filter(handle=handle, is_active=True).first()
+        if user is None:
+            self.add_error("handle", "Участник с таким тегом не найден. Тег есть в профиле: @name.")
+        elif user.pk == self.startup.owner_id:
+            self.add_error("handle", "Это владелец проекта.")
+        else:
+            cleaned["user"] = user
+        return cleaned

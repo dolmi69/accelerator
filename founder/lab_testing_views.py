@@ -11,15 +11,17 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from founder.models import LabPublication, LabTestEvent, LabTestSession, StartupProfile
+from founder.models import CoinTransaction, LabPublication, LabTestEvent, LabTestSession, StartupProfile
 from founder.lab_views import _owned_startup, _version, preview_response
+from founder.services.access import member_filter, team_user_ids
+from founder.services.coins import award, balance
 from founder.services.json_utils import bounded_json_loads
 from founder.services.request_limits import consume_limit, RequestLimitExceeded
 
 
 def _published(request, startup_id):
-    # Private prototypes and unfinished cards are visible only to their owner.
-    audience = Q(startup__owner=request.user) | Q(
+    # Private prototypes and unfinished cards are visible only to the project team.
+    audience = member_filter(request.user, 'startup__') | Q(
         visibility=LabPublication.Visibility.PUBLIC, startup__project_card__published_at__isnull=False)
     return get_object_or_404(LabPublication.objects.select_related('version', 'startup').filter(audience),
         startup_id=startup_id, version__startup_id=startup_id, startup__owner__is_active=True)
@@ -69,7 +71,7 @@ def lab_trial(request, startup_id):
     }
     return render(request, 'founder/lab_trial.html', {'publication': publication,
         'public': public,
-        'is_owner': publication.startup.owner_id == request.user.pk})
+        'is_owner': request.user.pk in team_user_ids(publication.startup)})
 
 
 @login_required
@@ -162,7 +164,7 @@ def lab_test_events(request, startup_id, session_id):
 @login_required
 @require_POST
 def lab_test_finish(request, startup_id, session_id):
-    _, session = _session(request, startup_id, session_id)
+    publication, session = _session(request, startup_id, session_id)
     try:
         payload = _json(request)
         if set(payload) != {'rating', 'feedback', 'duration'}:
@@ -183,4 +185,9 @@ def lab_test_finish(request, startup_id, session_id):
             session.rating, session.feedback, session.finished_at = rating, feedback.strip(), now
             session.duration_seconds = min(duration, max(0, int((now - session.created_at).total_seconds())), 1800)
             session.save(update_fields=['rating', 'feedback', 'finished_at', 'duration_seconds'])
-    return JsonResponse({'saved': True})
+    # Монеты получают только внешние тестировщики, оставившие отзыв или оценку.
+    earned = 0
+    if (session.rating or len(session.feedback) >= 20) and request.user.pk not in team_user_ids(publication.startup):
+        earned = award(request.user, CoinTransaction.Kind.TEST, key=session.pk, startup=publication.startup,
+                       note=publication.startup.name)
+    return JsonResponse({'saved': True, **({'coins_earned': earned, 'coins': balance(request.user)} if earned else {})})

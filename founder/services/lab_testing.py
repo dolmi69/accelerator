@@ -1,4 +1,4 @@
-"""Bounded, owner-only summaries of voluntary prototype tests."""
+"""Bounded, team-only summaries of voluntary prototype tests."""
 import json
 from django.db.models import Avg, Count, Max, Q
 from founder.models import LabPublication, LabTestEvent, LabTestSession
@@ -9,10 +9,12 @@ def publication_for(startup):
 
 
 def test_results(version):
-    # Owner rehearsals are useful to test the UI but never counted as validation.
+    # Team rehearsals are useful to test the UI but never counted as validation.
+    from founder.services.access import team_user_ids
+    team = team_user_ids(version.startup)
     all_sessions = LabTestSession.objects.filter(version=version)
-    owner_tests = all_sessions.filter(tester_id=version.startup.owner_id).count()
-    sessions = all_sessions.exclude(tester_id=version.startup.owner_id)
+    owner_tests = all_sessions.filter(tester_id__in=team).count()
+    sessions = all_sessions.exclude(tester_id__in=team)
     totals = sessions.aggregate(total=Count('pk'), testers=Count('tester_id', distinct=True),
                                 completed=Count('pk', filter=Q(finished_at__isnull=False)),
                                 average_rating=Avg('rating'), average_duration=Avg('duration_seconds', filter=Q(finished_at__isnull=False)))

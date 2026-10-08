@@ -1,4 +1,4 @@
-"""Owner-scoped views for tasks, evidence and investor practice."""
+"""Team-scoped views for tasks, evidence and investor practice."""
 from uuid import UUID
 
 from django.conf import settings
@@ -13,19 +13,21 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from founder.forms import EvidenceForm
-from founder.models import BrunoTask, BusinessAxis, ChatMessage, ChatSession, EvidenceEntry, StartupProfile
+from founder.models import BrunoTask, BusinessAxis, ChatMessage, ChatSession, CoinTransaction, EvidenceEntry, StartupProfile
+from founder.services.access import get_startup
 from founder.services.ai import AIServiceError
+from founder.services.coins import award, coins_note
 from founder.services.review import create_review, guess_axis, step_to_task
 from founder.services.workbench import generate_tasks
 
 
-def owned_startup(request, startup_id):
-    return get_object_or_404(StartupProfile, pk=startup_id, owner=request.user)
+def owned_startup(request, startup_id, *, edit=True):
+    return get_startup(request, startup_id, edit=edit)
 
 
 @login_required
 def tasks(request, startup_id):
-    startup = owned_startup(request, startup_id)
+    startup = owned_startup(request, startup_id, edit=False)
     return render(request, 'founder/tasks.html', {
         'startup': startup, 'workspace_tab': 'tasks',
         'open_tasks': startup.bruno_tasks.filter(status=BrunoTask.Status.TODO),
@@ -57,7 +59,7 @@ def task_skip(request, startup_id, task_id):
 
 @login_required
 def evidence_list(request, startup_id):
-    startup = owned_startup(request, startup_id)
+    startup = owned_startup(request, startup_id, edit=False)
     entries = startup.evidence_entries.select_related('task')
     axis = request.GET.get('axis', '')
     if axis in BusinessAxis.values:
@@ -95,13 +97,19 @@ def evidence_edit(request, startup_id, entry_id=None):
     form = EvidenceForm(request.POST if request.method == 'POST' else None,
                         instance=entry, initial=initial, startup=startup)
     if request.method == 'POST' and form.is_valid():
+        earned = 0
         with transaction.atomic():
             saved = form.save()
-            if saved.task_id:
-                startup.bruno_tasks.filter(pk=saved.task_id, status=BrunoTask.Status.TODO).update(
-                    status=BrunoTask.Status.DONE, completed_at=timezone.now(),
-                )
-        messages.success(request, 'Результат сохранён. Следующее обновление радара учтёт эту запись; сама запись не добавляет баллы.')
+            if entry is None:
+                earned += award(request.user, CoinTransaction.Kind.EVIDENCE, key=saved.pk,
+                                startup=startup, note=saved.claim)
+            if saved.task_id and startup.bruno_tasks.filter(pk=saved.task_id, status=BrunoTask.Status.TODO).update(
+                status=BrunoTask.Status.DONE, completed_at=timezone.now(),
+            ):
+                earned += award(request.user, CoinTransaction.Kind.TASK, key=saved.task_id,
+                                startup=startup, note=saved.claim)
+        messages.success(request, 'Результат сохранён. Следующее обновление радара учтёт эту запись; сама запись не добавляет баллы.'
+                         + coins_note(earned))
         return redirect('evidence_list', startup_id=startup.pk)
     return render(request, 'founder/evidence_form.html', {
         'startup': startup, 'workspace_tab': 'evidence', 'form': form, 'entry': entry,
@@ -110,7 +118,7 @@ def evidence_edit(request, startup_id, entry_id=None):
 
 @login_required
 def investor(request, startup_id):
-    startup = owned_startup(request, startup_id)
+    startup = owned_startup(request, startup_id, edit=False)
     return render(request, 'founder/investor.html', {
         'startup': startup, 'workspace_tab': 'investor',
         'sessions': startup.chat_sessions.filter(mode=ChatSession.Mode.PITCH).select_related('pitch_report')[:20],
@@ -119,7 +127,7 @@ def investor(request, startup_id):
 
 @login_required
 def review(request, startup_id):
-    startup = owned_startup(request, startup_id)
+    startup = owned_startup(request, startup_id, edit=False)
     reviews = startup.reviews.all()
     current = reviews.first()
     if request.GET.get('id'):

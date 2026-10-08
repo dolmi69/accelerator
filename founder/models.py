@@ -47,6 +47,8 @@ class User(AbstractUser):
     location = models.CharField('Город', max_length=100, blank=True)
     profile_website = models.URLField('Сайт или портфолио', blank=True)
     avatar = models.ImageField(upload_to=avatar_upload_path, blank=True)
+    # Кэш суммы CoinTransaction; меняется только в services/coins.py вместе с записью журнала.
+    coins = models.PositiveIntegerField('Монеты', default=0)
 
     class Meta(AbstractUser.Meta):
         constraints = [models.CheckConstraint(
@@ -95,6 +97,82 @@ class StartupProfile(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ProjectMember(models.Model):
+    """Соавтор проекта. Владелец хранится в StartupProfile.owner и сюда не попадает."""
+
+    class Role(models.TextChoices):
+        EDITOR = "editor", "Соавтор"
+        VIEWER = "viewer", "Наблюдатель"
+
+    class Status(models.TextChoices):
+        INVITED = "invited", "Приглашён"
+        ACTIVE = "active", "Участник"
+
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="members")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="project_memberships")
+    role = models.CharField('Роль', max_length=10, choices=Role.choices, default=Role.EDITOR)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.INVITED)
+    invited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                   related_name="+")
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    joined_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [models.UniqueConstraint(fields=["startup", "user"], name="unique_project_member")]
+
+    @property
+    def can_edit(self):
+        return self.status == self.Status.ACTIVE and self.role == self.Role.EDITOR
+
+
+class CoinTransaction(models.Model):
+    """Журнал монет. Начисление за одно и то же событие защищено уникальным ключом."""
+
+    class Kind(models.TextChoices):
+        WELCOME = "welcome", "Стартовый бонус"
+        CHAT = "chat", "Разговор с Бруно"
+        PITCH = "pitch", "Тренировка питча"
+        EVIDENCE = "evidence", "Запись в дневнике"
+        TASK = "task", "Выполненное задание"
+        TEST = "test", "Тест чужого прототипа"
+        PROMOTION = "promotion", "Продвижение проекта"
+        ADJUSTMENT = "adjustment", "Корректировка"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="coin_transactions")
+    amount = models.IntegerField()
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name="coin_transactions")
+    note = models.CharField(max_length=200, blank=True)
+    key = models.CharField(max_length=100, null=True, blank=True, unique=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["user", "kind", "created_at"], name="coin_tx_user_kind_date")]
+
+
+class Promotion(models.Model):
+    """Оплаченное монетами продвижение проекта в сообществе."""
+
+    class Kind(models.TextChoices):
+        FEED_TOP = "feed_top", "Поднять карточку в ленте"
+        HIGHLIGHT = "highlight", "Выделить карточку"
+        TESTERS = "testers", "Позвать тестировщиков"
+
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="promotions")
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    bought_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    cost = models.PositiveIntegerField()
+    starts_at = models.DateTimeField(default=timezone.now)
+    ends_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        ordering = ["-ends_at", "-id"]
+        indexes = [models.Index(fields=["kind", "ends_at"], name="promotion_active")]
 
 
 class LabSiteVersion(models.Model):
@@ -315,6 +393,9 @@ class ChatMessage(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name="messages")
     role = models.CharField(max_length=10, choices=Role.choices)
+    # Кто из команды написал сообщение; у ответов Бруно пусто.
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name="+")
     content = models.TextField(blank=True)
     provider = models.CharField(max_length=40, blank=True)
     model_name = models.CharField(max_length=100, blank=True)

@@ -125,6 +125,7 @@
             throw new Error(data.message);
           } else if (data.type === "done") {
             completed = true;
+            window.coinsEarned?.(data.coins_earned, data.coins, {afterReload: true});
           }
         }
       }
