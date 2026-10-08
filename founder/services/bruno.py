@@ -221,8 +221,8 @@ BRAINSTORM_GUIDE = (
     "3. Потом идеи списком «1.», «2.», «3.». В каждой: что сделать и как проверить за неделю, с "
     "числом и критерием успеха. Идеи связаны с риском, а не случайные фичи.\n"
     "4. Скажи, какую идею ты бы проверил первой и почему, одним предложением, без вопроса.\n"
-    "5. В конце ровно один вопрос, второй не добавляй. Под ответом основатель увидит кнопки, "
-    "чтобы взять идею в задания, об этом можно сказать коротко."
+    "5. В конце ровно один вопрос, второй не добавляй. Под ответом основатель увидит кнопки "
+    "«Проверить это», чтобы взять идею в задания; кнопку называй только так."
 )
 
 SUMMARY_GUIDE = (
@@ -298,17 +298,24 @@ AI_DISCLAIMER_RE = re.compile(
     r"(?:Как (?:языковая модель|искусственный интеллект|ИИ|AI)[^.!?]*[.!?]\s*)",
     re.IGNORECASE,
 )
+# Просьба о разборе, а не любое слово «разбор»: «мы снимаем разборы сочинений» — рассказ о канале.
+REVIEW_REQUEST = (
+    r"(?:сделай|сделайте|проведи|проведите|нужен|нужна|дай|дайте|хочу|хотим|покажи|покажите)\s+"
+    r"(?:\w+\s+){0,2}(?:анализ|разбор)|(?:анализ|разбор)\w*\s+(?:моего|нашего|мо[ейю]|наш\w*|проекта|"
+    r"идеи|бизнеса|стартапа|ситуации)|разбери(?:те)?|проанализируй\w*"
+)
 LONG_ANSWER_RE = re.compile(
-    r"анализ|разбор|разбери|\bоцени\b|план[ау]?\s+(?:на|шагов|действий|развития)|"
+    REVIEW_REQUEST + r"|\bоцени\b|план[ау]?\s+(?:на|шагов|действий|развития)|"
     r"(?:составь|распиши|сделай|дай|нужен|какой)\s+(?:\w+\s+)?план|"
     r"распиши|по шагам|пошагов|что (?:\w+ ){0,2}(?:делать|сделать)|с чего начать|"
     r"следующ\w* шаг|как (?:\w+ ){0,2}(?:развивать|развить|вырасти|продвигать)|"
     r"напиши|написать|составь|придумай|сформулируй|объясни|подробнее",
     re.IGNORECASE,
 )
-REVIEW_RE = re.compile(r"анализ|разбор|разбери|оцени\w* (?:мой |наш )?проект", re.IGNORECASE)
+REVIEW_RE = re.compile(REVIEW_REQUEST + r"|оцени\w* (?:мой |наш )?проект", re.IGNORECASE)
 FORMAL_RE = re.compile(
-    r"(?<!\w)(?:вы|вас|вам|вами|ваш\w*)(?!\w)|подскажите|помогите|скажите|расскажите|объясните|напишите",
+    r"(?<!\w)(?:вы|вас|вам|вами|ваш\w*)(?!\w)|здравствуйте|подскажите|помогите|скажите|расскажите|"
+    r"объясните|напишите|подведите",
     re.IGNORECASE,
 )
 INFORMAL_RE = re.compile(
@@ -326,7 +333,7 @@ NEGATION_RE = re.compile(r"(?<!\w)(?:нет|ни одного|ни одной|п
 CLAIM_RE = re.compile(r"\d|" + NEGATION_RE.pattern, re.IGNORECASE)
 PLAN_RE = re.compile(r"хотим|хочу|планир|будем|будет|думаем|собираемся|цель|мечта|если", re.IGNORECASE)
 CLAIM_TOPICS = {
-    "клиенты": r"клиент|покупател|пользовател|платящ|подписчик|заказчик",
+    "клиенты": r"клиент|покупател|пользовател|платящ|плат(?:ят|ит|или)\b|подписчик|заказчик",
     "продажи": r"продаж|выручк|оплат|доход|сделк",
     "команда": r"команд|разработчик|сооснов|сотрудник",
 }
@@ -426,6 +433,40 @@ def contradiction(messages):
         old_topics, old_sign = _claim(message["content"])
         if old_sign and old_sign != sign and topics & old_topics:
             return message["content"].strip()[:200]
+    return None
+
+
+NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?")
+
+
+def _topic_numbers(text):
+    """Тема → ближайшее к её слову число: «платят 15 человек» → {"клиенты": "15"}."""
+    lowered = text.lower()
+    if PLAN_RE.search(lowered):
+        return {}
+    found = {}
+    for name, pattern in CLAIM_TOPICS.items():
+        for match in re.finditer(pattern, lowered):
+            near = [(min(abs(number.start() - match.end()), abs(match.start() - number.end())), number.group())
+                    for number in NUMBER_RE.finditer(lowered)]
+            near = [item for item in near if item[0] <= 20]
+            if near:
+                found.setdefault(name, min(near)[1])
+    return found
+
+
+def number_change(messages):
+    """(тема, было, стало, цитата), если основатель назвал по той же теме другое число."""
+    if not messages or messages[-1]["role"] != "user":
+        return None
+    latest = _topic_numbers(messages[-1]["content"])
+    for message in reversed(messages[:-1]):
+        if message["role"] != "user":
+            continue
+        for topic, old in _topic_numbers(message["content"]).items():
+            new = latest.get(topic)
+            if new and new != old:
+                return topic, old, new, message["content"].strip()[:160]
     return None
 
 
@@ -546,11 +587,17 @@ def conversation_notes(messages):
     claims = [m["content"].strip()[:200] for m in messages[:-1]
               if m["role"] == "user" and CLAIM_RE.search(m["content"])][-5:]
     conflict = contradiction(messages)
+    changed = number_change(messages)
     if conflict:
         notes.append("ВНИМАНИЕ, противоречие. Раньше основатель сказал: «" + conflict
                      + "». Сейчас: «" + messages[-1]["content"].strip()[:200] + "». Начни ответ "
                      "с того, что заметил расхождение, назови обе версии и спроси, какая верна. "
                      "Не радуйся новой цифре и не давай советов, пока это не прояснится.")
+    elif changed:
+        topic, old, new, quote = changed
+        notes.append(f"ВНИМАНИЕ, цифра изменилась: раньше по теме «{topic}» основатель называл {old} "
+                     f"(«{quote}»), сейчас {new}. Начни ответ с этого: назови обе цифры и уточни, это "
+                     "рост за какой-то срок или поправка. Только потом совет.")
     elif claims and messages[-1]["role"] == "user":
         notes.append("Что основатель уже утверждал (сверь с новым сообщением, при "
                      "противоречии назови обе версии): «" + "» | «".join(claims) + "»")
@@ -571,7 +618,8 @@ def conversation_notes(messages):
                      "заданий и советов. Подведи итог разговора в одном-двух предложениях обычным "
                      "текстом, без списка и тире, и спроси, продолжить сейчас или вернуться позже.")
     elif last and len(last) < 25 and not wants_long_answer(last):
-        notes.append("Последний ответ короткий: не дави, помоги примером или вариантами.")
+        notes.append("Последний ответ короткий: не дави, помоги примером или вариантами. Свой "
+                     "прошлый вопрос не повторяй: предложи конкретный первый шаг на сегодня.")
     offered_diary = any("Записать в дневник" in m["content"] for m in messages[-8:] if m["role"] == "assistant")
     if last and looks_like_evidence(last) and not offered_diary:
         notes.append("Последнее сообщение похоже на результат проверки. Одной фразой отметь, что "
@@ -645,6 +693,7 @@ SELF_CONTAINED_QUESTION = 40
 # «Как думаешь, сколько…?» спрашивает мнение. Вопрос о фактах честнее: «Сколько…?».
 THINK_PREFIX_RE = re.compile(r"(?<!\w)(?:А\s+)?(?:ты\s+)?[Кк]ак\s+(?:ты\s+)?думаешь,\s*(\w)")
 DASH_RE = re.compile(r"\s[—–]\s")
+LIST_DASH_RE = re.compile(r"(^|\n)[ \t]*[—–-][ \t]+")
 
 
 def _fix_phrases(sentence, self_male=True):
@@ -658,6 +707,8 @@ def _limit_dashes(sentence, dashes_seen):
 
     Парные тире вокруг вставки не трогаем: двоеточие их сломает.
     """
+    # «— пункт» в начале строки — маркер списка, а не тире: показываем точкой списка.
+    sentence = LIST_DASH_RE.sub(r"\1• ", sentence)
     found = len(DASH_RE.findall(sentence))
     if dashes_seen and found == 1 and ":" not in sentence:
         sentence = DASH_RE.sub(": ", sentence)

@@ -21,7 +21,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from founder.models import ChatMessage, ChatSession, StartupProfile, User
+from founder.models import ChatMessage, ChatSession, ProjectPicture, StartupProfile, User
 from founder.services import mentor, panel
 from founder.services.ai import AIServiceError, stream_reply
 from founder.services.bruno import founder_gender, style_issues
@@ -56,6 +56,72 @@ SCENARIOS = {
             "Думаю брать 99 рублей в месяц, а первую неделю бесплатно.",
             {"text": "Какие у проекта самые слабые места?", "reject": [r"как думаешь"]},
             {"text": "Подведи итог встречи", "expect": [r"шаг"], "reject": [r"\b\d{3,}\s*(?:студент|пользовател)"]},
+        ],
+    },
+    # Настоящие идеи основателей: проверяем наставника целиком, от первой реплики до итога.
+    "real_coffee": {
+        "about": "Реальный проект: кофейня, где состав собирают сами; новичок, короткие ответы",
+        "startup": {
+            "name": "Кофейня со своим выбором", "stage": "idea",
+            "problem": "Многих пользователей может не устраивать состав кофе или еды, поэтому они могут сами выбрать его.",
+            "solution": "Кофейня, где можно полностью самому выбрать состав еды и напитков",
+            "target_customer": "Обычный человек возраста больше",
+        },
+        "turns": [
+            "привет, хочу открыть кофейню где каждый сам собирает свой кофе и еду",
+            "ну типа выбираешь молоко, сироп, зерно, и бургер тоже сам собираешь",
+            "не знаю, наверно все люди",
+            {"text": "Давай подумаем, какие у этой идеи слабые места", "expect": [r"(?m)^\s*1[.)]"]},
+            {"text": "денег у меня 300 тысяч, аренда в центре 150 тысяч в месяц",
+             "expect": [r"дв[ау]\s+месяц|2\s+месяц"], "reject": [r"выручк\w*\s+(?:составит|будет)\s+\d"]},
+            {"text": "Подведи итог встречи", "expect": [r"шаг"]},
+        ],
+    },
+    "real_ege": {
+        "about": "Реальный проект: бот проверяет сочинения ЕГЭ; основатель на «вы», цифры и противоречие",
+        "startup": {
+            "name": "Сочинение на 25", "stage": "validation",
+            "one_line_pitch": "Телеграм-бот проверяет сочинения ЕГЭ по русскому по критериям ФИПИ",
+            "target_customer": "Школьники 11 класса и их родители",
+        },
+        "turns": [
+            "Здравствуйте. Мы сделали телеграм-бота, который проверяет сочинения ЕГЭ по русскому по критериям ФИПИ и объясняет ошибки.",
+            "За сентябрь пришло 120 школьников, платят 15 человек по 390 рублей в месяц. Проверка одного сочинения стоит нам около 8 рублей.",
+            {"text": "Подскажите, как увеличить число платящих?", "reject": [r"(?<!\w)ты(?!\w)", r"(?<!\w)тебе(?!\w)"]},
+            "Ученики в основном приходят из TikTok, мы снимаем разборы сочинений.",
+            {"text": "Сейчас у нас 25 платящих", "expect": [r"15"]},
+            {"text": "Подведите итог встречи", "expect": [r"шаг"], "reject": [r"(?<!\w)ты(?!\w)"]},
+        ],
+    },
+    "real_shifts": {
+        "about": "Реальный проект: B2B учёт смен и чаевых для кофеен, пилоты бесплатно",
+        "startup": {
+            "name": "Смена+", "stage": "validation",
+            "one_line_pitch": "Сервис учёта смен и чаевых для небольших кофеен",
+            "target_customer": "Владельцы кофеен на 1–3 точки",
+        },
+        "turns": [
+            "Делаем сервис, где бариста отмечают смены и чаевые, а владелец видит зарплаты. Пилоты в трёх кофейнях Казани, бесплатно.",
+            "Хотим 1500 рублей в месяц за точку. Конкуренты iiko и r_keeper, но они про кассу, а не про смены.",
+            "Команда: я разработчик, друг продажник, он сам работал бариста.",
+            {"text": "Что нам делать дальше?", "expect": [r"(?m)^\s*1[.)]", r"плат|оплат|договор"]},
+            "ок",
+            {"text": "Подведи итог встречи", "expect": [r"шаг"]},
+        ],
+    },
+    "real_dresses": {
+        "about": "Реальный проект: аренда платьев между девушками; двусторонний рынок и сезонность",
+        "startup": {
+            "name": "Платье на вечер", "stage": "idea",
+            "one_line_pitch": "Девушки сдают друг другу платья на выпускной и свадьбы",
+            "target_customer": "Девушки 17–25 лет",
+        },
+        "turns": [
+            "Хочу сделать сайт, где девушки сдают в аренду платья на выпускной и свадьбы друг другу.",
+            "Платье стоит 15-30 тысяч, надевают один раз. Аренда за 3 тысячи, мы берём 20% комиссии.",
+            {"text": "Давай подумаем, как найти первых пользователей", "expect": [r"(?m)^\s*1[.)]"]},
+            {"text": "Все подруги говорят, что идея огонь", "expect": [r"плат|деньг|заплат|незнаком|клиент"]},
+            {"text": "Подведи итог встречи", "expect": [r"шаг"]},
         ],
     },
     "b2b_numbers": {
@@ -297,7 +363,6 @@ class Command(BaseCommand):
                         answer = f"[ОШИБКА] {exc}"
                     elapsed = time.monotonic() - started
                     ChatMessage.objects.create(session=session, role=ChatMessage.Role.ASSISTANT, content=answer)
-                    mentor.update_picture(session, context)
                     pitch = session.mode == ChatSession.Mode.PITCH
                     found = style_issues(answer, long_form=mentor.answer_kind(text) != "short" and not pitch, pitch=pitch,
                                          gender="male" if pitch else founder_gender(context))
@@ -315,7 +380,8 @@ class Command(BaseCommand):
                     lines.extend(report)
                     issues += found
                 if session.mode == ChatSession.Mode.COFOUNDER:
-                    picture = mentor.picture_lines(getattr(startup, "picture", None))
+                    # Не startup.picture: Django кеширует картину с первого сохранения, отчёт видел устаревшую.
+                    picture = mentor.picture_lines(ProjectPicture.objects.filter(startup=startup).first())
                     lines.append("**Картина проекта:** " + " · ".join(picture) + "\n")
                 if scenario.get("tasks"):
                     report, found = self.tasks_report(startup)

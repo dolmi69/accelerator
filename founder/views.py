@@ -484,8 +484,6 @@ def chat_send(request, startup_id, session_id):
                     created_at=started + timedelta(microseconds=offset),
                 )
             mentor.save_ideas(getattr(session, "mentor_plan", None), assistant_message)
-            # Ответ уже на экране; пока основатель читает, Бруно обновляет картину проекта.
-            mentor.update_picture(session, context_messages)
             yield _sse({"type": "done", "message_id": str(assistant_message.id)})
         except AIServiceError as exc:
             yield _sse({"type": "error", "message": str(exc)})
