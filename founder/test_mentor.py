@@ -198,6 +198,11 @@ class MentorTextTests(TestCase):
         self.assertIn("на «ты»: «Тебе»", style_issues("Тебе стоит позвонить клиентам."))
         self.assertEqual(style_issues("Вам стоит позвонить клиентам. Сделайте лендинг."), [])
         self.assertEqual(to_formal("Ух ты, вот это результат!"), "Ух ты, вот это результат!")
+        self.assertEqual("".join(polish_stream(iter(["Привет! Рад знакомству. "]))).strip(), "Здравствуйте! Рад знакомству.")
+        self.assertEqual(to_formal("Привет, Андрей!"), "Здравствуйте, Андрей!")
+        self.assertEqual(to_formal("Приветствие в боте и передайте привет команде."),
+                         "Приветствие в боте и передайте привет команде.")
+        self.assertIn("приветствие «Привет» вместо «Здравствуйте»", style_issues("Привет! Как проект?"))
         self.assertEqual(style_issues("Ух ты, вот это результат!"), [])
 
     def test_repeated_question_is_detected(self):

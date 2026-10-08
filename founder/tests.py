@@ -360,7 +360,7 @@ class GigaChatAdapterTests(TestCase):
             ))
             report = complete_text("Верни JSON", "Текст питча")
 
-        self.assertEqual(text, "Привет!")
+        self.assertEqual(text, "Здравствуйте!")  # Бруно на «вы»: «Привет» модели заменяется
         self.assertIn('"score":70', report)
         self.assertEqual(sum(request.url.path.endswith("/oauth") for request in calls), 1)
 
