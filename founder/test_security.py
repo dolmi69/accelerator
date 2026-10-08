@@ -97,6 +97,36 @@ class RequestProtectionTests(TestCase):
         response.close()
         acquire_ai_lease(self.user.pk)
 
+    def test_runaway_reply_is_cut_off_and_not_saved(self):
+        with patch("founder.views.stream_reply", return_value=iter(["слово " * 12_000])):
+            response = self.client.post(self.url, {"content": "Вопрос"})
+        self.assertContains(response, "Ответ слишком большой")
+        self.assertFalse(self.session.messages.filter(role="assistant").exists())
+        self.assertEqual(self.session.messages.get(role="user").content, "Вопрос")
+
+    @override_settings(CHAT_BUFFERED_RESPONSES=False)
+    def test_client_disconnect_closes_reply_generator(self):
+        import asyncio
+        import inspect
+        from founder.views import chat_send
+
+        request = RequestFactory().post(self.url, {"content": "Вопрос"})
+        request.user = self.user
+        request.scope = {}  # Так view понимает, что работает под Daphne (ASGI).
+        with patch("founder.views.stream_reply", return_value=iter(["Первый кусок. ", "Второй кусок."])):
+            response = chat_send(request, self.startup.pk, self.session.pk)
+
+            async def read_one_then_disconnect():
+                stream = response._iterator
+                await stream.__anext__()
+                # Держим ссылку: без явного close генератор остался бы приостановленным.
+                reply = stream.ag_frame.f_locals["sync_events"]
+                await stream.aclose()  # Так Django закрывает поток, когда клиент ушёл.
+                return reply
+
+            reply = asyncio.run(read_one_then_disconnect())
+        self.assertEqual(inspect.getgeneratorstate(reply), inspect.GEN_CLOSED)
+
     def test_lease_released_when_process_response_is_skipped(self):
         # Under ASGI a client that leaves the page cancels the handler before
         # process_response; the lease must not block Bruno for 10 minutes then.

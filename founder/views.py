@@ -397,6 +397,10 @@ def message_feedback(request, startup_id, session_id, message_id):
     return redirect(reverse("chat_detail", args=[startup_id, session_id]) + f"#message-{message.id}")
 
 
+# Потолок одного ответа в чате (в символах): обычный ответ Бруно меньше 2 000.
+CHAT_REPLY_CHAR_LIMIT = 60_000
+
+
 def _sse(payload):
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
@@ -459,6 +463,7 @@ def chat_send(request, startup_id, session_id):
                         and settings.AI_PROVIDER != "demo"):
                     yield _sse({"type": "status", "text": "Бруно думает над проектом…"})
                 events = (("text", delta) for delta in stream_reply(session, context_messages, memories))
+            total_chars = 0
             for kind, delta in events:
                 if kind == "speaker":
                     parts.append((delta, []))
@@ -466,6 +471,11 @@ def chat_send(request, startup_id, session_id):
                     continue
                 if not isinstance(delta, str):
                     raise AIServiceError("Модель вернула некорректный текст ответа.")
+                # Восстановлено из beta 0.4 (потерялось при мерже): сбойный поток не должен
+                # бесконечно писать в базу и браузер.
+                total_chars += len(delta)
+                if total_chars > CHAT_REPLY_CHAR_LIMIT:
+                    raise AIServiceError("Ответ слишком большой. Попросите Бруно ответить короче.")
                 parts[-1][1].append(delta)
                 yield _sse({"type": "delta", "text": delta})
             answers = [(speaker, "".join(chunks).strip()) for speaker, chunks in parts]
@@ -499,11 +509,16 @@ def chat_send(request, startup_id, session_id):
             sync_events = events
             async def async_events():
                 sentinel = object()
-                while True:
-                    event = await sync_to_async(next, thread_sensitive=True)(sync_events, sentinel)
-                    if event is sentinel:
-                        break
-                    yield event
+                try:
+                    while True:
+                        event = await sync_to_async(next, thread_sensitive=True)(sync_events, sentinel)
+                        if event is sentinel:
+                            break
+                        yield event
+                finally:
+                    # Восстановлено из beta 0.4: клиент ушёл посреди ответа — закрываем
+                    # генератор сразу, чтобы поток модели не висел до сборки мусора.
+                    await sync_to_async(sync_events.close, thread_sensitive=True)()
             events = async_events()
         response = StreamingHttpResponse(events, content_type="text/event-stream; charset=utf-8")
     response["Cache-Control"] = "no-cache"

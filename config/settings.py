@@ -9,13 +9,19 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
+# Без явного DJANGO_DEBUG отладка включена только для локальных команд manage.py
+# (runserver, test, migrate). Боевой сервер (daphne/gunicorn через config.asgi или
+# config.wsgi) стартует с выключенной отладкой и требует свой DJANGO_SECRET_KEY:
+# забытая переменная больше не открывает отладочные страницы и общий ключ.
+RUN_BY_MANAGE = Path(sys.argv[0]).name == "manage.py"
+DEBUG = os.getenv("DJANGO_DEBUG", "1" if RUN_BY_MANAGE else "0") == "1"
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY:
     if DEBUG:
         SECRET_KEY = "django-insecure-local-development-only-change-before-deploy"
     else:
-        raise RuntimeError("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=0")
+        raise RuntimeError("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=0 "
+                           "(a server started without DJANGO_DEBUG=1 runs in production mode)")
 
 ALLOWED_HOSTS = [
     host.strip()

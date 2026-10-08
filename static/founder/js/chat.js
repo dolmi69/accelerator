@@ -101,7 +101,7 @@
           credentials: "same-origin",
           signal: controller.signal,
         });
-        const wait = Number(response.headers.get("Retry-After"));
+        const wait = Number(response.headers && response.headers.get ? response.headers.get("Retry-After") : 0);
         // 429 приходит до сохранения сообщения, поэтому повтор не создаёт дубль.
         if (response.status !== 429 || attempt >= BUSY_RETRIES || !(wait > 0 && wait <= 30)) break;
         answer.textContent = `Бруно заканчивает предыдущий запрос, отвечу через ${wait} с…`;

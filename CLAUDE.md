@@ -63,7 +63,9 @@
 - Тесты: `python manage.py test founder`. Тесты лаборатории: `founder.test_django_builder founder.test_lab founder.test_lab_costs founder.test_lab_testing`.
 - QA Бруно: `python manage.py bruno_eval` (сценарии стиля и содержания, `-s <name>` для одного; отчёты в `.runtime/`), `python manage.py bruno_feedback` (выгрузка 👎).
 - Любое изменение Бруно подтверждается тестами + прогоном `bruno_eval` (нужны ключи GigaChat в `.env`).
-- JS-тест `tests/chat_client.test.cjs` запускается через Node.
+- JS-тест: `node --test tests/chat_client.test.cjs`.
+- **CI:** `.github/workflows/tests.yml` (с 2026-10-09) на каждый пуш и PR: `makemigrations --check`, `manage.py test founder` на Python 3.14 и JS-тест чата на Node 22. Результат: `gh run list --branch Andrey`.
+- **DEBUG по умолчанию (с 2026-10-09):** без `DJANGO_DEBUG` отладка включена только для команд `manage.py`; сервер через `config.asgi`/`config.wsgi` стартует с `DEBUG=False` и требует `DJANGO_SECRET_KEY`. В `.env.example` для разработки стоит явное `DJANGO_DEBUG=1`.
 
 ## Окружение Андрея
 
@@ -76,14 +78,14 @@
 ## Текущее состояние и открытые вопросы
 
 ### Бруно (ветка `Bruno-talking`, закрыта)
-Эльдар влил её в main 2026-10-07 (`9cd1ca9` «merge 1», миграция `0011_merge_...`). При мерже потерялись его собственные правки в `views.py`: лимит ответа в 60k символов и закрытие sync-генератора в async_events. `pitch.py`/`workbench.py` взяты из версии Бруно, без `bounded_json_loads`. Восстановлено ли это в beta 0.6, не проверено. Новая работа идёт в `Andrey`.
+Эльдар влил её в main 2026-10-07 (`9cd1ca9` «merge 1», миграция `0011_merge_...`). При мерже потерялись его собственные правки в `views.py`: лимит ответа в 60k символов и закрытие sync-генератора в async_events. 2026-10-09 обе восстановлены в `Andrey` из beta 0.4 (`457906a`), с тестами в `test_security.py`. В `main` их по-прежнему нет. `bounded_json_loads` в `pitch.py`/`workbench.py` в истории не нашлось: там `load_model_json`, вывод модели ограничен max_tokens. Новая работа идёт в `Andrey`.
 
 ### «Панель акул» (ветка `Andrey`, коммит `fb734a5` Sharks1, в main не влита)
 Три AI-инвестора вместо одного Бруно-инвестора: Тимур (продукт), Олег (рынок), Маргарита (финансы).
 - Код: `founder/services/panel.py` (порядок ходов, давление, реплики в сторону, промпт на каждую акулу, голосование, условие → задача), `ChatSession.Mode.PANEL`, `ChatMessage.speaker`, `PanelVerdict`, миграция `0012_shark_panel`, `static/founder/js/panel.js` (раскрытие голосов, карточка-история на canvas). Тесты: `founder/test_panel.py`; проверка на GigaChat: `bruno_eval -s panel`. Акул менять только вместе с этими двумя проверками.
 - Уроки GigaChat: (1) вложенный JSON-массив из трёх голосов приходил сломанным, поэтому на каждую акулу отдельный короткий запрос с плоской схемой; (2) модель копирует примеры из промпта как факты, поэтому примеры нейтральные и с пометкой «пример манеры, не факт»; (3) без правила для каждой акулы («инвестируй, если по твоей теме есть факт…») все голосуют «пас».
 - **main влит в `Andrey` 2026-10-08** (коммит `80618c2`): конфликты в `security_middleware.py`, `memory.py`, `app.css`, `base.html` разрешены, `0012_shark_panel` сведена с `0018` merge-миграцией `0019`. Ветка содержит beta 0.6 + панель + Bruno2/2.1, все тесты зелёные. Мерж в main делают Артём или Эльдар.
-- JS-тест `tests/chat_client.test.cjs` для панели ни разу не запускался (у Андрея нет Node), надо попросить Эльдара.
+- JS-тест `tests/chat_client.test.cjs` запускается в CI (GitHub Actions) с 2026-10-09; локально у Андрея Node нет.
 - Открытые вопросы для команды: показывать ли панель на демо 2026-10-20? Насколько жёсткими должны быть акулы? Как выглядит «0 из 3» на карточке?
 - **Колонка `speaker` и общая база:** миграция 0019 даёт `ChatMessage.speaker` значение по умолчанию в БД, поэтому после `migrate` ветки `Andrey` код main на той же базе продолжает работать. Кто успел применить старую `0012_shark_panel` без 0019, просто прогоняет `migrate`.
 
