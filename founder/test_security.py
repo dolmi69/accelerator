@@ -11,7 +11,7 @@ from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.files.uploadhandler import StopUpload
 from django.db import connection, connections
-from django.http import StreamingHttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from django.test import Client, RequestFactory, SimpleTestCase, TestCase, TransactionTestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
@@ -95,6 +95,17 @@ class RequestProtectionTests(TestCase):
         request.ai_lease = acquire_ai_lease(self.user.pk)
         response = RequestProtectionMiddleware(lambda r: None).process_response(request, StreamingHttpResponse(iter([b"x"])))
         response.close()
+        acquire_ai_lease(self.user.pk)
+
+    def test_lease_released_when_process_response_is_skipped(self):
+        # Under ASGI a client that leaves the page cancels the handler before
+        # process_response; the lease must not block Bruno for 10 minutes then.
+        request = RequestFactory().post(self.url)
+        request.user = self.user
+        request.resolver_match = type("Match", (), {"url_name": "metrics_assess"})()
+        middleware = RequestProtectionMiddleware(lambda r: None)
+        view = lambda request, startup_id: HttpResponse("ok")
+        middleware.process_view(request, view, (), {"startup_id": self.startup.pk})
         acquire_ai_lease(self.user.pk)
 
     def test_malformed_ai_output_is_reported_and_user_message_survives(self):
