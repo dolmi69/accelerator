@@ -20,9 +20,10 @@ from django.views.decorators.http import require_GET, require_POST
 
 from founder.forms import ChatSendForm, MetricsForm, RegisterForm, StartupForm
 from founder.models import (
-    BrunoTask, BusinessAxis, ChatAttachment, ChatMessage, ChatSession, MascotState, MessageFeedback,
-    PanelVerdict, PitchReport, StartupProfile,
+    BrunoTask, BusinessAxis, ChatAttachment, ChatMessage, ChatSession, MascotState, MentorIdea, MessageFeedback,
+    PanelVerdict, PitchReport, ProjectPicture, StartupProfile,
 )
+from founder.services import mentor
 from founder.services.ai import AIServiceError, provider_label, stream_reply
 from founder.services.bruno import looks_like_evidence
 from founder.services.mascot import update_mascot
@@ -189,7 +190,8 @@ def _create_cofounder_session(startup):
     ChatMessage.objects.create(
         session=session,
         role=ChatMessage.Role.ASSISTANT,
-        content=cofounder_opening(startup),
+        # Новая встреча продолжает прошлую: главный пробел и открытое задание.
+        content=mentor.followup_opening(startup) or cofounder_opening(startup),
         provider="system",
     )
     return session
@@ -286,7 +288,11 @@ def chat_detail(request, startup_id, session_id):
     mascot, _ = MascotState.objects.get_or_create(startup=session.startup)
     chat_messages = list(reversed(page.object_list))
     feedback = {item.message_id: item for item in MessageFeedback.objects.filter(message__session=session)}
+    ideas = {}
+    for idea in MentorIdea.objects.filter(message__session=session):
+        ideas.setdefault(idea.message_id, []).append(idea)
     for message in chat_messages:
+        message.mentor_ideas = ideas.get(message.id, [])
         # Кнопка дневника под сообщением с результатом проверки; оценка под ответом Бруно.
         message.evidence_candidate = (session.mode == ChatSession.Mode.COFOUNDER
                                       and message.role == ChatMessage.Role.USER
@@ -306,9 +312,47 @@ def chat_detail(request, startup_id, session_id):
         "is_panel": is_panel,
         "is_training": session.is_training,
         "panel": _panel_context(session) if is_panel else None,
+        "picture": mentor.picture_view(session.startup) if session.mode == ChatSession.Mode.COFOUNDER else None,
+        "quick_replies": QUICK_REPLIES if session.mode == ChatSession.Mode.COFOUNDER else (),
         "has_assessment_context": has_profile_description(session.startup) or has_founder_conversation(session.startup),
         "ai_available": settings.AI_PROVIDER != "demo",
     })
+
+
+# Подсказки под полем ввода: начинающему проще нажать, чем сформулировать.
+QUICK_REPLIES = ("Объясни подробнее", "Давай подумаем, как улучшить проект", "Давай посчитаем деньги",
+                 "Не знаю", "Подведи итог встречи")
+
+
+@login_required
+@require_POST
+def idea_task(request, startup_id, session_id, idea_id):
+    session = _owned_session(request, startup_id, session_id)
+    idea = get_object_or_404(MentorIdea, pk=idea_id, message__session=session)
+    try:
+        mentor.idea_to_task(idea)
+        messages.success(request, "Идея в заданиях. Результат проверки запишите в дневник.")
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    return redirect(reverse("chat_detail", args=[startup_id, session_id]) + f"#message-{idea.message_id}")
+
+
+@login_required
+@require_POST
+def picture_edit(request, startup_id, session_id):
+    session = _owned_session(request, startup_id, session_id)
+    picture, _ = ProjectPicture.objects.get_or_create(startup=session.startup)
+    facts = dict(picture.facts)
+    for key, _label in mentor.AREAS:
+        text = " ".join(request.POST.get(key, "").split())[:300]
+        status = request.POST.get(f"{key}_status")
+        if status not in mentor.STATUSES:
+            status = "guess" if text else "unknown"
+        facts[key] = {"text": "" if status == "unknown" else text, "status": status if text else "unknown"}
+    picture.facts = facts
+    picture.save(update_fields=["facts", "updated_at"])
+    messages.success(request, "Картина проекта обновлена. Бруно учтёт правки в следующем ответе.")
+    return redirect("chat_detail", startup_id=startup_id, session_id=session_id)
 
 
 def _answers_left_label(left):
@@ -411,6 +455,9 @@ def chat_send(request, startup_id, session_id):
             if turn:
                 events = panel.split_aside(stream_reply(session, context_messages, memories, turn=turn), turn.speaker)
             else:
+                if (session.mode == ChatSession.Mode.COFOUNDER and settings.BRUNO_MENTOR_PLAN
+                        and settings.AI_PROVIDER != "demo"):
+                    yield _sse({"type": "status", "text": "Бруно думает над проектом…"})
                 events = (("text", delta) for delta in stream_reply(session, context_messages, memories))
             for kind, delta in events:
                 if kind == "speaker":
@@ -436,6 +483,9 @@ def chat_send(request, startup_id, session_id):
                     model_name=model_name,
                     created_at=started + timedelta(microseconds=offset),
                 )
+            mentor.save_ideas(getattr(session, "mentor_plan", None), assistant_message)
+            # Ответ уже на экране; пока основатель читает, Бруно обновляет картину проекта.
+            mentor.update_picture(session, context_messages)
             yield _sse({"type": "done", "message_id": str(assistant_message.id)})
         except AIServiceError as exc:
             yield _sse({"type": "error", "message": str(exc)})

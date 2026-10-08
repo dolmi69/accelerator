@@ -22,9 +22,9 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from founder.models import ChatMessage, ChatSession, StartupProfile, User
-from founder.services import panel
+from founder.services import mentor, panel
 from founder.services.ai import AIServiceError, stream_reply
-from founder.services.bruno import founder_gender, style_issues, wants_long_answer
+from founder.services.bruno import founder_gender, style_issues
 from founder.services.memory import conversation_context, remember_user_message
 
 FILLERS = ["ок", "понял", "да, логично", "согласен", "хорошо", "интересно", "ясно", "давай дальше", "угу"]
@@ -39,6 +39,23 @@ SCENARIOS = {
             "ну чтобы им было удобнее учиться",
             "не знаю",
             {"text": "а что ты вообще умеешь?", "expect": [r"направлени|радар|таблиц|план"]},
+        ],
+    },
+    "mentor": {
+        "about": "Наставник: рассуждает, предлагает идеи, подводит итог встречи",
+        "startup": {
+            "name": "Напарник на сессию", "stage": "idea",
+            "one_line_pitch": "Телеграм-бот подбирает напарника для подготовки к экзаменам в своём вузе",
+            "target_customer": "Студенты 1–3 курса",
+        },
+        "turns": [
+            "Хочу сделать бота, который находит напарника для подготовки к сессии в моём вузе.",
+            "Люди часто готовятся в одиночку и бросают. Я сам так делал на первом курсе.",
+            {"text": "Давай подумаем вместе, как это улучшить",
+             "expect": [r"(?m)^\s*1[.)]", r"(?m)^\s*2[.)]"], "reject": [r"как думаешь"]},
+            "Думаю брать 99 рублей в месяц, а первую неделю бесплатно.",
+            {"text": "Какие у проекта самые слабые места?", "reject": [r"как думаешь"]},
+            {"text": "Подведи итог встречи", "expect": [r"шаг"], "reject": [r"\b\d{3,}\s*(?:студент|пользовател)"]},
         ],
     },
     "b2b_numbers": {
@@ -280,8 +297,9 @@ class Command(BaseCommand):
                         answer = f"[ОШИБКА] {exc}"
                     elapsed = time.monotonic() - started
                     ChatMessage.objects.create(session=session, role=ChatMessage.Role.ASSISTANT, content=answer)
+                    mentor.update_picture(session, context)
                     pitch = session.mode == ChatSession.Mode.PITCH
-                    found = style_issues(answer, long_form=wants_long_answer(text) and not pitch, pitch=pitch,
+                    found = style_issues(answer, long_form=mentor.answer_kind(text) != "short" and not pitch, pitch=pitch,
                                          gender="male" if pitch else founder_gender(context))
                     found += content_issues(answer, turn)
                     issues += len(found)
@@ -296,6 +314,9 @@ class Command(BaseCommand):
                     report, found = self.radar_and_review(startup, scenario)
                     lines.extend(report)
                     issues += found
+                if session.mode == ChatSession.Mode.COFOUNDER:
+                    picture = mentor.picture_lines(getattr(startup, "picture", None))
+                    lines.append("**Картина проекта:** " + " · ".join(picture) + "\n")
                 if scenario.get("tasks"):
                     report, found = self.tasks_report(startup)
                     lines.extend(report)

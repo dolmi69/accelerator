@@ -48,21 +48,27 @@ def _last_founder_text(messages):
 
 
 def long_answer_requested(session, messages):
-    from founder.services.bruno import wants_long_answer
+    from founder.services.mentor import answer_kind
 
-    return session.mode == ChatSession.Mode.COFOUNDER and wants_long_answer(_last_founder_text(messages))
+    return session.mode == ChatSession.Mode.COFOUNDER and answer_kind(_last_founder_text(messages)) != "short"
 
 
-def system_prompt(session, memories, messages=None, economics="", turn=None):
+# stream_reply сам готовит план наставника, если вызывающий код его не передал.
+AUTO_PLAN = object()
+
+
+def system_prompt(session, memories, messages=None, economics="", turn=None, plan=None):
     if session.mode == ChatSession.Mode.PANEL:
         from founder.services.panel import next_turn, panel_prompt
 
         return panel_prompt(session, turn or next_turn(session), memories, messages, economics)
 
     from founder.services.bruno import (
-        EXAMPLES, LONG_ANSWER_GUIDE, MENTOR_CHECKS, PERSONA, REVIEW_HINT, SITUATIONS, STYLE,
-        WRITING_RULES, conversation_notes, founder_name, project_status, stage_playbook, wants_review,
+        BRAINSTORM_GUIDE, EXAMPLES, LONG_ANSWER_GUIDE, MENTOR_CHECKS, PERSONA, REVIEW_HINT, STYLE,
+        SUMMARY_GUIDE, WRITING_RULES, conversation_notes, founder_name, looks_like_evidence, project_status,
+        situations_for, stage_playbook, wants_review,
     )
+    from founder.services.mentor import answer_kind, picture_context, plan_note
     from founder.services.workbench import evidence_context
 
     startup = session.startup
@@ -131,7 +137,8 @@ def system_prompt(session, memories, messages=None, economics="", turn=None):
 
     common = "\n\n".join([
         "Отвечай на русском.\n" + PERSONA, WRITING_RULES, STYLE,
-        stage_playbook(startup.stage), SITUATIONS, EXAMPLES, onboarding_rules,
+        stage_playbook(startup.stage), situations_for(_last_founder_text(messages)), EXAMPLES,
+        onboarding_rules,
         "Суть работы: помоги основателю разобраться в проекте по пяти направлениям "
         "(продукт, рынок, финансы, команда, ясность идеи) и понять, что делать дальше. "
         "Опирайся на данные, отделяй факты от предположений и не придумывай цифры. "
@@ -143,6 +150,9 @@ def system_prompt(session, memories, messages=None, economics="", turn=None):
     status = project_status(startup)
     if status:
         common += "\n" + status
+    picture = picture_context(startup)
+    if picture:
+        common += "\n" + picture
     common += f"\nСегодня {timezone.localdate():%d.%m.%Y}."
     if session.focus_axis:
         latest = startup.metric_snapshots.first()
@@ -159,10 +169,23 @@ def system_prompt(session, memories, messages=None, economics="", turn=None):
                "вопросов. Не утверждай, что таблица уже сохранена самим текстовым ответом.\n")
     # Важное ставим в конец: последние инструкции модель соблюдает лучше всего.
     common += MENTOR_CHECKS + "\n"
-    if long_answer_requested(session, messages):
+    note = plan_note(plan)
+    if note:
+        common += note + "\n"
+        if looks_like_evidence(_last_founder_text(messages)):
+            # План ведёт к своему вопросу; про дневник при результате проверки забывать нельзя.
+            common += ("Основатель сообщил результат проверки: сначала одной фразой отметь, что это "
+                       "доказательство, и предложи сохранить его кнопкой «Записать в дневник».\n")
+    kind = answer_kind(_last_founder_text(messages))
+    if kind == "summary":
+        return common + SUMMARY_GUIDE
+    if kind == "brainstorm":
+        return common + BRAINSTORM_GUIDE
+    if kind == "long":
         return common + LONG_ANSWER_GUIDE + (REVIEW_HINT if wants_review(_last_founder_text(messages)) else "")
-    return common + ("Главное: отвечай коротко и по-человечески, до 500 знаков, в конце "
-                     "ровно один вопрос, без второго вопроса через «и».")
+    return common + ("Главное: отвечай по-человечески, до 600 знаков. Реакция на конкретную деталь, "
+                     "твоя мысль наставника про этот проект, в конце ровно один вопрос, без второго "
+                     "вопроса через «и».")
 
 
 def _demo_reply(session, messages, turn=None):
@@ -198,10 +221,11 @@ def _demo_reply(session, messages, turn=None):
         yield reply[index:index + 28]
 
 
-def stream_reply(session, messages, memories, turn=None):
+def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
     """Возвращает текстовые фрагменты без привязки view к поставщику API.
 
     turn — ход панели акул (кто говорит и как); для остальных режимов не нужен.
+    plan — план наставника (mentor.prepare_turn); без него план готовится здесь.
     """
     from founder.services.bruno import founder_gender, polish_stream, tidy_stream
 
@@ -209,15 +233,27 @@ def stream_reply(session, messages, memories, turn=None):
         from founder.services.panel import next_turn
 
         turn = next_turn(session)
+    economics = None
+    if plan is AUTO_PLAN:
+        from founder.services.mentor import prepare_turn
+
+        if session.mode == ChatSession.Mode.COFOUNDER and settings.AI_PROVIDER != "demo":
+            # Точный расчёт нужен и плану: иначе модель «считает» прибыль из воздуха.
+            from founder.services.economics import economics_note, unit_economics
+
+            economics = economics_note(unit_economics([m["content"] for m in messages if m["role"] == "user"]))
+        plan = prepare_turn(session, messages, economics=economics or "")
+    # View сохраняет идеи из плана под готовым ответом.
+    session.mentor_plan = plan
     single_question = not long_answer_requested(session, messages)
     # Инвестор в тренировке обращается на «вы», там род не угадывается.
     gender = founder_gender(messages) if session.mode == ChatSession.Mode.COFOUNDER else "male"
     self_male = not (turn and turn.speaker == "margarita")
-    yield from polish_stream(tidy_stream(_provider_stream(session, messages, memories, turn)),
+    yield from polish_stream(tidy_stream(_provider_stream(session, messages, memories, turn, plan, economics)),
                              single_question=single_question, gender=gender, self_male=self_male)
 
 
-def _provider_stream(session, messages, memories, turn=None):
+def _provider_stream(session, messages, memories, turn=None, plan=None, economics=None):
     provider = settings.AI_PROVIDER
     if provider == "demo":
         yield from _demo_reply(session, messages, turn)
@@ -226,14 +262,16 @@ def _provider_stream(session, messages, memories, turn=None):
     from founder.services.economics import economics_note, unit_economics
 
     founder_texts = [m["content"] for m in messages if m["role"] == "user"]
-    if turn is None:
+    if economics is not None:
+        pass  # Уже посчитан для плана наставника.
+    elif turn is None:
         economics = economics_note(unit_economics(founder_texts))
     elif turn.speaker == "margarita":
         # В панели деньги считает только Маргарита, зато по всему рассказу, а не по последней реплике.
         economics = economics_note(unit_economics(founder_texts, latest_only=False))
     else:
         economics = ""
-    prompt = system_prompt(session, memories, messages, economics=economics, turn=turn)
+    prompt = system_prompt(session, memories, messages, economics=economics, turn=turn, plan=plan)
     # Разбору и плану нужен запас длины; обычные ответы остаются короткими.
     max_tokens = settings.AI_MAX_OUTPUT_TOKENS * (2 if long_answer_requested(session, messages) else 1)
     token_override = (max_tokens,) if max_tokens != settings.AI_MAX_OUTPUT_TOKENS else ()

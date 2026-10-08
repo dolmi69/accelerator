@@ -57,4 +57,7 @@ urlpatterns = [
     path("startups/<uuid:startup_id>/chat/<uuid:session_id>/finish/", views.pitch_finish, name="pitch_finish"),
     path("startups/<uuid:startup_id>/chat/<uuid:session_id>/messages/<uuid:message_id>/feedback/",
          views.message_feedback, name="message_feedback"),
+    path("startups/<uuid:startup_id>/chat/<uuid:session_id>/ideas/<int:idea_id>/task/",
+         views.idea_task, name="idea_task"),
+    path("startups/<uuid:startup_id>/chat/<uuid:session_id>/picture/", views.picture_edit, name="picture_edit"),
 ]

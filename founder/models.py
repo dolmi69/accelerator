@@ -468,6 +468,31 @@ class BrunoTask(models.Model):
         )]
 
 
+class ProjectPicture(models.Model):
+    """Что Бруно понял о проекте: по каждой теме текст и статус (факт, догадка, неизвестно)."""
+
+    startup = models.OneToOneField(StartupProfile, on_delete=models.CASCADE, related_name='picture')
+    facts = models.JSONField(default=dict, blank=True)
+    gap = models.CharField(max_length=300, blank=True)
+    moves = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class MentorIdea(models.Model):
+    """Идея из «давай подумаем»: её можно одной кнопкой взять в задания."""
+
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='mentor_ideas')
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name='ideas')
+    title = models.CharField(max_length=160)
+    test = models.CharField(max_length=500)
+    axis = models.CharField(max_length=12, choices=BusinessAxis.choices)
+    task = models.ForeignKey(BrunoTask, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+
 class ProjectReview(models.Model):
     """Полный разбор проекта от Бруно: диагноз стадии, риски и план шагов.
 

@@ -12,3 +12,6 @@
   {% endif %}
 </form>
 {% endif %}
+{% if message.mentor_ideas %}
+<div class="idea-list"><span class="eyebrow">ИДЕИ БРУНО</span>{% for idea in message.mentor_ideas %}<div class="idea-row"><div><strong>{{ idea.title }}</strong><small>Проверка: {{ idea.test }}</small></div>{% if idea.task_id %}<a class="evidence-link" href="{% url 'tasks' startup.id %}">В заданиях →</a>{% else %}<form method="post" action="{% url 'idea_task' startup.id session.id idea.id %}">{% csrf_token %}<button class="button ghost">Проверить это</button></form>{% endif %}</div>{% endfor %}</div>
+{% endif %}

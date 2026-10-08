@@ -20,6 +20,19 @@
     fileName.textContent = fileInput.files[0]?.name || "Прикрепить файл";
   });
 
+  // Подсказка под полем ввода отправляется как обычное сообщение.
+  document.querySelectorAll("[data-quick-reply]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      if (button.disabled) return;
+      input.value = chip.dataset.quickReply;
+      form.requestSubmit(button);
+    });
+  });
+
+  // Бруно ещё доделывает прошлый запрос: ждём и повторяем, а не пугаем ошибкой.
+  const BUSY_RETRIES = 4;
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   input.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" || event.shiftKey || event.isComposing || event.keyCode === 229) return;
     event.preventDefault();
@@ -79,13 +92,21 @@
     let completed = false;
 
     try {
-      const response = await fetch(form.action, {
-        method: "POST",
-        body: payload,
-        headers: { Accept: "text/event-stream" },
-        credentials: "same-origin",
-        signal: controller.signal,
-      });
+      let response;
+      for (let attempt = 0; ; attempt += 1) {
+        response = await fetch(form.action, {
+          method: "POST",
+          body: payload,
+          headers: { Accept: "text/event-stream" },
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
+        const wait = Number(response.headers.get("Retry-After"));
+        // 429 приходит до сохранения сообщения, поэтому повтор не создаёт дубль.
+        if (response.status !== 429 || attempt >= BUSY_RETRIES || !(wait > 0 && wait <= 30)) break;
+        answer.textContent = `Бруно заканчивает предыдущий запрос, отвечу через ${wait} с…`;
+        await sleep(wait * 1000);
+      }
       if (response.redirected) {
         rejected = true;
         throw new Error("Сессия завершилась. Войдите в аккаунт снова. Текст остался в поле ввода.");
@@ -131,6 +152,8 @@
             // Пока реплика пуста, переименовываем её; иначе следующий говорящий получает свою.
             if (started) { answer = addMessage("assistant", ""); started = false; }
             setSpeaker(answer, data);
+          } else if (data.type === "status") {
+            if (typeof data.text === "string" && !started) answer.textContent = data.text;
           } else if (data.type === "delta") {
             if (typeof data.text !== "string") throw new Error("Неверный формат ответа.");
             if (!started) { answer.textContent = ""; started = true; }
