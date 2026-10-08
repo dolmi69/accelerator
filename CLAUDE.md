@@ -66,7 +66,8 @@
 ## Окружение Андрея
 
 - Windows 11, PowerShell. На ПК репозиторий лежит в `C:\accelerator`. Python 3.14: `.venv\Scripts\python.exe` (venv создаётся через `py -3.14 -m venv .venv`). Локальный прокси 127.0.0.1:10809. Node не установлен. Тиммейты сидят на macOS.
-- На ПК (2026-10-08) в `.env` стоит `AI_PROVIDER=demo` и **нет ключей** (GIGACHAT_CREDENTIALS, CLOUDRU_API_KEY пустые), поэтому `bruno_eval` и реальные вызовы не работают, пока Андрей их не добавит. Когда ключи появятся, поставить `AI_PROVIDER=gigachat`.
+- На ПК (2026-10-08) в `.env` стоит `AI_PROVIDER=gigachat` и личный ключ GigaChat (проверен, GigaChat-3-Pro отвечает). `CLOUDRU_API_KEY` пока пустой, поэтому AI-правки в Bruno Forge (Qwen) не работают.
+- На ПК свежий `main` развёрнут отдельной рабочей копией `C:\accelerator-main` (`git worktree`, detached HEAD) со своей базой и копией `.env`; venv общий из `C:\accelerator\.venv`. Запуск: конфигурация `main-beta` в `.claude/launch.json` (не в git). `start_shared_events.py` на Windows не работает (`fcntl`), при пустом `REDIS_URL` он и не нужен.
 - На Windows известен один падающий тест: test_qwen (`write_text` без encoding).
 - **Работать самостоятельно:** спрашивать Андрея, только когда без него работа реально встала. В остальном выбирать разумные решения и перечислять их в итоговом отчёте.
 
