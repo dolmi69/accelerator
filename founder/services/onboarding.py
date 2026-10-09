@@ -57,8 +57,8 @@ def cofounder_opening(startup):
         parts.append("Я уже учёл вашу анкету:\n" + "\n".join(summary))
         parts.append(f"Стадия: {startup.get_stage_display()}.")
         parts.append(
-            "Повторять эти сведения не нужно. По ним уже можно составить первую "
-            "таблицу по пяти направлениям, а затем дополнить её в разговоре."
+            "Повторять это не нужно: по анкете уже можно составить первую таблицу "
+            "по пяти направлениям и дополнять её в разговоре."
         )
     if startup.website:
         parts.append(f"Ссылка на сайт сохранена: {startup.website}")
@@ -68,10 +68,11 @@ def cofounder_opening(startup):
     elif summary:
         # A filled text field may already answer several onboarding questions.
         # Let the model select missing details once the founder responds.
-        parts.append("Что сейчас важнее всего разобрать в вашем проекте?")
+        parts.append("С чего начнём: с самого непроверенного места в проекте или с подготовки "
+                     "к встрече с куратором?")
     else:
         parts.append(
-            "Расскажите своими словами, что будет делать ваш сервис. "
+            "Расскажите своими словами, что за проект и для кого он. "
             "Затем соберём понятную таблицу по пяти направлениям."
         )
     return "\n\n".join(parts)

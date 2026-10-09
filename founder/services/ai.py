@@ -64,9 +64,9 @@ def system_prompt(session, memories, messages=None, economics="", turn=None, pla
         return panel_prompt(session, turn or next_turn(session), memories, messages, economics)
 
     from founder.services.bruno import (
-        BRAINSTORM_GUIDE, EXAMPLES, LONG_ANSWER_GUIDE, MENTOR_CHECKS, PERSONA, REVIEW_HINT, STYLE,
-        SUMMARY_GUIDE, WRITING_RULES, conversation_notes, founder_name, looks_like_evidence, project_status,
-        situations_for, stage_playbook, wants_review,
+        BRAINSTORM_GUIDE, CONVERSATION, EXAMPLES, LONG_ANSWER_GUIDE, MENTOR_CHECKS, PERSONA, PREP_GUIDE, REVIEW_HINT,
+        STYLE, SUMMARY_GUIDE, WRITING_RULES, conversation_notes, founder_name, looks_like_evidence,
+        project_status, situations_for, stage_playbook, wants_review,
     )
     from founder.services.mentor import answer_kind, picture_context, plan_note
     from founder.services.workbench import evidence_context
@@ -99,7 +99,7 @@ def system_prompt(session, memories, messages=None, economics="", turn=None, pla
     )
     notes = conversation_notes(messages or [])
     notes = notes + "\n" if notes else ""
-    if economics:
+    if economics and session.mode == ChatSession.Mode.PITCH:
         notes += economics + "\n"
 
     if session.mode == ChatSession.Mode.PITCH:
@@ -136,13 +136,13 @@ def system_prompt(session, memories, messages=None, economics="", turn=None, pla
         )
 
     common = "\n\n".join([
-        "Отвечай на русском.\n" + PERSONA, WRITING_RULES, STYLE,
+        "Отвечай на русском.\n" + PERSONA, WRITING_RULES, STYLE, CONVERSATION,
         stage_playbook(startup.stage), situations_for(_last_founder_text(messages)), EXAMPLES,
         onboarding_rules,
         "Суть работы: помоги основателю разобраться в проекте по пяти направлениям "
         "(продукт, рынок, финансы, команда, ясность идеи) и понять, что делать дальше. "
         "Опирайся на данные, отделяй факты от предположений и не придумывай цифры. "
-        "При числовых утверждениях мягко уточняй период, источник и размер выборки. "
+        "При важных для решения числовых утверждениях мягко уточняй период, источник и размер выборки. "
         "Если новые слова конфликтуют со старыми, назови обе версии и попроси "
         "объяснить изменение. Не требуй консультаций, записей встреч, аудио или "
         "документов как условие оценки: основатель может рассказать всё своими словами.",
@@ -169,6 +169,13 @@ def system_prompt(session, memories, messages=None, economics="", turn=None, pla
                "вопросов. Не утверждай, что таблица уже сохранена самим текстовым ответом.\n")
     # Важное ставим в конец: последние инструкции модель соблюдает лучше всего.
     common += MENTOR_CHECKS + "\n"
+    if economics:
+        # Расчёт рядом с концом промпта: в середине модель его не замечала и считала сама с ошибками.
+        common += economics + "\n"
+        if re.search(r"\d", _last_founder_text(messages)):
+            # Без прямой просьбы GigaChat пересказывал совет, а число («денег хватит на 2 месяца») терял.
+            common += ("Основатель только что назвал числа: в ответе одной фразой назови главный итог расчёта "
+                       "(убыток, запас денег в месяцах или безубыточность), потом совет.\n")
     note = plan_note(plan)
     if note:
         common += note + "\n"
@@ -179,13 +186,19 @@ def system_prompt(session, memories, messages=None, economics="", turn=None, pla
     kind = answer_kind(_last_founder_text(messages))
     if kind == "summary":
         return common + SUMMARY_GUIDE
+    if kind == "prep":
+        return common + PREP_GUIDE
     if kind == "brainstorm":
         return common + BRAINSTORM_GUIDE
     if kind == "long":
         return common + LONG_ANSWER_GUIDE + (REVIEW_HINT if wants_review(_last_founder_text(messages)) else "")
-    return common + ("Главное: отвечай по-человечески и на «вы», до 600 знаков. Реакция на конкретную деталь, "
-                     "твоя мысль наставника про этот проект, в конце ровно один вопрос, без второго "
-                     "вопроса через «и».")
+    asked = "?" in _last_founder_text(messages)
+    opening = ("Основатель задал вопрос: первым предложением ответь на него прямо, своим мнением или цифрой, "
+               "потом коротко почему. «Зависит от ситуации» не ответ: выбери сторону. Дальше "
+               if asked else "Реакция на конкретную деталь, потом ")
+    return common + ("Главное: отвечай по-человечески и на «вы», до 600 знаков. " + opening
+                     + "твоя мысль наставника про этот проект, не больше одного вопроса, без второго "
+                     "вопроса через «и». Без похвалы и оценок вроде «хорошее начало».")
 
 
 def _demo_reply(session, messages, turn=None):
@@ -249,9 +262,15 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
     # Инвестор в тренировке обращается на «вы», там род не угадывается.
     gender = founder_gender(messages) if session.mode == ChatSession.Mode.COFOUNDER else "male"
     self_male = not (turn and turn.speaker == "margarita")
+    asked = ()
+    if session.mode == ChatSession.Mode.COFOUNDER:
+        from founder.services.mentor import asked_questions
+
+        # Вопрос, который уже звучал, ответ теряет: GigaChat часто повторяет его через ход.
+        asked = asked_questions(messages)
     yield from polish_stream(tidy_stream(_provider_stream(session, messages, memories, turn, plan, economics)),
                              single_question=single_question, gender=gender, self_male=self_male,
-                             formal=turn is None)
+                             formal=turn is None, asked=asked)
 
 
 def _provider_stream(session, messages, memories, turn=None, plan=None, economics=None):
