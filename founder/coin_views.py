@@ -81,6 +81,7 @@ def wardrobe(request, startup_id):
         for item in CATALOG.values() if item.slot == slot]} for slot, title in SLOTS.items()]
     return render(request, "coins/wardrobe.html", {
         "startup": startup, "workspace_tab": "wardrobe", "mascot": mascot, "groups": groups, "balance": coins,
+        "hidden_now": wardrobe_service.hidden_now(mascot),
     })
 
 

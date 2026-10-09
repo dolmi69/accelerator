@@ -1,6 +1,6 @@
 {% load static %}
 {# Display original reference pixels through SVG viewports; no generated redraw. #}
-<div class="bruno-art bruno-reference {% if investor %}bruno-investor{% else %}bruno-{{ mascot.mood }}{% endif %}">
+<div class="bruno-art bruno-reference {% if investor %}bruno-investor{% else %}bruno-{{ mascot.mood }}{% if mascot.accessories and mascot.accessory_layers.has_hat %} has-hat{% endif %}{% endif %}">
   <svg class="bruno-stage" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Бруно — {% if investor %}строгий инвестор{% else %}{{ mascot.get_mood_display }}{% endif %}" focusable="false">
     <g class="bruno-character">
       {% if investor %}

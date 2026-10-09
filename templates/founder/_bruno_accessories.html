@@ -1,38 +1,69 @@
-{# Аксессуары из гардероба. Каждый нарисован вокруг (0,0) под голову шириной ~120; положение задаёт services/wardrobe.py. #}
-{% for layer in mascot.accessory_layers %}
-<g class="bruno-accessory accessory-{{ layer.code }}" transform="{{ layer.transform }}" aria-hidden="true">
-  {% if layer.code == 'party' %}
-    <path d="M-24 6 L0 -54 L24 6 Z" fill="#7c5cd6"/>
-    <path d="M-15 -16 L15 -16 L19 -6 L-19 -6 Z M-8 -36 L8 -36 L11 -28 L-11 -28 Z" fill="#f4c542"/>
-    <circle cx="0" cy="-56" r="7" fill="#ef6f6c"/>
-    <ellipse cx="0" cy="6" rx="26" ry="5" fill="#5a3fb0"/>
-  {% elif layer.code == 'cap' %}
-    <path d="M-36 8 Q-36 -32 0 -34 Q36 -32 36 8 Z" fill="#2f6fb0"/>
-    <path d="M24 2 Q54 0 62 10 Q44 16 22 10 Z" fill="#1f4f82"/>
-    <circle cx="0" cy="-33" r="4" fill="#1f4f82"/>
-    <path d="M-36 8 Q0 0 36 8" stroke="#1f4f82" stroke-width="3" fill="none"/>
-  {% elif layer.code == 'crown' %}
-    <path d="M-32 8 L-32 -24 L-16 -8 L0 -34 L16 -8 L32 -24 L32 8 Z" fill="#f2b631" stroke="#c98a12" stroke-width="2.5" stroke-linejoin="round"/>
-    <circle cx="0" cy="-34" r="4" fill="#e85d75"/><circle cx="-32" cy="-24" r="3.5" fill="#5bc0eb"/><circle cx="32" cy="-24" r="3.5" fill="#5bc0eb"/>
-    <rect x="-32" y="-2" width="64" height="7" fill="#c98a12"/>
-  {% elif layer.code == 'glasses' %}
-    <circle cx="-31" cy="0" r="18" fill="#ffffff" fill-opacity=".18" stroke="#1d2b36" stroke-width="4"/>
-    <circle cx="31" cy="0" r="18" fill="#ffffff" fill-opacity=".18" stroke="#1d2b36" stroke-width="4"/>
-    <path d="M-13 -2 Q0 -9 13 -2" stroke="#1d2b36" stroke-width="4" fill="none"/>
-  {% elif layer.code == 'shades' %}
-    <rect x="-52" y="-13" width="40" height="26" rx="11" fill="#141a20"/>
-    <rect x="12" y="-13" width="40" height="26" rx="11" fill="#141a20"/>
-    <path d="M-12 -5 Q0 -11 12 -5" stroke="#141a20" stroke-width="5" fill="none"/>
-    <path d="M-44 -6 L-30 -6" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/>
-    <path d="M20 -6 L34 -6" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/>
-  {% elif layer.code == 'bowtie' %}
-    <path d="M0 0 L-26 -14 L-26 14 Z M0 0 L26 -14 L26 14 Z" fill="#d6455d" stroke="#a52f44" stroke-width="2" stroke-linejoin="round"/>
-    <rect x="-7" y="-8" width="14" height="16" rx="4" fill="#a52f44"/>
-  {% elif layer.code == 'scarf' %}
-    <path d="M-44 -8 Q0 12 44 -8 L46 6 Q0 28 -46 6 Z" fill="#16877d"/>
-    <path d="M14 8 L30 50 L14 54 L4 12 Z" fill="#16877d"/>
-    <path d="M-30 -1 L-30 12 M-12 4 L-12 17 M6 5 L6 18 M24 1 L24 14" stroke="#eea273" stroke-width="5"/>
-    <path d="M18 36 L28 34 M22 46 L31 44" stroke="#eea273" stroke-width="4"/>
+{# Аксессуары из гардероба в координатах исходного PNG: та же область, что у позы, но без обрезки. #}
+{# localize off: в русской локали дробные числа выводятся с запятой, а SVG понимает только точку. #}
+{% load l10n %}{% localize off %}{% with layer=mascot.accessory_layers %}{% if layer %}
+<svg class="bruno-accessories" x="{{ layer.frame.x }}" y="{{ layer.frame.y }}" width="{{ layer.frame.width }}" height="{{ layer.frame.height }}" viewBox="{{ layer.frame.viewBox }}" overflow="visible" aria-hidden="true">
+{% if layer.cover %}{# Предмет перед шеей (книга): всё, что попадает на него, скрыто. #}
+<mask id="bruno-cover-{{ instance_id|default:'card' }}" maskUnits="userSpaceOnUse" x="0" y="0" width="1280" height="1066"><rect width="1280" height="1066" fill="#fff"/><path d="{{ layer.cover }}" fill="#000"/></mask>
+{% endif %}
+{% for item in layer.items %}
+<g class="bruno-accessory accessory-{{ item.code }}"{% if item.behind %} mask="url(#bruno-cover-{{ instance_id|default:'card' }})"{% endif %}><g transform="{{ item.transform }}">
+{% if item.slot == 'eyes' %}
+  {% if item.code == 'glasses' %}
+    <path d="{{ item.temples }}" stroke="#1d2b36" stroke-width="{{ item.stroke }}" stroke-linecap="round" fill="none"/>
+    <ellipse cx="{{ item.left.cx }}" cy="0" rx="{{ item.left.rx }}" ry="{{ item.left.ry }}" fill="#ffffff" fill-opacity=".14" stroke="#1d2b36" stroke-width="{{ item.stroke }}"/>
+    <ellipse cx="{{ item.right.cx }}" cy="0" rx="{{ item.right.rx }}" ry="{{ item.right.ry }}" fill="#ffffff" fill-opacity=".14" stroke="#1d2b36" stroke-width="{{ item.stroke }}"/>
+    <path d="{{ item.bridge }}" stroke="#1d2b36" stroke-width="{{ item.stroke }}" stroke-linecap="round" fill="none"/>
+  {% else %}
+    <path d="{{ item.temples }}" stroke="#141a20" stroke-width="{{ item.stroke }}" stroke-linecap="round" fill="none"/>
+    <ellipse cx="{{ item.left.cx }}" cy="0" rx="{{ item.left.rx }}" ry="{{ item.left.ry }}" fill="#141a20"/>
+    <ellipse cx="{{ item.right.cx }}" cy="0" rx="{{ item.right.rx }}" ry="{{ item.right.ry }}" fill="#141a20"/>
+    <path d="{{ item.bridge }}" stroke="#141a20" stroke-width="{{ item.stroke }}" stroke-linecap="round" fill="none"/>
+    <ellipse cx="{{ item.left.cx }}" cy="0" rx="{{ item.left.rx }}" ry="{{ item.left.ry }}" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="{{ item.stroke }}" stroke-dasharray="6 200" transform="rotate(-140 {{ item.left.cx }} 0)"/>
+    <ellipse cx="{{ item.right.cx }}" cy="0" rx="{{ item.right.rx }}" ry="{{ item.right.ry }}" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="{{ item.stroke }}" stroke-dasharray="6 200" transform="rotate(-140 {{ item.right.cx }} 0)"/>
   {% endif %}
-</g>
+{% elif item.slot == 'head' %}
+  {# Рисунок под макушку шириной 100: основание на y=0 чуть заходит на голову. #}
+  {% if item.code == 'party' %}
+    <path d="M-28 8 L0 -82 L28 8 Z" fill="#7c5cd6"/>
+    <path d="M-20.8 -15 L20.8 -15 L16.8 -28 L-16.8 -28 Z M-10.6 -48 L10.6 -48 L7.5 -58 L-7.5 -58 Z" fill="#f4c542"/>
+    <ellipse cx="0" cy="8" rx="31" ry="7" fill="#5a3fb0"/>
+    <circle cx="0" cy="-84" r="9" fill="#ef6f6c"/>
+  {% elif item.code == 'cap' %}
+    <path d="M-52 10 Q-54 -40 0 -44 Q54 -40 52 10 Z" fill="#2f6fb0"/>
+    <path d="M0 -44 L0 6" stroke="#255d96" stroke-width="3"/>
+    <path d="M30 5 Q78 -2 94 12 Q62 23 26 15 Z" fill="#1f4f82"/>
+    <path d="M-52 10 Q0 1 52 10" stroke="#1f4f82" stroke-width="5" fill="none"/>
+    <circle cx="0" cy="-44" r="5" fill="#1f4f82"/>
+  {% elif item.code == 'crown' %}
+    <path d="M-40 10 L-40 -30 L-20 -10 L0 -42 L20 -10 L40 -30 L40 10 Z" fill="#f2b631" stroke="#c98a12" stroke-width="3" stroke-linejoin="round"/>
+    <rect x="-40" y="-2" width="80" height="10" fill="#c98a12"/>
+    <circle cx="0" cy="-42" r="5" fill="#e85d75"/><circle cx="-40" cy="-30" r="4.5" fill="#5bc0eb"/><circle cx="40" cy="-30" r="4.5" fill="#5bc0eb"/>
+    <circle cx="0" cy="3" r="3.5" fill="#e85d75"/><circle cx="-22" cy="3" r="3" fill="#5bc0eb"/><circle cx="22" cy="3" r="3" fill="#5bc0eb"/>
+  {% endif %}
+{% elif item.code == 'bowtie' %}
+  <g {% if item.style == 'lying' %}transform="scale(1 .8)"{% endif %}>
+    <path d="M0 0 L-30 -16 Q-36 0 -30 16 Z M0 0 L30 -16 Q36 0 30 16 Z" fill="#d6455d" stroke="#a52f44" stroke-width="3" stroke-linejoin="round"/>
+    <rect x="-7" y="-9" width="14" height="18" rx="5" fill="#a52f44"/>
+  </g>
+{% elif item.code == 'scarf' %}
+  {% if item.style == 'lying' %}
+    {# Бруно лежит: шарф обвивает шею сбоку и хвостом лежит на земле. #}
+    <path d="M-14 -60 Q4 0 -8 60 L18 62 Q30 0 12 -60 Z" fill="#16877d"/>
+    <path d="M2 52 Q46 70 96 62 L96 80 Q44 86 -2 70 Z" fill="#16877d"/>
+    <path d="M-6 -36 L18 -36 M-4 -10 L22 -10 M-4 16 L22 16 M-6 42 L16 42 M40 64 L42 80 M66 66 L68 82" stroke="#eea273" stroke-width="5"/>
+  {% elif item.style == 'reading' %}
+    {# Бруно читает: шарф выходит из-за книги на левом плече и свисает по лапе. #}
+    <path d="M-26 -14 Q-6 -16 8 -14 L8 12 Q-6 14 -26 14 Z" fill="#16877d"/>
+    <path d="M-24 -10 Q-46 30 -38 86 L-16 88 Q-20 38 -2 4 Z" fill="#16877d"/>
+    <path d="M-36 30 L-16 34 M-36 56 L-17 58 M-38 80 L-17 82" stroke="#eea273" stroke-width="5"/>
+  {% else %}
+    <path d="M-76 -10 Q0 16 76 -10 Q82 0 76 10 Q0 36 -76 10 Q-82 0 -76 -10 Z" fill="#16877d"/>
+    <path d="M20 16 L38 74 L22 78 L8 20 Z" fill="#16877d"/>
+    <path d="M24 62 L36 58" stroke="#eea273" stroke-width="5"/>
+    <path d="M-56 -4 L-55 17 M-32 2 L-31 23 M-8 5 L-8 26 M16 4 L16 25 M40 0 L39 20 M62 -6 L61 13" stroke="#eea273" stroke-width="5"/>
+  {% endif %}
+{% endif %}
+</g></g>
 {% endfor %}
+</svg>
+{% endif %}{% endwith %}{% endlocalize %}

@@ -7,6 +7,7 @@
 <div class="wardrobe-layout">
   <section class="card wardrobe-stage" aria-label="Бруно сейчас">
     {% include 'founder/_bruno.html' with investor=False instance_id='wardrobe' %}
+    {% for item in hidden_now %}<p class="work-notice">Сейчас Бруно читает — {{ item.title|lower }} за книгой не видна. Она появится, когда Бруно сменит позу.</p>{% endfor %}
     <p class="muted small">Бруно меняет позу вместе с прогрессом проекта — аксессуары переезжают вместе с ним.</p>
   </section>
   <div class="wardrobe-shelves">

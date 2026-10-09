@@ -259,11 +259,38 @@ class WardrobeTests(TestCase):
         state.refresh_from_db()
         self.assertEqual(state.accessories, ['bowtie'])
 
-    def test_accessories_follow_pose_and_skip_investor(self):
+    def test_pose_frames_match_bruno_template(self):
+        """Аксессуары рисуются в той же области, что и картинка позы в _bruno.html."""
+        import re
+        from django.template.loader import render_to_string
         from founder.models import MascotState
-        from founder.services.wardrobe import layers
-        state = MascotState(startup=self.startup, accessories=['glasses'], mood=MascotState.Mood.SLEEPY)
-        self.assertIn('scale(0.72)', layers(state)[0]['transform'])
+        from founder.services.wardrobe import CATALOG, POSES
+        for mood, pose in POSES.items():
+            x, y, width, height, view_box = pose.frame
+            html = render_to_string('founder/_bruno.html', {'mascot': MascotState(mood=mood), 'investor': False})
+            self.assertIn(f'<svg x="{x}" y="{y}" width="{width}" height="{height}" viewBox="{view_box}"', html, mood)
+            for outfit in (['party', 'glasses', 'bowtie'], ['cap', 'shades', 'scarf'], ['crown']):
+                dressed = render_to_string('founder/_bruno.html', {
+                    'mascot': MascotState(mood=mood, accessories=outfit), 'investor': False})
+                # В русской локали дробные числа выводятся с запятой — SVG такое не понимает.
+                self.assertIsNone(re.search(r'="[^"]*\d,\d', dressed), (mood, outfit))
+                self.assertIn(f'viewBox="{view_box}" overflow="visible"', dressed)
+        self.assertEqual(set(CATALOG), {'party', 'cap', 'crown', 'glasses', 'shades', 'bowtie', 'scarf'})
+
+    def test_reading_pose_keeps_neck_items_behind_book(self):
+        from django.template.loader import render_to_string
+        from founder.models import MascotState
+        from founder.services.wardrobe import hidden_now, layers
+        reading = MascotState(mood=MascotState.Mood.FOCUSED, accessories=['bowtie', 'glasses'])
+        self.assertEqual([item['code'] for item in layers(reading)['items']], ['glasses'])
+        self.assertEqual([item.code for item in hidden_now(reading)], ['bowtie'])
+        scarf = render_to_string('founder/_bruno.html', {
+            'mascot': MascotState(mood=MascotState.Mood.FOCUSED, accessories=['scarf']), 'investor': False})
+        self.assertIn('mask="url(#bruno-cover-card)"', scarf)
+        upright = MascotState(mood=MascotState.Mood.CURIOUS, accessories=['bowtie'])
+        self.assertFalse(layers(upright)['items'][0]['behind'])
+
+    def test_accessories_skip_investor(self):
         self.client.post(self.url, {'action': 'buy', 'code': 'bowtie'})
         page = self.client.get(reverse('investor', args=[self.startup.pk])).content.decode()
         investor, pet = page.split('class="bruno-pet"')

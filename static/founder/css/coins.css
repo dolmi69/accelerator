@@ -45,7 +45,10 @@
   .coin-balance-big { font-size:22px; padding:10px 16px; }
 }
 
-/* Гардероб Бруно */
+/* Гардероб Бруно. app.css обрезает вложенные svg позы, а шапкам нужно выходить за рамку. */
+.bruno-stage svg.bruno-accessories { overflow:visible; }
+/* Шапка выше макушки: место сверху, чтобы её не обрезали карточки с overflow:hidden. */
+.bruno-art.has-hat { padding-top:10%; }
 .wardrobe-layout { display:grid; grid-template-columns:minmax(220px,320px) 1fr; gap:20px; align-items:start; }
 .wardrobe-stage { position:sticky; top:20px; padding:24px; text-align:center; }
 .wardrobe-stage .bruno-art { width:260px; }
