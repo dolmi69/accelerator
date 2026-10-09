@@ -297,9 +297,15 @@ class WardrobeTests(TestCase):
             self.assertIn('bruno-silhouette.png', html)
             self.assertIn('mask="url(#bruno-body-card)"', html)
 
-    def test_accessories_skip_investor(self):
+    def test_investor_wears_own_suit_not_purchases(self):
+        from founder.models import ChatSession
         self.client.post(self.url, {'action': 'buy', 'code': 'bowtie'})
         page = self.client.get(reverse('investor', args=[self.startup.pk])).content.decode()
         investor, pet = page.split('class="bruno-pet"')
-        self.assertNotIn('accessory-bowtie', investor)  # строгий инвестор без нарядов
-        self.assertIn('accessory-bowtie', pet)  # а помощник в углу — в бабочке
+        self.assertIn('accessory-suit', investor)  # у инвестора свой строгий костюм
+        self.assertNotIn('accessory-bowtie', investor)  # купленные вещи — только у Бруно проекта
+        self.assertIn('accessory-bowtie', pet)
+        self.assertNotIn('accessory-suit', pet)
+        session = ChatSession.objects.create(startup=self.startup, mode=ChatSession.Mode.PITCH)
+        chat = self.client.get(reverse('chat_detail', args=[self.startup.pk, session.pk])).content.decode()
+        self.assertIn('accessory-suit', chat.split('class="bruno-pet"')[0])

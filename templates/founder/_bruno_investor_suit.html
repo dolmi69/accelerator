@@ -1,0 +1,33 @@
+{% load static %}
+{# Строгий костюм Бруно-инвестора: постоянный, купленные в гардеробе вещи здесь не показываются. #}
+{# Координаты — в пикселях bruno-reference.png, та же область, что у позы инвестора в _bruno.html. #}
+{# Силуэт обрезает ткань по контуру тела и лап, мордочка остаётся перед воротником. #}
+<svg class="bruno-accessories bruno-suit" x="20" y="25" width="260" height="265" viewBox="967 112 287 275" overflow="visible" aria-hidden="true">
+  <mask id="bruno-suit-{{ instance_id|default:'card' }}" maskUnits="userSpaceOnUse" x="967" y="112" width="287" height="275">
+    <image href="{% static 'founder/img/bruno-silhouette.png' %}" width="1280" height="1066"/>
+    <ellipse cx="1118" cy="219" rx="29" ry="33" fill="#000"/>
+  </mask>
+  <g class="bruno-accessory accessory-suit" mask="url(#bruno-suit-{{ instance_id|default:'card' }})">
+    {# Брюки и туфли — под пиджаком. #}
+    <path d="M1012 344 H1082 V376 H1012 Z M1142 344 H1210 V376 H1142 Z" fill="#232b39"/>
+    <path d="M1012 362 H1082 V376 H1012 Z M1142 362 H1210 V376 H1142 Z" fill="#14181f"/>
+    {# Пиджак: покатые плечи от воротника, туловище до бёдер, рукава до запястий. #}
+    <path d="M967 272 C995 252 1048 241 1090 243 H1148 C1190 241 1243 252 1254 272 V316 H1200 V356 H1020 V316 H967 Z" fill="#2b3445"/>
+    {# Белые манжеты на концах рукавов. #}
+    <path d="M967 311 H1022 V318 H967 Z M1198 311 H1254 V318 H1198 Z" fill="#f2f1ec"/>
+    {# Швы рукавов, чтобы лапы читались отдельно от туловища. #}
+    <path d="M1012 258 Q1021 285 1021 311 M1207 258 Q1199 285 1199 311" stroke="#1b212c" stroke-width="3" fill="none" stroke-linecap="round"/>
+    {# Рубашка в вырезе пиджака, воротник и галстук. #}
+    <path d="M1090 243 H1148 L1119 303 Z" fill="#f4f4f1"/>
+    <path d="M1092 243 L1106 259 L1098 266 Z M1146 243 L1132 259 L1140 266 Z" fill="#ffffff" stroke="#d5d4ce" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M1112 250 H1126 L1123 260 H1115 Z" fill="#7d1a28"/>
+    <path d="M1115 260 H1123 L1129 293 L1119 304 L1109 293 Z" fill="#8f2232"/>
+    <path d="M1113 270 L1126 263 M1111 282 L1128 273 M1112 293 L1128 285" stroke="#b8475a" stroke-width="2.5" stroke-linecap="round"/>
+    {# Лацканы вдоль выреза, нагрудный платок и пуговицы. #}
+    <path d="M1088 243 L1119 305 M1150 243 L1119 305" stroke="#3a4558" stroke-width="6" stroke-linecap="round"/>
+    <path d="M1150 268 L1168 268 L1159 260 Z" fill="#f4f4f1"/>
+    <path d="M1148 269 H1172" stroke="#1b212c" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="1119" cy="317" r="3.2" fill="#151a22"/>
+    <circle cx="1119" cy="334" r="3.2" fill="#151a22"/>
+  </g>
+</svg>
