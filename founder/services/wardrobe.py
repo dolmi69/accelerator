@@ -107,11 +107,10 @@ POSES = {
         frame=(5, 127, 290, 165, "20 790 370 204"),
         head=(155, 840, 68, -4),
         eyes=((114, 908, 24, 23), (189, 904, 22, 22)),
-        # Подбородок лежит на земле: бабочка выглядывает снизу,
-        # шарф идёт по шее за правым ухом до земли, конец лежит на земле.
+        # Подбородок лежит на земле: бабочка подоткнута под него. Шарф выходит из-за правого
+        # уха и идёт по шее вниз до земли (края режет силуэт), концы лежат на земле.
         neck=(147, 944, -4),
         neck_style="lying",
-        # Шарф заходит за правое ухо сверху и в землю снизу — края режет силуэт.
         scarf=Scarf(left=(231, 834), right=(258, 966), sag=-6, thickness=24,
                     tail_at=0.7, tail=(60, 9), tail_width=16, spread=((-0.05, 1.0), (0.13, 0.8))),
         front=(_ellipse(216, 853, 25, 25),),
@@ -201,18 +200,21 @@ def _scarf(spec):
     tx, ty = spec.tail
     tail_len = math.hypot(tx, ty)
     ux, uy = tx / tail_len, ty / tail_len
-    tails, folds = [], []
+    tails = []
     for (turn, scale), width in zip(spec.spread, (spec.tail_width, spec.tail_width * 0.9)):
         cos_t, sin_t = math.cos(turn), math.sin(turn)
         vx, vy = (ux * cos_t - uy * sin_t) * tail_len * scale, (ux * sin_t + uy * cos_t) * tail_len * scale
         px, py = -vy / math.hypot(vx, vy) * width / 2, vx / math.hypot(vx, vy) * width / 2
         end_x, end_y = kx + vx + vx / tail_len * width * 0.45, ky + vy + vy / tail_len * width * 0.45
-        tails.append(f"M{_pt(kx - px * 0.7, ky - py * 0.7)} L{_pt(kx + px * 0.7, ky + py * 0.7)} "
-                     f"L{_pt(kx + vx + px, ky + vy + py)} Q{_pt(end_x, end_y)} {_pt(kx + vx - px, ky + vy - py)} Z")
-        folds.append(" ".join(f"M{_pt(kx + vx * k - px * 0.85, ky + vy * k - py * 0.85)} "
-                              f"L{_pt(kx + vx * k + px * 0.85, ky + vy * k + py * 0.85)}" for k in (0.62, 0.84)))
+        # Каждый конец со своими полосками: верхний перекрывает нижний вместе с его полосками.
+        tails.append({
+            "shape": f"M{_pt(kx - px * 0.7, ky - py * 0.7)} L{_pt(kx + px * 0.7, ky + py * 0.7)} "
+                     f"L{_pt(kx + vx + px, ky + vy + py)} Q{_pt(end_x, end_y)} {_pt(kx + vx - px, ky + vy - py)} Z",
+            "stripes": " ".join(f"M{_pt(kx + vx * k - px * 0.85, ky + vy * k - py * 0.85)} "
+                                f"L{_pt(kx + vx * k + px * 0.85, ky + vy * k + py * 0.85)}" for k in (0.62, 0.84)),
+        })
     return {
-        "band": band, "stripes": stripes, "tails": " ".join(tails), "tail_stripes": " ".join(folds),
+        "band": band, "stripes": stripes, "tails": tails,
         "knot": {"cx": _r(kx), "cy": _r(ky), "rx": _r(spec.tail_width * 0.62), "ry": _r(half * 0.95)},
         "shade": {"x1": _r(x0), "y1": _r(y0), "x2": _r(x2), "y2": _r(y2)},
         "stroke": _r(spec.thickness * 0.14),

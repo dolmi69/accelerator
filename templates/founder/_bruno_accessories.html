@@ -61,8 +61,10 @@
     <path d="{{ item.band }}" fill="url(#bruno-scarf-{{ instance_id|default:'card' }})" stroke="#0e6159" stroke-width="{{ item.stroke }}" stroke-linejoin="round"/>
     <path d="{{ item.stripes }}" stroke="#eea273" stroke-width="{{ item.stroke }}" stroke-linecap="round"/>
   </g>
-  <path d="{{ item.tails }}" fill="#14796f" stroke="#0e6159" stroke-width="{{ item.stroke }}" stroke-linejoin="round"/>
-  <path d="{{ item.tail_stripes }}" stroke="#eea273" stroke-width="{{ item.stroke }}" stroke-linecap="round"/>
+  {% for tail in item.tails %}
+  <path d="{{ tail.shape }}" fill="#14796f" stroke="#0e6159" stroke-width="{{ item.stroke }}" stroke-linejoin="round"/>
+  <path d="{{ tail.stripes }}" stroke="#eea273" stroke-width="{{ item.stroke }}" stroke-linecap="round"/>
+  {% endfor %}
   <ellipse cx="{{ item.knot.cx }}" cy="{{ item.knot.cy }}" rx="{{ item.knot.rx }}" ry="{{ item.knot.ry }}" fill="#13756c" stroke="#0e6159" stroke-width="{{ item.stroke }}"/>
 {% endif %}
 </g></g>
