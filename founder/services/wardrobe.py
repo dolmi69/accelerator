@@ -51,6 +51,9 @@ class Scarf:
     tail: tuple
     tail_width: float
     spread: tuple = ((-0.18, 1.0), (0.22, 0.78))  # поворот (рад) и длина каждого из двух концов
+    # Толщина поперёк самой ленты, а не по вертикали кольца: для сильно изогнутого шарфа,
+    # иначе на изгибе лента сплющивается в острый угол.
+    follow_curve: bool = False
 
 
 @dataclass(frozen=True)
@@ -111,8 +114,10 @@ POSES = {
         # уха и идёт по шее вниз до земли (края режет силуэт), концы лежат на земле.
         neck=(147, 944, -4),
         neck_style="lying",
-        scarf=Scarf(left=(231, 834), right=(258, 966), sag=-6, thickness=24,
-                    tail_at=0.7, tail=(60, 9), tail_width=16, spread=((-0.05, 1.0), (0.13, 0.8))),
+        # Верхний конец загибается к уху и целиком уходит за него.
+        scarf=Scarf(left=(214, 855), right=(258, 966), sag=-22, thickness=24,
+                    tail_at=0.74, tail=(60, 9), tail_width=16, spread=((-0.05, 1.0), (0.13, 0.8)),
+                    follow_curve=True),
         front=(_ellipse(216, 853, 25, 25),),
     ),
 }
@@ -183,10 +188,22 @@ def _scarf(spec):
     nx, ny = -dy, dx  # «вниз» для ленты слева направо
     half = spec.thickness / 2
 
-    def point(u, offset=0.0):
+    def center(u):
         along = length * (1 - math.cos(math.pi * u)) / 2  # равные углы вокруг шеи
-        drop = spec.sag * math.sin(math.pi * u) + offset
+        drop = spec.sag * math.sin(math.pi * u)
         return x0 + dx * along + nx * drop, y0 + dy * along + ny * drop
+
+    def point(u, offset=0.0):
+        cx, cy = center(u)
+        if not spec.follow_curve:
+            return cx + nx * offset, cy + ny * offset
+        (ax, ay), (bx, by) = center(max(0.0, u - 0.01)), center(min(1.0, u + 0.01))
+        tx, ty = bx - ax, by - ay
+        size = math.hypot(tx, ty) or 1.0
+        px, py = -ty / size, tx / size
+        if px * nx + py * ny < 0:  # та же сторона, что у нормали хорды
+            px, py = -px, -py
+        return cx + px * offset, cy + py * offset
 
     steps = [i / 24 for i in range(25)]
     top = [point(u, -half) for u in steps]
