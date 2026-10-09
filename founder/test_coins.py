@@ -277,18 +277,25 @@ class WardrobeTests(TestCase):
                 self.assertIn(f'viewBox="{view_box}" overflow="visible"', dressed)
         self.assertEqual(set(CATALOG), {'party', 'cap', 'crown', 'glasses', 'shades', 'bowtie', 'scarf'})
 
-    def test_reading_pose_keeps_neck_items_behind_book(self):
-        from django.template.loader import render_to_string
+    def test_reading_pose_hides_neck_and_uses_reading_glasses(self):
         from founder.models import MascotState
         from founder.services.wardrobe import hidden_now, layers
         reading = MascotState(mood=MascotState.Mood.FOCUSED, accessories=['bowtie', 'glasses'])
-        self.assertEqual([item['code'] for item in layers(reading)['items']], ['glasses'])
+        items = layers(reading)['items']
+        self.assertEqual([(item['code'], item['style']) for item in items], [('glasses', 'reading')])
         self.assertEqual([item.code for item in hidden_now(reading)], ['bowtie'])
-        scarf = render_to_string('founder/_bruno.html', {
-            'mascot': MascotState(mood=MascotState.Mood.FOCUSED, accessories=['scarf']), 'investor': False})
-        self.assertIn('mask="url(#bruno-cover-card)"', scarf)
-        upright = MascotState(mood=MascotState.Mood.CURIOUS, accessories=['bowtie'])
-        self.assertFalse(layers(upright)['items'][0]['behind'])
+        self.assertIsNone(layers(MascotState(mood=MascotState.Mood.FOCUSED, accessories=['scarf'])))
+
+    def test_neck_items_are_cut_by_bruno_silhouette(self):
+        from django.conf import settings
+        from django.template.loader import render_to_string
+        from founder.models import MascotState
+        self.assertTrue((settings.BASE_DIR / 'static/founder/img/bruno-silhouette.png').exists())
+        for code in ('scarf', 'bowtie'):
+            html = render_to_string('founder/_bruno.html', {
+                'mascot': MascotState(mood=MascotState.Mood.CURIOUS, accessories=[code]), 'investor': False})
+            self.assertIn('bruno-silhouette.png', html)
+            self.assertIn('mask="url(#bruno-body-card)"', html)
 
     def test_accessories_skip_investor(self):
         self.client.post(self.url, {'action': 'buy', 'code': 'bowtie'})

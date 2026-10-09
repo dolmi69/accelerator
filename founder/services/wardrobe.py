@@ -35,23 +35,44 @@ CATALOG = {item.code: item for item in (
     Item("scarf", "Шарф стартапера", "neck", 50, "Тёплый и упрямый, как идея на ранней стадии."),
 )}
 
+def _ellipse(cx, cy, rx, ry):
+    return f"M{cx - rx} {cy} a{rx} {ry} 0 1 0 {2 * rx} 0 a{rx} {ry} 0 1 0 {-2 * rx} 0 Z"
+
+
+@dataclass(frozen=True)
+class Scarf:
+    """Шарф от края шеи до края: осевая линия от left до right, провис посередине,
+    толщина и свободный конец (откуда по ленте и куда свисает)."""
+    left: tuple
+    right: tuple
+    sag: float
+    thickness: float
+    tail_at: float
+    tail: tuple
+    tail_width: float
+    spread: tuple = ((-0.18, 1.0), (0.22, 0.78))  # поворот (рад) и длина каждого из двух концов
+
+
 @dataclass(frozen=True)
 class Pose:
     """Замеры позы в пикселях исходного PNG.
 
     frame — те же x, y, width, height и viewBox, что у вложенного <svg> позы в _bruno.html.
     head — середина макушки между ушами, ширина макушки между ушами, наклон головы.
-    eyes — центр и полуоси левого и правого глаза.
-    neck — точка под подбородком и наклон; neck_style — вариант рисунка для шеи.
+    eyes — центр и полуоси левого и правого глаза; eyes_style="reading" — очки для чтения на носу.
+    neck — точка под подбородком и наклон бабочки; scarf — шарф по краям шеи.
+    hidden — что в этой позе закрыто целиком (шею Бруно с книгой закрывает книга).
+    front — то, что находится перед шарфом (подбородок, ухо): лента проходит позади.
     """
     frame: tuple
     head: tuple
     eyes: tuple
     neck: tuple
+    scarf: Scarf | None = None
+    eyes_style: str = "round"
     neck_style: str = "upright"
-    scarf: tuple | None = None  # своя точка для шарфа, если он сидит не под подбородком
-    cover: str = ""  # контур предмета перед шеей: аксессуары для шеи рисуются позади него
-    hidden: tuple = ()  # что в этой позе целиком закрыто (бабочку за книгой не видно)
+    hidden: tuple = ()
+    front: tuple = ()
 
 
 POSES = {
@@ -60,32 +81,40 @@ POSES = {
         head=(303, 122, 199, -16.3),
         eyes=((249, 297, 56, 66), (434, 243, 57, 67)),
         neck=(350, 412, -12),
+        scarf=Scarf(left=(108, 372), right=(580, 342), sag=58, thickness=50,
+                    tail_at=0.66, tail=(16, 118), tail_width=38),
+        front=(_ellipse(357, 315, 57, 65),),
     ),
     MascotState.Mood.CONFIDENT: Pose(
         frame=(10, 5, 280, 285, "640 60 340 322"),
         head=(806, 97, 90, 3),
         eyes=((749, 157, 29, 31), (852, 168, 28, 31)),
         neck=(800, 233, 4),
+        scarf=Scarf(left=(701, 209), right=(904, 208), sag=24, thickness=24,
+                    tail_at=0.64, tail=(6, 56), tail_width=17),
+        front=(_ellipse(797, 183, 31, 39),),
     ),
     MascotState.Mood.FOCUSED: Pose(
         frame=(30, 20, 240, 273, "690 730 248 275"),
         head=(797, 762, 76, -2.6),
-        eyes=((777, 828, 24, 26), (851, 821, 22, 26)),
-        # Шею закрывает книга: бабочка целиком за ней, шарф виден на левом плече и свисает по лапе.
+        eyes=((777, 828, 20, 23), (851, 821, 18, 23)),
         neck=(818, 864, -6),
-        neck_style="reading",
-        scarf=(762, 855, 6),
-        cover="M763 856 L776 849 L852 871 L900 832 L909 832 L912 900 L893 925 L850 957 L757 932 Z",
-        hidden=("bowtie",),
+        # Книга закрывает шею: бабочки и шарфа не видно, очки — для чтения на кончике носа.
+        eyes_style="reading",
+        hidden=("bowtie", "scarf"),
     ),
     MascotState.Mood.SLEEPY: Pose(
         frame=(5, 127, 290, 165, "20 790 370 204"),
         head=(155, 840, 68, -4),
         eyes=((114, 908, 24, 23), (189, 904, 22, 22)),
-        # Подбородок лежит на земле: бабочка выглядывает снизу, шарф обвивает шею сбоку.
-        neck=(147, 951, -4),
+        # Подбородок лежит на земле: бабочка выглядывает снизу,
+        # шарф идёт по шее за правым ухом до земли, конец лежит на земле.
+        neck=(147, 944, -4),
         neck_style="lying",
-        scarf=(236, 898, -18),
+        # Шарф заходит за правое ухо сверху и в землю снизу — края режет силуэт.
+        scarf=Scarf(left=(231, 834), right=(258, 966), sag=-6, thickness=24,
+                    tail_at=0.7, tail=(60, 9), tail_width=16, spread=((-0.05, 1.0), (0.13, 0.8))),
+        front=(_ellipse(216, 853, 25, 25),),
     ),
 }
 
@@ -99,30 +128,103 @@ def _r(value):
     return f"{value:.1f}".rstrip("0").rstrip(".")
 
 
+def _pt(x, y):
+    return f"{_r(x)} {_r(y)}"
+
+
 def _glasses(pose):
     """Две линзы точно на глазах: локальная ось x проходит через центры глаз."""
     (lx, ly, lrx, lry), (rx_, ry_, rrx, rry) = pose.eyes
+    if pose.eyes_style == "reading":
+        return _reading_glasses(pose)
     angle = math.degrees(math.atan2(ry_ - ly, rx_ - lx))
     half = math.hypot(rx_ - lx, ry_ - ly) / 2
     inner_l, inner_r = -half + lrx * 0.97, half - rrx * 0.97
     lift = -min(lry, rry) * 0.2
     gap = inner_r - inner_l
     return {
-        "transform": f"translate({_r((lx + rx_) / 2)} {_r((ly + ry_) / 2)}) rotate({_r(angle)})",
+        "style": "round",
+        "transform": f"translate({_pt((lx + rx_) / 2, (ly + ry_) / 2)}) rotate({_r(angle)})",
         "left": {"cx": _r(-half), "rx": lrx, "ry": lry},
         "right": {"cx": _r(half), "rx": rrx, "ry": rry},
-        "bridge": f"M{_r(inner_l)} {_r(lift)} Q0 {_r(lift - gap * 0.35)} {_r(inner_r)} {_r(lift)}",
-        "temples": (f"M{_r(-half - lrx)} {_r(-lry * 0.25)} l{_r(-half * 0.35)} {_r(-lry * 0.2)} "
-                    f"M{_r(half + rrx)} {_r(-rry * 0.25)} l{_r(half * 0.35)} {_r(-rry * 0.2)}"),
+        "bridge": f"M{_pt(inner_l, lift)} Q0 {_r(lift - gap * 0.35)} {_pt(inner_r, lift)}",
+        "temples": (f"M{_pt(-half - lrx, -lry * 0.25)} l{_pt(-half * 0.35, -lry * 0.2)} "
+                    f"M{_pt(half + rrx, -rry * 0.25)} l{_pt(half * 0.35, -rry * 0.2)}"),
         "stroke": _r(pose.head[2] * 0.045),
+    }
+
+
+def _reading_glasses(pose):
+    """Полукруглые очки для чтения: сидят низко, на кончике носа, под зрачками."""
+    lenses, tops = [], []
+    for cx, cy, rx, ry in pose.eyes:
+        half, top, depth = rx * 1.12, cy + ry * 0.12, ry * 0.78
+        lenses.append(f"M{_pt(cx - half, top)} L{_pt(cx + half, top)} A{_pt(half, depth)} 0 0 1 {_pt(cx - half, top)} Z")
+        tops.append((cx - half, cx + half, top))
+    (l_left, l_right, l_top), (r_left, r_right, r_top) = tops
+    return {
+        "style": "reading",
+        "transform": "translate(0 0)",
+        "lenses": " ".join(lenses),
+        "bridge": f"M{_pt(l_right, l_top)} Q{_pt((l_right + r_left) / 2, min(l_top, r_top) - 7)} {_pt(r_left, r_top)}",
+        "temples": f"M{_pt(l_left, l_top)} l-12 -7 M{_pt(r_right, r_top)} l12 -7",
+        "stroke": _r(pose.head[2] * 0.035),
+    }
+
+
+def _scarf(spec):
+    """Шарф как кольцо вокруг шеи, увиденное чуть сверху: спереди видна нижняя половина эллипса.
+
+    Поэтому внизу лента провисает полого, а к бокам круче уходит за шею. Толщина ленты
+    вертикальная, полоски вертикальные и сгущаются к бокам, края затенены, у узла два конца.
+    """
+    (x0, y0), (x2, y2) = spec.left, spec.right
+    length = math.hypot(x2 - x0, y2 - y0)
+    dx, dy = (x2 - x0) / length, (y2 - y0) / length
+    nx, ny = -dy, dx  # «вниз» для ленты слева направо
+    half = spec.thickness / 2
+
+    def point(u, offset=0.0):
+        along = length * (1 - math.cos(math.pi * u)) / 2  # равные углы вокруг шеи
+        drop = spec.sag * math.sin(math.pi * u) + offset
+        return x0 + dx * along + nx * drop, y0 + dy * along + ny * drop
+
+    steps = [i / 24 for i in range(25)]
+    top = [point(u, -half) for u in steps]
+    bottom = [point(u, half) for u in steps]
+    band = "M" + " L".join(_pt(*p) for p in top) + " L" + " L".join(_pt(*p) for p in reversed(bottom)) + " Z"
+    stripes = " ".join(f"M{_pt(*point(u, -half * 0.88))} L{_pt(*point(u, half * 0.88))}"
+                       for u in (0.07, 0.19, 0.31, 0.43, 0.55, 0.81, 0.93) if abs(u - spec.tail_at) > 0.06)
+
+    # Узел и два свободных конца: длинный и чуть короче, слегка разведены.
+    kx, ky = point(spec.tail_at, half * 0.55)
+    tx, ty = spec.tail
+    tail_len = math.hypot(tx, ty)
+    ux, uy = tx / tail_len, ty / tail_len
+    tails, folds = [], []
+    for (turn, scale), width in zip(spec.spread, (spec.tail_width, spec.tail_width * 0.9)):
+        cos_t, sin_t = math.cos(turn), math.sin(turn)
+        vx, vy = (ux * cos_t - uy * sin_t) * tail_len * scale, (ux * sin_t + uy * cos_t) * tail_len * scale
+        px, py = -vy / math.hypot(vx, vy) * width / 2, vx / math.hypot(vx, vy) * width / 2
+        end_x, end_y = kx + vx + vx / tail_len * width * 0.45, ky + vy + vy / tail_len * width * 0.45
+        tails.append(f"M{_pt(kx - px * 0.7, ky - py * 0.7)} L{_pt(kx + px * 0.7, ky + py * 0.7)} "
+                     f"L{_pt(kx + vx + px, ky + vy + py)} Q{_pt(end_x, end_y)} {_pt(kx + vx - px, ky + vy - py)} Z")
+        folds.append(" ".join(f"M{_pt(kx + vx * k - px * 0.85, ky + vy * k - py * 0.85)} "
+                              f"L{_pt(kx + vx * k + px * 0.85, ky + vy * k + py * 0.85)}" for k in (0.62, 0.84)))
+    return {
+        "band": band, "stripes": stripes, "tails": " ".join(tails), "tail_stripes": " ".join(folds),
+        "knot": {"cx": _r(kx), "cy": _r(ky), "rx": _r(spec.tail_width * 0.62), "ry": _r(half * 0.95)},
+        "shade": {"x1": _r(x0), "y1": _r(y0), "x2": _r(x2), "y2": _r(y2)},
+        "stroke": _r(spec.thickness * 0.14),
     }
 
 
 def layers(state):
     """Что и где рисовать поверх Бруно. Координаты — в пикселях исходного PNG."""
     pose = POSES.get(state.mood, POSES[MascotState.Mood.CURIOUS])
-    worn = {CATALOG[code].slot: CATALOG[code] for code in state.accessories or [] if code in CATALOG}
-    if not worn or all(item.code in pose.hidden for item in worn.values()):
+    worn = {CATALOG[code].slot: CATALOG[code] for code in state.accessories or []
+            if code in CATALOG and code not in pose.hidden}
+    if not worn:
         return None
     x, y, width, height, view_box = pose.frame
     head_x, head_y, head_width, head_angle = pose.head
@@ -130,19 +232,20 @@ def layers(state):
     scale = _r(head_width / 100)
     items = []
     # Порядок слоёв: шея, глаза, голова.
-    if "neck" in worn and worn["neck"].code not in pose.hidden:
+    if "neck" in worn:
         code = worn["neck"].code
-        if code == "scarf" and pose.scarf:
-            neck_x, neck_y, neck_angle = pose.scarf
-        items.append({"code": code, "slot": "neck", "style": pose.neck_style, "behind": bool(pose.cover),
-                      "transform": f"translate({neck_x} {neck_y}) rotate({neck_angle}) scale({scale})"})
+        item = {"code": code, "slot": "neck", "style": pose.neck_style,
+                "transform": f"translate({neck_x} {neck_y}) rotate({neck_angle}) scale({scale})"}
+        if code == "scarf":
+            item.update(_scarf(pose.scarf), transform="translate(0 0)")
+        items.append(item)
     if "eyes" in worn:
         items.append({"code": worn["eyes"].code, "slot": "eyes", **_glasses(pose)})
     if "head" in worn:
         items.append({"code": worn["head"].code, "slot": "head",
                       "transform": f"translate({head_x} {head_y}) rotate({head_angle}) scale({scale})"})
     return {"frame": {"x": x, "y": y, "width": width, "height": height, "viewBox": view_box},
-            "cover": pose.cover, "items": items, "has_hat": "head" in worn}
+            "items": items, "has_hat": "head" in worn, "front": " ".join(pose.front)}
 
 
 def hidden_now(state):
