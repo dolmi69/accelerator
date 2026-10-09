@@ -66,6 +66,13 @@ def team_members(startup):
     return [m.user for m in startup.members.filter(status=ProjectMember.Status.ACTIVE).select_related("user")]
 
 
+def assignable_users(startup):
+    """Кому можно поручить задание: владелец и соавторы (наблюдатели ничего не меняют)."""
+    editors = [m.user for m in startup.members.filter(status=ProjectMember.Status.ACTIVE, role=EDITOR)
+               .select_related("user")]
+    return [startup.owner, *editors]
+
+
 def has_team(startup):
     return startup.members.filter(status=ProjectMember.Status.ACTIVE).exists()
 
@@ -74,3 +81,8 @@ def pending_invites(user):
     return (ProjectMember.objects.filter(user=user, status=ProjectMember.Status.INVITED)
             .select_related("startup", "invited_by"))
 
+
+def join_requests_for(owner):
+    """Заявки «Хочу в команду» в проекты, которыми владеет пользователь."""
+    return (ProjectMember.objects.filter(startup__owner=owner, status=ProjectMember.Status.REQUESTED)
+            .select_related("startup", "user"))

@@ -3,6 +3,7 @@
 {% block content %}
 {% if is_owner %}<a class="back-link" href="{% url 'lab' publication.startup_id %}?version={{ publication.version_id }}&amp;section=globalization">← Лаборатория</a>{% else %}<a class="back-link" href="{% url 'card_detail' publication.startup_id %}">← Карточка проекта</a>{% endif %}
 <div class="page-heading"><div><span class="eyebrow">ПОМОГИТЕ АВТОРУ УЛУЧШИТЬ ПРОЕКТ</span><h1>Попробуйте {{ public.name }}</h1><p>{{ public.tagline }}</p></div></div>
+{% if bounty %}<p class="work-notice bounty-notice">🪙 Автор платит <strong>{{ bounty.reward }}</strong> монет за тест с отзывом от {{ bounty_min_feedback }} символов — один раз на проект. Плюс стандартные монеты за помощь другим основателям.</p>{% endif %}
 {% if is_owner %}<p class="work-notice">Вы проверяете свой прототип. Этот тест сохранится отдельно и не попадёт в показатели тестирования другими людьми.</p>{% endif %}
 <section class="card lab-test-intro" id="lab-test-intro">
   <h2>Пройдите основной сценарий</h2>

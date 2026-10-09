@@ -14,8 +14,9 @@ from django.views.decorators.http import require_POST
 
 from founder.forms import EvidenceForm
 from founder.models import BrunoTask, BusinessAxis, ChatMessage, ChatSession, CoinTransaction, EvidenceEntry, StartupProfile
-from founder.services.access import get_startup
+from founder.services.access import assignable_users, get_startup, has_team
 from founder.services.ai import AIServiceError
+from founder.services import activity
 from founder.services.coins import award, coins_note
 from founder.services.review import create_review, guess_axis, step_to_task
 from founder.services.workbench import generate_tasks
@@ -28,12 +29,32 @@ def owned_startup(request, startup_id, *, edit=True):
 @login_required
 def tasks(request, startup_id):
     startup = owned_startup(request, startup_id, edit=False)
+    open_tasks = startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).select_related('assignee')
+    mine = request.GET.get('mine') == '1'
+    if mine:
+        open_tasks = open_tasks.filter(assignee=request.user)
     return render(request, 'founder/tasks.html', {
-        'startup': startup, 'workspace_tab': 'tasks',
-        'open_tasks': startup.bruno_tasks.filter(status=BrunoTask.Status.TODO),
-        'past_tasks': startup.bruno_tasks.exclude(status=BrunoTask.Status.TODO)[:15],
+        'startup': startup, 'workspace_tab': 'tasks', 'open_tasks': open_tasks, 'mine': mine,
+        'past_tasks': startup.bruno_tasks.exclude(status=BrunoTask.Status.TODO).select_related('assignee')[:15],
         'is_demo': settings.AI_PROVIDER == 'demo',
+        'team': assignable_users(startup) if has_team(startup) else [],
     })
+
+
+@login_required
+@require_POST
+def task_assign(request, startup_id, task_id):
+    startup = owned_startup(request, startup_id)
+    task = get_object_or_404(startup.bruno_tasks, pk=task_id, status=BrunoTask.Status.TODO)
+    value = request.POST.get('assignee', '')
+    assignee = next((user for user in assignable_users(startup) if str(user.pk) == value), None)
+    if value and assignee is None:
+        raise Http404('Исполнитель должен быть в команде проекта.')
+    task.assignee = assignee
+    task.save(update_fields=['assignee'])
+    activity.log(startup, request.user, activity.Kind.TASK,
+                 f"Задание {activity.quoted(task.title, 60)} — " + (f"исполнитель @{assignee.handle}" if assignee else "без исполнителя"))
+    return redirect(reverse('tasks', args=[startup.pk]) + f'#task-{task.pk}')
 
 
 @login_required
@@ -42,6 +63,8 @@ def tasks_generate(request, startup_id):
     startup = owned_startup(request, startup_id)
     try:
         items = generate_tasks(startup)
+        if items:
+            activity.log(startup, request.user, activity.Kind.TASK, f"Бруно выдал новые задания: {len(items)}")
         messages.success(request, f'Бруно подготовил заданий: {len(items)}.' if items else 'У вас уже есть задания в работе. Сначала сохраните результат или отложите одно из них.')
     except AIServiceError as exc:
         messages.error(request, str(exc))
@@ -53,7 +76,8 @@ def tasks_generate(request, startup_id):
 def task_skip(request, startup_id, task_id):
     startup = owned_startup(request, startup_id)
     task = get_object_or_404(startup.bruno_tasks, pk=task_id)
-    startup.bruno_tasks.filter(pk=task.pk, status=BrunoTask.Status.TODO).update(status=BrunoTask.Status.SKIPPED)
+    if startup.bruno_tasks.filter(pk=task.pk, status=BrunoTask.Status.TODO).update(status=BrunoTask.Status.SKIPPED):
+        activity.log(startup, request.user, activity.Kind.TASK, f"Задание отложено: {activity.quoted(task.title)}")
     return redirect('tasks', startup_id=startup.pk)
 
 
@@ -103,11 +127,15 @@ def evidence_edit(request, startup_id, entry_id=None):
             if entry is None:
                 earned += award(request.user, CoinTransaction.Kind.EVIDENCE, key=saved.pk,
                                 startup=startup, note=saved.claim)
+                activity.log(startup, request.user, activity.Kind.EVIDENCE,
+                             f"Запись в дневнике: {activity.quoted(saved.claim)} — {saved.get_outcome_display().lower()}")
             if saved.task_id and startup.bruno_tasks.filter(pk=saved.task_id, status=BrunoTask.Status.TODO).update(
                 status=BrunoTask.Status.DONE, completed_at=timezone.now(),
             ):
                 earned += award(request.user, CoinTransaction.Kind.TASK, key=saved.task_id,
                                 startup=startup, note=saved.claim)
+                activity.log(startup, request.user, activity.Kind.TASK,
+                             f"Задание выполнено: {activity.quoted(saved.task.title)}")
         messages.success(request, 'Результат сохранён. Следующее обновление радара учтёт эту запись; сама запись не добавляет баллы.'
                          + coins_note(earned))
         return redirect('evidence_list', startup_id=startup.pk)
@@ -157,6 +185,7 @@ def review_generate(request, startup_id):
     startup = owned_startup(request, startup_id)
     try:
         create_review(startup)
+        activity.log(startup, request.user, activity.Kind.REVIEW, "Новый разбор и план на месяц")
         messages.success(request, 'Бруно разобрал проект и составил план на месяц.')
     except AIServiceError as exc:
         messages.error(request, str(exc))
@@ -175,5 +204,6 @@ def review_step_task(request, startup_id, review_id, index):
     if task is None:
         messages.error(request, 'По этому направлению уже есть задание в работе. Сначала завершите или отложите его.')
         return redirect(f"{reverse('review', args=[startup.pk])}?id={current.pk}")
+    activity.log(startup, request.user, activity.Kind.TASK, f"Шаг плана стал заданием: {activity.quoted(task.title)}")
     messages.success(request, 'Шаг добавлен в задания. Результат запишите в дневник, когда сделаете.')
     return redirect('tasks', startup_id=startup.pk)

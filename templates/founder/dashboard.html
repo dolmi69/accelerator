@@ -48,10 +48,13 @@
     {% include 'founder/_bruno.html' with investor=False %}
     <div class="bruno-mood"><strong>{{ mascot.get_mood_display }}</strong></div>
     <p class="bruno-reason">{{ mascot.reason|default:"Давайте впервые оценим стартап — Бруно готов знакомиться." }}</p>
+    {% if startup.user_role != 'viewer' %}<a class="evidence-link" href="{% url 'wardrobe' startup.id %}">Гардероб Бруно →</a>{% endif %}
   </div>
 </section>
 
 <section class="card achievements-card"><div class="section-top"><div><span class="eyebrow">ШАГ ЗА ШАГОМ С БРУНО</span><h2>Ваши достижения</h2></div></div><div class="achievements-grid">{% for badge in achievements %}<article class="achievement {% if badge.earned_at %}earned{% endif %}"><span class="achievement-icon" aria-hidden="true">{{ badge.icon }}</span><h3>{{ badge.title }}</h3><p>{{ badge.description }}</p><span class="achievement-status">{% if badge.earned_at %}Получено {{ badge.earned_at|date:"d.m.Y" }}{% else %}Впереди{% endif %}</span></article>{% endfor %}</div></section>
+
+{% if activities %}<section class="card work-card activity-card"><div class="section-top"><div><span class="eyebrow">КОМАНДА В ДЕЛЕ</span><h2>Что нового в проекте</h2></div><a class="evidence-link" href="{% url 'team' startup.id %}">Вся лента →</a></div>{% include 'founder/_activity.html' with items=activities %}</section>{% endif %}
 
 {% include 'founder/_history.html' %}
 

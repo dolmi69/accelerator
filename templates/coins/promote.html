@@ -24,6 +24,27 @@
 {% endfor %}
 </div>
 
+<section class="card work-card bounty-section" id="bounty">
+  <span class="eyebrow">ПЛАТИТЕ ЗА ОБРАТНУЮ СВЯЗЬ</span>
+  <h2>Награда тестировщикам</h2>
+  <p>Отложите монеты из своего кошелька: внешний тестировщик получит награду за тест прототипа с отзывом от {{ bounty_min_feedback }} символов, один раз на проект. Прототип с наградой попадает в блок «Нужны тестировщики». Остаток можно вернуть в любой момент.</p>
+  {% for bounty in bounties %}
+  <div class="team-row">
+    <div><strong>{{ bounty.reward }} 🪙 за тест</strong><p class="muted small">Осталось на {{ bounty.remaining|floatformat:0 }} 🪙 · от @{{ bounty.funder.handle }} · {{ bounty.created_at|date:'d.m.Y' }}</p></div>
+    {% if bounty.funder_id == request.user.pk %}<form method="post" action="{% url 'bounty_close' startup.id bounty.id %}">{% csrf_token %}<button class="button ghost" type="submit">Закрыть и вернуть остаток</button></form>{% endif %}
+  </div>
+  {% endfor %}
+  {% if bounty_blocker %}
+    <p class="muted small">{{ bounty_blocker }}</p>
+  {% else %}
+    <form method="post" action="{% url 'bounty_fund' startup.id %}" class="bounty-form">{% csrf_token %}
+      <label>{{ bounty_form.reward.label }}{{ bounty_form.reward }}</label>
+      <label>{{ bounty_form.tests.label }}{{ bounty_form.tests }}</label>
+      <button class="button primary" type="submit">Зарезервировать монеты</button>
+    </form>
+  {% endif %}
+</section>
+
 {% if history %}
 <section class="card work-card"><h2>История продвижения</h2>
 {% for promo in history %}<div class="work-history-row"><div><strong>{{ promo.get_kind_display }}</strong><p class="muted small">{{ promo.starts_at|date:'d.m.Y H:i' }} — {{ promo.ends_at|date:'d.m.Y H:i' }}{% if promo.bought_by %} · оплатил(а) @{{ promo.bought_by.handle }}{% endif %}</p></div><span class="coin-amount negative">−{{ promo.cost }}</span></div>{% endfor %}

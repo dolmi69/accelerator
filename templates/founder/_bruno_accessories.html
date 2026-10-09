@@ -1,0 +1,38 @@
+{# Аксессуары из гардероба. Каждый нарисован вокруг (0,0) под голову шириной ~120; положение задаёт services/wardrobe.py. #}
+{% for layer in mascot.accessory_layers %}
+<g class="bruno-accessory accessory-{{ layer.code }}" transform="{{ layer.transform }}" aria-hidden="true">
+  {% if layer.code == 'party' %}
+    <path d="M-24 6 L0 -54 L24 6 Z" fill="#7c5cd6"/>
+    <path d="M-15 -16 L15 -16 L19 -6 L-19 -6 Z M-8 -36 L8 -36 L11 -28 L-11 -28 Z" fill="#f4c542"/>
+    <circle cx="0" cy="-56" r="7" fill="#ef6f6c"/>
+    <ellipse cx="0" cy="6" rx="26" ry="5" fill="#5a3fb0"/>
+  {% elif layer.code == 'cap' %}
+    <path d="M-36 8 Q-36 -32 0 -34 Q36 -32 36 8 Z" fill="#2f6fb0"/>
+    <path d="M24 2 Q54 0 62 10 Q44 16 22 10 Z" fill="#1f4f82"/>
+    <circle cx="0" cy="-33" r="4" fill="#1f4f82"/>
+    <path d="M-36 8 Q0 0 36 8" stroke="#1f4f82" stroke-width="3" fill="none"/>
+  {% elif layer.code == 'crown' %}
+    <path d="M-32 8 L-32 -24 L-16 -8 L0 -34 L16 -8 L32 -24 L32 8 Z" fill="#f2b631" stroke="#c98a12" stroke-width="2.5" stroke-linejoin="round"/>
+    <circle cx="0" cy="-34" r="4" fill="#e85d75"/><circle cx="-32" cy="-24" r="3.5" fill="#5bc0eb"/><circle cx="32" cy="-24" r="3.5" fill="#5bc0eb"/>
+    <rect x="-32" y="-2" width="64" height="7" fill="#c98a12"/>
+  {% elif layer.code == 'glasses' %}
+    <circle cx="-31" cy="0" r="18" fill="#ffffff" fill-opacity=".18" stroke="#1d2b36" stroke-width="4"/>
+    <circle cx="31" cy="0" r="18" fill="#ffffff" fill-opacity=".18" stroke="#1d2b36" stroke-width="4"/>
+    <path d="M-13 -2 Q0 -9 13 -2" stroke="#1d2b36" stroke-width="4" fill="none"/>
+  {% elif layer.code == 'shades' %}
+    <rect x="-52" y="-13" width="40" height="26" rx="11" fill="#141a20"/>
+    <rect x="12" y="-13" width="40" height="26" rx="11" fill="#141a20"/>
+    <path d="M-12 -5 Q0 -11 12 -5" stroke="#141a20" stroke-width="5" fill="none"/>
+    <path d="M-44 -6 L-30 -6" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/>
+    <path d="M20 -6 L34 -6" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/>
+  {% elif layer.code == 'bowtie' %}
+    <path d="M0 0 L-26 -14 L-26 14 Z M0 0 L26 -14 L26 14 Z" fill="#d6455d" stroke="#a52f44" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="-7" y="-8" width="14" height="16" rx="4" fill="#a52f44"/>
+  {% elif layer.code == 'scarf' %}
+    <path d="M-44 -8 Q0 12 44 -8 L46 6 Q0 28 -46 6 Z" fill="#16877d"/>
+    <path d="M14 8 L30 50 L14 54 L4 12 Z" fill="#16877d"/>
+    <path d="M-30 -1 L-30 12 M-12 4 L-12 17 M6 5 L6 18 M24 1 L24 14" stroke="#eea273" stroke-width="5"/>
+    <path d="M18 36 L28 34 M22 46 L31 44" stroke="#eea273" stroke-width="4"/>
+  {% endif %}
+</g>
+{% endfor %}

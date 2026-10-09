@@ -21,7 +21,7 @@ from founder.models import (
     ChatAttachment, ChatMessage, ChatSession, CoinTransaction, MascotState, MessageFeedback,
     PitchReport, StartupProfile,
 )
-from founder.services.access import get_startup, has_team, pending_invites
+from founder.services.access import get_startup, has_team, join_requests_for, pending_invites
 from founder.services.ai import AIServiceError, provider_label, stream_reply
 from founder.services.bruno import looks_like_evidence
 from founder.services.mascot import update_mascot
@@ -30,6 +30,7 @@ from founder.services.onboarding import cofounder_opening, has_founder_conversat
 from founder.services.metrics import AXES, radar_grid, radar_points
 from founder.services.pitch import finish_pitch
 from founder.services.radar_assessment import assess_startup
+from founder.services import activity
 from founder.services.coins import CHAT_MIN_LENGTH, award, balance, coins_note
 from founder.services.achievements import achievement_cards, award_achievements
 from founder.services.profile import evidence_display, grid_context, history_context, project_cards
@@ -57,7 +58,10 @@ def home(request):
     invites = list(pending_invites(request.user))
     if not cards and not invites:
         return redirect("startup_create")
-    return render(request, "founder/projects.html", {"project_cards": cards, "invites": invites, **grid_context()})
+    return render(request, "founder/projects.html", {
+        "project_cards": cards, "invites": invites, "join_requests": list(join_requests_for(request.user)),
+        **grid_context(),
+    })
 
 
 @login_required
@@ -80,6 +84,7 @@ def startup_edit(request, startup_id):
     form = StartupForm(request.POST or None, instance=startup)
     if request.method == "POST" and form.is_valid():
         form.save()
+        activity.log(startup, request.user, activity.Kind.CARD, "Описание проекта обновлено")
         messages.success(request, "Описание стартапа обновлено.")
         return redirect("dashboard", startup_id=startup.id)
     return render(request, "founder/startup_form.html", {
@@ -125,6 +130,7 @@ def _dashboard_context(startup, metrics_form=None, *, snapshot_id=None, history_
         "radar_grid_75": radar_grid(75),
         "radar_grid_100": radar_grid(100),
         "recent_sessions": startup.chat_sessions.filter(mode=ChatSession.Mode.COFOUNDER)[:5],
+        "activities": activity.recent(startup, 6),
         "metric_history": snapshots,
         "score_delta": (
             snapshots[0].overall_score - snapshots[1].overall_score
@@ -167,6 +173,8 @@ def metrics_create(request, startup_id):
             metrics.save()
             update_mascot(startup, metrics)
             award_achievements(startup, metrics)
+            activity.log(startup, request.user, activity.Kind.RADAR,
+                         f"Радар поправлен вручную: {metrics.overall_score}/100")
         messages.success(request, "Таблица обновлена. Бруно отреагировал на новые оценки.")
         return redirect("dashboard", startup_id=startup.id)
     return render(request, "founder/dashboard.html", _dashboard_context(startup, form), status=400)
@@ -178,6 +186,9 @@ def metrics_assess(request, startup_id):
     startup = get_startup(request, startup_id, edit=True)
     try:
         assess_startup(startup)
+        latest = startup.metric_snapshots.first()
+        activity.log(startup, request.user, activity.Kind.RADAR,
+                     f"Радар обновлён с Бруно: {latest.overall_score}/100" if latest else "Радар обновлён с Бруно")
         messages.success(request, "Бруно составил таблицу по пяти направлениям. Её можно доработать вручную.")
     except AIServiceError as exc:
         messages.error(request, str(exc))
@@ -200,6 +211,7 @@ def _create_cofounder_session(startup):
 def chat_create(request, startup_id):
     startup = get_startup(request, startup_id, edit=True)
     session = _create_cofounder_session(startup)
+    activity.log(startup, request.user, activity.Kind.CHAT, "Новый разговор с Бруно")
     return redirect("chat_detail", startup_id=startup.id, session_id=session.id)
 
 
@@ -412,7 +424,9 @@ def pitch_finish(request, startup_id, session_id):
     if session.mode != ChatSession.Mode.PITCH:
         raise Http404("Это не сессия питча.")
     try:
-        finish_pitch(session)
+        report = finish_pitch(session)
+        activity.log(session.startup, request.user, activity.Kind.PITCH,
+                     f"Тренировка питча завершена: {report.score}/100")
         earned = award(request.user, CoinTransaction.Kind.PITCH, key=session.pk,
                        startup=session.startup, note=session.startup.name)
         messages.success(request, "Бруно подготовил разбор питча." + coins_note(earned))

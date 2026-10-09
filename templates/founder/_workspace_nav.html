@@ -7,6 +7,7 @@
   <a href="{% url 'investor' startup.id %}" {% if workspace_tab == 'investor' %}aria-current="page"{% endif %}>Бруно-инвестор</a>
   <a href="{% url 'lab' startup.id %}" {% if workspace_tab == 'lab' %}aria-current="page"{% endif %}>Лаборатория сайтов</a>
   <a href="{% url 'team' startup.id %}" {% if workspace_tab == 'team' %}aria-current="page"{% endif %}>Команда</a>
+  {% if startup.user_role != 'viewer' %}<a href="{% url 'wardrobe' startup.id %}" {% if workspace_tab == 'wardrobe' %}aria-current="page"{% endif %}>Гардероб Бруно</a>{% endif %}
   {% if startup.user_role != 'viewer' %}<a href="{% url 'promote' startup.id %}" {% if workspace_tab == 'promote' %}aria-current="page"{% endif %}>Продвижение <span aria-hidden="true">🪙</span></a>{% endif %}
 </nav>
 {% if startup.user_role == 'viewer' %}<p class="work-notice viewer-notice">Вы наблюдатель в проекте «{{ startup.name }}»: можно смотреть радар, разговоры и планы, но менять их могут только владелец и соавторы.</p>{% endif %}

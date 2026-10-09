@@ -19,6 +19,7 @@
       {% endif %}
           <image href="{% static 'founder/img/bruno-reference.png' %}" width="1280" height="1066" {% if investor %}clip-path="url(#bruno-reference-investor-{{ instance_id|default:"card" }})"{% elif mascot.mood == 'confident' %}clip-path="url(#bruno-reference-happy-{{ instance_id|default:"card" }})"{% elif mascot.mood != 'sleepy' and mascot.mood != 'focused' and mascot.mood != 'confident' %}clip-path="url(#bruno-reference-wave-{{ instance_id|default:"card" }})"{% endif %}/>
         </svg>
+      {% if not investor and mascot.accessories %}{% include 'founder/_bruno_accessories.html' %}{% endif %}
     </g>
   </svg>
   {% if not pet %}<button type="button" class="bruno-greet" aria-label="Поздороваться с Бруно" title="Поздороваться с Бруно" hidden="hidden"><span aria-hidden="true">✦</span></button>{% endif %}

@@ -6,6 +6,7 @@ from django.core.validators import MaxLengthValidator
 
 from founder.models import EvidenceEntry, LabSiteVersion, ProjectMember, StartupMetrics, StartupProfile, User
 from founder.profile_forms import HandleValidationMixin
+from founder.services.coins import BOUNTY_MAX_TESTS, BOUNTY_REWARDS
 from founder.services.json_utils import bounded_json_loads
 
 
@@ -212,3 +213,15 @@ class TeamInviteForm(forms.Form):
         else:
             cleaned["user"] = user
         return cleaned
+
+
+class JoinRequestForm(forms.Form):
+    message = forms.CharField(label="О себе и чем поможете проекту", max_length=500, min_length=10,
+                              widget=forms.Textarea(attrs={"rows": 3, "maxlength": 500,
+                                                           "placeholder": "Например: дизайнер, 3 года в B2C, могу собрать прототип"}))
+
+
+class BountyForm(forms.Form):
+    reward = forms.TypedChoiceField(label="Монет за один тест", coerce=int,
+                                    choices=[(value, f"{value} 🪙") for value in BOUNTY_REWARDS], initial=10)
+    tests = forms.IntegerField(label="Сколько тестов оплатить", min_value=1, max_value=BOUNTY_MAX_TESTS, initial=5)

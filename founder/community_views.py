@@ -11,8 +11,10 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from founder.community_forms import CARD_FIELDS, CardRefineForm, ProjectCardForm
-from founder.models import (DirectConversation, DirectMessage, LabPublication, ProjectBookmark, ProjectCard, Promotion,
-                            StartupProfile, UserBlock)
+from founder.forms import JoinRequestForm
+from founder.models import (DirectConversation, DirectMessage, LabPublication, ProjectBookmark, ProjectCard,
+                            ProjectMember, Promotion, StartupProfile, TestBounty, UserBlock)
+from founder.services import activity
 from founder.services.access import can_edit as can_edit_project, get_startup, team_members
 from founder.services.ai import AIServiceError
 from founder.services.messaging import blocked_pair, open_conversation, participant_filter
@@ -35,9 +37,11 @@ def with_promotions(cards):
 
 
 def testers_wanted(limit=6):
-    """Опубликованные для всех прототипы, авторы которых позвали тестировщиков за монеты."""
-    return list(with_promotions(published_cards()).filter(
-        Exists(_active(Promotion.Kind.TESTERS)),
+    """Опубликованные для всех прототипы, авторы которых позвали тестировщиков или назначили награду."""
+    reward = TestBounty.objects.filter(startup_id=OuterRef('startup_id'), closed_at__isnull=True,
+                                       remaining__gte=F('reward')).order_by('created_at', 'id').values('reward')[:1]
+    return list(with_promotions(published_cards()).annotate(bounty_reward=Subquery(reward)).filter(
+        Q(Exists(_active(Promotion.Kind.TESTERS))) | Q(bounty_reward__isnull=False),
         startup__lab_publication__visibility=LabPublication.Visibility.PUBLIC,
     ).order_by('?')[:limit])
 
@@ -78,6 +82,8 @@ def card_edit(request, startup_id):
                 messages.success(request, 'Бруно подготовил вариант. Проверьте поля ниже и сохраните карточку.')
             else:
                 save_card(card, form.cleaned_data, revision, publish=action == 'publish')
+                activity.log(startup, request.user, activity.Kind.CARD,
+                             'Карточка опубликована в сообществе' if action == 'publish' else 'Черновик карточки сохранён')
                 messages.success(request, 'Карточка опубликована в сообществе.' if action == 'publish' else
                                  'Черновик сохранён. Для обновления карточки в ленте нажмите «Опубликовать».')
                 return redirect('card_edit', startup_id=startup.pk)
@@ -110,6 +116,7 @@ def card_unpublish(request, startup_id):
     # Clearing the snapshot also prevents accidental reuse of withdrawn content.
     from django.db.models import F
     ProjectCard.objects.filter(pk=card.pk).update(published_at=None, published_data={}, revision=F('revision') + 1)
+    activity.log(card.startup, request.user, activity.Kind.CARD, 'Карточка снята с публикации')
     messages.success(request, 'Карточка снята с публикации. Черновик остался у вас.')
     return redirect('card_edit', startup_id=startup_id)
 
@@ -151,6 +158,8 @@ def card_detail(request, startup_id):
     return render(request, 'community/card_detail.html', {
         'card': card, 'public': card.published_data, 'author': card.startup.owner,
         'is_owner': can_edit, 'team': team_members(card.startup),
+        'membership': ProjectMember.objects.filter(startup=card.startup, user=request.user).first(),
+        'join_form': JoinRequestForm(),
         'is_saved': card.bookmarks.filter(user=request.user).exists(),
         'can_message': not blocked_pair(request.user.pk, card.startup.owner_id),
         'lab_publication': publication,

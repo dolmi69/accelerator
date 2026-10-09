@@ -2,7 +2,7 @@
 from uuid import UUID
 
 from founder.models import ChatSession, MascotState
-from founder.services.access import accessible_startups, pending_invites
+from founder.services.access import accessible_startups, join_requests_for, pending_invites
 
 
 def bruno_pet(request):
@@ -46,4 +46,4 @@ def community(request):
         return {}
     from founder.services.messaging import unread_count
     return {'direct_unread': unread_count(request.user.pk),
-            'project_invites_count': pending_invites(request.user).count()}
+            'project_invites_count': pending_invites(request.user).count() + join_requests_for(request.user).count()}

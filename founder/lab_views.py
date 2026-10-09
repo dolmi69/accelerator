@@ -18,6 +18,7 @@ from django.db import OperationalError, transaction
 
 from founder.forms import LabPromptForm, LabCustomizeForm, LabBackendModulesForm
 from founder.models import LabSiteVersion, StartupProfile, LabAIUsage
+from founder.services import activity
 from founder.services.access import get_startup
 from founder.services.qwen import QwenError
 from founder.services.site_generator import generate_site
@@ -107,6 +108,7 @@ def lab_generate(request, startup_id):
     if modules_command:
         chosen = normalize_modules([*(source.backend_modules if source else []),*modules_command])
         version = _backend_version(startup,source,chosen,prompt)
+        _log_version(request, startup, source, version)
         messages.success(request,'Готовые модули подключены без AI: 0 токенов. Запустите сайт ниже.')
         return redirect(reverse_lab_version(startup,version))
     key = generation_key(startup, source, prompt, kind, scope, rebuild)
@@ -117,6 +119,7 @@ def lab_generate(request, startup_id):
     local = simple_command(prompt) if source and scope == "auto" and not rebuild else None
     if local:
         version = _customized_version(startup, source, {**source.presentation, **local}, prompt, kind, key)
+        _log_version(request, startup, source, version)
         messages.success(request, "Оформление изменено без AI: 0 токенов.")
         return redirect(reverse_lab_version(startup, version))
     try:
@@ -159,8 +162,14 @@ def lab_generate(request, startup_id):
     )
     if result.request_id:
         LabAIUsage.objects.filter(pk=result.request_id, user=request.user, startup=startup).update(version=version)
+    _log_version(request, startup, source, version)
     messages.success(request, "Сайт готов. Его можно посмотреть и доработать ниже.")
     return redirect("lab", startup_id=startup.pk)
+
+
+def _log_version(request, startup, source, version):
+    if source is None or version.pk != source.pk:
+        activity.log(startup, request.user, activity.Kind.LAB, f"Новая версия сайта: {activity.quoted(version.prompt, 70)}")
 
 
 def _customized_version(startup, source, presentation, prompt, kind=None, key=None):
@@ -182,6 +191,7 @@ def lab_customize(request, startup_id):
         messages.error(request, "Проверьте название и параметры оформления.")
         return redirect(reverse_lab_version(startup, source))
     version = _customized_version(startup, source, form.cleaned_data, "Оформление без AI")
+    _log_version(request, startup, source, version)
     messages.success(request, "Настройки сохранены без расхода AI-токенов.")
     return redirect(reverse_lab_version(startup, version))
 
@@ -207,6 +217,7 @@ def lab_backend_create(request, startup_id):
         return redirect('lab',startup_id=startup.pk)
     chosen = normalize_modules(form.cleaned_data['modules']) if request.POST.get('modules_selected') else normalize_modules(source.backend_modules if source and source.kind == 'django' else DEFAULT_BASE_FEATURES)
     version = _backend_version(startup,source,chosen,'Готовые модули Django')
+    _log_version(request, startup, source, version)
     messages.success(request, "Модули сохранены без AI. Можно запустить сайт или скачать проект.")
     return redirect(reverse_lab_version(startup, version))
 

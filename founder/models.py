@@ -108,6 +108,7 @@ class ProjectMember(models.Model):
 
     class Status(models.TextChoices):
         INVITED = "invited", "Приглашён"
+        REQUESTED = "requested", "Подал заявку"
         ACTIVE = "active", "Участник"
 
     startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="members")
@@ -116,6 +117,8 @@ class ProjectMember(models.Model):
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.INVITED)
     invited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
                                    related_name="+")
+    # Сопроводительное письмо к заявке «Хочу в команду».
+    message = models.CharField('О себе и чем поможете', max_length=500, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     joined_at = models.DateTimeField(null=True, blank=True)
 
@@ -138,7 +141,12 @@ class CoinTransaction(models.Model):
         EVIDENCE = "evidence", "Запись в дневнике"
         TASK = "task", "Выполненное задание"
         TEST = "test", "Тест чужого прототипа"
+        STREAK = "streak", "Серия дней подряд"
+        BOUNTY = "bounty", "Награда от автора прототипа"
         PROMOTION = "promotion", "Продвижение проекта"
+        OUTFIT = "outfit", "Гардероб Бруно"
+        BOUNTY_FUND = "bounty_fund", "Награда тестировщикам"
+        REFUND = "refund", "Возврат остатка награды"
         ADJUSTMENT = "adjustment", "Корректировка"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="coin_transactions")
@@ -173,6 +181,59 @@ class Promotion(models.Model):
     class Meta:
         ordering = ["-ends_at", "-id"]
         indexes = [models.Index(fields=["kind", "ends_at"], name="promotion_active")]
+
+
+class TestBounty(models.Model):
+    """Монеты, которые участник команды отложил для внешних тестировщиков прототипа.
+
+    Сумма списывается сразу целиком; остаток возвращается тому же человеку при закрытии.
+    """
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="test_bounties")
+    funder = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="test_bounties")
+    reward = models.PositiveIntegerField()
+    remaining = models.PositiveIntegerField()
+    created_at = models.DateTimeField(default=timezone.now)
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+
+class MascotItem(models.Model):
+    """Аксессуар, купленный для Бруно конкретного проекта."""
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="mascot_items")
+    code = models.CharField(max_length=20)
+    bought_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["startup", "code"], name="unique_mascot_item")]
+
+
+class ProjectActivity(models.Model):
+    """Лента «что нового в проекте»: кто из команды что сделал."""
+
+    class Kind(models.TextChoices):
+        RADAR = "radar", "Радар"
+        CHAT = "chat", "Разговор"
+        PITCH = "pitch", "Питч"
+        TASK = "task", "Задания"
+        EVIDENCE = "evidence", "Дневник"
+        REVIEW = "review", "Разбор"
+        CARD = "card", "Карточка"
+        LAB = "lab", "Лаборатория"
+        TEAM = "team", "Команда"
+        COINS = "coins", "Монеты"
+
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="activities")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    text = models.CharField(max_length=240)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["startup", "-created_at"], name="project_activity_recent")]
 
 
 class LabSiteVersion(models.Model):
@@ -355,7 +416,14 @@ class MascotState(models.Model):
     mood = models.CharField(max_length=20, choices=Mood.choices, default=Mood.CURIOUS)
     outfit = models.CharField(max_length=20, choices=Outfit.choices, default=Outfit.HOODIE)
     reason = models.CharField(max_length=255, blank=True)
+    # Надетые аксессуары из гардероба (по одному на слот: голова, глаза, шея).
+    accessories = models.JSONField(default=list, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def accessory_layers(self):
+        from founder.services.wardrobe import layers
+        return layers(self)
 
 
 class ChatSession(models.Model):
@@ -512,6 +580,8 @@ class BrunoTask(models.Model):
     instructions = models.TextField(max_length=1200)
     success_criterion = models.CharField(max_length=500)
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.TODO)
+    assignee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='assigned_tasks')
     ai_model = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     completed_at = models.DateTimeField(null=True, blank=True)

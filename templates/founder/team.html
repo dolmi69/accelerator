@@ -36,6 +36,25 @@
 
 {% if is_project_owner %}
 <section class="card work-card">
+  {% if join_requests %}
+  <h2>Хотят в команду</h2>
+  <p class="muted small">Заявки из карточки проекта в сообществе. Доступ к проекту появится только после одобрения.</p>
+  {% for member in join_requests %}
+  <div class="team-row join-request">
+    <div><a class="member-inline" href="{{ member.user.get_absolute_url }}">{% include 'profiles/_avatar.html' with member=member.user %}<span><strong>{{ member.user.public_name }}</strong> <span class="muted small">@{{ member.user.handle }}</span></span></a>
+      <p class="join-message">{{ member.message }}</p></div>
+    <div class="team-actions">
+      <form method="post" action="{% url 'team_member_update' startup.id member.id %}">{% csrf_token %}<input type="hidden" name="action" value="accept">
+        <label class="sr-only" for="accept-role-{{ member.id }}">Роль</label>
+        <select id="accept-role-{{ member.id }}" name="role">{% for value, label in roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+        <button class="button primary" type="submit">Принять</button>
+      </form>
+      <form method="post" action="{% url 'team_member_update' startup.id member.id %}">{% csrf_token %}<input type="hidden" name="action" value="remove"><button class="button ghost" type="submit">Отклонить</button></form>
+    </div>
+  </div>
+  {% endfor %}
+  <hr class="team-divider">
+  {% endif %}
   <h2>Пригласить в проект</h2>
   <p class="muted small">Приглашённый увидит предложение в разделе «Мои проекты» и сам решит, присоединиться ли.</p>
   <form method="post" action="{% url 'team_invite' startup.id %}" class="team-invite-form">{% csrf_token %}
@@ -56,5 +75,9 @@
 </section>
 {% endif %}
 </div>
+<section class="card work-card">
+  <h2>Что нового в проекте</h2>
+  {% include 'founder/_activity.html' with items=activities %}
+</section>
 <p class="work-notice">Монеты за работу над проектом получает тот, кто сделал действие. Продвижение проекта может оплатить любой соавтор из своего кошелька.</p>
 {% endblock %}

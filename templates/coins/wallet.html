@@ -1,7 +1,13 @@
 {% extends 'base.html' %}
 {% block title %}Монеты · Co-Founder.AI{% endblock %}
 {% block content %}
-<div class="page-heading"><div><span class="eyebrow">ВНУТРЕННЯЯ ВАЛЮТА</span><h1>Монеты</h1><p>Монеты начисляются за работу над проектом: разговоры с Бруно, проверки гипотез и помощь другим основателям. Их можно потратить на продвижение проекта в сообществе.</p></div><div class="coin-balance-big" aria-label="Баланс"><span aria-hidden="true">🪙</span><strong>{{ balance }}</strong></div></div>
+<div class="page-heading"><div><span class="eyebrow">ВНУТРЕННЯЯ ВАЛЮТА</span><h1>Монеты</h1><p>Монеты начисляются за работу над проектом: разговоры с Бруно, проверки гипотез и помощь другим основателям. Их можно потратить на продвижение проекта, награды тестировщикам и гардероб Бруно.</p></div><div class="coin-balance-big" aria-label="Баланс"><span aria-hidden="true">🪙</span><strong>{{ balance }}</strong></div></div>
+
+<section class="card work-card streak-card" aria-label="Серия дней">
+  <div class="streak-dots" aria-hidden="true">{% for lit in streak_dots %}<span {% if lit %}class="lit"{% endif %}></span>{% endfor %}</div>
+  <div><h2>{% if streak %}{{ streak_label }} подряд{% else %}Серия ещё не началась{% endif %}</h2>
+  <p class="muted small">Каждый {{ streak_days }}-й день подряд с работой над проектами — бонус +{{ streak_bonus }} 🪙. {% if streak %}До следующего бонуса: {{ streak_left_label }}.{% else %}Поговорите с Бруно или запишите результат в дневник, чтобы начать.{% endif %}</p></div>
+</section>
 
 <div class="team-layout">
 <section class="card work-card">
@@ -24,6 +30,14 @@
     <span class="coin-price">{{ offer.cost }} 🪙</span>
   </div>
   {% endfor %}
+  <div class="team-row coin-rule">
+    <div><strong>Гардероб Бруно</strong><p class="muted small">Колпак, очки, бабочка и другие аксессуары для Бруно вашего проекта. Навсегда.</p></div>
+    <span class="coin-price">от {{ wardrobe_from }} 🪙</span>
+  </div>
+  <div class="team-row coin-rule">
+    <div><strong>Награда тестировщикам</strong><p class="muted small">Ваши монеты получат люди, которые протестируют прототип и напишут отзыв.</p></div>
+    <span class="coin-price">от 5 🪙</span>
+  </div>
   {% if my_projects %}<p class="muted small">Ваши проекты: {% for item in my_projects %}<a class="evidence-link" href="{% url 'promote' item.id %}">{{ item.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
 </section>
 </div>

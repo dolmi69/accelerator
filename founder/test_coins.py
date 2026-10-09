@@ -138,3 +138,134 @@ class CoinTests(TestCase):
         self.assertContains(response, 'Поднять карточку в ленте')
         self.assertEqual([plural_coins(n) for n in (1, 2, 5, 11, 21, 104)],
                          ['монета', 'монеты', 'монет', 'монет', 'монета', 'монеты'])
+
+
+@override_settings(AI_PROVIDER='demo')
+class StreakTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('streaker', email='streak@example.test')
+
+    def work_on(self, days_ago, key):
+        award(self.user, Kind.EVIDENCE, key=key)
+        CoinTransaction.objects.filter(key=f'evidence:{key}').update(
+            created_at=timezone.now() - timedelta(days=days_ago))
+
+    def test_fifth_day_in_a_row_pays_bonus_once(self):
+        from founder.services.coins import STREAK_BONUS, streak
+        for days_ago in (4, 3, 2, 1):
+            self.work_on(days_ago, f'd{days_ago}')
+        self.assertEqual(streak(self.user), 4)  # сегодня ещё не потерян
+        before = coins(self.user)
+        self.assertEqual(award(self.user, Kind.EVIDENCE, key='today'), EARN_RULES[Kind.EVIDENCE].amount + STREAK_BONUS)
+        self.assertEqual(award(self.user, Kind.EVIDENCE, key='today2'), EARN_RULES[Kind.EVIDENCE].amount)
+        self.assertEqual(coins(self.user), before + 2 * EARN_RULES[Kind.EVIDENCE].amount + STREAK_BONUS)
+        self.assertEqual(streak(self.user), 5)
+
+    def test_gap_resets_streak(self):
+        from founder.services.coins import streak
+        self.work_on(3, 'old')
+        self.work_on(1, 'yesterday')
+        self.assertEqual(streak(self.user), 1)
+        self.assertEqual(self.client.get(reverse('wallet')).status_code, 302)  # нужен вход
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get(reverse('wallet')), '1 день подряд')
+
+
+@override_settings(AI_PROVIDER='demo')
+class BountyTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user('bounty_owner', email='bo@example.test')
+        self.startup = StartupProfile.objects.create(owner=self.owner, name='Bounty Proto')
+        self.version = LabSiteVersion.objects.create(startup=self.startup, html='<html><body>ok</body></html>',
+                                                     prompt='p', model='m')
+        card = get_card(self.startup)
+        save_card(card, {**card_values(card), 'summary': 'Публичное описание'}, card.revision, publish=True)
+        self.client.force_login(self.owner)
+        self.client.post(reverse('lab_publish', args=[self.startup.pk]),
+                         {'version': str(self.version.pk), 'visibility': 'public'})
+
+    def run_test(self, user, feedback):
+        self.client.force_login(user)
+        session = self.client.post(reverse('lab_test_start', args=[self.startup.pk]),
+                                   {'version': str(self.version.pk)}).json()
+        return self.client.post(session['finish'], json.dumps({'rating': 4, 'feedback': feedback, 'duration': 60}),
+                                content_type='application/json').json()
+
+    def test_funding_paying_and_refund(self):
+        from founder.models import TestBounty
+        response = self.client.post(reverse('bounty_fund', args=[self.startup.pk]), {'reward': 10, 'tests': 2})
+        self.assertRedirects(response, reverse('promote', args=[self.startup.pk]))
+        self.assertEqual(coins(self.owner), WELCOME_BONUS - 20)
+        good = 'Понятно, что делает сервис, но кнопка записи спрятана внизу.'
+        tester = User.objects.create_user('bounty_tester', email='bt@example.test')
+        lazy = User.objects.create_user('bounty_lazy', email='bl@example.test')
+        # Короткий отзыв: только стандартные монеты за тест, без награды автора.
+        self.assertEqual(self.run_test(lazy, 'норм')['coins_earned'], EARN_RULES[Kind.TEST].amount)
+        self.assertEqual(self.run_test(tester, good)['coins_earned'], 10 + EARN_RULES[Kind.TEST].amount)
+        # Второй тест того же проекта награду автора не приносит.
+        self.assertEqual(self.run_test(tester, good)['coins_earned'], EARN_RULES[Kind.TEST].amount)
+        bounty = TestBounty.objects.get()
+        self.assertEqual(bounty.remaining, 10)
+        self.client.force_login(self.owner)
+        self.client.post(reverse('bounty_close', args=[self.startup.pk, bounty.pk]))
+        self.assertEqual(coins(self.owner), WELCOME_BONUS - 10)
+        bounty.refresh_from_db()
+        self.assertIsNotNone(bounty.closed_at)
+
+    def test_bounty_shown_in_testers_block_and_trial(self):
+        self.client.post(reverse('bounty_fund', args=[self.startup.pk]), {'reward': 20, 'tests': 1})
+        visitor = User.objects.create_user('bounty_visitor', email='bv@example.test')
+        self.client.force_login(visitor)
+        self.assertContains(self.client.get(reverse('community')), '+20 🪙 от автора')
+        self.assertContains(self.client.get(reverse('lab_trial', args=[self.startup.pk])), 'Автор платит')
+
+    def test_cannot_fund_without_coins_or_public_prototype(self):
+        self.client.post(reverse('bounty_fund', args=[self.startup.pk]), {'reward': 30, 'tests': 20})
+        self.assertEqual(coins(self.owner), WELCOME_BONUS)
+        self.client.post(reverse('lab_publish', args=[self.startup.pk]), {'action': 'hide'})
+        self.client.post(reverse('bounty_fund', args=[self.startup.pk]), {'reward': 5, 'tests': 1})
+        self.assertEqual(coins(self.owner), WELCOME_BONUS)
+
+
+@override_settings(AI_PROVIDER='demo')
+class WardrobeTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('dresser', email='dr@example.test')
+        self.startup = StartupProfile.objects.create(owner=self.user, name='Dress Bruno')
+        self.client.force_login(self.user)
+        self.url = reverse('wardrobe_action', args=[self.startup.pk])
+
+    def test_buy_wear_and_swap_in_slot(self):
+        from founder.models import MascotState
+        self.client.post(self.url, {'action': 'buy', 'code': 'party'})
+        self.assertEqual(coins(self.user), WELCOME_BONUS - 30)
+        state = MascotState.objects.get(startup=self.startup)
+        self.assertEqual(state.accessories, ['party'])
+        self.client.post(self.url, {'action': 'buy', 'code': 'party'})
+        self.assertEqual(coins(self.user), WELCOME_BONUS - 30)  # второй раз не списывает
+        page = self.client.get(reverse('dashboard', args=[self.startup.pk]))
+        self.assertContains(page, 'accessory-party')
+        # При нехватке монет покупка не проходит.
+        self.client.post(self.url, {'action': 'buy', 'code': 'crown'})
+        self.assertFalse(self.startup.mascot_items.filter(code='crown').exists())
+        award(self.user, Kind.TASK, key='earn-for-bowtie')
+        self.client.post(self.url, {'action': 'buy', 'code': 'bowtie'})
+        state.refresh_from_db()
+        self.assertEqual(sorted(state.accessories), ['bowtie', 'party'])
+        self.client.post(self.url, {'action': 'take_off', 'code': 'party'})
+        state.refresh_from_db()
+        self.assertEqual(state.accessories, ['bowtie'])
+        self.client.post(self.url, {'action': 'wear', 'code': 'cap'})  # не куплено
+        state.refresh_from_db()
+        self.assertEqual(state.accessories, ['bowtie'])
+
+    def test_accessories_follow_pose_and_skip_investor(self):
+        from founder.models import MascotState
+        from founder.services.wardrobe import layers
+        state = MascotState(startup=self.startup, accessories=['glasses'], mood=MascotState.Mood.SLEEPY)
+        self.assertIn('scale(0.72)', layers(state)[0]['transform'])
+        self.client.post(self.url, {'action': 'buy', 'code': 'bowtie'})
+        page = self.client.get(reverse('investor', args=[self.startup.pk])).content.decode()
+        investor, pet = page.split('class="bruno-pet"')
+        self.assertNotIn('accessory-bowtie', investor)  # строгий инвестор без нарядов
+        self.assertIn('accessory-bowtie', pet)  # а помощник в углу — в бабочке
