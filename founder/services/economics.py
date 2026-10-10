@@ -86,6 +86,11 @@ def _rub(value):
 def summarize(values):
     """Готовые строки расчёта. Пустой список, если чисел не хватает ни на что."""
     v = {key: _number(values.get(key)) for key in FIELDS}
+    if v["commission_percent"] and (v["price_per_unit"] or v["customer_payment_month"]):
+        # Маркетплейс: клиент платит продавцу, проекту идёт только комиссия. GigaChat кладёт цену
+        # аренды и в price_per_unit, и в customer_payment_month — тогда расчёт молчал совсем.
+        v["price_per_unit"] = v["price_per_unit"] or v["customer_payment_month"]
+        v["customer_payment_month"] = 0.0
     lines = []
     revenue = v["customer_payment_month"]
     if not revenue and v["monthly_revenue"] and v["customers"]:
@@ -135,10 +140,9 @@ def _unit_profit(v, lines):
         take = price * v["commission_percent"] / 100
         lines.append(f"С одной сделки проекту остаётся {_rub(price)} × {v['commission_percent']:g}% = {_rub(take)}, "
                      f"продавцу {_rub(price - take)}.")
-        if not cost:
-            return take
         profit = take - cost
-        lines.append(f"После затрат на сделку: {_rub(take)} − {_rub(cost)} = {_rub(profit)}.")
+        if cost:
+            lines.append(f"После затрат на сделку: {_rub(take)} − {_rub(cost)} = {_rub(profit)}.")
     elif cost:
         profit = price - cost
         lines.append(f"С одной продажи остаётся {_rub(price)} − {_rub(cost)} = {_rub(profit)} "
@@ -147,6 +151,12 @@ def _unit_profit(v, lines):
         return None
     if profit <= 0:
         lines.append("Каждая продажа убыточна: больше продаж значит больше потерь.")
+    elif v["cac"]:
+        # Без этой строки Маргарита из панели «считала» окупаемость сама и говорила, что клиенты уходят
+        # раньше, чем окупаются, хотя привлечение 600 ₽ окупалось за три занятия.
+        sales = math.ceil(v["cac"] / profit)
+        lines.append(f"Привлечение {_rub(v['cac'])} окупается за {_count(sales)} "
+                     f"{_plural(sales, 'продажу', 'продажи', 'продаж')} ({_rub(v['cac'])} / {_rub(profit)}).")
     return profit
 
 
@@ -177,6 +187,12 @@ def _break_even(v, profit, unit_profit, lines):
 
 def _count(value):
     return f"{value:,}".replace(",", " ")
+
+
+def _plural(number, one, few, many):
+    if number % 10 == 1 and number % 100 != 11:
+        return one
+    return few if number % 10 in (2, 3, 4) and number % 100 not in (12, 13, 14) else many
 
 
 def _months(value):

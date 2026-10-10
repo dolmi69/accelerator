@@ -177,3 +177,6 @@ BRUNO_HISTORY_CHAR_LIMIT = max(9000, min(60000, int(os.getenv("BRUNO_HISTORY_CHA
 # Перед ответом Бруно отдельным коротким запросом обновляет картину проекта и
 # выбирает ход наставника. В юнит-тестах выключено: они не должны ходить в сеть.
 BRUNO_MENTOR_PLAN = os.getenv("BRUNO_MENTOR_PLAN", "1") == "1" and sys.argv[1:2] != ["test"]
+# Поиск в открытых источниках для анализа рынка: exa (без ключа через MCP, с EXA_API_KEY через API,
+# DuckDuckGo запасной), duckduckgo или off. В юнит-тестах выключен: они не ходят в сеть.
+MARKET_SEARCH = "off" if sys.argv[1:2] == ["test"] else os.getenv("MARKET_SEARCH", "exa").lower()

@@ -260,7 +260,7 @@ def _post_chat(payload):
     raise GigaChatError(UNREACHABLE) from last_error
 
 
-def complete_chat(system_prompt, content, *, json_schema=None):
+def complete_chat(system_prompt, content, *, json_schema=None, max_tokens=None):
     """Полный ответ, при необходимости ограниченный обязательной JSON-схемой.
 
     Схема GigaChat v1 задаётся в response_format.schema (не json_schema).
@@ -272,7 +272,7 @@ def complete_chat(system_prompt, content, *, json_schema=None):
         system_prompt,
         [{"role": "user", "content": content}],
         stream=False,
-        max_tokens=2400 if json_schema is not None else 1400,
+        max_tokens=max_tokens or (2400 if json_schema is not None else 1400),
     )
     if json_schema is not None:
         payload["temperature"] = 0.1

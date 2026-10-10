@@ -57,18 +57,18 @@ def long_answer_requested(session, messages):
 AUTO_PLAN = object()
 
 
-def system_prompt(session, memories, messages=None, economics="", turn=None, plan=None):
+def system_prompt(session, memories, messages=None, economics="", turn=None, plan=None, market=""):
     if session.mode == ChatSession.Mode.PANEL:
         from founder.services.panel import next_turn, panel_prompt
 
         return panel_prompt(session, turn or next_turn(session), memories, messages, economics)
 
     from founder.services.bruno import (
-        BRAINSTORM_GUIDE, CONVERSATION, EXAMPLES, LONG_ANSWER_GUIDE, MENTOR_CHECKS, PERSONA, PREP_GUIDE, REVIEW_HINT,
-        STYLE, SUMMARY_GUIDE, WRITING_RULES, conversation_notes, founder_name, looks_like_evidence,
-        project_status, situations_for, stage_playbook, wants_review,
+        BRAINSTORM_GUIDE, CHOICE_GUIDE, CONVERSATION, DEVELOP_GUIDE, EXAMPLES, LONG_ANSWER_GUIDE, MARKET_GUIDE, MENTOR_CHECKS,
+        NICHE_GUIDE, PERSONA, PREP_GUIDE, REVIEW_HINT, STYLE, SUMMARY_GUIDE, WRITING_RULES, conversation_notes,
+        founder_name, looks_like_evidence, project_status, situations_for, stage_playbook, wants_review,
     )
-    from founder.services.mentor import answer_kind, picture_context, plan_note
+    from founder.services.mentor import NO_COMPETITORS_RE, picture_context, plan_note, reply_kind
     from founder.services.workbench import evidence_context
 
     startup = session.startup
@@ -153,6 +153,14 @@ def system_prompt(session, memories, messages=None, economics="", turn=None, pla
     picture = picture_context(startup)
     if picture:
         common += "\n" + picture
+    kind = reply_kind(messages or [])
+    if kind != "market":
+        from founder.services.market import latest_report, report_note
+
+        # Прошлый анализ рынка: Бруно может назвать найденных конкурентов и цены, а не выдумывать их.
+        note = report_note(latest_report(startup), competitors=3)
+        if note:
+            common += "\n" + note
     common += f"\nСегодня {timezone.localdate():%d.%m.%Y}."
     if session.focus_axis:
         latest = startup.metric_snapshots.first()
@@ -183,11 +191,24 @@ def system_prompt(session, memories, messages=None, economics="", turn=None, pla
             # План ведёт к своему вопросу; про дневник при результате проверки забывать нельзя.
             common += ("Основатель сообщил результат проверки: сначала одной фразой отметь, что это "
                        "доказательство, и предложи сохранить его кнопкой «Записать в дневник».\n")
-    kind = answer_kind(_last_founder_text(messages))
     if kind == "summary":
         return common + SUMMARY_GUIDE
     if kind == "prep":
         return common + PREP_GUIDE
+    if kind == "market":
+        prompt = common + (market + "\n" if market else "") + MARKET_GUIDE
+        if NO_COMPETITORS_RE.search(_last_founder_text(messages)):
+            # Без этой строки в конце GigaChat соглашался, что «таких сайтов нет», хотя сам их только что нашёл.
+            prompt += ("\nОснователь говорит, что конкурентов нет. Если в результатах поиска или выжимке выше есть "
+                       "похожие решения, начни с них: «Я поискал…» и назови одно-два с сайтом в скобках. Спокойно, "
+                       "без спора в лоб: это и есть конкуренты или то, чем клиенты пользуются сейчас.")
+        return prompt
+    if kind == "choice":
+        return common + CHOICE_GUIDE
+    if kind == "niche":
+        return common + NICHE_GUIDE
+    if kind == "develop":
+        return common + DEVELOP_GUIDE
     if kind == "brainstorm":
         return common + BRAINSTORM_GUIDE
     if kind == "long":
@@ -247,6 +268,7 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
 
         turn = next_turn(session)
     economics = None
+    market = ""
     if plan is AUTO_PLAN:
         from founder.services.mentor import prepare_turn
 
@@ -256,6 +278,14 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
 
             economics = economics_note(unit_economics([m["content"] for m in messages if m["role"] == "user"]))
         plan = prepare_turn(session, messages, economics=economics or "")
+    if session.mode == ChatSession.Mode.COFOUNDER and settings.AI_PROVIDER != "demo":
+        from founder.services.mentor import answer_kind
+
+        if answer_kind(_last_founder_text(messages)) == "market":
+            from founder.services.market import chat_brief
+
+            # Вопрос о рынке: короткий поиск в открытых источниках по запросам из плана наставника.
+            market = chat_brief(session.startup, getattr(plan, "searches", None) or ())
     # View сохраняет идеи из плана под готовым ответом.
     session.mentor_plan = plan
     single_question = not long_answer_requested(session, messages)
@@ -268,12 +298,12 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
 
         # Вопрос, который уже звучал, ответ теряет: GigaChat часто повторяет его через ход.
         asked = asked_questions(messages)
-    yield from polish_stream(tidy_stream(_provider_stream(session, messages, memories, turn, plan, economics)),
+    yield from polish_stream(tidy_stream(_provider_stream(session, messages, memories, turn, plan, economics, market)),
                              single_question=single_question, gender=gender, self_male=self_male,
                              formal=turn is None, asked=asked)
 
 
-def _provider_stream(session, messages, memories, turn=None, plan=None, economics=None):
+def _provider_stream(session, messages, memories, turn=None, plan=None, economics=None, market=""):
     provider = settings.AI_PROVIDER
     if provider == "demo":
         yield from _demo_reply(session, messages, turn)
@@ -291,7 +321,7 @@ def _provider_stream(session, messages, memories, turn=None, plan=None, economic
         economics = economics_note(unit_economics(founder_texts, latest_only=False))
     else:
         economics = ""
-    prompt = system_prompt(session, memories, messages, economics=economics, turn=turn, plan=plan)
+    prompt = system_prompt(session, memories, messages, economics=economics, turn=turn, plan=plan, market=market)
     # Разбору и плану нужен запас длины; обычные ответы остаются короткими.
     max_tokens = settings.AI_MAX_OUTPUT_TOKENS * (2 if long_answer_requested(session, messages) else 1)
     token_override = (max_tokens,) if max_tokens != settings.AI_MAX_OUTPUT_TOKENS else ()
@@ -359,13 +389,17 @@ def _provider_stream(session, messages, memories, turn=None, plan=None, economic
     raise AIServiceError("Неизвестный AI_PROVIDER. Выберите demo, gigachat, cloudru, openai или anthropic.")
 
 
-def complete_text(prompt, content, *, json_schema=None):
-    """Полный ответ; GigaChat поддерживает строгую схему на уровне API."""
+def complete_text(prompt, content, *, json_schema=None, max_tokens=None):
+    """Полный ответ; GigaChat поддерживает строгую схему на уровне API.
+
+    max_tokens нужен длинным отчётам (анализ рынка), остальным хватает значения по умолчанию.
+    """
     if settings.AI_PROVIDER == "gigachat":
         from founder.services.gigachat import GigaChatError, GigaChatFormatError, complete_chat
 
         try:
-            return complete_chat(prompt, content, json_schema=json_schema)
+            return complete_chat(prompt, content, json_schema=json_schema,
+                                 **({"max_tokens": max_tokens} if max_tokens else {}))
         except GigaChatFormatError as exc:
             raise AIResponseFormatError(str(exc)) from exc
         except GigaChatError as exc:
@@ -393,7 +427,7 @@ def complete_text(prompt, content, *, json_schema=None):
                 model=settings.OPENAI_MODEL,
                 instructions=prompt,
                 input=[{"role": "user", "content": content}],
-                max_output_tokens=1400,
+                max_output_tokens=max_tokens or 1400,
             )
             return response.output_text
         except Exception as exc:
@@ -406,7 +440,7 @@ def complete_text(prompt, content, *, json_schema=None):
         try:
             response = Anthropic(timeout=60.0, max_retries=1).messages.create(
                 model=settings.ANTHROPIC_MODEL,
-                max_tokens=1400,
+                max_tokens=max_tokens or 1400,
                 system=prompt,
                 messages=[{"role": "user", "content": content}],
             )

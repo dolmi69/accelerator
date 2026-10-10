@@ -144,3 +144,31 @@ class BrunoV2Tests(TestCase):
         # На «вы» род не угадывается, поэтому «ты готов» просто становится «вы готовы».
         self.assertEqual("".join(polish_stream(["Ты готов попробовать с пятью клиентами?"])),
                          "Вы готовы попробовать с пятью клиентами?")
+
+
+class QuestionFilterTests(TestCase):
+    def run_stream(self, text, **kwargs):
+        chunks = [text[index:index + 7] for index in range(0, len(text), 7)]
+        return "".join(polish_stream(iter(chunks), **kwargs))
+
+    def test_two_questions_glued_with_and_keep_the_first(self):
+        self.assertEqual(
+            self.run_stream("Сколько клиник готовы платить за автоматизацию звонков и откуда берёте первых десять?",
+                            formal=False),
+            "Сколько клиник готовы платить за автоматизацию звонков?")
+        self.assertEqual(self.run_stream("Какие у вас цены и сколько клиентов?"), "Какие у вас цены и сколько клиентов?")
+
+    def test_question_in_the_middle_gives_way_to_the_last_one(self):
+        text = ("Опыт важен. Важно узнать, что работало: метод или мотивация заниматься чаще? Ответ покажет канал. "
+                "Что улучшилось у тех, кто занимался со студентом?")
+        self.assertEqual(self.run_stream(text),
+                         "Опыт важен. Ответ покажет канал. Что улучшилось у тех, кто занимался со студентом?")
+        self.assertEqual(self.run_stream("Сколько у вас клиентов? Это важно для расчёта."),
+                         "Сколько у вас клиентов? Это важно для расчёта.")
+
+    def test_empty_closers_are_dropped(self):
+        self.assertEqual(self.run_stream("С чашки остаётся 140 ₽. Как будете привлекать? Согласны попробовать?").strip(),
+                         "С чашки остаётся 140 ₽. Как будете привлекать?")
+        self.assertEqual(self.run_stream("Поговорите с пятью родителями. Попробуем вместе задать им эти вопросы?").strip(),
+                         "Поговорите с пятью родителями.")
+        self.assertEqual(tidy_reply("Это отличная находка: личный опыт важен."), "Личный опыт важен.")

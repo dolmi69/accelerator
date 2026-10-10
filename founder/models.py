@@ -509,6 +509,25 @@ class ProjectReview(models.Model):
         ordering = ['-created_at', '-id']
 
 
+class MarketReport(models.Model):
+    """Анализ рынка от Бруно по открытым источникам: актуальность, конкуренты, деньги.
+
+    Конкуренты и цены попадают в отчёт, только если они есть в тексте найденных
+    источников; расчёт денег проекта делает программа по словам основателя.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='market_reports')
+    data = models.JSONField(default=dict)
+    # [{title, url, snippet, published, domain}] — то, что видела модель, под номерами [1], [2]…
+    sources = models.JSONField(default=list, blank=True)
+    queries = models.JSONField(default=list, blank=True)
+    ai_model = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+
 class MessageFeedback(models.Model):
     """Оценка ответа Бруно основателем. Неудачные ответы становятся новыми
     сценариями проверки (`manage.py bruno_feedback`)."""

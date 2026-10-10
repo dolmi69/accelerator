@@ -320,8 +320,9 @@ def chat_detail(request, startup_id, session_id):
 
 
 # Подсказки под полем ввода: начинающему проще нажать, чем сформулировать.
-QUICK_REPLIES = ("Объясни подробнее", "Давай подумаем, как улучшить проект", "Давай посчитаем деньги",
-                 "Не знаю", "Помоги подготовиться к встрече с куратором", "Подведи итог встречи")
+QUICK_REPLIES = ("Объясни подробнее", "Давай подумаем, как улучшить проект", "Как можно развить идею?",
+                 "Насколько актуальна идея и кто конкуренты?", "Давай посчитаем деньги", "Не знаю",
+                 "Помоги подготовиться к встрече с куратором", "Подведи итог встречи")
 
 
 @login_required
@@ -461,7 +462,9 @@ def chat_send(request, startup_id, session_id):
             else:
                 if (session.mode == ChatSession.Mode.COFOUNDER and settings.BRUNO_MENTOR_PLAN
                         and settings.AI_PROVIDER != "demo"):
-                    yield _sse({"type": "status", "text": "Бруно думает над проектом…"})
+                    searching = mentor.answer_kind(user_message.content) == "market"
+                    yield _sse({"type": "status", "text": "Бруно ищет в открытых источниках…" if searching
+                                else "Бруно думает над проектом…"})
                 events = (("text", delta) for delta in stream_reply(session, context_messages, memories))
             total_chars = 0
             for kind, delta in events:
