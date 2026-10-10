@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Продвижение · {{ startup.name }}{% endblock %}
+{% block content %}
+{% include 'founder/_workspace_nav.html' %}
+<div class="page-heading work-heading"><div><span class="eyebrow">ПОКАЖИТЕ ПРОЕКТ ДРУГИМ</span><h1>Продвижение</h1><p>{{ startup.name }} · Тратьте монеты, заработанные работой над проектами, чтобы о проекте узнало больше основателей и тестировщиков.</p></div><a class="coin-balance-big" href="{% url 'wallet' %}" aria-label="Ваш баланс, открыть кошелёк"><span aria-hidden="true">🪙</span><strong>{{ balance }}</strong></a></div>
+
+<div class="work-grid">
+{% for item in offers %}
+<article class="card work-card promo-card {% if item.active_until %}is-active{% endif %}">
+  <span class="eyebrow">{{ item.offer.days }} ДН. · {{ item.offer.cost }} МОНЕТ</span>
+  <h2>{{ item.offer.title }}</h2>
+  <p>{{ item.offer.description }}</p>
+  {% if item.active_until %}<p class="promo-status">Активно до {{ item.active_until|date:'d.m H:i' }}. Покупка продлит срок.</p>{% endif %}
+  {% if item.blocker %}
+    <p class="muted small">{{ item.blocker }}</p>
+    <a class="button ghost" href="{% if item.offer.needs_prototype %}{% url 'lab' startup.id %}?section=globalization{% else %}{% url 'card_edit' startup.id %}{% endif %}">{% if item.offer.needs_prototype %}В лабораторию{% else %}К карточке проекта{% endif %} →</a>
+  {% else %}
+    <form method="post" action="{% url 'promote_buy' startup.id %}">{% csrf_token %}<input type="hidden" name="kind" value="{{ item.offer.kind }}">
+      <button class="button primary" type="submit" {% if item.missing %}disabled{% endif %}>{% if item.active_until %}Продлить{% else %}Запустить{% endif %} за {{ item.offer.cost }} 🪙</button>
+    </form>
+    {% if item.missing %}<p class="muted small">Не хватает монет: {{ item.missing }}. <a class="evidence-link" href="{% url 'wallet' %}">Как заработать</a></p>{% endif %}
+  {% endif %}
+</article>
+{% endfor %}
+</div>
+
+<section class="card work-card bounty-section" id="bounty">
+  <span class="eyebrow">ПЛАТИТЕ ЗА ОБРАТНУЮ СВЯЗЬ</span>
+  <h2>Награда тестировщикам</h2>
+  <p>Отложите монеты из своего кошелька: внешний тестировщик получит награду за тест прототипа с отзывом от {{ bounty_min_feedback }} символов, один раз на проект. Прототип с наградой попадает в блок «Нужны тестировщики». Остаток можно вернуть в любой момент.</p>
+  {% for bounty in bounties %}
+  <div class="team-row">
+    <div><strong>{{ bounty.reward }} 🪙 за тест</strong><p class="muted small">Осталось на {{ bounty.remaining|floatformat:0 }} 🪙 · от @{{ bounty.funder.handle }} · {{ bounty.created_at|date:'d.m.Y' }}</p></div>
+    {% if bounty.funder_id == request.user.pk %}<form method="post" action="{% url 'bounty_close' startup.id bounty.id %}">{% csrf_token %}<button class="button ghost" type="submit">Закрыть и вернуть остаток</button></form>{% endif %}
+  </div>
+  {% endfor %}
+  {% if bounty_blocker %}
+    <p class="muted small">{{ bounty_blocker }}</p>
+  {% else %}
+    <form method="post" action="{% url 'bounty_fund' startup.id %}" class="bounty-form">{% csrf_token %}
+      <label>{{ bounty_form.reward.label }}{{ bounty_form.reward }}</label>
+      <label>{{ bounty_form.tests.label }}{{ bounty_form.tests }}</label>
+      <button class="button primary" type="submit">Зарезервировать монеты</button>
+    </form>
+  {% endif %}
+</section>
+
+{% if history %}
+<section class="card work-card"><h2>История продвижения</h2>
+{% for promo in history %}<div class="work-history-row"><div><strong>{{ promo.get_kind_display }}</strong><p class="muted small">{{ promo.starts_at|date:'d.m.Y H:i' }} — {{ promo.ends_at|date:'d.m.Y H:i' }}{% if promo.bought_by %} · оплатил(а) @{{ promo.bought_by.handle }}{% endif %}</p></div><span class="coin-amount negative">−{{ promo.cost }}</span></div>{% endfor %}
+</section>
+{% endif %}
+<p class="work-notice">Продвижение влияет только на место и вид карточки в сообществе. Оно не меняет баллы радара и не делает проект «проверенным».</p>
+{% endblock %}

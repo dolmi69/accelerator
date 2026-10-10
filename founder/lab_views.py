@@ -24,6 +24,8 @@ from founder.services.site_generator import generate_site, GENERATOR_REVISION
 from founder.services.lab_design import design_context, design_pending
 from founder.services.lab_reply import version_reply, saved_reply, incomplete_reply, reviewed_reply
 from founder.services.lab_bruno import request_policy, validate_result, LabRequestRejected
+from founder.services import activity
+from founder.services.access import get_startup
 from founder.services.lab_testing import publication_for, test_results
 from founder.services.django_builder import BuilderError, RuntimeSelectionChanged, export_project, runtime_status, start_runtime, stop_runtime, select_runtime_project
 from founder.services.ai_costs import billing_scope, usage_summary
@@ -32,8 +34,8 @@ from founder.services.backend_modules import module_command, normalize_modules, 
 from founder.services.request_limits import RequestLimitExceeded, acquire_ai_lease, consume_limit, release_ai_lease
 
 
-def _owned_startup(request, startup_id):
-    return get_object_or_404(StartupProfile, pk=startup_id, owner=request.user)
+def _owned_startup(request, startup_id, *, edit=True):
+    return get_startup(request, startup_id, edit=edit)
 
 
 def _version(startup, value):
@@ -117,7 +119,7 @@ def _reply_redirect(request, startup, version, source=None, *, cached=False, inc
 @require_GET
 @never_cache
 def lab(request, startup_id):
-    return _lab_page(request, _owned_startup(request, startup_id))
+    return _lab_page(request, _owned_startup(request, startup_id, edit=False))
 
 
 def generation_key(startup, source, prompt, kind, scope="auto", rebuild=False, modules=None, context=None):
@@ -193,6 +195,7 @@ def lab_generate(request, startup_id):
     if modules_command:
         chosen = normalize_modules([*chosen,*modules_command])
         version = _backend_version(startup,source,chosen,prompt)
+        _log_version(request, startup, source, version)
         messages.success(request,'Готовые модули подключены без AI: 0 токенов. Запустите сайт ниже.')
         return _reply_redirect(request, startup, version, source)
     context = design_context(startup, chosen, source.presentation if source else {}, source)
@@ -204,6 +207,7 @@ def lab_generate(request, startup_id):
     local = simple_command(prompt) if source and scope == "auto" and not rebuild else None
     if local and (not source or chosen == source.backend_modules):
         version = _customized_version(startup, source, {**source.presentation, **local}, prompt, kind, key)
+        _log_version(request, startup, source, version)
         messages.success(request, "Оформление изменено без AI: 0 токенов.")
         return _reply_redirect(request, startup, version, source)
     generating_design = False
@@ -273,6 +277,7 @@ def lab_generate(request, startup_id):
     )
     if result.request_id or result.request_ids:
         LabAIUsage.objects.filter(pk__in=result.request_ids or (result.request_id,), user=request.user, startup=startup).update(version=version)
+    _log_version(request, startup, source, version)
     messages.success(request, "Готовая правка применена. Qwen распознал запрос; генерация кода не понадобилась." if intent else "Правка сохранена. Отчёт Qwen и ограничения — под прототипом.")
     return redirect("lab", startup_id=startup.pk)
 
@@ -298,6 +303,9 @@ def _create_version(*, report=None, feedback=None, **fields):
     version.bruno_report = report if report is not None else reviewed_reply(version, feedback) if feedback else version_reply(version)
     version.save(force_insert=True)
     return version
+def _log_version(request, startup, source, version):
+    if source is None or version.pk != source.pk:
+        activity.log(startup, request.user, activity.Kind.LAB, f"Новая версия сайта: {activity.quoted(version.prompt, 70)}")
 
 
 def _customized_version(startup, source, presentation, prompt, kind=None, key=None):
@@ -319,6 +327,7 @@ def lab_customize(request, startup_id):
         messages.error(request, "Проверьте название и параметры оформления.")
         return redirect(reverse_lab_version(startup, source))
     version = _customized_version(startup, source, {**source.presentation, **form.cleaned_data}, "Оформление без AI")
+    _log_version(request, startup, source, version)
     messages.success(request, "Настройки сохранены без расхода AI-токенов.")
     return _reply_redirect(request, startup, version, source)
 
@@ -344,6 +353,7 @@ def lab_backend_create(request, startup_id):
         return redirect('lab',startup_id=startup.pk)
     chosen = normalize_modules(form.cleaned_data['modules']) if request.POST.get('modules_selected') else normalize_modules(source.backend_modules if source and source.kind == 'django' else DEFAULT_OPTIONAL)
     version = _backend_version(startup,source,chosen,'Готовые модули Django')
+    _log_version(request, startup, source, version)
     messages.success(request, "Модули сохранены без AI. Можно запустить сайт или скачать проект.")
     return _reply_redirect(request, startup, version, source)
 
@@ -448,7 +458,7 @@ def lab_stop(request, startup_id):
 @login_required
 @require_GET
 def lab_preview(request, startup_id, version_id):
-    startup = _owned_startup(request, startup_id)
+    startup = _owned_startup(request, startup_id, edit=False)
     version = get_object_or_404(startup.lab_versions, pk=version_id)
     return preview_response(version.html, exit_viewer=True)
 

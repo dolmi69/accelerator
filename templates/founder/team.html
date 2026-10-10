@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}Команда · {{ startup.name }}{% endblock %}
+{% block content %}
+{% include 'founder/_workspace_nav.html' %}
+<div class="page-heading work-heading"><div><span class="eyebrow">ВМЕСТЕ БЫСТРЕЕ</span><h1>Команда проекта</h1><p>{{ startup.name }} · Соавторы работают с проектом наравне с владельцем: разговаривают с Бруно, обновляют радар, ведут задания, дневник и лабораторию. Наблюдатели только смотрят.</p></div></div>
+
+<div class="team-layout">
+<section class="card work-card">
+  <h2>Участники</h2>
+  <div class="team-row">
+    <a class="member-inline" href="{{ startup.owner.get_absolute_url }}">{% include 'profiles/_avatar.html' with member=startup.owner %}<span><strong>{{ startup.owner.public_name }}</strong> <span class="muted small">@{{ startup.owner.handle }}</span></span></a>
+    <span class="community-tag">Владелец</span>
+  </div>
+  {% for member in active_members %}
+  <div class="team-row">
+    <a class="member-inline" href="{{ member.user.get_absolute_url }}">{% include 'profiles/_avatar.html' with member=member.user %}<span><strong>{{ member.user.public_name }}</strong> <span class="muted small">@{{ member.user.handle }}</span></span></a>
+    {% if is_project_owner %}
+      <div class="team-actions">
+        <form method="post" action="{% url 'team_member_update' startup.id member.id %}">{% csrf_token %}<input type="hidden" name="action" value="role">
+          <label class="sr-only" for="role-{{ member.id }}">Роль @{{ member.user.handle }}</label>
+          <select id="role-{{ member.id }}" name="role">{% for value, label in roles %}<option value="{{ value }}" {% if member.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+          <button class="button ghost" type="submit">Сменить роль</button>
+        </form>
+        <form method="post" action="{% url 'team_member_update' startup.id member.id %}">{% csrf_token %}<input type="hidden" name="action" value="remove"><button class="button ghost" type="submit">Исключить</button></form>
+      </div>
+    {% else %}
+      <span class="community-tag">{{ member.get_role_display }}</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% if not active_members %}<p class="muted">Пока вы работаете один. Пригласите соавтора по тегу из его профиля.</p>{% endif %}
+  {% if not is_project_owner %}
+    <form method="post" action="{% url 'team_leave' startup.id %}" class="team-leave viewer-allowed">{% csrf_token %}<button class="button ghost" type="submit">Выйти из проекта</button></form>
+  {% endif %}
+</section>
+
+{% if is_project_owner %}
+<section class="card work-card">
+  {% if join_requests %}
+  <h2>Хотят в команду</h2>
+  <p class="muted small">Заявки из карточки проекта в сообществе. Доступ к проекту появится только после одобрения.</p>
+  {% for member in join_requests %}
+  <div class="team-row join-request">
+    <div><a class="member-inline" href="{{ member.user.get_absolute_url }}">{% include 'profiles/_avatar.html' with member=member.user %}<span><strong>{{ member.user.public_name }}</strong> <span class="muted small">@{{ member.user.handle }}</span></span></a>
+      <p class="join-message">{{ member.message }}</p></div>
+    <div class="team-actions">
+      <form method="post" action="{% url 'team_member_update' startup.id member.id %}">{% csrf_token %}<input type="hidden" name="action" value="accept">
+        <label class="sr-only" for="accept-role-{{ member.id }}">Роль</label>
+        <select id="accept-role-{{ member.id }}" name="role">{% for value, label in roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+        <button class="button primary" type="submit">Принять</button>
+      </form>
+      <form method="post" action="{% url 'team_member_update' startup.id member.id %}">{% csrf_token %}<input type="hidden" name="action" value="remove"><button class="button ghost" type="submit">Отклонить</button></form>
+    </div>
+  </div>
+  {% endfor %}
+  <hr class="team-divider">
+  {% endif %}
+  <h2>Пригласить в проект</h2>
+  <p class="muted small">Приглашённый увидит предложение в разделе «Мои проекты» и сам решит, присоединиться ли.</p>
+  <form method="post" action="{% url 'team_invite' startup.id %}" class="team-invite-form">{% csrf_token %}
+    {{ invite_form.non_field_errors }}
+    <label>{{ invite_form.handle.label }}{{ invite_form.handle }}</label>{{ invite_form.handle.errors }}
+    <label>{{ invite_form.role.label }}{{ invite_form.role }}</label>{{ invite_form.role.errors }}
+    <button class="button primary" type="submit">Пригласить</button>
+  </form>
+  {% if invited_members %}
+  <h3>Ждут ответа</h3>
+  {% for member in invited_members %}
+  <div class="team-row">
+    <span class="member-inline">{% include 'profiles/_avatar.html' with member=member.user %}<span>@{{ member.user.handle }} · {{ member.get_role_display|lower }}</span></span>
+    <form method="post" action="{% url 'team_member_update' startup.id member.id %}">{% csrf_token %}<input type="hidden" name="action" value="remove"><button class="button ghost" type="submit">Отозвать</button></form>
+  </div>
+  {% endfor %}
+  {% endif %}
+</section>
+{% endif %}
+</div>
+<section class="card work-card">
+  <h2>Что нового в проекте</h2>
+  {% include 'founder/_activity.html' with items=activities %}
+</section>
+<p class="work-notice">Монеты за работу над проектом получает тот, кто сделал действие. Продвижение проекта может оплатить любой соавтор из своего кошелька.</p>
+{% endblock %}

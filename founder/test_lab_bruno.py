@@ -31,6 +31,7 @@ def review(accepted=True, **extra):
                       'GigaChat-2-Pro',80,30)
 
 
+@override_settings(QWEN_PRICE_MODEL=MODEL, QWEN_INPUT_RUB_PER_MILLION="122", QWEN_OUTPUT_RUB_PER_MILLION="244")
 class BrunoLabTests(TestCase):
     def setUp(self):
         self.owner = User.objects.create_user(username='bruno_lab')

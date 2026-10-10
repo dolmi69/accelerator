@@ -8,7 +8,7 @@ import re
 from django.conf import settings
 from django.utils import timezone
 
-from founder.models import ChatSession
+from founder.models import ChatMessage, ChatSession
 from founder.services.onboarding import startup_profile_context
 
 
@@ -84,9 +84,14 @@ def system_prompt(session, memories, messages=None, economics="", turn=None, pla
         f"{memory.content[:1200]}"
         for memory in memories
     ) or "Нет подходящих прежних заметок."
-    name = founder_name(startup)
+    latest_user = (session.messages.filter(role=ChatMessage.Role.USER, author__isnull=False)
+                   .select_related("author").order_by("-created_at", "-id").first())
+    name = founder_name(startup, latest_user.author if latest_user else None)
     name_line = (f"Основателя зовут {name}; изредка обращайся по имени, не в каждом ответе.\n"
                  if name else "")
+    if startup.members.filter(status="active").exists():
+        name_line += ("В проекте несколько участников, сообщения в беседе могут писать разные люди "
+                      "из команды. Не путай их слова между собой.\n")
     onboarding_rules = (
         "Считай заполненные поля анкеты уже полученными ответами. Не начинай знакомство заново "
         "и не проси повторить описание, целевую аудиторию, проблему, решение или стадию, "

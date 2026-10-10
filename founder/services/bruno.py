@@ -761,9 +761,10 @@ def project_status(startup):
             "основатель расскажет результат, предложи записать его в дневник.")
 
 
-def founder_name(startup):
-    owner = getattr(startup, "owner", None)
-    name = (getattr(owner, "display_name", "") or getattr(owner, "first_name", "") or "").strip()
+def founder_name(startup, speaker=None):
+    """Имя того, кто пишет Бруно: в общем проекте это может быть соавтор, а не владелец."""
+    person = speaker or getattr(startup, "owner", None)
+    name = (getattr(person, "display_name", "") or getattr(person, "first_name", "") or "").strip()
     return name.split()[0][:40] if name else ""
 
 

@@ -78,10 +78,11 @@
     button.disabled = true;
     try {
       await flush();
-      await request(session.finish, {rating: form.rating.value ? Number(form.rating.value) : null,
+      const result = await request(session.finish, {rating: form.rating.value ? Number(form.rating.value) : null,
         feedback: form.feedback.value.trim(), duration: Math.min(1800, Math.floor(duration))});
       stopped = true; frame.removeAttribute('src'); review.hidden = true; active.hidden = true;
       document.getElementById('lab-test-thanks').hidden = false; say('');
+      window.coinsEarned?.(result.coins_earned, result.coins);
     } catch (error) { say(error.message); button.disabled = false; }
   });
   window.addEventListener('pagehide', () => {

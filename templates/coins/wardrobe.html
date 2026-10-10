@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Гардероб Бруно · {{ startup.name }}{% endblock %}
+{% block content %}
+{% include 'founder/_workspace_nav.html' %}
+<div class="page-heading work-heading"><div><span class="eyebrow">НАРЯДЫ ЗА МОНЕТЫ</span><h1>Гардероб Бруно</h1><p>{{ startup.name }} · Аксессуары остаются у Бруно этого проекта навсегда, их видит вся команда. Купить может любой соавтор из своего кошелька.</p></div><a class="coin-balance-big" href="{% url 'wallet' %}" aria-label="Ваш баланс, открыть кошелёк"><span aria-hidden="true">🪙</span><strong>{{ balance }}</strong></a></div>
+
+<div class="wardrobe-layout">
+  <section class="card wardrobe-stage" aria-label="Бруно сейчас">
+    {% include 'founder/_bruno.html' with investor=False instance_id='wardrobe' %}
+    {% if hidden_now %}<p class="work-notice">Сейчас Бруно читает, и книга закрывает шею. Под книгой: {% for item in hidden_now %}{{ item.title|lower }}{% if not forloop.last %}, {% endif %}{% endfor %}. Их снова будет видно, когда Бруно сменит позу.</p>{% endif %}
+    <p class="muted small">Бруно меняет позу вместе с прогрессом проекта — аксессуары переезжают вместе с ним.</p>
+  </section>
+  <div class="wardrobe-shelves">
+    {% for group in groups %}
+    <section class="card work-card">
+      <h2>{{ group.title }}</h2>
+      {% for entry in group.items %}
+      <div class="team-row wardrobe-item {% if entry.worn %}is-worn{% endif %}">
+        <div><strong>{{ entry.item.title }}</strong><p class="muted small">{{ entry.item.description }}</p></div>
+        <form method="post" action="{% url 'wardrobe_action' startup.id %}">{% csrf_token %}<input type="hidden" name="code" value="{{ entry.item.code }}">
+          {% if entry.worn %}<button class="button ghost" name="action" value="take_off" type="submit">Снять</button>
+          {% elif entry.owned %}<button class="button primary" name="action" value="wear" type="submit">Надеть</button>
+          {% else %}<button class="button primary" name="action" value="buy" type="submit" {% if entry.missing %}disabled title="Не хватает {{ entry.missing }} монет"{% endif %}>{{ entry.item.cost }} 🪙</button>{% endif %}
+        </form>
+      </div>
+      {% endfor %}
+    </section>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -2,7 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.urls import reverse_lazy
 
-from founder import views, workbench_views, lab_views, lab_testing_views
+from founder import views, workbench_views, lab_views, lab_testing_views, team_views, coin_views
 
 
 urlpatterns = [
@@ -37,6 +37,20 @@ urlpatterns = [
     path('startups/<uuid:startup_id>/market/generate/', workbench_views.market_generate, name='market_generate'),
     path('startups/<uuid:startup_id>/market/<uuid:report_id>/checks/<int:index>/task/',
          workbench_views.market_check_task, name='market_check_task'),
+    path('startups/<uuid:startup_id>/team/', team_views.team, name='team'),
+    path('startups/<uuid:startup_id>/team/invite/', team_views.team_invite, name='team_invite'),
+    path('startups/<uuid:startup_id>/team/<int:member_id>/', team_views.team_member_update, name='team_member_update'),
+    path('startups/<uuid:startup_id>/team/leave/', team_views.team_leave, name='team_leave'),
+    path('invites/<int:member_id>/', team_views.invite_respond, name='invite_respond'),
+    path('startups/<uuid:startup_id>/promote/', coin_views.promote, name='promote'),
+    path('startups/<uuid:startup_id>/promote/buy/', coin_views.promote_buy, name='promote_buy'),
+    path('startups/<uuid:startup_id>/promote/bounty/', coin_views.bounty_fund, name='bounty_fund'),
+    path('startups/<uuid:startup_id>/promote/bounty/<int:bounty_id>/close/', coin_views.bounty_close, name='bounty_close'),
+    path('startups/<uuid:startup_id>/bruno/', coin_views.wardrobe, name='wardrobe'),
+    path('startups/<uuid:startup_id>/bruno/action/', coin_views.wardrobe_action, name='wardrobe_action'),
+    path('startups/<uuid:startup_id>/tasks/<uuid:task_id>/assign/', workbench_views.task_assign, name='task_assign'),
+    path('community/<uuid:startup_id>/join/', team_views.join_request, name='join_request'),
+    path('coins/', coin_views.wallet, name='wallet'),
     path("", views.home, name="home"),
     path("about/", views.about, name="about"),
     path("register/", views.register, name="register"),

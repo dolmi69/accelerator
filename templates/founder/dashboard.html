@@ -3,9 +3,9 @@
 {% block title %}{{ startup.name }} · Co-Founder.AI{% endblock %}
 {% block content %}
 {% include 'founder/_workspace_nav.html' %}
-<div class="page-heading"><div><span class="eyebrow">ПРОФИЛЬ СТАРТАПА</span><h1>{{ startup.name }}</h1><p>{{ startup.one_line_pitch|default:"Расскажите Бруно о сервисе — описание и оценки можно уточнять по ходу работы." }}</p></div><a href="{% url 'startup_edit' startup.id %}" class="button ghost">Редактировать описание</a></div>
+<div class="page-heading"><div><span class="eyebrow">ПРОФИЛЬ СТАРТАПА</span><h1>{{ startup.name }}</h1><p>{{ startup.one_line_pitch|default:"Расскажите Бруно о сервисе — описание и оценки можно уточнять по ходу работы." }}</p></div>{% if startup.user_role != 'viewer' %}<a href="{% url 'startup_edit' startup.id %}" class="button ghost">Редактировать описание</a>{% endif %}</div>
 
-<section class="card publishing-note" style="margin:0 0 22px"><span class="eyebrow">ВАШ ПРОЕКТ В СООБЩЕСТВЕ</span><h2>Идея, с которой хочется познакомиться</h2><p class="muted">Соберите короткую карточку вместе с Бруно, опубликуйте её и находите партнёров среди основателей.</p><a class="button primary" href="{% url 'card_edit' startup.id %}">Карточка проекта →</a></section>
+{% if startup.user_role != 'viewer' %}<section class="card publishing-note" style="margin:0 0 22px"><span class="eyebrow">ВАШ ПРОЕКТ В СООБЩЕСТВЕ</span><h2>Идея, с которой хочется познакомиться</h2><p class="muted">Соберите короткую карточку вместе с Бруно, опубликуйте её и находите партнёров среди основателей.</p><a class="button primary" href="{% url 'card_edit' startup.id %}">Карточка проекта →</a></section>{% endif %}
 <section class="card profile-table-card">
   <div class="section-top"><div><span class="eyebrow">КАРТИНА БИЗНЕСА</span><h2>Таблица по пяти направлениям</h2></div><span class="score-badge">{% if latest %}{{ latest.overall_score }}/100{% else %}Пока без оценки{% endif %}</span></div>
   <p class="muted small">Бруно собирает её из вашего рассказа. Оценки показывают, насколько понятны и подтверждены сведения; их можно доработать.</p>
@@ -13,7 +13,7 @@
     {% for row in profile_rows %}<tr><th scope="row">{{ row.label }}</th><td><strong>{% if row.score is not None %}{{ row.score }}/100{% else %}—{% endif %}</strong></td><td>
       <p class="axis-reason">{{ row.reason|default:"Пока не обсуждали с Бруно." }}</p>
       {% if latest %}{% include 'founder/_evidence.html' with evidence=row.evidence %}{% endif %}
-      <form method="post" action="{% url 'chat_refine' startup.id row.key %}" class="refine-form">{% csrf_token %}<button type="submit" class="button ghost refine-button" aria-label="Уточнить с Бруно: {{ row.label }}">Уточнить с Бруно →</button></form>
+      {% if startup.user_role != 'viewer' %}<form method="post" action="{% url 'chat_refine' startup.id row.key %}" class="refine-form">{% csrf_token %}<button type="submit" class="button ghost refine-button" aria-label="Уточнить с Бруно: {{ row.label }}">Уточнить с Бруно →</button></form>{% endif %}
     </td></tr>{% endfor %}
   </tbody></table></div>
   <p class="muted small">Цитаты показывают, на каких словах основана оценка. Сведения основателя ещё не прошли независимую проверку.</p>
@@ -21,7 +21,7 @@
   {% if latest.assessment_notes %}<p class="radar-summary">{{ latest.assessment_notes }}</p>{% endif %}
   {% if ai_explanations %}<p class="muted small">Почему Бруно поставил эти оценки — пояснения приведены в таблице.</p>{% endif %}
   <div class="table-actions">
-    {% if ai_available %}<form method="post" action="{% url 'metrics_assess' startup.id %}" id="ai-assessment-form">{% csrf_token %}<button type="submit" class="button primary">Составить или обновить таблицу с Бруно</button><span id="ai-assessment-status" class="muted small" role="status" aria-live="polite"></span></form>{% endif %}
+    {% if startup.user_role != 'viewer' %}{% if ai_available %}<form method="post" action="{% url 'metrics_assess' startup.id %}" id="ai-assessment-form">{% csrf_token %}<button type="submit" class="button primary">Составить или обновить таблицу с Бруно</button><span id="ai-assessment-status" class="muted small" role="status" aria-live="polite"></span></form>{% endif %}{% endif %}
     <a class="button ghost" href="#edit-table">Доработать вручную</a>
   </div>
 </section>
@@ -48,19 +48,22 @@
     {% include 'founder/_bruno.html' with investor=False %}
     <div class="bruno-mood"><strong>{{ mascot.get_mood_display }}</strong></div>
     <p class="bruno-reason">{{ mascot.reason|default:"Давайте впервые оценим стартап — Бруно готов знакомиться." }}</p>
+    {% if startup.user_role != 'viewer' %}<a class="evidence-link" href="{% url 'wardrobe' startup.id %}">Гардероб Бруно →</a>{% endif %}
   </div>
 </section>
 
 <section class="card achievements-card"><div class="section-top"><div><span class="eyebrow">ШАГ ЗА ШАГОМ С БРУНО</span><h2>Ваши достижения</h2></div></div><div class="achievements-grid">{% for badge in achievements %}<article class="achievement {% if badge.earned_at %}earned{% endif %}"><span class="achievement-icon" aria-hidden="true">{{ badge.icon }}</span><h3>{{ badge.title }}</h3><p>{{ badge.description }}</p><span class="achievement-status">{% if badge.earned_at %}Получено {{ badge.earned_at|date:"d.m.Y" }}{% else %}Впереди{% endif %}</span></article>{% endfor %}</div></section>
 
+{% if activities %}<section class="card work-card activity-card"><div class="section-top"><div><span class="eyebrow">КОМАНДА В ДЕЛЕ</span><h2>Что нового в проекте</h2></div><a class="evidence-link" href="{% url 'team' startup.id %}">Вся лента →</a></div>{% include 'founder/_activity.html' with items=activities %}</section>{% endif %}
+
 {% include 'founder/_history.html' %}
 
-<section class="actions-grid">
+{% if startup.user_role != 'viewer' %}<section class="actions-grid">
   <div class="card action-card"><span class="eyebrow">РАССКАЖИТЕ О СЕРВИСЕ</span><h2>Поговорить с Бруно</h2><p>Опишите продукт своими словами. Бруно выслушает и задаст уточняющие вопросы для таблицы.</p><form method="post" action="{% url 'chat_create' startup.id %}">{% csrf_token %}<button class="button primary" type="submit">Новый разговор <span aria-hidden="true">→</span></button></form></div>
-</section>
+</section>{% endif %}
 
 <section class="lower-grid">
-  <div class="card score-form-card" id="edit-table">
+  {% if startup.user_role != 'viewer' %}<div class="card score-form-card" id="edit-table">
     <div class="section-top"><div><span class="eyebrow">МОЖНО ПОПРАВИТЬ</span><h2>Доработать таблицу</h2></div></div>
     <p class="muted">Уточните оценку и пояснение в каждом пункте. Предыдущая версия останется в истории.</p>
     <form method="post" action="{% url 'metrics_create' startup.id %}" class="metrics-form">
@@ -70,7 +73,7 @@
       <label class="field metric-notes"><span>{{ metrics_form.assessment_notes.label }}</span>{{ metrics_form.assessment_notes }}{% if metrics_form.assessment_notes.errors %}<small class="field-error">{{ metrics_form.assessment_notes.errors|striptags }}</small>{% endif %}</label>
       <button type="submit" class="button ghost">Сохранить изменения</button>
     </form>
-  </div>
+  </div>{% endif %}
   <div class="card history-card"><div class="section-top"><div><span class="eyebrow">НЕ ТЕРЯЙТЕ КОНТЕКСТ</span><h2>Недавние беседы</h2></div></div>{% for session in recent_sessions %}<a class="history-row" href="{% url 'chat_detail' startup.id session.id %}"><span class="history-icon">✦</span><span><strong>{{ session.title|default:"Разговор с Бруно" }}</strong><small>{{ session.created_at|date:"d.m.Y H:i" }}</small></span><span aria-hidden="true">→</span></a>{% empty %}<p class="muted">Пока нет бесед. Расскажите Бруно о своём сервисе.</p>{% endfor %}</div>
 </section>
 {% endblock %}

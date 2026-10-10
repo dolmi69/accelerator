@@ -10,11 +10,14 @@ from django.db import OperationalError
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
-
 from founder.community_forms import CARD_FIELDS, CardRefineForm, ProjectCardForm
-from founder.models import (CardReport, DirectAttachment, DirectConversation, DirectMessage, ProjectBookmark, ProjectCard,
-                            StartupProfile, UserBlock)
+from founder.forms import JoinRequestForm
+from founder.models import (CardReport, DirectAttachment, DirectConversation, DirectMessage, LabPublication,
+    ProjectBookmark, ProjectCard, ProjectMember, Promotion, StartupProfile, TestBounty, UserBlock)
+from founder.services import activity
+from founder.services.access import can_edit as can_edit_project, get_startup, team_members
 from founder.services.ai import AIServiceError
 from founder.services.card_reports import mark_report_state
 from founder.services.chat_search import search_response
@@ -31,6 +34,26 @@ def published_cards():
     return ProjectCard.objects.filter(published_at__isnull=False, startup__owner__is_active=True).select_related('startup__owner')
 
 
+def _active(kind):
+    now = timezone.now()
+    return Promotion.objects.filter(startup_id=OuterRef('startup_id'), kind=kind, starts_at__lte=now, ends_at__gt=now)
+
+
+def with_promotions(cards):
+    return cards.annotate(is_promoted=Exists(_active(Promotion.Kind.FEED_TOP)),
+                          is_highlighted=Exists(_active(Promotion.Kind.HIGHLIGHT)))
+
+
+def testers_wanted(limit=6):
+    """Опубликованные для всех прототипы, авторы которых позвали тестировщиков или назначили награду."""
+    reward = TestBounty.objects.filter(startup_id=OuterRef('startup_id'), closed_at__isnull=True,
+                                       remaining__gte=F('reward')).order_by('created_at', 'id').values('reward')[:1]
+    return list(with_promotions(published_cards()).annotate(bounty_reward=Subquery(reward)).filter(
+        Q(Exists(_active(Promotion.Kind.TESTERS))) | Q(bounty_reward__isnull=False),
+        startup__lab_publication__visibility=LabPublication.Visibility.PUBLIC,
+    ).order_by('?')[:limit])
+
+
 def editor_context(startup, card, form=None, refine_form=None, generated=False):
     return {'startup': startup, 'card': card, 'workspace_tab': 'card', 'generated': generated,
             'form': form if form is not None else ProjectCardForm(instance=card, initial={'revision': card.revision}),
@@ -41,7 +64,7 @@ def editor_context(startup, card, form=None, refine_form=None, generated=False):
 
 @login_required
 def card_edit(request, startup_id):
-    startup = get_object_or_404(StartupProfile, pk=startup_id, owner=request.user)
+    startup = get_startup(request, startup_id, edit=True)
     card = get_card(startup)
     if request.method == 'GET':
         return render(request, 'community/card_edit.html', editor_context(startup, card))
@@ -67,6 +90,8 @@ def card_edit(request, startup_id):
                 messages.success(request, 'Бруно подготовил вариант. Проверьте поля ниже и сохраните карточку.')
             else:
                 save_card(card, form.cleaned_data, revision, publish=action == 'publish')
+                activity.log(startup, request.user, activity.Kind.CARD,
+                             'Карточка опубликована в сообществе' if action == 'publish' else 'Черновик карточки сохранён')
                 messages.success(request, 'Карточка опубликована в сообществе.' if action == 'publish' else
                                  'Черновик сохранён. Для обновления карточки в ленте нажмите «Опубликовать».')
                 return redirect('card_edit', startup_id=startup.pk)
@@ -79,7 +104,7 @@ def card_edit(request, startup_id):
 @login_required
 @require_POST
 def card_generate(request, startup_id):
-    startup = get_object_or_404(StartupProfile, pk=startup_id, owner=request.user)
+    startup = get_startup(request, startup_id, edit=True)
     card = get_card(startup)
     try:
         initial = generate_card(startup, card_values(card), assess=True)
@@ -95,10 +120,11 @@ def card_generate(request, startup_id):
 @login_required
 @require_POST
 def card_unpublish(request, startup_id):
-    card = get_object_or_404(ProjectCard, startup_id=startup_id, startup__owner=request.user)
+    card = get_object_or_404(ProjectCard, startup=get_startup(request, startup_id, edit=True))
     # Clearing the snapshot also prevents accidental reuse of withdrawn content.
     from django.db.models import F
     ProjectCard.objects.filter(pk=card.pk).update(published_at=None, published_data={}, revision=F('revision') + 1)
+    activity.log(card.startup, request.user, activity.Kind.CARD, 'Карточка снята с публикации')
     messages.success(request, 'Карточка снята с публикации. Черновик остался у вас.')
     return redirect('card_edit', startup_id=startup_id)
 
@@ -108,7 +134,7 @@ def community_feed(request):
     query = request.GET.get('q', '').strip()[:120]
     stage = request.GET.get('stage', '')
     saved = request.GET.get('saved') == '1'
-    cards = published_cards().annotate(
+    cards = with_promotions(published_cards()).annotate(
         is_saved=Exists(ProjectBookmark.objects.filter(user=request.user, card_id=OuterRef('pk'))),
     )
     if query:
@@ -118,26 +144,32 @@ def community_feed(request):
         cards = cards.filter(published_data__stage=stage)
     if saved:
         cards = cards.filter(is_saved=True)
-    page = Paginator(cards.order_by('-published_at', '-pk'), 12).get_page(request.GET.get('page'))
+    # Оплаченное монетами продвижение поднимает карточку, внутри групп порядок прежний.
+    page = Paginator(cards.order_by('-is_promoted', '-published_at', '-pk'), 12).get_page(request.GET.get('page'))
     page.object_list = mark_report_state(page.object_list, request.user)
     params = request.GET.copy()
     params.pop('page', None)
+    show_testers = page.number == 1 and not (query or stage or saved)
     return render(request, 'community/feed.html', {
         'page': page, 'query': query, 'stage': stage, 'saved': saved, 'stages': StartupProfile.Stage.choices,
         'filter_query': params.urlencode(), 'community_tab': True,
+        'testers_wanted': testers_wanted() if show_testers else [],
     })
 
 
 @login_required
 def card_detail(request, startup_id):
-    card = get_object_or_404(published_cards(), startup_id=startup_id)
+    card = get_object_or_404(with_promotions(published_cards()), startup_id=startup_id)
     mark_report_state([card], request.user)
     publication = publication_for(card.startup)
-    if publication and publication.visibility == 'private' and card.startup.owner_id != request.user.pk:
+    can_edit = card.startup.owner_id == request.user.pk or can_edit_project(request.user, card.startup_id)
+    if publication and publication.visibility == 'private' and not can_edit:
         publication = None
     return render(request, 'community/card_detail.html', {
         'card': card, 'public': card.published_data, 'author': card.startup.owner,
-        'is_owner': card.startup.owner_id == request.user.pk,
+        'is_owner': can_edit, 'team': team_members(card.startup),
+        'membership': ProjectMember.objects.filter(startup=card.startup, user=request.user).first(),
+        'join_form': JoinRequestForm(),
         'is_saved': card.bookmarks.filter(user=request.user).exists(),
         'can_message': not blocked_pair(request.user.pk, card.startup.owner_id),
         'lab_publication': publication,

@@ -31,7 +31,9 @@ def completion(text=HTML, *, finish="stop", usage=True):
 
 
 @override_settings(AI_PROVIDER="gigachat", QWEN_CODE_MODEL="Qwen/Qwen3-Coder-Next",
-                   QWEN_CODE_MAX_TOKENS=8192, QWEN_CODE_TIMEOUT=90, LAB_PATCH_MAX_TOKENS=2048)
+                   QWEN_CODE_MAX_TOKENS=8192, QWEN_CODE_TIMEOUT=90, LAB_PATCH_MAX_TOKENS=2048,
+                   QWEN_PRICE_MODEL="Qwen/Qwen3-Coder-Next",
+                   QWEN_INPUT_RUB_PER_MILLION="122", QWEN_OUTPUT_RUB_PER_MILLION="244")
 class QwenTests(TestCase):
     def setUp(self):
         self.key = patch.dict(os.environ, {"CLOUDRU_API_KEY": "test-cloudru-secret"})

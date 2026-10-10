@@ -4,13 +4,14 @@ from urllib.parse import urlsplit
 from django.conf import settings
 
 from founder.models import ChatSession, MascotState
+from founder.services.access import accessible_startups, join_requests_for, pending_invites
 
 
 def bruno_pet(request):
     if not request.user.is_authenticated:
         return {}
 
-    projects = request.user.startups.select_related('mascot_state')
+    projects = accessible_startups(request.user).select_related('mascot_state')
     match = request.resolver_match
     current_id = match.kwargs.get('startup_id') if match else None
     remembered_id = request.session.get('bruno_last_project')
@@ -39,7 +40,7 @@ def bruno_pet(request):
                      and request.path.startswith('/startups/')
                      and settings.LAB_BACKEND_RUNTIME_ENABLED
                      and urlsplit('//' + request.get_host()).hostname in {'localhost', '127.0.0.1'})
-    return {'lab_workspace': {'project_id': project.pk, 'user_id': request.user.pk} if local_project else None,
+    return {'my_projects': projects, 'lab_workspace': {'project_id': project.pk, 'user_id': request.user.pk} if local_project else None,
             'bruno_pet': {
         'project': project,
         'mascot': mascot or MascotState(mood=MascotState.Mood.CURIOUS),
@@ -51,4 +52,5 @@ def community(request):
     if not request.user.is_authenticated:
         return {}
     from founder.services.messaging import unread_count
-    return {'direct_unread': unread_count(request.user.pk)}
+    return {'direct_unread': unread_count(request.user.pk),
+            'project_invites_count': pending_invites(request.user).count() + join_requests_for(request.user).count()}
