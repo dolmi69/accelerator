@@ -155,6 +155,9 @@ LAB_USER_MONTHLY_RUB = os.getenv("LAB_USER_MONTHLY_RUB", "100")
 LAB_GLOBAL_DAILY_RUB = os.getenv("LAB_GLOBAL_DAILY_RUB", "200")
 LAB_GLOBAL_MONTHLY_RUB = os.getenv("LAB_GLOBAL_MONTHLY_RUB", "2000")
 AI_MAX_OUTPUT_TOKENS = 900
+# How many members must report a card before everyone sees "Опасно!" on it.
+# The member who reported always sees the mark on their own screen.
+CARD_REPORT_THRESHOLD = max(1, int(os.getenv("CARD_REPORT_THRESHOLD", "1")))
 AI_REQUESTS_PER_MINUTE = int(os.getenv("AI_REQUESTS_PER_MINUTE", "12"))
 AI_REQUESTS_PER_DAY = int(os.getenv("AI_REQUESTS_PER_DAY", "200"))
 DATA_UPLOAD_MAX_MEMORY_SIZE = 256 * 1024

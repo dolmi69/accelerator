@@ -7,6 +7,7 @@
   const fileInput = document.getElementById("attachment-input");
   const fileName = document.getElementById("file-name");
   const button = document.getElementById("send-button");
+  const draft = window.composerDrafts?.attach(input, form.dataset?.draftKey) || { clear() {} };
 
   const scrollToBottom = () => { list.scrollTop = list.scrollHeight; };
   const citedMessage = document.getElementById(window.location.hash.slice(1));
@@ -127,6 +128,7 @@
       // The backend saves the founder's message before starting the AI stream.
       accepted = true;
       input.value = "";
+      draft.clear();
       fileInput.value = "";
       fileName.textContent = "Прикрепить файл";
       if (!response.body) throw new Error("Браузер не поддерживает потоковый ответ.");

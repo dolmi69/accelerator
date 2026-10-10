@@ -26,6 +26,7 @@ from founder.models import (
 from founder.services import mentor
 from founder.services.ai import AIServiceError, provider_label, stream_reply
 from founder.services.bruno import looks_like_evidence
+from founder.services.chat_search import search_response
 from founder.services.mascot import update_mascot
 from founder.services.memory import conversation_context, remember_user_message
 from founder.services.onboarding import cofounder_opening, has_founder_conversation, has_profile_description
@@ -388,6 +389,21 @@ def _panel_context(session):
         "sharks": [panel.shark_info(key) for key in panel.ORDER],
         "verdict": verdict, "votes": votes,
     }
+
+
+@login_required
+@require_GET
+def chat_search(request, startup_id, session_id):
+    session = _owned_session(request, startup_id, session_id)
+    rows = session.messages.order_by("-created_at", "-id").values_list(
+        "id", "content", "role", "created_at").iterator(chunk_size=500)
+
+    def describe(row):
+        own = row[2] == ChatMessage.Role.USER
+        return {"id": str(row[0]), "own": own, "author": "Вы" if own else "Бруно",
+                "created_at": row[3].isoformat()}
+
+    return search_response(request, rows, describe)
 
 
 @login_required

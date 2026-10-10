@@ -610,6 +610,16 @@ class ProjectBookmark(models.Model):
         constraints = [models.UniqueConstraint(fields=['user', 'card'], name='unique_project_bookmark')]
 
 
+class CardReport(models.Model):
+    """A member's complaint about a published project card (one per member and card)."""
+    card = models.ForeignKey(ProjectCard, on_delete=models.CASCADE, related_name='reports')
+    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='card_reports')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['card', 'reporter'], name='unique_card_report')]
+
+
 class DirectConversation(models.Model):
     """One private thread per pair, regardless of which card opened it."""
 
@@ -651,6 +661,40 @@ class DirectMessage(models.Model):
         ordering = ['id']
         indexes = [models.Index(fields=['conversation', 'id'], name='direct_message_history')]
         constraints = [models.UniqueConstraint(fields=['sender', 'client_id'], name='unique_direct_message_retry')]
+
+
+def direct_attachment_path(instance, filename):
+    """Disk names never reuse the sender's file name."""
+    suffix = Path(filename).suffix.lower()[:10]
+    return f"direct_uploads/{instance.conversation_id}/{uuid.uuid4().hex}{suffix}"
+
+
+class DirectAttachment(models.Model):
+    """A file or photo in personal messages. Uploaded first (POST), then linked to a
+    message sent over the socket; until then only the uploader can see it."""
+
+    class Kind(models.TextChoices):
+        IMAGE = 'image', 'Изображение'
+        FILE = 'file', 'Файл'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    conversation = models.ForeignKey(DirectConversation, on_delete=models.CASCADE, related_name='attachments')
+    uploader = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='direct_attachments')
+    message = models.ForeignKey(DirectMessage, on_delete=models.CASCADE, null=True, blank=True,
+                                related_name='attachments')
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    file = models.FileField(upload_to=direct_attachment_path, max_length=500)
+    preview = models.FileField(upload_to=direct_attachment_path, max_length=500, blank=True)
+    original_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=100)
+    size_bytes = models.PositiveBigIntegerField()
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        indexes = [models.Index(fields=['uploader', 'message', 'created_at'], name='direct_attachment_pending')]
 
 
 class UserBlock(models.Model):

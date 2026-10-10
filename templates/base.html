@@ -9,7 +9,7 @@
   {% if request.telegram_miniapp %}<script src="https://telegram.org/js/telegram-web-app.js?63"></script>{% endif %}
   <link rel="stylesheet" href="{% static 'founder/css/tailwind.css' %}?v=1">
   <link rel="stylesheet" href="{% static 'founder/css/app.css' %}?v=team-merge-1">
-  <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=3">
+  <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=5">
   <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=2">
   {% block extra_css %}{% endblock %}
 </head>
@@ -57,7 +57,7 @@
   {% include 'founder/_bruno_pet.html' %}
   {% if request.telegram_miniapp %}<script src="{% static 'founder/js/telegram.js' %}" defer></script>{% endif %}
   <script src="{% static 'founder/js/bruno.js' %}?v=6" defer></script>
-  {% if request.user.is_authenticated %}<script src="{% static 'founder/js/messages.js' %}?v=3" defer></script>{% endif %}
+  {% if request.user.is_authenticated %}<script src="{% static 'founder/js/drafts.js' %}?v=1"></script><script src="{% static 'founder/js/direct-attachments.js' %}?v=1" defer></script><script src="{% static 'founder/js/messages.js' %}?v=6" defer></script><script src="{% static 'founder/js/chat-search.js' %}?v=1" defer></script><script src="{% static 'founder/js/card-reports.js' %}?v=1" defer></script>{% endif %}
   {% if lab_workspace %}
   <form hidden id="lab-workspace-session" action="{% url 'lab_activate' lab_workspace.project_id %}" data-project-id="{{ lab_workspace.project_id }}" data-user-id="{{ lab_workspace.user_id }}">{% csrf_token %}</form>
   <script src="{% static 'founder/js/lab-workspace.js' %}?v=1" defer></script>

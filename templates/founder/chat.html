@@ -8,7 +8,8 @@
 {% if session.focus_axis %}<div class="focus-banner"><strong>Уточняем: {{ session.get_focus_axis_display }}</strong><span>Добавьте детали, затем нажмите «Составить таблицу», чтобы обновить радар.</span></div>{% endif %}
 <div class="chat-layout">
   <div class="card conversation-card">
-    {% if chat_page.has_other_pages %}<nav class="community-pagination" aria-label="История разговора">{% if chat_page.has_next %}<a href="?page={{ chat_page.next_page_number }}">← Ранние сообщения</a>{% endif %}{% if chat_page.has_previous %}<a href="?page={{ chat_page.previous_page_number }}">Более новые →</a>{% endif %}{% if chat_page.number != 1 %}<a href="{% url 'chat_detail' startup.id session.id %}">К последним</a>{% endif %}</nav>{% endif %}
+    <div class="conversation-toolbar">{% if chat_page.has_other_pages %}<nav class="community-pagination" aria-label="История разговора">{% if chat_page.has_next %}<a href="?page={{ chat_page.next_page_number }}">← Ранние сообщения</a>{% endif %}{% if chat_page.has_previous %}<a href="?page={{ chat_page.previous_page_number }}">Более новые →</a>{% endif %}{% if chat_page.number != 1 %}<a href="{% url 'chat_detail' startup.id session.id %}">К последним</a>{% endif %}</nav>{% endif %}{% url 'chat_search' startup.id session.id as search_url %}{% include 'founder/_chat_search_button.html' with mode='bruno' url=search_url %}</div>
+    <div data-chat-search-slot></div>
     <div id="message-list" class="message-list" aria-live="polite">
       {% for message in chat_messages %}
         <div id="message-{{ message.id }}" class="message {% if message.role == 'user' %}message-user{% else %}message-assistant{% endif %}{% if message.shark %} shark-{{ message.shark.key }}{% endif %}">
@@ -20,7 +21,7 @@
     {% if session.completed_at %}<div class="ended-note">{% if is_panel %}Панель проголосовала. Итог и разбор — ниже.{% else %}Интервью завершено. Отчёт Бруно — ниже.{% endif %}</div>
     {% elif panel.full %}<div class="ended-note">Акулы услышали достаточно. Нажмите «Голосование».</div>
     {% else %}
-      <form id="chat-form" method="post" action="{% url 'chat_send' startup.id session.id %}" enctype="multipart/form-data" class="chat-composer">
+      <form id="chat-form" data-draft-key="bruno:{{ request.user.pk }}:{{ session.id }}" method="post" action="{% url 'chat_send' startup.id session.id %}" enctype="multipart/form-data" class="chat-composer">
         {% csrf_token %}
         {% if quick_replies %}<div class="quick-replies" aria-label="Быстрые ответы">{% for reply in quick_replies %}<button type="button" class="quick-reply" data-quick-reply="{{ reply }}">{{ reply }}</button>{% endfor %}</div>{% endif %}
         <textarea name="content" id="message-input" rows="3" maxlength="4000" placeholder="{% if is_panel %}Ваш ответ {{ panel.speaker.dative|default:'акулам' }}…{% elif is_pitch %}Ваш ответ инвестору…{% else %}Напишите Бруно…{% endif %}"></textarea>
@@ -56,4 +57,4 @@
 
 {% if report %}<p class="work-notice">Оценка отражает качество тренировочного разговора, а не инвестиционную привлекательность бизнеса.</p><section class="card report-card" id="report"><div class="section-top"><div><span class="eyebrow">{% if is_panel %}РАЗБОР БРУНО{% else %}РАЗБОР ИНВЕСТОРА{% endif %}</span><h2>{% if is_panel %}Как вы ответили панели{% else %}Как вы ответили инвестору{% endif %}</h2></div><span class="score-badge">{{ report.score }}/100</span></div><p class="report-summary">{{ report.summary }}</p><div class="mistake-grid">{% for mistake in report.mistakes %}<article class="mistake-card"><span class="mistake-number">0{{ forloop.counter }}</span><h3>{{ mistake.title }}</h3>{% if mistake.quote %}<blockquote class="investor-quote">«{{ mistake.quote }}»</blockquote>{% endif %}<p>{{ mistake.detail }}</p><strong>Что улучшить</strong><p>{{ mistake.recommendation }}</p></article>{% endfor %}</div></section>{% endif %}
 {% endblock %}
-{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}" defer></script><script src="{% static 'founder/js/chat.js' %}?v=bruno2"></script><script src="{% static 'founder/js/dashboard.js' %}"></script>{% if panel.verdict %}<script src="{% static 'founder/js/panel.js' %}?v=sharks-1" defer></script>{% endif %}{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}" defer></script><script src="{% static 'founder/js/chat.js' %}?v=team-merge-1"></script><script src="{% static 'founder/js/dashboard.js' %}"></script>{% if panel.verdict %}<script src="{% static 'founder/js/panel.js' %}?v=sharks-1" defer></script>{% endif %}{% endblock %}
