@@ -14,6 +14,26 @@
   let socket, retry = 0, timer, ready = false, stopped = false;
   let blocked = box?.dataset.blocked === '1', lastId = 0, firstId = 0, lastRead = 0, peerRead = 0, loaded = false;
   const seen = new Set(), pending = new Map();
+  let jump = null; // Search result that is older than the loaded history.
+  const announce = () => list?.dispatchEvent(new CustomEvent('chat:updated'));
+  function finishJump(element) {
+    if (!jump) return;
+    const done = jump; jump = null; clearTimeout(done.timer); done.resolve(element);
+  }
+  function requestJump() {
+    // One request loads the whole gap down to the result (the server caps it at 500 rows).
+    if (!send({type: 'sync', conversation: threadId, since: jump.id, ...(firstId ? {before: firstId} : {})})) finishJump(null);
+  }
+  function loadUntil(id) {
+    const existing = list?.querySelector(`[data-id="${id}"]`);
+    if (existing || !threadId || !Number.isInteger(id)) return Promise.resolve(existing || null);
+    finishJump(null);
+    return new Promise(resolve => {
+      jump = {id, resolve, tries: 0, timer: setTimeout(() => finishJump(null), 15000)};
+      requestJump();
+    });
+  }
+  window.directChat = {loadUntil};
   const setError = text => { if (errorBox) { errorBox.textContent = text; errorBox.hidden = !text; } };
   const nearBottom = () => scroller && scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
   const send = payload => { if (!ready || socket.readyState !== WebSocket.OPEN) return false; socket.send(JSON.stringify(payload)); return true; };
@@ -87,12 +107,18 @@
       if (data.direction === 'after' && data.has_more) send({type: 'sync', conversation: threadId, after: lastId});
       if (initial || (wasBottom && !pagingBack)) scroller.scrollTop = scroller.scrollHeight;
       else if (pagingBack) scroller.scrollTop += scroller.scrollHeight - oldHeight;
-      older.disabled = false; readVisible();
+      older.disabled = false; readVisible(); announce();
+      if (jump && data.direction === 'before') {
+        const found = list.querySelector(`[data-id="${jump.id}"]`);
+        if (found) finishJump(found);
+        else if (data.has_more && ++jump.tries < 10) requestJump();
+        else finishJump(null);
+      }
     } else if (data.type === 'message' && data.message.conversation === threadId) {
       const bottom = nearBottom(), own = data.message.sender_id === myId;
       appendMessage(data.message);
       if (bottom || own) scroller.scrollTop = scroller.scrollHeight;
-      readVisible();
+      readVisible(); announce();
     } else if (data.type === 'read' && data.conversation === threadId && data.user_id !== myId) {
       peerRead = Math.max(peerRead, data.id); receipts();
     } else if (data.type === 'ack') {

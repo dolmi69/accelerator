@@ -12,4 +12,5 @@ urlpatterns = [
     path('messages/', views.inbox, name='inbox'),
     path('messages/<uuid:conversation_id>/', views.inbox, name='conversation'),
     path('messages/<uuid:conversation_id>/block/', views.block_contact, name='block_contact'),
+    path('messages/<uuid:conversation_id>/search/', views.conversation_search, name='conversation_search'),
 ]

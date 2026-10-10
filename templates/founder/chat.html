@@ -8,7 +8,8 @@
 {% if session.focus_axis %}<div class="focus-banner"><strong>Уточняем: {{ session.get_focus_axis_display }}</strong><span>Добавьте детали, затем нажмите «Составить таблицу», чтобы обновить радар.</span></div>{% endif %}
 <div class="chat-layout">
   <div class="card conversation-card">
-    {% if chat_page.has_other_pages %}<nav class="community-pagination" aria-label="История разговора">{% if chat_page.has_next %}<a href="?page={{ chat_page.next_page_number }}">← Ранние сообщения</a>{% endif %}{% if chat_page.has_previous %}<a href="?page={{ chat_page.previous_page_number }}">Более новые →</a>{% endif %}{% if chat_page.number != 1 %}<a href="{% url 'chat_detail' startup.id session.id %}">К последним</a>{% endif %}</nav>{% endif %}
+    <div class="conversation-toolbar">{% if chat_page.has_other_pages %}<nav class="community-pagination" aria-label="История разговора">{% if chat_page.has_next %}<a href="?page={{ chat_page.next_page_number }}">← Ранние сообщения</a>{% endif %}{% if chat_page.has_previous %}<a href="?page={{ chat_page.previous_page_number }}">Более новые →</a>{% endif %}{% if chat_page.number != 1 %}<a href="{% url 'chat_detail' startup.id session.id %}">К последним</a>{% endif %}</nav>{% endif %}{% url 'chat_search' startup.id session.id as search_url %}{% include 'founder/_chat_search_button.html' with mode='bruno' url=search_url %}</div>
+    <div data-chat-search-slot></div>
     <div id="message-list" class="message-list" aria-live="polite">
       {% for message in chat_messages %}
         <div id="message-{{ message.id }}" class="message {% if message.role == 'user' %}message-user{% else %}message-assistant{% endif %}">

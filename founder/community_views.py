@@ -7,11 +7,12 @@ from django.core.paginator import Paginator
 from django.db.models import Case, Count, Exists, F, OuterRef, Q, Subquery, When
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from founder.community_forms import CARD_FIELDS, CardRefineForm, ProjectCardForm
 from founder.models import DirectConversation, DirectMessage, ProjectBookmark, ProjectCard, StartupProfile, UserBlock
 from founder.services.ai import AIServiceError
+from founder.services.chat_search import search_response
 from founder.services.messaging import blocked_pair, open_conversation, participant_filter
 from founder.services.project_cards import (StaleCardError, card_values, generate_card, get_card, save_card)
 from founder.services.lab_testing import publication_for
@@ -172,6 +173,23 @@ def inbox(request, conversation_id=None):
         'blocked_by_me': UserBlock.objects.filter(user=request.user, blocked=active.other_user(request.user.pk)).exists() if active else False,
         'blocked': blocked_pair(active.user_low_id, active.user_high_id) if active else False,
     })
+
+
+@login_required
+@require_GET
+def conversation_search(request, conversation_id):
+    thread = get_object_or_404(DirectConversation.objects.select_related('user_low', 'user_high'),
+                               participant_filter(request.user.pk), pk=conversation_id)
+    other_name = thread.other_user(request.user.pk).public_name
+    rows = thread.direct_messages.order_by('-id').values_list(
+        'id', 'content', 'sender_id', 'created_at').iterator(chunk_size=500)
+
+    def describe(row):
+        own = row[2] == request.user.pk
+        return {'id': row[0], 'own': own, 'author': 'Вы' if own else other_name,
+                'created_at': row[3].isoformat()}
+
+    return search_response(request, rows, describe)
 
 
 @login_required

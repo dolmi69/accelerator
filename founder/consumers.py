@@ -80,11 +80,13 @@ class MessagesConsumer(JsonWebsocketConsumer):
             if action in {"sync", "send", "read"} and not isinstance(conversation_id, str):
                 raise ValidationError('Неверный идентификатор диалога.')
             if action == 'sync':
-                after, before = data.get('after'), data.get('before')
+                after, before, since = data.get('after'), data.get('before'), data.get('since')
                 if any(value is not None and (type(value) is not int or not 0 <= value <= 2**63-1)
-                       for value in (after, before)):
+                       for value in (after, before, since)):
                     raise ValidationError('Неверный номер сообщения.')
-                self.send_json(history(self.user_id, conversation_id, after=after, before=before))
+                if since is not None and after is not None:
+                    raise ValidationError('Неверный запрос истории.')
+                self.send_json(history(self.user_id, conversation_id, after=after, before=before, since=since))
             elif action == 'send':
                 message, created = send_message(self.user_id, conversation_id, client_id, data.get('content'))
                 event = {'type': 'inbox.event', 'kind': 'message', 'message': serialize_message(message)}

@@ -51,7 +51,12 @@ def unread_count(user_id):
     ).exclude(sender_id=user_id).count()
 
 
-def history(user_id, conversation_id, *, after=None, before=None):
+JUMP_PAGE_SIZE = 500
+
+
+def history(user_id, conversation_id, *, after=None, before=None, since=None):
+    """after: newer rows; before: an older page; before+since: the whole gap down to a
+    search result (capped, adjacent to `before`, so the client can repeat without holes)."""
     thread = owned_conversation(user_id, conversation_id)
     query = thread.direct_messages.all()
     if after is not None:
@@ -61,9 +66,13 @@ def history(user_id, conversation_id, *, after=None, before=None):
     else:
         if before is not None:
             query = query.filter(id__lt=before)
-        rows = list(query.order_by('-id')[:51])
-        has_more = len(rows) > 50
-        rows = list(reversed(rows[:50]))
+        limit = 50 if since is None else JUMP_PAGE_SIZE
+        window = query if since is None else query.filter(id__gte=since)
+        rows = list(window.order_by('-id')[:limit + 1])
+        has_more = len(rows) > limit
+        rows = list(reversed(rows[:limit]))
+        if since is not None and not has_more:
+            has_more = query.filter(id__lt=rows[0].pk if rows else since).exists()
     return {'type': 'history', 'conversation': str(thread.pk),
             'messages': [serialize_message(row) for row in rows],
             'has_more': has_more, 'direction': 'after' if after is not None else 'before',
