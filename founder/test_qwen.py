@@ -199,20 +199,21 @@ class QwenTests(TestCase):
     def test_command_saves_new_artifact_and_usage_without_overwriting_source(self):
         with tempfile.TemporaryDirectory() as directory, override_settings(BASE_DIR=Path(directory)):
             source = Path(directory) / "source.html"
-            source.write_text(HTML)
+            source.write_text(HTML, encoding="utf-8")
             output = io.StringIO()
             with patch("founder.management.commands.qwen_site.generate_site",
                        return_value=CodeResult(HTML, "Qwen/Qwen3-Coder-Next", 10, 20)) as generate:
                 call_command("qwen_site", prompt="Правка", input=source, stdout=output)
             generate.assert_called_once_with("Правка", previous_html=HTML, max_tokens=None)
-            self.assertEqual(source.read_text(), HTML)
+            self.assertEqual(source.read_text(encoding="utf-8"), HTML)
             saved = list((Path(directory) / ".runtime/qwen-sites").glob("*/index.html"))
             self.assertEqual(len(saved), 1)
-            self.assertEqual(saved[0].read_text(), HTML)
-            usage = json.loads(saved[0].with_name("usage.json").read_text())
+            self.assertEqual(saved[0].read_text(encoding="utf-8"), HTML)
+            usage = json.loads(saved[0].with_name("usage.json").read_text(encoding="utf-8"))
             self.assertEqual(usage["input_tokens"], 10)
             self.assertNotIn("text", usage)
-            self.assertEqual(saved[0].stat().st_mode & 0o777, 0o600)
+            if os.name != "nt":  # в Windows нет прав доступа POSIX
+                self.assertEqual(saved[0].stat().st_mode & 0o777, 0o600)
 
     def test_failed_generation_does_not_create_a_site(self):
         with tempfile.TemporaryDirectory() as directory, override_settings(BASE_DIR=Path(directory)):

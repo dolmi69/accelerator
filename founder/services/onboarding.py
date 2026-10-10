@@ -52,26 +52,28 @@ def cofounder_opening(startup):
         if value:
             summary.append(f"{label}: {value[:280]}{'…' if len(value) > 280 else ''}")
 
-    parts = [f"Привет, я Бруно. Давай поработаем над «{startup.name}»."]
+    parts = [f"Здравствуйте, я Бруно. Давайте поработаем над «{startup.name}»."]
     if summary:
-        parts.append("Я уже учёл твою анкету:\n" + "\n".join(summary))
+        parts.append("Я уже учёл вашу анкету:\n" + "\n".join(summary))
         parts.append(f"Стадия: {startup.get_stage_display()}.")
         parts.append(
-            "Повторять эти сведения не нужно. По ним уже можно составить первую "
-            "таблицу по пяти направлениям, а затем дополнить её в разговоре."
+            "Повторять это не нужно: по анкете уже можно составить первую таблицу "
+            "по пяти направлениям и дополнять её в разговоре."
         )
     if startup.website:
         parts.append(f"Ссылка на сайт сохранена: {startup.website}")
 
     if has_founder_conversation(startup):
-        parts.append("Продолжим работу над проектом. Что хочешь уточнить или изменить сейчас?")
+        parts.append("Продолжим работу над проектом. Что хотите уточнить или изменить сейчас?")
     elif summary:
         # A filled text field may already answer several onboarding questions.
         # Let the model select missing details once the founder responds.
-        parts.append("Что сейчас важнее всего разобрать в твоём проекте?")
+        parts.append("С чего начнём: с самого непроверенного места в проекте или с подготовки "
+                     "к встрече с куратором?")
     else:
         parts.append(
-            "Расскажи своими словами, что будет делать твой сервис. "
-            "Затем соберём понятную таблицу по пяти направлениям."
+            "Расскажите своими словами, что за проект и для кого он. "
+            "Затем соберём понятную таблицу по пяти направлениям. Если готовой идеи пока нет, "
+            "назовите сферу, которая вам интересна, и я предложу несколько вариантов."
         )
     return "\n\n".join(parts)

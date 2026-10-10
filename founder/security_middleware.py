@@ -70,7 +70,9 @@ class RequestProtectionMiddleware(MiddlewareMixin):
             if not request.user.is_authenticated:
                 return None
             consume_limit(f"write:{request.user.pk}", 120, 60)
-            ai_request = route in {"chat_send", "metrics_assess", "pitch_finish", "tasks_generate", "card_generate"}
+            # review_generate раньше сюда не входил: разбор тратил запросы к модели без лимитов.
+            ai_request = route in {"chat_send", "metrics_assess", "pitch_finish", "panel_vote", "tasks_generate",
+                                   "card_generate", "review_generate", "market_generate"}
             if route == "card_edit":
                 ai_request = request.POST.get("action") in {"generate", "refine"}
             if ai_request and StartupProfile.objects.filter(pk=kwargs.get("startup_id"), owner=request.user).exists():
@@ -82,23 +84,45 @@ class RequestProtectionMiddleware(MiddlewareMixin):
         except OperationalError:
             # Fail closed on a busy/unavailable limiter instead of spending without bounds.
             return self.error_response(request, "Сервис занят. Повторите запрос через несколько секунд.", 503, retry_after=5)
+        if getattr(request, "ai_lease", None) is None:
+            return None
+        # Under ASGI Django cancels the handler when the client leaves the page, and
+        # process_response is skipped: the lease then blocked Bruno for 10 minutes.
+        # Calling the view here keeps the release in the view's own thread, so it
+        # happens when the AI call really ends. Later middleware has no process_view.
+        try:
+            response = view(request, *args, **kwargs)
+        except BaseException:
+            self.release_lease(request, request.ai_lease)
+            request.ai_lease = None
+            raise
+        return self.guard_lease(request, response)
 
     def process_response(self, request, response):
+        return self.guard_lease(request, response)
+
+    @staticmethod
+    def release_lease(request, token):
+        try:
+            release_ai_lease(request.user.pk, token)
+            return True
+        except OperationalError:
+            # Lease expiry recovers a DB outage; do not replace a sent answer.
+            logger.warning("Could not release AI request lease; waiting for expiry.")
+            return False
+
+    def guard_lease(self, request, response):
         token = getattr(request, "ai_lease", None)
         if token is None:
             return response
+        # The lease is handled once, here; process_response must not wrap it again.
+        request.ai_lease = None
         released = False
 
         def release():
             nonlocal released
-            if released:
-                return
-            try:
-                release_ai_lease(request.user.pk, token)
-                released = True
-            except OperationalError:
-                # Lease expiry recovers a DB outage; do not replace a sent answer.
-                logger.warning("Could not release AI request lease; waiting for expiry.")
+            if not released:
+                released = self.release_lease(request, token)
 
         if response.streaming:
             original = response.streaming_content

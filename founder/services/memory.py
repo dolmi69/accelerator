@@ -40,7 +40,7 @@ def query_stems(text, limit=10):
 
 def remember_user_message(message):
     """Сохранить исходный текст без выдачи непроверенных слов за факты."""
-    if message.session.mode == ChatSession.Mode.PITCH:
+    if message.session.is_training:
         return None
     attachment_text = "\n".join(
         attachment.extracted_text[:4000]
@@ -96,6 +96,8 @@ def conversation_context(session, latest_message):
         attachment.extracted_text[:2000]
         for attachment in latest_message.attachments.all()
     )
+    from founder.services.panel import speaker_name
+
     messages = []
     kept_ids = set()
     # No paid summarization. Preserve the newest input first, then recent turns.
@@ -112,9 +114,16 @@ def conversation_context(session, latest_message):
                 if attachment.extracted_text
             )
         content = "\n\n".join(part for part in parts if part)
+        if content and message.speaker:
+            # Панель акул: модель видит, кто из акул что спросил; подряд идущие реплики склеиваем.
+            content = f"{speaker_name(message.speaker)}: {content}"
         if content and cap > 80:
             shortened = content if len(content) <= cap else content[:cap-30] + "\n[длинное сообщение сокращено]"
-            messages.append({"role": message.role, "content": shortened})
+            if message.speaker and messages and messages[-1]["role"] == message.role:
+                # Список идёт от новых к старым: более ранняя реплика встаёт перед более поздней.
+                messages[-1]["content"] = shortened + "\n" + messages[-1]["content"]
+            else:
+                messages.append({"role": message.role, "content": shortened})
             remaining -= len(shortened)
             kept_ids.add(message.pk)
     messages.reverse()

@@ -2,6 +2,7 @@
   <a href="{% url 'card_edit' startup.id %}" {% if workspace_tab == 'card' %}aria-current="page"{% endif %}>Карточка проекта</a>
   <a href="{% url 'dashboard' startup.id %}">Радар</a>
   <a href="{% url 'review' startup.id %}" {% if workspace_tab == 'review' %}aria-current="page"{% endif %}>Разбор и план</a>
+  <a href="{% url 'market' startup.id %}" {% if workspace_tab == 'market' %}aria-current="page"{% endif %}>Рынок и конкуренты</a>
   <a href="{% url 'tasks' startup.id %}" {% if workspace_tab == 'tasks' %}aria-current="page"{% endif %}>Задания Бруно</a>
   <a href="{% url 'evidence_list' startup.id %}" {% if workspace_tab == 'evidence' %}aria-current="page"{% endif %}>Дневник доказательств</a>
   <a href="{% url 'investor' startup.id %}" {% if workspace_tab == 'investor' %}aria-current="page"{% endif %}>Бруно-инвестор</a>

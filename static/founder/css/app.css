@@ -436,6 +436,39 @@ body:has(#lab-start-form) .bruno-pet { display:none; }
 .feedback-save { border:0; background:#16877d; color:#fff; border-radius:10px; padding:5px 10px; font-size:12px; cursor:pointer; }
 .evidence-link { display:inline-block; margin-top:6px; font-size:12px; font-weight:700; color:#16877d; }
 
+/* Панель акул: у каждой акулы свой цвет — бирюза у Тимура, фиолетовый у Олега, коралл у Маргариты. */
+.shark-timur { --shark:#16877d; --shark-soft:#e1f5ee; }
+.shark-oleg { --shark:#534ab7; --shark-soft:#eeedfe; }
+.shark-margarita { --shark:#d85a30; --shark-soft:#faece7; }
+.message-assistant[class*="shark-"] .message-avatar { background:var(--shark); }
+.message-assistant[class*="shark-"] .message-meta { color:var(--shark); }
+.shark-avatar { display:grid; place-items:center; flex:none; width:36px; height:36px; border-radius:50%; color:#fff; background:var(--shark,var(--teal)); font-weight:800; font-size:14px; }
+.panel-card { text-align:left; }
+.panel-sharks { list-style:none; margin:12px 0 0; padding:0; display:grid; gap:8px; }
+.panel-sharks li { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--line); border-radius:12px; transition:border-color .3s,background .3s; }
+.panel-sharks li.is-current { border-color:var(--shark); background:var(--shark-soft); }
+.panel-sharks strong { display:block; font-size:13px; }
+.panel-sharks small { display:block; color:var(--muted); font-size:11px; line-height:1.4; }
+.panel-progress-label { margin:16px 0 6px; font-size:12px; font-weight:700; }
+.panel-progress { height:6px; border-radius:99px; background:#edf2ef; overflow:hidden; }
+.panel-progress i { display:block; height:100%; border-radius:99px; background:var(--teal); }
+.panel-intro { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:24px; align-items:center; }
+.panel-sharks-wide li { padding:12px 14px; }
+.panel-verdict .vote-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin-top:16px; }
+.vote-card { padding:18px; border-radius:14px; border:1px solid #e5e9e6; border-top:4px solid var(--shark); background:#fbfcfa; font-size:13px; line-height:1.6; transition:opacity .5s,transform .5s; }
+.vote-card.is-pending { opacity:.08; transform:translateY(8px); }
+.vote-card .task-criterion { margin:12px 0; }
+.vote-head { display:flex; align-items:center; gap:10px; }
+.vote-head strong { display:block; font-size:14px; }
+.vote-head small { display:block; color:var(--muted); font-size:11px; }
+.vote-badge { margin-left:auto; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:800; white-space:nowrap; }
+.vote-invest { color:#0b625e; background:#e1f5ee; }
+.vote-pass { color:#993c1d; background:#faece7; }
+.panel-reveal-status { min-height:1.4em; margin:6px 0 0; color:var(--muted); font-size:13px; font-weight:700; }
+.investor-history .history-row { grid-template-columns:1fr auto; }
+.vote-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:18px; }
+@media (prefers-reduced-motion:reduce) { .vote-card,.panel-sharks li { transition:none; } }
+@media(max-width:900px) { .panel-intro { grid-template-columns:1fr; } }
 /* Free lab controls and private usage summary. */
 .lab-customize{margin-top:24px;padding:28px}
 .lab-settings-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:20px 0}
@@ -599,3 +632,27 @@ body.lab-viewer-open { overflow:hidden; }
 .lab-reply-error .lab-reply-bubble{border-color:#ebd9c9;background:#fff8f0}
 .lab-reply-error .lab-reply-bubble:before{border-color:#ebd9c9;background:#fff8f0}
 @media(max-width:500px){.lab-reply{gap:10px}.lab-reply-mascot{flex-basis:58px}.lab-reply-mascot .bruno-art{width:58px}.lab-reply-bubble{padding:12px 14px}.lab-reply-heading small{font-size:10px}}
+/* Бруно-наставник: подсказки-ответы, картина проекта и идеи под сообщением. */
+.quick-replies{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.quick-reply{border:1px solid #d8e5df;background:#f4f8f6;color:#155e57;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer}
+.quick-reply:hover,.quick-reply:focus-visible{background:#e1f5ee;border-color:#16877d}
+.picture-card h3{margin:4px 0 10px}
+.picture-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.picture-list li{border-left:3px solid #d8e5df;padding:2px 0 2px 9px}
+.picture-list li.picture-fact{border-color:#16877d}
+.picture-list li.picture-guess{border-color:#e0a63a}
+.picture-list p{margin:2px 0 0;font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+.picture-list li.picture-unknown p{color:#8a9894}
+.picture-label{font-size:12px;font-weight:700;color:#24332f}
+.picture-label em{font-style:normal;font-weight:600;color:#6c7b77;margin-left:4px}
+.picture-edit{margin-top:12px;font-size:13px}
+.picture-edit summary{cursor:pointer;color:#16877d;font-weight:700}
+.picture-edit form{display:grid;gap:6px;margin-top:8px}
+.picture-edit label{display:grid;gap:3px;font-size:12px;font-weight:700}
+.picture-edit textarea,.picture-edit select{width:100%;border:1px solid #d8e5df;border-radius:8px;padding:5px 8px;font:inherit;font-size:13px}
+.idea-list{margin-top:10px;display:grid;gap:8px}
+.idea-row{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid #d8e5df;border-radius:12px;padding:8px 10px;background:#fbfdfc}
+.idea-row strong{display:block;font-size:13px}
+.idea-row small{display:block;font-size:12px;color:#5d6b67;margin-top:2px}
+.idea-row form{flex:none}
+@media(max-width:600px){.idea-row{flex-direction:column;align-items:stretch}}

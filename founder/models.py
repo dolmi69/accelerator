@@ -285,6 +285,7 @@ class ChatSession(models.Model):
     class Mode(models.TextChoices):
         COFOUNDER = "cofounder", "ИИ-сооснователь"
         PITCH = "pitch", "Симулятор питча"
+        PANEL = "panel", "Панель акул"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     startup = models.ForeignKey(
@@ -307,6 +308,11 @@ class ChatSession(models.Model):
             models.Index(fields=["startup", "-created_at"], name="chat_session_recent"),
         ]
 
+    @property
+    def is_training(self):
+        """Тренировка с инвестором: ответы не становятся фактами о проекте."""
+        return self.mode in {self.Mode.PITCH, self.Mode.PANEL}
+
 
 class ChatMessage(models.Model):
     class Role(models.TextChoices):
@@ -317,6 +323,8 @@ class ChatMessage(models.Model):
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name="messages")
     role = models.CharField(max_length=10, choices=Role.choices)
     content = models.TextField(blank=True)
+    # Кто из акул говорит в панели; пусто для Бруно и основателя.
+    speaker = models.CharField(max_length=12, blank=True, db_default="")
     provider = models.CharField(max_length=40, blank=True)
     model_name = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
@@ -406,8 +414,26 @@ class PitchReport(models.Model):
         ]
 
     def clean(self):
-        if self.session_id and self.session.mode != ChatSession.Mode.PITCH:
+        if self.session_id and not self.session.is_training:
             raise ValidationError("Отчёт возможен только для тренировочного питча.")
+
+
+class PanelVerdict(models.Model):
+    """Голоса трёх акул после панели. Тренировка: радар и факты не меняются."""
+
+    session = models.OneToOneField(ChatSession, on_delete=models.CASCADE, related_name="panel_verdict")
+    # [{shark, decision: invest|pass, reason, quote, condition: {title, instructions, success_criterion}, task_id}]
+    votes = models.JSONField(default=list)
+    ai_model = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    def clean(self):
+        if self.session_id and self.session.mode != ChatSession.Mode.PANEL:
+            raise ValidationError("Голосование возможно только в панели акул.")
+
+    @property
+    def invested(self):
+        return sum(1 for vote in self.votes if vote.get("decision") == "invest")
 
 
 class BusinessAxis(models.TextChoices):
@@ -443,6 +469,31 @@ class BrunoTask(models.Model):
         )]
 
 
+class ProjectPicture(models.Model):
+    """Что Бруно понял о проекте: по каждой теме текст и статус (факт, догадка, неизвестно)."""
+
+    startup = models.OneToOneField(StartupProfile, on_delete=models.CASCADE, related_name='picture')
+    facts = models.JSONField(default=dict, blank=True)
+    gap = models.CharField(max_length=300, blank=True)
+    moves = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class MentorIdea(models.Model):
+    """Идея из «давай подумаем»: её можно одной кнопкой взять в задания."""
+
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='mentor_ideas')
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name='ideas')
+    title = models.CharField(max_length=160)
+    test = models.CharField(max_length=500)
+    axis = models.CharField(max_length=12, choices=BusinessAxis.choices)
+    task = models.ForeignKey(BrunoTask, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+
 class ProjectReview(models.Model):
     """Полный разбор проекта от Бруно: диагноз стадии, риски и план шагов.
 
@@ -452,6 +503,25 @@ class ProjectReview(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='reviews')
     data = models.JSONField(default=dict)
+    ai_model = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+
+class MarketReport(models.Model):
+    """Анализ рынка от Бруно по открытым источникам: актуальность, конкуренты, деньги.
+
+    Конкуренты и цены попадают в отчёт, только если они есть в тексте найденных
+    источников; расчёт денег проекта делает программа по словам основателя.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='market_reports')
+    data = models.JSONField(default=dict)
+    # [{title, url, snippet, published, domain}] — то, что видела модель, под номерами [1], [2]…
+    sources = models.JSONField(default=list, blank=True)
+    queries = models.JSONField(default=list, blank=True)
     ai_model = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 

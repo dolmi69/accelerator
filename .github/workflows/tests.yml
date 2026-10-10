@@ -1,0 +1,32 @@
+# Тесты на каждый пуш и PR: Django (с проверкой миграций) и JS-клиент чата.
+# Ключи AI не нужны: в тестах провайдеры подменены, план наставника выключен.
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  django:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Миграции соответствуют моделям
+        run: python manage.py makemigrations --check --dry-run
+      - name: Тесты Django
+        run: python manage.py test founder
+
+  chat-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Тест клиента чата
+        run: node --test tests/chat_client.test.cjs

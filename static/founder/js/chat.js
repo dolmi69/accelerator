@@ -20,6 +20,19 @@
     fileName.textContent = fileInput.files[0]?.name || "Прикрепить файл";
   });
 
+  // Подсказка под полем ввода отправляется как обычное сообщение.
+  document.querySelectorAll("[data-quick-reply]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      if (button.disabled) return;
+      input.value = chip.dataset.quickReply;
+      form.requestSubmit(button);
+    });
+  });
+
+  // Бруно ещё доделывает прошлый запрос: ждём и повторяем, а не пугаем ошибкой.
+  const BUSY_RETRIES = 4;
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   input.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" || event.shiftKey || event.isComposing || event.keyCode === 229) return;
     event.preventDefault();
@@ -44,7 +57,17 @@
     node.append(avatar, body);
     list.append(node);
     scrollToBottom();
+    content.bubble = { node, avatar, meta };
     return content;
+  }
+
+  // Панель акул: сервер называет говорящего до текста его реплики.
+  function setSpeaker(content, data) {
+    const { node, avatar, meta } = content.bubble;
+    node.className = `message message-assistant shark-${data.speaker}`;
+    avatar.textContent = data.initial || data.name.charAt(0);
+    meta.textContent = data.title ? `${data.name} · ${data.title}` : data.name;
+    content.textContent = `${data.name} думает…`;
   }
 
   form.addEventListener("submit", async (event) => {
@@ -61,7 +84,7 @@
     const finishButton = document.querySelector('[data-pitch-finish] button');
     if (finishButton) finishButton.disabled = true;
     const sent = addMessage("user", text || `Файл: ${attachment.name}`);
-    const answer = addMessage("assistant", "Бруно думает…");
+    let answer = addMessage("assistant", "Бруно думает…");
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 120000);
     let accepted = false;
@@ -69,13 +92,21 @@
     let completed = false;
 
     try {
-      const response = await fetch(form.action, {
-        method: "POST",
-        body: payload,
-        headers: { Accept: "text/event-stream" },
-        credentials: "same-origin",
-        signal: controller.signal,
-      });
+      let response;
+      for (let attempt = 0; ; attempt += 1) {
+        response = await fetch(form.action, {
+          method: "POST",
+          body: payload,
+          headers: { Accept: "text/event-stream" },
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
+        const wait = Number(response.headers && response.headers.get ? response.headers.get("Retry-After") : 0);
+        // 429 приходит до сохранения сообщения, поэтому повтор не создаёт дубль.
+        if (response.status !== 429 || attempt >= BUSY_RETRIES || !(wait > 0 && wait <= 30)) break;
+        answer.textContent = `Бруно заканчивает предыдущий запрос, отвечу через ${wait} с…`;
+        await sleep(wait * 1000);
+      }
       if (response.redirected) {
         rejected = true;
         throw new Error("Сессия завершилась. Войдите в аккаунт снова. Текст остался в поле ввода.");
@@ -116,7 +147,14 @@
           const line = eventText.split("\n").find(item => item.startsWith("data: "));
           if (!line) continue;
           const data = JSON.parse(line.slice(6));
-          if (data.type === "delta") {
+          if (data.type === "speaker") {
+            if (typeof data.name !== "string" || typeof data.speaker !== "string") throw new Error("Неверный формат ответа.");
+            // Пока реплика пуста, переименовываем её; иначе следующий говорящий получает свою.
+            if (started) { answer = addMessage("assistant", ""); started = false; }
+            setSpeaker(answer, data);
+          } else if (data.type === "status") {
+            if (typeof data.text === "string" && !started) answer.textContent = data.text;
+          } else if (data.type === "delta") {
             if (typeof data.text !== "string") throw new Error("Неверный формат ответа.");
             if (!started) { answer.textContent = ""; started = true; }
             answer.textContent += data.text;

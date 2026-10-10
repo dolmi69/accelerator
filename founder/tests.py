@@ -253,7 +253,7 @@ class MVPFlowTests(TestCase):
         self.assertEqual(session.mode, ChatSession.Mode.COFOUNDER)
         self.assertEqual(response.url, reverse("chat_detail", args=[startup.id, session.id]))
         page = self.client.get(response.url)
-        self.assertContains(page, "Расскажи своими словами")
+        self.assertContains(page, "Расскажите своими словами")
         self.assertNotContains(page, "Составить таблицу</button>")
 
     def test_founder_can_edit_all_five_table_explanations(self):
@@ -360,7 +360,7 @@ class GigaChatAdapterTests(TestCase):
             ))
             report = complete_text("Верни JSON", "Текст питча")
 
-        self.assertEqual(text, "Привет!")
+        self.assertEqual(text, "Здравствуйте!")  # Бруно на «вы»: «Привет» модели заменяется
         self.assertIn('"score":70', report)
         self.assertEqual(sum(request.url.path.endswith("/oauth") for request in calls), 1)
 

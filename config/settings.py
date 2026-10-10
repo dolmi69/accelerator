@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 import dj_database_url
@@ -8,13 +9,19 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
+# Без явного DJANGO_DEBUG отладка включена только для локальных команд manage.py
+# (runserver, test, migrate). Боевой сервер (daphne/gunicorn через config.asgi или
+# config.wsgi) стартует с выключенной отладкой и требует свой DJANGO_SECRET_KEY:
+# забытая переменная больше не открывает отладочные страницы и общий ключ.
+RUN_BY_MANAGE = Path(sys.argv[0]).name == "manage.py"
+DEBUG = os.getenv("DJANGO_DEBUG", "1" if RUN_BY_MANAGE else "0") == "1"
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY:
     if DEBUG:
         SECRET_KEY = "django-insecure-local-development-only-change-before-deploy"
     else:
-        raise RuntimeError("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=0")
+        raise RuntimeError("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=0 "
+                           "(a server started without DJANGO_DEBUG=1 runs in production mode)")
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -178,3 +185,9 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_MINI_APP_URL = os.getenv("TELEGRAM_MINI_APP_URL", "")
 CHAT_BUFFERED_RESPONSES = os.getenv("CHAT_BUFFERED_RESPONSES", "0") == "1"
 BRUNO_HISTORY_CHAR_LIMIT = max(9000, min(60000, int(os.getenv("BRUNO_HISTORY_CHAR_LIMIT", "20000"))))
+# Перед ответом Бруно отдельным коротким запросом обновляет картину проекта и
+# выбирает ход наставника. В юнит-тестах выключено: они не должны ходить в сеть.
+BRUNO_MENTOR_PLAN = os.getenv("BRUNO_MENTOR_PLAN", "1") == "1" and sys.argv[1:2] != ["test"]
+# Поиск в открытых источниках для анализа рынка: exa (без ключа через MCP, с EXA_API_KEY через API,
+# DuckDuckGo запасной), duckduckgo или off. В юнит-тестах выключен: они не ходят в сеть.
+MARKET_SEARCH = "off" if sys.argv[1:2] == ["test"] else os.getenv("MARKET_SEARCH", "exa").lower()
