@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% load l10n %}
+{% block title %}Счёт {{ invoice.order_id }} · Co-Founder.AI{% endblock %}
+{% block content %}
+<section class="pay-card-wrap">
+  <div class="pay-card" id="invoice-card" data-status-url="{% url 'invoice_status' invoice.id %}"
+       data-confirmations="{{ required }}">
+    <span class="eyebrow">СЧЁТ {{ invoice.order_id }}</span>
+    <h1>{{ invoice.amount_expected_text }} USDT</h1>
+    {% if invoice.description %}<p class="pay-lead">{{ invoice.description }}</p>{% endif %}
+
+    <div class="pay-qr"><img src="{% url 'invoice_qr' invoice.id %}" alt="QR-код адреса" width="220" height="220"></div>
+
+    <p class="pay-label">Адрес (сеть Tron / TRC-20)</p>
+    <code class="pay-address" id="pay-address">{{ invoice.address }}</code>
+
+    <div class="pay-status">
+      {% if invoice.is_paid %}
+        <span class="pay-badge pay-badge-paid" data-badge>Оплачено</span>
+      {% else %}
+        <span class="pay-badge pay-badge-wait" data-badge>Ожидаем оплату</span>
+      {% endif %}
+    </div>
+
+    <p class="pay-hint" data-hint>
+      Отправьте ровно {{ invoice.amount_expected_text }} USDT (TRC-20) на этот адрес.
+      Зачисление — после {{ required }} подтверждений сети.
+    </p>
+    <p class="pay-order">Номер пополнения: {{ invoice.order_id }} · <a href="{% url 'wallet' %}">← К балансу</a></p>
+  </div>
+</section>
+<style>
+  .pay-card-wrap { max-width: 520px; margin: 32px auto; padding: 0 16px; }
+  .pay-card { background:#fff; border:1px solid #e6e6ef; border-radius:18px; padding:28px;
+              box-shadow:0 12px 40px rgba(20,20,60,.08); text-align:center; }
+  .pay-card h1 { margin:.2em 0 .4em; font-size:1.8rem; }
+  .pay-lead { color:#555; margin-bottom:16px; }
+  .pay-qr { margin:12px auto; }
+  .pay-qr img { border-radius:12px; }
+  .pay-label { font-size:.8rem; color:#888; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+  .pay-address { display:block; word-break:break-all; background:#f5f5fa; border-radius:10px;
+                 padding:10px 12px; font-size:.95rem; }
+  .pay-badge { display:inline-block; padding:6px 14px; border-radius:999px; font-weight:600; margin-top:12px; }
+  .pay-badge-wait { background:#fff4d6; color:#8a6100; }
+  .pay-badge-paid { background:#d9f7e3; color:#0d7a3d; }
+  .pay-badge-expired { background:#fde2e2; color:#a11; }
+  .pay-hint { color:#666; font-size:.9rem; }
+  .pay-order { color:#999; font-size:.8rem; margin-top:16px; }
+</style>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var card = document.getElementById('invoice-card');
+  if (!card || {{ invoice.is_paid|yesno:"true,false" }}) return;
+  var url = card.getAttribute('data-status-url');
+  var timer;
+
+  function setBadge(cls, text) {
+    var badge = card.querySelector('[data-badge]');
+    if (badge) { badge.className = 'pay-badge ' + cls; badge.textContent = text; }
+  }
+
+  function tick() {
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data) return;
+        if (data.is_paid) {
+          setBadge('pay-badge-paid', 'Оплачено');
+          var hint = card.querySelector('[data-hint]');
+          if (hint) hint.textContent = 'Оплата получена. Спасибо!';
+          clearInterval(timer);
+        } else if (data.status === 'expired') {
+          setBadge('pay-badge-expired', 'Счёт истёк');
+          clearInterval(timer);
+        }
+      })
+      .catch(function () {});
+  }
+
+  timer = setInterval(tick, 5000);
+  tick();
+})();
+</script>
+{% endblock %}

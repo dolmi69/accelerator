@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Пополнение · Co-Founder.AI{% endblock %}
+{% block content %}
+<section class="pay-card-wrap">
+  <div class="pay-card">
+    <h1>Пополнение баланса</h1>
+    <p class="pay-lead">Введите сумму — получите адрес и QR. Баланс пополнится после подтверждения сети.</p>
+
+    {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+    {% if not enabled %}<div class="flash flash-warning">Приём оплаты выключен (PAYMENTS_ENABLED=0).</div>{% endif %}
+
+    <form method="post" action="{% url 'topup_create' %}">
+      {% csrf_token %}
+      <label>Сумма, USDT
+        <input type="text" name="amount" inputmode="decimal" placeholder="10.00" required autofocus>
+      </label>
+      <button type="submit" class="pay-button">Получить адрес</button>
+    </form>
+    <p class="pay-order"><a href="{% url 'wallet' %}">← Назад к балансу</a></p>
+  </div>
+</section>
+<style>
+  .pay-card-wrap { max-width: 520px; margin: 32px auto; padding: 0 16px; }
+  .pay-card { background:#fff; border:1px solid #e6e6ef; border-radius:18px; padding:28px;
+              box-shadow:0 12px 40px rgba(20,20,60,.08); text-align:center; }
+  .pay-card h1 { margin:.2em 0 .4em; font-size:1.8rem; }
+  .pay-lead { color:#555; margin-bottom:16px; }
+  .pay-card label { display:block; text-align:left; margin:12px 0; font-size:.9rem; color:#444; }
+  .pay-card input { width:100%; padding:10px 12px; border:1px solid #d5d5e2; border-radius:10px; margin-top:6px; }
+  .pay-button { background:#1f1f4d; color:#fff; border:0; border-radius:10px; padding:12px 20px;
+                font-weight:600; cursor:pointer; margin-top:8px; }
+  .pay-order { color:#999; font-size:.85rem; margin-top:16px; }
+  .flash-warning { background:#fff4d6; color:#8a6100; padding:10px 12px; border-radius:10px; margin-bottom:12px; }
+</style>
+{% endblock %}

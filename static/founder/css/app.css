@@ -15,6 +15,8 @@ button { cursor:pointer; }
 .topnav a:hover,.link-button:hover { color:var(--teal); }
 .topnav .nav-cta { color:#fff; background:var(--teal); padding:11px 17px; border-radius:10px; }
 .topnav .nav-cta:hover { color:#fff; background:var(--teal-dark); }
+.topnav .wallet-chip { display:inline-flex; align-items:center; border:1px solid var(--line); border-radius:999px; padding:8px 14px; color:var(--ink); background:var(--white); white-space:nowrap; }
+.topnav .wallet-chip:hover { color:var(--teal); border-color:var(--teal); }
 .topnav a[aria-current="page"] { color:var(--teal-dark); }
 .user-pill { color:var(--muted); font-size:13px; }
 .inline-form { display:inline; }

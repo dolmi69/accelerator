@@ -25,6 +25,7 @@
           <a href="{% url 'community' %}">Сообщество</a>
           <a href="{% url 'inbox' %}">Сообщения <span class="unread-badge" data-unread-count {% if not direct_unread %}hidden{% endif %}>{{ direct_unread }}</span></a>
           {% if startup %}<a href="{% url 'dashboard' startup.id %}">Проект</a>{% endif %}
+          {% if wallet_balance %}<a class="wallet-chip" href="{% url 'wallet' %}" title="Кошелёк и баланс">Кошелёк: {{ wallet_balance.amount_text }} USDT</a>{% endif %}
           <a class="account-profile-link" href="{% url 'my_profile' %}" aria-label="Открыть профиль">{% include 'profiles/_avatar.html' with member=request.user %}</a>
         {% else %}
           <a href="{% url 'login' %}">Войти</a>
