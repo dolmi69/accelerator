@@ -77,6 +77,16 @@ class RequestProtectionTests(TestCase):
         release_ai_lease(self.user.pk, new)
         acquire_ai_lease(self.user.pk)
 
+    def test_long_lab_request_keeps_lease_after_original_ten_minutes(self):
+        started = timezone.now()
+        with patch('founder.services.request_limits.timezone.now', return_value=started):
+            token = acquire_ai_lease(self.user.pk, ttl_seconds=3180)
+        with patch('founder.services.request_limits.timezone.now', return_value=started + timedelta(minutes=11)):
+            with self.assertRaises(RequestLimitExceeded):
+                acquire_ai_lease(self.user.pk)
+            release_ai_lease(self.user.pk, token)
+            acquire_ai_lease(self.user.pk)
+
     @override_settings(CHAT_BUFFERED_RESPONSES=False)
     def test_stream_lease_lasts_until_done_and_releases_on_validation_error(self):
         with patch("founder.views.stream_reply", return_value=iter(["Ответ"])):

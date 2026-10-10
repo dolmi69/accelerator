@@ -3,11 +3,18 @@ from django.contrib.auth import views as auth
 from django.urls import path
 from core import views
 from core import account_views as accounts, module_views as modules, payments
+from core import app_api
 
 urlpatterns = [
     path("", views.home, name="home"),
     path("health/", views.health, name="health"),
     path("prototype/", views.prototype, name="prototype"),
+    path('app-api/session/', app_api.session, name='app_session'),
+    path('app-api/results/', app_api.results, name='app_results'),
+    path('app-api/results/save/', app_api.save_result, name='app_save_result'),
+    path('app-api/results/share/', app_api.share_result, name='app_share_result'),
+    path('app-api/recipients/', app_api.recipients, name='app_recipients'),
+    path('results/', app_api.saved_results_page, name='saved_results'),
     path("register/", views.register, name="register"),
     path("login/", views.LoginView.as_view(template_name="auth.html", extra_context={"heading": "Войти"}), name="login"),
     path("logout/", auth.LogoutView.as_view(), name="logout"),

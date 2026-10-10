@@ -83,7 +83,7 @@ class LabCustomizeForm(forms.Form):
 class LabBackendModulesForm(forms.Form):
     from founder.services.backend_modules import MODULE_CHOICES
     modules = forms.MultipleChoiceField(label='Готовые модули',choices=MODULE_CHOICES,
-        required=False,widget=forms.CheckboxSelectMultiple)
+        required=False,widget=forms.CheckboxSelectMultiple(attrs={"form": "lab-form"}))
 
 
 class MetricsForm(forms.ModelForm):

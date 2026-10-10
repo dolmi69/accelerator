@@ -1,4 +1,7 @@
-{% extends 'base.html' %}
-{% block content %}
+{% load static %}
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ project_site.name }}</title><link rel="stylesheet" href="{% static 'site-theme.css' %}"><link rel="stylesheet" href="{% static 'app-navigation.css' %}"><link rel="stylesheet" href="{% static 'site.css' %}"></head>
+<body class="lab-home-shell">{% include '_lab_return.html' %}
 <iframe class="prototype" src="{% url 'prototype' %}" title="Главная страница {{ project_site.name }}" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
-{% endblock %}
+{% include '_app_actions.html' %}
+{{ app_routes|json_script:'lab-app-routes' }}<script src="{% static 'app-shell.js' %}" defer></script></body></html>

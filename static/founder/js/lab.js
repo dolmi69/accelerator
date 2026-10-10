@@ -24,6 +24,7 @@
       url.hash = '';
       history.pushState(history.state, '', url);
     }
+    document.dispatchEvent(new Event('lab:preview-state'));
   }
   const sectionFromUrl = () => location.hash === '#lab-results' || new URL(location.href).searchParams.get('section') === 'globalization'
     ? 'globalization' : 'development';
@@ -42,11 +43,32 @@
   }
   if (location.hash === '#lab-results') document.getElementById('lab-results')?.scrollIntoView();
 
-  form.addEventListener('submit', () => {
+  let generating = false;
+  const forge = document.getElementById('lab-forge');
+  function lockPrototype() {
+    generating = true;
+    forge.hidden = false;
+    const reply = document.getElementById('lab-reply');
+    if (reply) {
+      reply.hidden = true;
+    }
+    const preview = document.getElementById('lab-site-frame');
+    if (preview) {
+      preview.inert = true;
+      preview.setAttribute('aria-hidden', 'true');
+    }
+    document.querySelectorAll('.lab-preview-actions, .lab-site-details, #lab-publication, .lab-editor').forEach(node => { node.inert = true; });
+    document.querySelectorAll('[data-lab-expand]').forEach(node => { node.disabled = true; });
+    document.querySelector('.lab-preview-card')?.setAttribute('aria-busy', 'true');
+    document.dispatchEvent(new Event('lab:preview-state'));
+  }
+  form.addEventListener('submit', event => {
+    if (event.submitter?.hasAttribute('formaction')) return;
+    if (generating) { event.preventDefault(); return; }
     if (!form.checkValidity()) return;
-    const button = document.querySelector('button[form="lab-form"]');
-    button.disabled = true;
-    button.textContent = 'Применяем запрос…';
+    lockPrototype();
+    const button = event.submitter;
+    if (button) { button.disabled = true; button.textContent = 'Бруно работает…'; }
     document.getElementById('lab-status').textContent = 'Ожидаем ответ. Это может занять до нескольких минут.';
   });
   window.addEventListener('pageshow', event => {
@@ -54,35 +76,41 @@
   });
 
   const dialog = document.getElementById('lab-viewer');
-  if (!dialog?.showModal) return; // Normal POST still opens a site with a return link.
-  const frame = document.getElementById('lab-viewer-frame');
-  const status = document.getElementById('lab-viewer-status');
+  if (!dialog) return;
+  // One iframe stays in place: fullscreen changes its container's size only.
+  // Navigated pages, entered forms and WebSocket connections stay intact.
+  const frame = document.getElementById('lab-site-frame');
+  const status = document.getElementById('lab-preview-status');
+  const retry = document.getElementById('lab-preview-retry');
+  const previewRun = document.getElementById('lab-preview-run');
+  const staticUrl = previewRun ? null : frame.getAttribute('src');
   const closeButton = dialog.querySelector('.lab-viewer-close');
-  let previousFocus, previousScroll, expectedOrigin, launchId = 0, pending = false;
+  let previousFocus, previousScroll, expectedOrigin = 'null', pending = false;
 
   function openViewer(trigger) {
-    if (dialog.open) return;
+    if (generating || dialog.open || !dialog.showModal) return;
     previousFocus = trigger;
     previousScroll = {x: window.scrollX, y: window.scrollY};
     document.body.classList.add('lab-viewer-open');
     dialog.showModal();
+    document.dispatchEvent(new Event('lab:preview-state'));
     closeButton.focus({preventScroll: true});
   }
 
   function closeViewer() {
     if (!dialog.open) return;
-    launchId += 1; // A pending server launch may finish, but must not reopen a closed viewer.
     dialog.close();
+    document.dispatchEvent(new Event('lab:preview-state'));
     document.body.classList.remove('lab-viewer-open');
     previousFocus?.focus({preventScroll: true});
-    const position = previousScroll;
+    const position = previousScroll || {x: 0, y: 0};
     requestAnimationFrame(() => window.scrollTo(position.x, position.y));
   }
 
   function showSite(url, backend) {
     expectedOrigin = backend ? new URL(url).origin : 'null';
     status.hidden = true;
-    // Retain the embedded site's page and form state when reopened at the same URL.
+    // A repeated launch of the same build must not reset an open inner page.
     if (frame.dataset.siteUrl !== url) {
       frame.setAttribute('sandbox', backend
         ? 'allow-scripts allow-same-origin allow-forms allow-downloads' : 'allow-scripts');
@@ -104,49 +132,91 @@
         && event.origin === expectedOrigin && event.data?.type === 'cofounder:lab-exit') closeViewer();
   });
 
-  document.querySelectorAll('[data-lab-preview]').forEach(button => {
-    button.addEventListener('click', () => {
-      if (pending) return;
+  document.querySelectorAll('[data-lab-expand]').forEach(button => {
+    button.addEventListener('click', async () => {
+      if (window.labWorkspace && !window.labWorkspace.active) await reopenSite();
       openViewer(button);
-      showSite(button.dataset.labPreview, false);
     });
   });
-  document.querySelectorAll('.lab-run-form').forEach(run => {
-    run.addEventListener('submit', async event => {
-      event.preventDefault();
-      if (pending) return;
-      pending = true;
-      const button = run.querySelector('button');
-      const label = button.textContent;
-      button.disabled = true;
-      button.textContent = 'Запускаем…';
-      openViewer(button);
-      frame.hidden = true;
-      status.textContent = 'Запускаем сайт. Это может занять несколько секунд…';
-      status.hidden = false;
-      const requestId = ++launchId;
-      try {
-        const response = await fetch(run.action, {
-          method: 'POST', body: new FormData(run), credentials: 'same-origin',
-          headers: {'Accept': 'application/json'},
-        });
-        if (!response.headers.get('content-type')?.includes('application/json')) {
-          throw new Error('Не удалось открыть сайт. Обновите лабораторию и попробуйте ещё раз.');
-        }
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Не удалось запустить сайт.');
-        const url = new URL(data.url);
-        if (url.protocol !== 'http:' || url.hostname !== window.location.hostname || Number(url.port) < 1024) {
-          throw new Error('Получен некорректный адрес предпросмотра.');
-        }
-        if (dialog.open && requestId === launchId) showSite(url.href, true);
-      } catch (error) {
-        if (dialog.open && requestId === launchId) status.textContent = error.message;
-      } finally {
-        pending = false;
-        button.disabled = false;
-        button.textContent = label;
+  document.addEventListener('lab:workspace-change', event => {
+    if (event.detail.active) return;
+    closeViewer();
+    frame.hidden = true;
+    frame.removeAttribute('src');
+    delete frame.dataset.siteUrl;
+    status.querySelector('p').textContent = 'Предпросмотр закрыт: вы перешли в другой проект.';
+    status.hidden = false;
+    retry.hidden = false;
+  });
+  async function launchSite(run, reactivate = false) {
+    if (generating || pending) return;
+    pending = true;
+    retry.hidden = true;
+    frame.hidden = true;
+    status.querySelector('p').textContent = 'Запускаем сайт. Это может занять несколько секунд…';
+    status.hidden = false;
+    try {
+      const workspace = window.labWorkspace;
+      if (workspace) {
+        const selected = await (reactivate ? workspace.activate() : workspace.ready);
+        if (selected.error) throw selected.error;
+        if (!workspace.active) return;
       }
+      const dataForm = new FormData(run);
+      if (workspace?.token) dataForm.set('selection_token', workspace.token);
+      const response = await fetch(run.action, {
+        method: 'POST', body: dataForm, credentials: 'same-origin',
+        headers: {'Accept': 'application/json'},
+      });
+      if (!response.headers.get('content-type')?.includes('application/json')) {
+        throw new Error('Не удалось открыть сайт. Обновите лабораторию и попробуйте ещё раз.');
+      }
+      const data = await response.json();
+      if (workspace && !workspace.active) return;
+      if (!response.ok) throw new Error(data.error || 'Не удалось запустить сайт.');
+      const url = new URL(data.url);
+      if (url.protocol !== 'http:' || url.hostname !== window.location.hostname
+          || Number(url.port) < 1024 || url.origin === window.location.origin
+          || url.username || url.password) {
+        throw new Error('Получен некорректный адрес предпросмотра.');
+      }
+      showSite(url.href, true);
+      const labUrl = new URL(window.location.href);
+      if (labUrl.searchParams.has('paused')) {
+        labUrl.searchParams.delete('paused');
+        history.replaceState(history.state, '', labUrl);
+      }
+      // Closing fullscreen during startup keeps the loaded site in the small
+      // preview, without unexpectedly reopening the viewer.
+    } catch (error) {
+      status.querySelector('p').textContent = window.labWorkspace && !window.labWorkspace.active
+        ? 'Предпросмотр закрыт: вы перешли в другой проект.' : error.message;
+      retry.hidden = !previewRun;
+    } finally {
+      pending = false;
+    }
+  }
+  async function reopenSite() {
+    if (previewRun) return launchSite(previewRun, true);
+    try {
+      await window.labWorkspace?.activate();
+      if (staticUrl) showSite(staticUrl, false);
+    } catch (error) {
+      status.querySelector('p').textContent = error.message;
+      status.hidden = false;
+    }
+  }
+  retry.addEventListener('click', reopenSite);
+  document.querySelectorAll('.lab-run-form').forEach(run => {
+    run.addEventListener('submit', event => {
+      event.preventDefault();
+      if (generating || pending) return;
+      openViewer(run.querySelector('button'));
+      launchSite(run, true);
     });
   });
+  if (previewRun) {
+    if (previewRun.dataset.autostart === '1') launchSite(previewRun);
+    else retry.hidden = false;
+  }
 })();

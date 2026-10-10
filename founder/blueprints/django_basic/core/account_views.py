@@ -31,7 +31,7 @@ def profile(request):
         else:
             messages.success(request, 'Профиль сохранён.')
             return redirect('profile')
-    return form_page(request, form, 'Мой профиль', profile=form.profile)
+    return render(request, 'profile.html', {'form': form, 'profile': form.profile})
 
 
 @require_GET

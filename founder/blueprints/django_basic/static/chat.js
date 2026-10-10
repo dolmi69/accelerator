@@ -20,8 +20,9 @@
       time.textContent = new Date(message.created_at).toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
       row.append(name, text, time);
       const next = Array.from(list.children).find(node => Number(node.dataset.id) > message.id);
+      const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 100;
       list.insertBefore(row, next || null); seen.add(message.id); last = Math.max(last, message.id);
-      list.scrollTop = list.scrollHeight;
+      if (nearBottom || String(message.sender_id) === chat.dataset.user) list.scrollTop = list.scrollHeight;
     }
     if (pending && message.nonce === pending.nonce) {
       if (input.value.trim() === pending.content) input.value = '';

@@ -7,14 +7,17 @@ from django.urls import reverse
 
 from founder.models import LabSiteVersion, StartupProfile, User
 from founder.services.qwen import CodeResult, QwenError
+from founder.services.lab_design import design_context
 
 
 HTML = '<!doctype html><html><head><title>Test</title></head><body><button>OK</button></body></html>'
 
 
-@override_settings(LAB_REQUESTS_PER_DAY=10)
+@override_settings(LAB_REQUESTS_PER_DAY=10, QWEN_CODE_MAX_TOKENS=16384, LAB_CREATE_MAX_TOKENS=16384)
 class LabTests(TestCase):
     def setUp(self):
+        from founder.test_lab_support import install_lab_mocks
+        install_lab_mocks(self)
         self.user = User.objects.create_user(username="lab_owner", email="lab@example.test")
         self.other = User.objects.create_user(username="lab_other", email="lab2@example.test")
         self.startup = StartupProfile.objects.create(owner=self.user, name="My site")
@@ -23,6 +26,16 @@ class LabTests(TestCase):
 
     def route(self, name, startup=None, *parts):
         return reverse(name, args=[startup or self.startup.pk, *parts])
+
+    def test_ai_failure_releases_lease_without_response_middleware(self):
+        from founder.services.request_limits import acquire_ai_lease, release_ai_lease
+        from founder.security_middleware import RequestProtectionMiddleware
+        with patch.object(RequestProtectionMiddleware, 'process_response', lambda self, request, response: response), \
+             patch('founder.lab_views.generate_site', side_effect=QwenError('Ошибка API')):
+            response = self.client.post(self.route('lab_generate'), {'prompt': 'Сделай новый дизайн'})
+        self.assertEqual(response.status_code, 503)
+        token = acquire_ai_lease(self.user.pk)
+        release_ai_lease(self.user.pk, token)
 
     def test_create_revise_and_preview_privately(self):
         with patch("founder.lab_views.generate_site", return_value=CodeResult(
@@ -34,7 +47,8 @@ class LabTests(TestCase):
             self.assertEqual(first.startup, self.startup)
             self.assertIsNone(first.source)
             self.assertEqual((first.input_tokens, first.output_tokens), (41, 83))
-            generate.assert_called_with("Сделай страницу", previous_html="", max_tokens=6144)
+            generate.assert_called_with("Сделай страницу", previous_html="", max_tokens=16384,
+                project_context=design_context(self.startup, []), report=True)
 
             response = self.client.post(self.route("lab_generate"), {
                 "prompt": "Добавь кнопку", "source_version": str(first.pk),
@@ -42,7 +56,8 @@ class LabTests(TestCase):
             self.assertRedirects(response, self.route("lab"))
             second = LabSiteVersion.objects.exclude(pk=first.pk).get()
             self.assertEqual(second.source, first)
-            generate.assert_called_with("Добавь кнопку", previous_html=HTML, max_tokens=6144)
+            generate.assert_called_with("Добавь кнопку", previous_html=HTML, max_tokens=16384,
+                project_context=design_context(self.startup, [], source=first), report=True)
 
         page = self.client.get(self.route("lab") + f"?version={first.pk}")
         self.assertContains(page, 'sandbox="allow-scripts"')
@@ -64,7 +79,8 @@ class LabTests(TestCase):
             self.client.post(self.route("lab_generate"), {
                 "prompt": "Новый", "source_version": str(old.pk), "start_new": "1",
             })
-        generate.assert_called_with("Новый", previous_html="", max_tokens=6144)
+        generate.assert_called_with("Новый", previous_html="", max_tokens=16384,
+            project_context=design_context(self.startup, []), report=True)
 
     def test_access_and_bad_input_cannot_spend(self):
         foreign_version = LabSiteVersion.objects.create(
@@ -118,12 +134,30 @@ class LabTests(TestCase):
         self.assertContains(global_page, 'data-lab-panel="development" hidden')
         self.assertContains(global_page, 'data-lab-panel="globalization"  aria-labelledby')
 
+    def test_large_design_has_scope_control_inside_existing_tools(self):
+        version = LabSiteVersion.objects.create(startup=self.startup, prompt='Large',
+            html=HTML.replace('<button>OK</button>', '<section id="hero">'+('content '*2500)+'</section><section id="contact">Контакты</section>'), model='Qwen')
+        page = self.client.get(self.route('lab') + f'?version={version.pk}')
+        self.assertNotContains(page, 'Область AI-правки')
+        self.assertNotContains(page, 'id_edit_scope')
+        self.assertNotContains(page, '<option value="full"')
+        self.assertNotContains(page, 'id_rebuild')
+
     @override_settings(LAB_REQUESTS_PER_DAY=1)
     def test_paid_generation_has_daily_cap(self):
         with patch("founder.lab_views.generate_site", return_value=CodeResult(HTML, "Qwen", 4, 8)) as generate:
             self.assertEqual(self.client.post(self.route("lab_generate"), {"prompt": "Первая"}).status_code, 302)
             self.assertEqual(self.client.post(self.route("lab_generate"), {"prompt": "Вторая"}).status_code, 429)
             self.assertEqual(generate.call_count, 1)
+
+    @override_settings(LAB_REQUESTS_PER_DAY=0)
+    def test_disabled_personal_cap_ignores_previously_used_quota(self):
+        from founder.services.request_limits import consume_limit
+        consume_limit(f"lab-day:{self.user.pk}", 1, 86400)
+        with patch("founder.lab_views.generate_site", return_value=CodeResult(HTML, "Qwen", 4, 8)) as generate:
+            for prompt in ("Первая", "Вторая"):
+                self.assertEqual(self.client.post(self.route("lab_generate"), {"prompt": prompt}).status_code, 302)
+            self.assertEqual(generate.call_count, 2)
 
     @override_settings(LAB_GLOBAL_REQUESTS_PER_DAY=1)
     def test_global_cap_covers_different_accounts(self):

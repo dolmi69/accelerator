@@ -1,0 +1,27 @@
+/* Shared module styling follows the generated site's design tokens. */
+.lab-app-navigation{box-sizing:border-box!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:16px!important;flex-wrap:wrap!important;width:100%!important;margin:0 0 24px!important;padding:0 0 18px!important;border:0!important;border-bottom:1px solid color-mix(in srgb,var(--app-ink) 14%,transparent)!important;background:transparent!important;font-family:var(--app-font)!important;color:var(--app-ink)!important;line-height:1.4!important}
+.lab-app-navigation .lab-app-brand{font-size:18px!important;font-weight:750!important;text-decoration:none!important;overflow-wrap:anywhere!important;color:var(--app-ink)!important;flex:1 1 160px!important}
+.lab-app-navigation .lab-app-links{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:8px 14px!important;max-width:100%!important}
+.lab-app-navigation a.lab-app-link{font:600 14px/1.4 var(--app-font)!important;display:inline-flex!important;align-items:center!important;text-decoration:none!important;background:transparent!important;color:var(--app-accent)!important;border:0!important;margin:0!important;padding:8px 0!important;width:auto!important;white-space:normal!important}
+.lab-app-navigation a.lab-app-primary{background:var(--app-accent)!important;color:#fff!important;border-radius:var(--app-radius)!important;padding:10px 16px!important}
+.lab-app-navigation a:focus-visible{outline:2px solid var(--app-accent)!important;outline-offset:4px!important}
+header.lab-module-header{background:var(--app-surface);border-color:var(--line);font-family:var(--app-font)}
+header.lab-module-header .lab-app-navigation{margin:0!important;padding:0!important;border:0!important}
+body.lab-module-page{font-family:var(--app-font);background:var(--app-background);color:var(--app-ink);--accent:var(--app-accent);--ink:var(--app-ink);--muted:var(--app-muted);--bg:var(--app-surface);--line:color-mix(in srgb,var(--app-ink) 15%,transparent)}
+.lab-module-page .card,.lab-module-page input,.lab-module-page select,.lab-module-page textarea{background:var(--app-surface);color:var(--app-ink)}
+.lab-module-page button,.lab-module-page .button,.lab-module-page input,.lab-module-page select,.lab-module-page textarea{border-radius:var(--app-radius);font-family:var(--app-font)}
+.lab-module-page .message{background:color-mix(in srgb,var(--app-accent) 8%,var(--app-surface))}.lab-module-page .message.own{background:color-mix(in srgb,var(--app-accent) 18%,var(--app-surface))}
+.lab-home-shell{margin:0;background:var(--app-background);overflow-x:hidden}.lab-home-shell .prototype{display:block;width:100%;height:100vh;min-height:100vh;border:0;border-radius:0;background:var(--app-background)}
+@media(max-width:600px){.lab-app-navigation{gap:10px!important;margin-bottom:18px!important}.lab-app-navigation .lab-app-links{gap:4px 12px!important}.lab-app-navigation a.lab-app-link{font-size:13px!important}.lab-app-navigation .lab-app-brand{flex-basis:100%!important}}
+/* Compact account navigation also works inside the sandboxed prototype. */
+.lab-app-navigation .account-menu{position:relative!important;font-family:var(--app-font)!important;color:var(--app-ink)!important;margin:0!important;line-height:1.4!important}
+.lab-app-navigation .account-menu>summary{display:flex!important;align-items:center!important;gap:8px!important;cursor:pointer!important;list-style:none!important;font:600 13px/1.4 var(--app-font)!important;min-height:44px!important;padding:2px 0!important;max-width:250px!important}
+.lab-app-navigation .account-menu>summary::-webkit-details-marker{display:none!important}
+.lab-app-navigation .account-menu>summary>span:not(.nav-avatar){max-width:170px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.lab-app-navigation .nav-avatar{width:30px!important;height:30px!important;display:grid!important;place-items:center!important;border-radius:10px!important;color:var(--app-accent)!important;background:color-mix(in srgb,var(--app-accent) 10%,var(--app-surface))!important;flex-shrink:0!important}
+.lab-app-navigation .account-dropdown{position:absolute!important;right:0!important;top:calc(100% + 8px)!important;z-index:50!important;min-width:210px!important;max-width:calc(100vw - 32px)!important;display:flex!important;flex-direction:column!important;gap:0!important;border:1px solid color-mix(in srgb,var(--app-ink) 14%,var(--app-surface))!important;background:var(--app-surface)!important;border-radius:14px!important;box-shadow:0 12px 32px color-mix(in srgb,var(--app-ink) 10%,transparent)!important;padding:8px!important}
+.lab-app-navigation .account-menu:not([open]) .account-dropdown{display:none!important}
+.lab-app-navigation .account-dropdown a.lab-app-link{padding:12px!important;font-size:13px!important;border-radius:8px!important;color:var(--app-ink)!important}
+.lab-app-navigation .account-dropdown a:hover{background:color-mix(in srgb,var(--app-accent) 8%,var(--app-surface))!important}
+.lab-app-navigation a[aria-current=page]{color:var(--app-ink)!important;text-decoration:underline!important;text-underline-offset:6px!important}
+.lab-app-navigation .account-menu>summary:focus-visible{outline:2px solid var(--app-accent)!important;outline-offset:3px!important;border-radius:8px!important}

@@ -1,0 +1,245 @@
+{# Imported from assets/bruno/forge-v3-claude.html; styles are scoped to this component. #}
+<section class="lab-forge lab-forge3-forge" id="lab-forge" hidden role="status" aria-live="polite" aria-atomic="true">
+  <div class="lab-forge3-forge-scene">
+    <!-- Внешний svg задаёт кадрирование; внутренний — систему координат 0 0 420 440,
+         в которой записаны все точки суставов (transform-origin в CSS). -->
+    <svg class="lab-forge3-forge-svg" viewBox="-12 52 444 384" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <svg x="0" y="0" width="420" height="440" viewBox="0 0 420 440" overflow="visible">
+      <defs>
+        <!-- силуэт Бруно: широкий «мармеладный» корпус, голова и тело одно целое -->
+        <path id="lab-forge3-body-shape" d="M211 66C263 64 305 79 318 118C331 158 346 226 350 292C354 357 322 397 211 398C100 397 68 357 72 292C76 226 91 158 104 118C117 79 159 68 211 66Z"/>
+        <clipPath id="lab-forge3-clip-body"><use href="#lab-forge3-body-shape"/></clipPath>
+        <!-- всё, что ниже воротника — рубашка -->
+        <clipPath id="lab-forge3-clip-shirt"><path d="M40 205Q96 196 150 212Q178 222 211 255Q244 222 272 212Q326 196 382 205V318Q300 334 211 334Q122 334 40 318Z"/></clipPath>
+        <clipPath id="lab-forge3-clip-eye-l"><ellipse cx="164" cy="150" rx="27" ry="32" transform="rotate(-6 164 150)"/></clipPath>
+        <clipPath id="lab-forge3-clip-lid-l"><ellipse cx="164" cy="150" rx="29" ry="34" transform="rotate(-6 164 150)"/></clipPath>
+        <clipPath id="lab-forge3-clip-lid-r"><ellipse cx="258" cy="146" rx="29" ry="34" transform="rotate(6 258 146)"/></clipPath>
+        <clipPath id="lab-forge3-clip-eye-r"><ellipse cx="258" cy="146" rx="27" ry="32" transform="rotate(6 258 146)"/></clipPath>
+
+        <radialGradient id="lab-forge3-g-light" cx="166" cy="300" r="170" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#ffa646" stop-opacity=".3"/>
+          <stop offset=".5" stop-color="#ffa646" stop-opacity=".08"/>
+          <stop offset="1" stop-color="#ffb35a" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="lab-forge3-g-hot">
+          <stop offset="0" stop-color="#ffd27a" stop-opacity=".9"/>
+          <stop offset=".5" stop-color="#ff9a3d" stop-opacity=".35"/>
+          <stop offset="1" stop-color="#ff9a3d" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="lab-forge3-g-bar" x1="126" y1="0" x2="240" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#ffd877"/>
+          <stop offset=".3" stop-color="#ffa338"/>
+          <stop offset=".55" stop-color="#e2582a"/>
+          <stop offset=".75" stop-color="#8b3a24"/>
+          <stop offset="1" stop-color="#4c4542"/>
+        </linearGradient>
+        <linearGradient id="lab-forge3-g-anvil" x1="0" y1="304" x2="0" y2="372" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#6f7d84"/>
+          <stop offset="1" stop-color="#4a575e"/>
+        </linearGradient>
+        <linearGradient id="lab-forge3-g-steel" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#a9b6bb"/>
+          <stop offset=".45" stop-color="#7a888f"/>
+          <stop offset="1" stop-color="#55636a"/>
+        </linearGradient>
+      </defs>
+
+      <!-- ===== ФОН: тёплое пятно и тень ===== -->
+      <ellipse cx="211" cy="236" rx="186" ry="176" fill="#f6e9d8" opacity=".55"/>
+      <ellipse cx="211" cy="424" rx="150" ry="9" fill="#6d5a45" opacity=".14"/>
+
+      <!-- ===== НОГИ: стоят на месте, верх спрятан под корпусом ===== -->
+      <g class="lab-forge3-bruno-legs">
+        <path d="M110 352H162L164 410Q164 422 151 422H121Q107 422 107 409Z" fill="#6c3520"/>
+        <path d="M260 352H312L315 409Q315 422 301 422H271Q258 422 258 410Z" fill="#6c3520"/>
+        <path d="M122 421L123 413M136 421V413M286 421V413M300 421L299 413" stroke="#55281a" stroke-width="3" stroke-linecap="round"/>
+      </g>
+
+      <!-- ===== ТЕЛО ===== -->
+      <g class="lab-forge3-bruno-body lab-forge3-rig">
+        <!-- уши (вторичное движение после удара) -->
+        <g class="lab-forge3-ear-l lab-forge3-rig"><circle cx="118" cy="94" r="30" fill="#974e2b"/><circle cx="121" cy="97" r="16" fill="#73371f"/></g>
+        <g class="lab-forge3-ear-r lab-forge3-rig"><circle cx="304" cy="90" r="30" fill="#974e2b"/><circle cx="301" cy="93" r="16" fill="#73371f"/></g>
+
+        <use href="#lab-forge3-body-shape" fill="#934a27"/>
+
+        <!-- Рубашка: светлый лён, свободная (чуть шире силуэта) -->
+        <g class="lab-forge3-shirt" clip-path="url(#lab-forge3-clip-shirt)">
+          <use href="#lab-forge3-body-shape" fill="#e3d6c6" stroke="#e3d6c6" stroke-width="5"/>
+          <path d="M98 250Q94 280 100 306M324 250Q328 280 322 306" fill="none" stroke="#d3c4b2" stroke-width="4" stroke-linecap="round"/>
+        </g>
+        <!-- подол рубашки -->
+        <path d="M66 316Q122 332 211 333Q300 332 356 316" fill="none" stroke="#d3c4b2" stroke-width="3.5" clip-path="url(#lab-forge3-clip-body)"/>
+        <!-- воротник и V-вырез со шнуровкой -->
+        <path d="M84 206Q96 199 150 212Q178 222 211 255Q244 222 272 212Q326 199 338 206" fill="none" stroke="#f1e9de" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M150 215Q178 225 211 258Q244 225 272 215" fill="none" stroke="#d9cbbb" stroke-width="1.6"/>
+        <path d="M198 230L224 244M224 230L198 244M203 240L220 252M220 240L203 252" stroke="#7a4b2c" stroke-width="2" stroke-linecap="round"/>
+
+        <!-- Кожаный фартук: нагрудник, лямки, карман -->
+        <g class="lab-forge3-apron">
+          <path d="M166 247Q150 228 114 211M256 247Q272 228 308 211" fill="none" stroke="#5b341e" stroke-width="14" stroke-linecap="round"/>
+          <path d="M166 247Q150 228 114 211M256 247Q272 228 308 211" fill="none" stroke="#7d4c2d" stroke-width="10" stroke-linecap="round"/>
+          <path d="M163 248Q211 241 259 248L264 308L284 384Q211 400 138 384L158 308Z" fill="#7a4a2b" stroke="#5b341e" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M168 254Q211 248 254 254L258 306L276 378" fill="none" stroke="#a77a51" stroke-width="1.6" stroke-dasharray="3 4" opacity=".75"/>
+          <path d="M168 254L164 306L146 378" fill="none" stroke="#a77a51" stroke-width="1.6" stroke-dasharray="3 4" opacity=".75"/>
+          <path d="M176 256Q178 280 172 300" fill="none" stroke="#8d5a37" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+          <!-- кармашек с мелком -->
+          <rect x="213" y="252" width="5" height="14" rx="2" fill="#efe8dc" transform="rotate(10 215 259)"/>
+          <path d="M193 262H233V281Q233 288 226 288H200Q193 288 193 281Z" fill="#6a3f25" stroke="#4f2e1b" stroke-width="1.5"/>
+          <path d="M197 266H229M197 266V281Q197 284 200 284H226Q229 284 229 281V266" fill="none" stroke="#a77a51" stroke-width="1.3" stroke-dasharray="2.5 3"/>
+          <circle cx="166" cy="248" r="3.6" fill="#d2a765"/><circle cx="256" cy="248" r="3.6" fill="#d2a765"/>
+        </g>
+
+        <!-- ===== ЛИЦО (едва заметно кивает после удара) ===== -->
+        <g class="lab-forge3-bruno-face lab-forge3-rig">
+          <ellipse cx="160" cy="138" rx="38" ry="40" transform="rotate(-14 160 138)" fill="#b26338"/>
+          <ellipse cx="262" cy="134" rx="37" ry="39" transform="rotate(14 262 134)" fill="#b26338"/>
+
+          <!-- ГЛАЗА: белки, зрачки смотрят на заготовку, веко = сосредоточенность -->
+          <g class="lab-forge3-bruno-eyes">
+            <g clip-path="url(#lab-forge3-clip-eye-l)">
+              <ellipse cx="164" cy="150" rx="27" ry="32" transform="rotate(-6 164 150)" fill="#fffdf9"/>
+              <ellipse class="lab-forge3-pupil" cx="168" cy="160" rx="12.5" ry="18.5" transform="rotate(-6 168 160)" fill="#402a1d"/>
+            </g>
+            <g clip-path="url(#lab-forge3-clip-lid-l)"><path class="lab-forge3-eye-lid" d="M126 60H204V131L126 127Z" fill="#b26338"/></g>
+            <g clip-path="url(#lab-forge3-clip-eye-r)">
+              <ellipse cx="258" cy="146" rx="27" ry="32" transform="rotate(6 258 146)" fill="#fffdf9"/>
+              <ellipse class="lab-forge3-pupil" cx="250" cy="157" rx="12.5" ry="18.5" transform="rotate(6 250 157)" fill="#402a1d"/>
+            </g>
+            <g clip-path="url(#lab-forge3-clip-lid-r)"><path class="lab-forge3-eye-lid" d="M218 56H296V123L218 127Z" fill="#b26338"/></g>
+            <path class="lab-forge3-eye-closed" d="M141 166Q164 176 188 165M234 162Q258 172 281 161" fill="none" stroke="#402a1d" stroke-width="4" stroke-linecap="round"/>
+          </g>
+
+          <!-- мордочка, нос, улыбка -->
+          <path d="M211 146C221 146 228 153 231 163C241 168 247 181 245 195C243 210 229 219 211 219C193 219 179 210 177 195C175 181 181 168 191 163C194 153 201 146 211 146Z" fill="#d1864f"/>
+          <path d="M194 167C194 158 228 158 228 167C228 176 217 185 211 185C205 185 194 176 194 167Z" fill="#3c261a"/>
+          <path d="M207 194L208 197Q212 205 220 199" fill="none" stroke="#402a1d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- тёплый свет горна поверх корпуса -->
+      <ellipse class="lab-forge3-forge-light" cx="166" cy="300" rx="150" ry="110" fill="url(#lab-forge3-g-light)"/>
+
+      <!-- ===== НАКОВАЛЬНЯ НА ПНЕ ===== -->
+      <g class="lab-forge3-anvil">
+        <!-- пень -->
+        <path d="M156 366H266L270 414Q211 426 152 414Z" fill="#8a5530"/>
+        <path d="M168 378Q166 396 170 412M196 374Q194 398 198 418M232 376Q236 398 232 418M256 374Q258 394 255 412" fill="none" stroke="#6a3d22" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+        <path d="M154 394Q211 403 268 394" fill="none" stroke="#56626a" stroke-width="6"/>
+        <circle cx="170" cy="397" r="1.8" fill="#9aa6ab"/><circle cx="252" cy="397" r="1.8" fill="#9aa6ab"/>
+        <ellipse cx="211" cy="366" rx="56" ry="6" fill="#b57e4c"/>
+        <!-- сама наковальня: пятка слева, рог вправо -->
+        <path d="M118 304H278C304 304 326 308 342 314C330 322 302 328 280 332C266 335 258 340 256 348L255 356C268 358 282 362 286 372H116C120 362 134 358 148 356L147 348C144 338 136 333 126 332L118 330Z" fill="url(#lab-forge3-g-anvil)"/>
+        <path d="M118 304H278C304 304 326 308 342 314L333 315C320 311 302 309 278 309H118Z" fill="#b9c5c9"/>
+        <path d="M258 305.5H268V308H258Z" fill="#46535a"/>
+        <path d="M148 356H255" stroke="#3f4b51" stroke-width="2.5" opacity=".6"/>
+        <path d="M126 316H262" stroke="#86949a" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+      </g>
+
+      <!-- ===== РАСКАЛЁННАЯ ЗАГОТОВКА ===== -->
+      <ellipse class="lab-forge3-hot-glow lab-forge3-rig" cx="162" cy="302" rx="58" ry="20" fill="url(#lab-forge3-g-hot)"/>
+      <g class="lab-forge3-workpiece">
+        <rect x="126" y="298" width="114" height="9" rx="4.5" fill="url(#lab-forge3-g-bar)"/>
+        <rect class="lab-forge3-bar-flash" x="126" y="298" width="76" height="9" rx="4.5" fill="#fff4c9"/>
+      </g>
+
+      <!-- ===== ЛАПА СО ЩИПЦАМИ (держит заготовку неподвижно) ===== -->
+      <g class="lab-forge3-arm-tongs">
+        <path d="M320 216L339.8 257.5" stroke="#934a27" stroke-width="36" stroke-linecap="round"/>
+        <g transform="translate(320 216) rotate(64.54)">
+          <path d="M0 -21H28V21H0A21 21 0 0 1 0 -21Z" fill="#ebe1d4" stroke="#cdbca8" stroke-width="1.6"/>
+          <path d="M6 10Q16 6 24 12" fill="none" stroke="#d6c7b5" stroke-width="3" stroke-linecap="round"/>
+          <rect x="25" y="-23" width="11" height="46" rx="5" fill="#f1e9de" stroke="#d3c4b2" stroke-width="1.5"/>
+          <path d="M30.5 -20V20" stroke="#d9cbbb" stroke-width="1.2"/>
+        </g>
+        <path d="M329 258.6L296 262" stroke="#7a391c" stroke-width="38" stroke-linecap="round"/>
+        <path d="M339.8 257.5L296 262" stroke="#934a27" stroke-width="34" stroke-linecap="round"/>
+        <g transform="translate(339.8 257.5) rotate(174.17)">
+          <rect x="9" y="-19.5" width="25" height="39" rx="6" fill="#4e3326"/>
+          <path d="M9 -13H34M9 13H34" stroke="#6b4a37" stroke-width="2.5"/>
+          <circle cx="16" cy="0" r="2.2" fill="#c9a46a"/><circle cx="27" cy="0" r="2.2" fill="#c9a46a"/>
+        </g>
+        <!-- ЩИПЦЫ: губки зажимают холодный конец заготовки -->
+        <g class="lab-forge3-tongs">
+          <path d="M256 294Q242 292 228 297" fill="none" stroke="#3e4549" stroke-width="5" stroke-linecap="round"/>
+          <path d="M256 300Q242 308 228 309" fill="none" stroke="#3e4549" stroke-width="5" stroke-linecap="round"/>
+          <path d="M255 294L300 256M259 299L304 262" fill="none" stroke="#3e4549" stroke-width="5.5" stroke-linecap="round"/>
+          <path d="M259 291L292 263" stroke="#7a868c" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="256" cy="297" r="4.2" fill="#6c777c" stroke="#3e4549" stroke-width="1.5"/>
+        </g>
+        <circle cx="296" cy="262" r="18" fill="#934a27" stroke="#7a391c" stroke-width="1.8"/>
+        <path d="M284 255Q290 250 296 251M283 263Q289 258 296 260" fill="none" stroke="#6f3519" stroke-width="2.5" stroke-linecap="round"/>
+      </g>
+
+      <!-- ===== РУКА С МОЛОТКОМ: плечо → предплечье → кисть+молоток =====
+           Обёртка .arm-rig повторяет движение корпуса, поэтому плечо всегда
+           прикреплено к телу. Рука нарисована в позе удара (все углы = 0). -->
+      <g class="lab-forge3-arm-rig lab-forge3-rig">
+        <g class="lab-forge3-arm-shoulder lab-forge3-rig">
+          <path d="M102 216L71.6 250.5" stroke="#934a27" stroke-width="36" stroke-linecap="round"/>
+          <g transform="translate(102 216) rotate(131.38)">
+            <path d="M0 -21H29V21H0A21 21 0 0 1 0 -21Z" fill="#ebe1d4" stroke="#cdbca8" stroke-width="1.6"/>
+            <path d="M6 -10Q16 -6 24 -12" fill="none" stroke="#d6c7b5" stroke-width="3" stroke-linecap="round"/>
+            <!-- закатанный рукав -->
+            <rect x="26" y="-23" width="11" height="46" rx="5" fill="#f1e9de" stroke="#d3c4b2" stroke-width="1.5"/>
+            <path d="M31.5 -20V20" stroke="#d9cbbb" stroke-width="1.2"/>
+          </g>
+
+          <g class="lab-forge3-arm-forearm lab-forge3-rig">
+            <path d="M80 257.2L106 278" stroke="#7a391c" stroke-width="38" stroke-linecap="round"/>
+            <path d="M71.6 250.5L106 278" stroke="#934a27" stroke-width="34" stroke-linecap="round"/>
+            <!-- кожаный наруч -->
+            <g transform="translate(71.6 250.5) rotate(38.64)">
+              <rect x="9" y="-19.5" width="25" height="39" rx="6" fill="#4e3326"/>
+              <path d="M9 -13H34M9 13H34" stroke="#6b4a37" stroke-width="2.5"/>
+              <circle cx="16" cy="0" r="2.2" fill="#c9a46a"/><circle cx="27" cy="0" r="2.2" fill="#c9a46a"/>
+            </g>
+
+            <g class="lab-forge3-hammer-wrist lab-forge3-rig">
+              <g transform="translate(106 278)">
+                <!-- МОЛОТОК: ручка вдоль +x, центр бойка x=56, рабочая грань снизу (y=+20) -->
+                <g class="lab-forge3-hammer">
+                  <rect x="-19" y="-4.5" width="72" height="9" rx="4.5" fill="#9b6235"/>
+                  <path d="M-14 -2H44" stroke="#c48a55" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M43 -19Q43 -25 49 -25H63Q69 -25 69 -19L70 11L72 14V20H40V14L42 11Z" fill="url(#lab-forge3-g-steel)"/>
+                  <path class="lab-forge3-hammer-face" d="M40 16.5H72" stroke="#dfe6e8" stroke-width="2.2"/>
+                  <path d="M46 -22H60" stroke="#c9d3d6" stroke-width="2" stroke-linecap="round"/>
+                  <rect x="51" y="-5" width="10" height="10" rx="2" fill="#46535a"/>
+                </g>
+                <!-- кисть сжимает ручку -->
+                <circle class="lab-forge3-paw" r="18" fill="#934a27" stroke="#7a391c" stroke-width="1.8"/>
+                <path d="M3 -15Q12 -12 14 -4M5 -5Q13 -3 14 5M4 5Q11 7 12 13" fill="none" stroke="#6f3519" stroke-width="2.5" stroke-linecap="round"/>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+
+      <!-- ===== ИСКРЫ И ВСПЫШКА ===== -->
+      <g class="lab-forge3-sparks">
+        <ellipse class="lab-forge3-impact-ring lab-forge3-rig" cx="162" cy="298" rx="30" ry="9" fill="none" stroke="#ffc965" stroke-width="3"/>
+        <g class="lab-forge3-impact-rays lab-forge3-rig" stroke="#ffbf4d" stroke-width="3.5" stroke-linecap="round">
+          <path d="M144 291L132 284M153 286L148 274M171 286L177 273M181 291L194 283M140 299L126 299M185 299L200 300"/>
+        </g>
+        <circle class="lab-forge3-spark" cx="162" cy="297" r="2.6" fill="#ffd36b" style="--dx:-46px;--dy:-34px"/>
+        <circle class="lab-forge3-spark" cx="162" cy="297" r="2.1" fill="#ffb53c" style="--dx:-30px;--dy:-52px"/>
+        <circle class="lab-forge3-spark" cx="162" cy="297" r="2.4" fill="#ffe08a" style="--dx:-8px;--dy:-60px"/>
+        <circle class="lab-forge3-spark" cx="162" cy="297" r="2" fill="#ffb53c" style="--dx:14px;--dy:-56px"/>
+        <circle class="lab-forge3-spark" cx="162" cy="297" r="2.6" fill="#ffd36b" style="--dx:38px;--dy:-40px"/>
+        <circle class="lab-forge3-spark" cx="162" cy="297" r="1.8" fill="#ff9f2e" style="--dx:56px;--dy:-18px"/>
+        <circle class="lab-forge3-spark" cx="162" cy="297" r="1.8" fill="#ff9f2e" style="--dx:-60px;--dy:-12px"/>
+        <circle class="lab-forge3-spark" cx="162" cy="297" r="1.6" fill="#ffe08a" style="--dx:28px;--dy:-26px"/>
+        <circle class="lab-forge3-spark" cx="162" cy="297" r="1.6" fill="#ffd36b" style="--dx:-22px;--dy:-22px"/>
+      </g>
+      <!-- редкие угольки поднимаются от заготовки -->
+      <g class="lab-forge3-embers">
+        <circle class="lab-forge3-ember" cx="150" cy="294" r="1.6" fill="#ffb24a" style="--drift:-7px"/>
+        <circle class="lab-forge3-ember" cx="174" cy="294" r="1.3" fill="#ffc768" style="--drift:9px"/>
+        <circle class="lab-forge3-ember" cx="196" cy="295" r="1.2" fill="#ff9f3a" style="--drift:4px"/>
+      </g>
+    </svg>
+    </svg>
+  </div>
+  <h3 class="lab-forge3-forge-title">Бруно куёт ваш сайт</h3>
+  <p class="lab-forge3-forge-text">Готовим изменения. Скоро можно будет посмотреть результат.</p>
+</section>

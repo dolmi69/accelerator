@@ -1,5 +1,7 @@
 """Navigation context for Bruno's companion on authenticated pages."""
 from uuid import UUID
+from urllib.parse import urlsplit
+from django.conf import settings
 
 from founder.models import ChatSession, MascotState
 
@@ -33,7 +35,12 @@ def bruno_pet(request):
     chat = project.chat_sessions.filter(
         mode=ChatSession.Mode.COFOUNDER, completed_at__isnull=True,
     ).first() if project else None
-    return {'bruno_pet': {
+    local_project = (project and current_id and str(project.pk) == str(current_id)
+                     and request.path.startswith('/startups/')
+                     and settings.LAB_BACKEND_RUNTIME_ENABLED
+                     and urlsplit('//' + request.get_host()).hostname in {'localhost', '127.0.0.1'})
+    return {'lab_workspace': {'project_id': project.pk, 'user_id': request.user.pk} if local_project else None,
+            'bruno_pet': {
         'project': project,
         'mascot': mascot or MascotState(mood=MascotState.Mood.CURIOUS),
         'chat': chat,

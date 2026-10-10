@@ -14,19 +14,25 @@ import socket
 import subprocess
 import sys
 import time
+from uuid import uuid4
 from urllib.parse import urlsplit
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import httpx
 from django.conf import settings
-from founder.models import LabSiteVersion
-from founder.services.site_editor import theme_css
+from founder.models import LabSiteVersion, StartupProfile
+from founder.blueprints.django_basic.core.design import theme_from_html, theme_styles
+from founder.services.site_editor import theme_css, replace_visible_text
 from founder.services.backend_modules import normalize_modules
 
 BLUEPRINT = Path(__file__).resolve().parent.parent / "blueprints" / "django_basic"
 
 
 class BuilderError(Exception):
+    pass
+
+
+class RuntimeSelectionChanged(BuilderError):
     pass
 
 
@@ -42,7 +48,11 @@ def project_files(version):
             files[path.relative_to(BLUEPRINT).as_posix()] = path.read_bytes()
     files["prototype.html"] = version.html.encode("utf-8")
     presentation = getattr(version, "presentation", {})
-    files["static/site-theme.css"] = theme_css(presentation).encode("utf-8")
+    if isinstance(presentation, dict):
+        for name, content in files.items():
+            if name.startswith('templates/') and name.endswith('.html'):
+                files[name] = replace_visible_text(content.decode('utf-8'), presentation.get('text_replacements', {})).encode('utf-8')
+    files["static/site-theme.css"] = (theme_styles(theme_from_html(version.html)) + theme_css(presentation)).encode("utf-8")
     files["site.json"] = json.dumps({
         "name": (presentation.get("title") or version.startup.name) if isinstance(presentation, dict) else version.startup.name,
         "project_id": str(version.startup_id), "version_id": str(version.pk),
@@ -109,10 +119,15 @@ def _runtime_lock():
         raise BuilderError("Автозапуск доступен на Mac и Linux. Скачайте проект для запуска на Windows.") from None
     _root().mkdir(parents=True, exist_ok=True)
     with (_root() / "runtime.lock").open("a") as lock:
-        try:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            raise BuilderError("Другое приложение сейчас запускается. Повторите через несколько секунд.") from None
+        deadline = time.monotonic() + 30
+        while True:
+            try:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise BuilderError("Другое приложение ещё запускается. Повторите через несколько секунд.") from None
+                time.sleep(0.1)
         try:
             yield
         finally:
@@ -142,13 +157,54 @@ def stop_runtime(startup_id):
         _stop(_directory(startup_id), startup_id)
 
 
+def _active_path(owner_id):
+    return _root() / f'.active-{owner_id}.json'
+
+
+def _active_project(owner_id):
+    try:
+        state = json.loads(_active_path(owner_id).read_text())
+        if (isinstance(state, dict) and isinstance(state.get('project_id'), str)
+                and isinstance(state.get('token'), str) and type(state.get('revision')) is int):
+            return state
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def _stop_other_projects(owner_id, keep_startup_id):
+    # Scope the singleton to the account; never stop another user's website.
+    ids = StartupProfile.objects.filter(owner_id=owner_id).exclude(pk=keep_startup_id).values_list('pk', flat=True)
+    for startup_id in ids:
+        directory = _directory(startup_id)
+        if (directory / 'runtime.json').exists():
+            _stop(directory, startup_id)
+
+
+def _select_project(startup):
+    previous = _active_project(startup.owner_id)
+    if previous and previous['project_id'] == str(startup.pk):
+        selected = previous
+    else:
+        selected = {'project_id': str(startup.pk), 'token': str(uuid4()),
+                    'revision': previous['revision'] + 1 if previous else 1}
+        _atomic_write(_active_path(startup.owner_id), json.dumps(selected).encode())
+    _stop_other_projects(startup.owner_id, startup.pk)
+    return selected
+
+
+def select_runtime_project(startup):
+    with _runtime_lock():
+        return _select_project(startup)
+
+
 def _atomic_write(path, content):
     temporary = path.with_name(path.name + ".tmp")
     temporary.write_bytes(content)
     temporary.replace(path)
 
 
-def start_runtime(version, *, launcher_origin=None, return_path=None):
+def start_runtime(version, *, launcher_origin=None, return_path=None, selection_token=None):
     if not settings.LAB_BACKEND_RUNTIME_ENABLED:
         raise BuilderError("Локальный автозапуск отключён. Скачайте Django-проект и запустите его отдельно.")
     files = project_files(version)
@@ -157,6 +213,13 @@ def start_runtime(version, *, launcher_origin=None, return_path=None):
         fingerprint.update(name.encode() + b"\0" + content + b"\0")
     build_hash = fingerprint.hexdigest()
     with _runtime_lock():
+        if selection_token:
+            selected = _active_project(version.startup.owner_id)
+            if not selected or selected['project_id'] != str(version.startup_id) or selected['token'] != selection_token:
+                raise RuntimeSelectionChanged("Предпросмотр закрыт: вы перешли в другой проект.")
+            _stop_other_projects(version.startup.owner_id, version.startup_id)
+        else:
+            _select_project(version.startup)
         directory = _directory(version.startup_id)
         project = directory / 'project'
         project.mkdir(parents=True, exist_ok=True)
@@ -178,7 +241,7 @@ def start_runtime(version, *, launcher_origin=None, return_path=None):
         running = sum(bool(runtime_status(child.name)) for child in _root().iterdir()
                       if child.is_dir() and child != directory)
         if running >= settings.LAB_BACKEND_MAX_RUNNING:
-            raise BuilderError("Одновременно можно запустить три сайта. Остановите один из них в его лаборатории.")
+            raise BuilderError("Локальная лаборатория занята другими пользователями. Попробуйте запустить сайт позже.")
         _stop(directory, version.startup_id)
         for name, content in files.items():
             path = project / name

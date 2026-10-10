@@ -113,18 +113,29 @@ ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 GIGACHAT_MODEL = os.getenv("GIGACHAT_MODEL", "GigaChat-3-Pro")
 GIGACHAT_SCOPE = os.getenv("GIGACHAT_SCOPE", "GIGACHAT_API_PERS")
 GIGACHAT_CA_BUNDLE = os.getenv("GIGACHAT_CA_BUNDLE", "")
+# Lab coordination is short and independent from Bruno's conversation model.
+LAB_BRUNO_MODEL = os.getenv("LAB_BRUNO_MODEL", "GigaChat-2-Pro")
+LAB_BRUNO_PRICE_MODEL = os.getenv("LAB_BRUNO_PRICE_MODEL", "GigaChat-2-Pro")
+# Conservative paid-equivalent estimate; free credits/package billing may differ.
+LAB_BRUNO_RUB_PER_MILLION = os.getenv("LAB_BRUNO_RUB_PER_MILLION", "500")
 CLOUDRU_MODEL = os.getenv("CLOUDRU_MODEL", "ai-sage/GigaChat3-10B-A1.8B")
 # Independent from AI_PROVIDER: website generation must not switch Bruno's model.
 QWEN_CODE_MODEL = os.getenv("QWEN_CODE_MODEL", "Qwen/Qwen3-Coder-Next")
-QWEN_CODE_MAX_TOKENS = int(os.getenv("QWEN_CODE_MAX_TOKENS", "8192"))
-QWEN_CODE_TIMEOUT = float(os.getenv("QWEN_CODE_TIMEOUT", "180"))
+QWEN_CODE_MAX_TOKENS = int(os.getenv("QWEN_CODE_MAX_TOKENS", "16384"))
+QWEN_CODE_TIMEOUT = float(os.getenv("QWEN_CODE_TIMEOUT", "300"))
 LAB_REQUESTS_PER_DAY = int(os.getenv("LAB_REQUESTS_PER_DAY", "10"))
 LAB_GLOBAL_REQUESTS_PER_DAY = int(os.getenv("LAB_GLOBAL_REQUESTS_PER_DAY", "30"))
 # Trusted local blueprint only. Public deployment needs a separate runtime host.
 LAB_BACKEND_RUNTIME_ENABLED = os.getenv("LAB_BACKEND_RUNTIME_ENABLED", "1" if DEBUG else "0") == "1"
 LAB_BACKEND_MAX_RUNNING = 3
-LAB_CREATE_MAX_TOKENS = int(os.getenv("LAB_CREATE_MAX_TOKENS", "6144"))
+# A complete first design gets room to finish; edits remain small JSON patches.
+LAB_CREATE_MAX_TOKENS = int(os.getenv("LAB_CREATE_MAX_TOKENS", "16384"))
 LAB_PATCH_MAX_TOKENS = int(os.getenv("LAB_PATCH_MAX_TOKENS", "2048"))
+LAB_PATCH_MAX_RESPONSE_CHARS = int(os.getenv("LAB_PATCH_MAX_RESPONSE_CHARS", "24000"))
+LAB_PATCH_MAX_FIND_CHARS = int(os.getenv("LAB_PATCH_MAX_FIND_CHARS", "6000"))
+LAB_PATCH_MAX_REPLACEMENT_CHARS = int(os.getenv("LAB_PATCH_MAX_REPLACEMENT_CHARS", "12000"))
+LAB_CREATE_TEMPERATURE = float(os.getenv("LAB_CREATE_TEMPERATURE", "0.6"))
+LAB_PATCH_TEMPERATURE = float(os.getenv("LAB_PATCH_TEMPERATURE", "0.2"))
 QWEN_INPUT_BYTE_LIMIT = int(os.getenv("QWEN_INPUT_BYTE_LIMIT", "32000"))
 # RUB / million tokens, native Cloud.ru Qwen3-Coder-Next daytime rate incl. VAT.
 # A model change requires its own matching price settings; no cheap-model fallback.

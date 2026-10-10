@@ -1,7 +1,10 @@
 {% extends 'base.html' %}
-{% block content %}<section class="card auth"><span class="eyebrow">{{ project_site.name }}</span><h1>{{ heading }}</h1>
-<form method="post">{% csrf_token %}{{ form.as_p }}
-{% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}<button type="submit">{{ heading }}</button></form>
-<p>{% if request.path == '/register/' %}Есть аккаунт? <a href="{% url 'login' %}">Войти</a>{% elif modules.registration %}Нет аккаунта? <a href="{% url 'register' %}">Зарегистрироваться</a>{% endif %}</p>
-{% if modules.password_reset %}<p><a href="{% url 'password_reset' %}">Забыли пароль?</a></p>{% endif %}
-</section>{% endblock %}
+{% block title %}{{ heading }} · {{ project_site.name }}{% endblock %}
+{% block content %}<section class="auth-layout">
+<div class="auth-panel"><a class="back-link" href="{% url 'home' %}">{% include '_icon.html' with name='back' %}На главную</a><span class="eyebrow">{{ project_site.name }}</span>
+<h1>{% if request.path == '/register/' %}Начнём знакомство{% else %}С возвращением{% endif %}</h1><p class="intro">{% if request.path == '/register/' %}Создайте аккаунт и пользуйтесь возможностями сайта.{% else %}Войдите, чтобы продолжить с того места, где остановились.{% endif %}</p>
+<form method="post" class="ui-form">{% csrf_token %}{% include '_fields.html' %}{% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+{% if modules.password_reset and request.path != '/register/' %}<a class="forgot-link" href="{% url 'password_reset' %}">Забыли пароль?</a>{% endif %}
+<button type="submit" class="wide">{{ heading }}{% include '_icon.html' with name='arrow' %}</button></form>
+<p class="auth-switch">{% if request.path == '/register/' %}Есть аккаунт? <a href="{% url 'login' %}">Войти</a>{% elif modules.registration %}Впервые здесь? <a href="{% url 'register' %}">Создать аккаунт</a>{% endif %}</p></div>
+<aside class="auth-story" aria-label="Ваш аккаунт"><div class="story-top"><span class="story-mark">{{ project_site.name|first|upper }}</span><span>{{ project_site.name }}</span></div><div class="account-art" aria-hidden="true"><div class="art-profile"><span class="art-avatar">{% include '_icon.html' with name='user' %}</span><div><i></i><i></i></div><span class="art-check">{% include '_icon.html' with name='check' %}</span></div><div class="art-line"></div><div class="art-line short"></div><div class="art-cards"><span>{% include '_icon.html' with name='shield' %}</span>{% if modules.chat %}<span>{% include '_icon.html' with name='message' %}</span>{% endif %}<span>{% include '_icon.html' with name='heart' %}</span></div></div><div class="story-copy"><h2>Ваше место.<br>Ваши возможности.</h2><p>Один аккаунт для всего, что важно вам на этом сайте.</p></div><span class="story-foot">Давайте начнём с простого</span></aside></section>{% endblock %}

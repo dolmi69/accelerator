@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Бруно · Вариант 1 · Деловой костюм</title><style>
+*{box-sizing:border-box}body{margin:0;min-height:100dvh;padding:24px;display:grid;place-items:center;background:#f5f4ef;color:#203640;font-family:system-ui,-apple-system,sans-serif}.sample{position:relative;width:min(100%,560px);height:660px;max-height:94dvh;border:1px solid #e1e7df;border-radius:24px;overflow:hidden}.variant-nav{position:absolute;top:18px;left:22px;right:22px;display:flex;justify-content:space-between;align-items:center;gap:12px;z-index:6;font-size:11px;color:#6c766a}.variant-nav a{color:inherit;text-underline-offset:3px}
+/* Bruno's workshop covers the prototype for the entire generation request. */
+.lab-empty-wrapper { position:relative; }
+.lab-forge[hidden] { display:none; }
+.lab-forge { position:absolute; inset:38px 0 0; z-index:5; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 18px; overflow:hidden; border-radius:0 0 14px 14px; background:radial-gradient(ellipse at 55% 45%,#fff0dc 0,#f6f7f1 55%,#eef4f0 100%); text-align:center; color:#203640; cursor:wait; }
+.lab-empty-wrapper .lab-forge,.lab-viewer[open] .lab-forge { inset:0; border-radius:14px; }
+.lab-forge-scene { width:min(100%,360px); flex:0 1 340px; min-height:0; display:flex; justify-content:center; }
+.lab-forge-scene svg { display:block; width:100%; height:100%; max-height:42dvh; --forge-cycle:1.65s; }
+.lab-forge-eyebrow { font-size:10px; font-weight:800; letter-spacing:.2em; color:#8e6036; margin-top:8px; }
+.lab-forge h3 { font-size:clamp(19px,3vw,25px); margin:12px 0 8px; }
+.lab-forge p { font-size:14px; line-height:1.6; max-width:320px; margin:0 0 18px; color:#60716d; }
+.lab-forge small { color:#7c8276; font-size:11px; margin-top:14px; }
+.lab-forge-progress { width:150px; height:4px; background:#dfdfd1; border-radius:10px; overflow:hidden; }
+.lab-forge-progress span { display:block; width:45%; height:100%; background:#b97837; border-radius:10px; animation:forge-progress 1.8s ease-in-out infinite; }
+/* Joint coordinates use the SVG viewBox. The steel face lands at (199, 305)
+   at 64%; sparks, body weight and rebound share that same impact beat. */
+.forge-upper-arm { transform-origin:164px 224px; animation:forge-shoulder var(--forge-cycle) infinite; }
+.forge-forearm { transform-origin:112px 246px; animation:forge-elbow var(--forge-cycle) infinite; }
+.forge-bear { transform-origin:232px 345px; animation:forge-body var(--forge-cycle) infinite; }
+.forge-head { transform-origin:232px 218px; animation:forge-head var(--forge-cycle) infinite; }
+.forge-tie { transform-origin:232px 228px; animation:forge-tie var(--forge-cycle) infinite; }
+.forge-eyes { transform-origin:232px 160px; animation:forge-blink 6.6s infinite; }
+.forge-sparks { opacity:0; transform-origin:199px 305px; animation:forge-spark var(--forge-cycle) infinite; }
+.forge-impact { opacity:0; transform-origin:199px 305px; animation:forge-impact var(--forge-cycle) infinite; }
+.forge-workpiece { animation:forge-heat var(--forge-cycle) infinite; }
+@keyframes forge-shoulder {
+  0%,100% { transform:rotate(8deg); animation-timing-function:cubic-bezier(.4,0,.25,1); }
+  38% { transform:rotate(40deg); }
+  45% { transform:rotate(43deg); animation-timing-function:cubic-bezier(.65,0,1,.6); }
+  64%,66% { transform:rotate(0); animation-timing-function:ease-out; }
+  76% { transform:rotate(5deg); }
+}
+@keyframes forge-elbow {
+  0%,100% { transform:rotate(-28deg); animation-timing-function:cubic-bezier(.4,0,.25,1); }
+  38% { transform:rotate(-155deg); }
+  45% { transform:rotate(-157deg); animation-timing-function:cubic-bezier(.65,0,1,.6); }
+  64%,66% { transform:rotate(0); animation-timing-function:ease-out; }
+  76% { transform:rotate(-18deg); }
+}
+@keyframes forge-body { 0%,100% {transform:translateY(0)} 38%,45% {transform:translateY(-2px)} 64%,66% {transform:translateY(3px)} 78% {transform:translateY(0)} }
+@keyframes forge-head { 0%,100% {transform:rotate(0)} 42% {transform:rotate(-1deg)} 65% {transform:rotate(1.5deg)} 80% {transform:rotate(0)} }
+@keyframes forge-tie { 0%,38%,100% {transform:rotate(0)} 56% {transform:rotate(-3deg)} 69% {transform:rotate(4deg)} 85% {transform:rotate(-1deg)} }
+@keyframes forge-spark { 0%,62%,86%,100% {opacity:0;transform:scale(.35)} 65% {opacity:1;transform:scale(.65)} 82% {opacity:0;transform:scale(1.65) translateY(-5px)} }
+@keyframes forge-impact { 0%,62%,81%,100% {opacity:0;transform:scale(.5)} 65% {opacity:.9;transform:scale(.8)} 79% {opacity:0;transform:scale(1.65)} }
+@keyframes forge-heat { 0%,59%,100% {stroke:#ec9b49} 65%,71% {stroke:#ffe1a0} }
+@keyframes forge-blink { 0%,43%,47%,100% {transform:scaleY(1)} 45% {transform:scaleY(.08)} }
+@keyframes forge-progress { 0% {transform:translateX(-100%)} 100% {transform:translateX(325%)} }
+@media(prefers-reduced-motion:reduce) {
+  .lab-forge svg g,.forge-workpiece,.lab-forge-progress span {animation:none!important}
+  .forge-upper-arm {transform:rotate(8deg)}
+  .forge-forearm {transform:rotate(-28deg)}
+  .lab-forge-progress span {width:100%}
+}
+
+.sample .lab-forge{inset:0;border-radius:24px;padding-top:42px}
+</style></head><body><main class="sample"><nav class="variant-nav"><span>Бруно · Вариант 1 · Деловой костюм</span><a href="forge-v2-blacksmith.html">Вариант 2 →</a></nav><div class="lab-forge" id="lab-forge" role="status" aria-live="polite" aria-atomic="true">
+  <div class="lab-forge-scene">
+    <svg viewBox="0 0 460 440" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="forge-glow"><stop stop-color="#ffb960" stop-opacity=".32"/><stop offset="1" stop-color="#ffb960" stop-opacity="0"/></radialGradient>
+        <linearGradient id="forge-fur" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#b97442"/><stop offset=".6" stop-color="#a05a2e"/><stop offset="1" stop-color="#7d3f24"/></linearGradient>
+        <linearGradient id="forge-suit" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#354b55"/><stop offset="1" stop-color="#172b35"/></linearGradient>
+        <linearGradient id="forge-lapel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#506771"/><stop offset="1" stop-color="#2a414d"/></linearGradient>
+        <linearGradient id="forge-steel" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#b8cbd0"/><stop offset=".25" stop-color="#879fa8"/><stop offset="1" stop-color="#374e5b"/></linearGradient>
+        <linearGradient id="forge-hammer-steel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d8e3e5"/><stop offset=".45" stop-color="#8ca1a8"/><stop offset="1" stop-color="#415965"/></linearGradient>
+        <linearGradient id="forge-wood" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#644637"/><stop offset=".5" stop-color="#896045"/><stop offset="1" stop-color="#5b4034"/></linearGradient>
+      </defs>
+      <ellipse class="forge-aura" cx="228" cy="290" rx="191" ry="145" fill="url(#forge-glow)"/>
+      <ellipse cx="230" cy="413" rx="170" ry="12" fill="#29423b" opacity=".1"/>
+      <!-- Planted feet stay still while the shoulders and head follow the strike. -->
+      <path d="M163 329H211L204 391H157Z M252 329H298L308 391H260Z" fill="#20343e"/>
+      <path d="M159 375Q177 379 202 376L204 402Q176 413 142 402Q139 386 159 375Z M264 377Q287 381 307 376Q327 387 318 402Q291 413 264 402Z" fill="#263c45"/>
+      <path d="M146 399Q172 407 201 399M267 400Q293 407 317 399" stroke="#142730" stroke-width="5" stroke-linecap="round" fill="none"/>
+      <g class="forge-bear">
+        <!-- A tailored jacket, ivory shirt, copper tie and pocket square. -->
+        <path d="M164 215Q184 202 229 205Q281 203 303 223L309 334Q278 359 233 347Q189 361 151 337Z" fill="url(#forge-suit)" stroke="#20353f" stroke-width="2"/>
+        <path d="M200 208H263L249 281L231 311L215 271Z" fill="#f5eee2"/>
+        <path d="M201 206L230 224L217 240L196 216Z M261 206L232 224L246 240L269 216Z" fill="#fffaf0"/>
+        <g class="forge-tie"><path d="M225 224H240L243 237L232 246L220 237Z" fill="#a55a3f"/><path d="M228 240H237L248 278L232 297L219 278Z" fill="#ba7050"/><path d="M234 246L242 278L232 289" fill="none" stroke="#d39670" stroke-width="2"/></g>
+        <path d="M192 207L180 233L194 241L184 254L229 307L209 238Z M271 207L286 233L270 242L282 254L235 307L255 238Z" fill="url(#forge-lapel)"/>
+        <path d="M194 254L229 306M270 254L237 304" stroke="#68808b" stroke-width="1.5" opacity=".5"/>
+        <path d="M273 254L280 244L284 254L290 248L291 259Z" fill="#efd0aa"/>
+        <path d="M269 260H292" stroke="#162e38" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="233" cy="316" r="3.5" fill="#ba966a"/>
+        <path d="M177 310H207M260 310H288" stroke="#152d38" stroke-width="3" stroke-linecap="round"/>
+        <!-- The free paw holds the workpiece with tongs, clear of the hammer. -->
+        <path d="M295 231Q327 249 309 278" stroke="url(#forge-suit)" stroke-width="29" stroke-linecap="round" fill="none"/>
+        <path d="M309 271L307 282" stroke="#f5eee2" stroke-width="23"/>
+        <ellipse cx="306" cy="285" rx="15" ry="18" fill="url(#forge-fur)"/>
+        <path d="M302 285L233 305L224 302M309 292L235 304L226 310" stroke="#465b60" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <circle cx="271" cy="298" r="3" fill="#a8b6b7"/>
+        <g class="forge-head">
+          <circle cx="174" cy="100" r="30" fill="#99532e"/><circle cx="174" cy="100" r="17" fill="#703a24"/>
+          <circle cx="291" cy="100" r="30" fill="#99532e"/><circle cx="291" cy="100" r="17" fill="#703a24"/>
+          <path d="M158 142Q158 93 195 86Q232 74 270 87Q306 96 307 143L311 173Q307 217 268 228Q231 242 192 227Q150 212 155 175Z" fill="url(#forge-fur)"/>
+          <path d="M188 104Q231 84 270 104" stroke="#c4804d" stroke-width="4" opacity=".3" fill="none" stroke-linecap="round"/>
+          <ellipse cx="199" cy="156" rx="29" ry="40" fill="#c57d45"/><ellipse cx="266" cy="156" rx="29" ry="40" fill="#c57d45"/>
+          <g class="forge-eyes">
+            <ellipse cx="201" cy="161" rx="22" ry="30" fill="#fffaf1"/><ellipse cx="264" cy="161" rx="22" ry="30" fill="#fffaf1"/>
+            <ellipse cx="205" cy="165" rx="13" ry="20" fill="#35271f"/><ellipse cx="260" cy="165" rx="13" ry="20" fill="#35271f"/>
+            <ellipse cx="201" cy="156" rx="4.5" ry="6" fill="white"/><ellipse cx="256" cy="156" rx="4.5" ry="6" fill="white"/>
+          </g>
+          <path d="M184 127Q198 120 212 128M252 128Q267 120 281 127" stroke="#764124" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M208 184Q212 169 232 169Q253 169 258 185L260 205Q253 222 232 223Q210 222 204 205Z" fill="#e2a466"/>
+          <path d="M215 181Q232 173 250 181Q250 195 233 199Q217 195 215 181Z" fill="#402c20"/>
+          <path d="M218 181Q231 178 240 181" stroke="#6d4830" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M233 199V205Q241 214 247 206" fill="none" stroke="#633921" stroke-width="4" stroke-linecap="round"/>
+        </g>
+        <!-- Two independent joints keep the swing articulated, not a rigid paddle. -->
+        <g class="forge-upper-arm">
+          <path d="M164 224Q138 226 112 246" fill="none" stroke="url(#forge-suit)" stroke-width="30" stroke-linecap="round"/>
+          <path d="M155 220L124 234" stroke="#647985" stroke-width="2" opacity=".5" stroke-linecap="round"/>
+          <g class="forge-forearm">
+            <path d="M112 246Q125 262 141 270" fill="none" stroke="url(#forge-suit)" stroke-width="27" stroke-linecap="round"/>
+            <path d="M136 262L145 270" stroke="#f8f0e2" stroke-width="23"/>
+            <circle cx="139" cy="266" r="2.5" fill="#c39b67"/>
+            <path d="M136 267L199 288" stroke="#563b2b" stroke-width="11" stroke-linecap="round"/>
+            <path d="M140 264L194 282" stroke="#b88752" stroke-width="4" stroke-linecap="round"/>
+            <rect x="181" y="271" width="32" height="31" rx="4" fill="url(#forge-hammer-steel)" stroke="#3c515b" stroke-width="2"/>
+            <path d="M186 273H207M184 297H210" stroke="#dbe4df" stroke-width="2" opacity=".75"/>
+            <ellipse cx="147" cy="273" rx="13" ry="16" transform="rotate(-45 147 273)" fill="url(#forge-fur)"/>
+            <path d="M153 270L158 274M149 275L154 280" stroke="#794121" stroke-width="2" stroke-linecap="round"/>
+          </g>
+        </g>
+      </g>
+      <path d="M176 350H284L294 405Q232 417 166 405Z" fill="url(#forge-wood)"/>
+      <path d="M185 363L181 401M205 357L201 409M267 360L273 404" stroke="#46352d" stroke-width="3" opacity=".4" fill="none"/>
+      <path d="M175 370Q231 378 287 370M169 397Q232 407 292 397" stroke="#3c4445" stroke-width="9" fill="none"/>
+      <circle cx="189" cy="373" r="2" fill="#8d9c9b"/><circle cx="277" cy="373" r="2" fill="#8d9c9b"/>
+      <g class="forge-anvil">
+        <path d="M121 311H342L324 329L271 341L267 358H290V371H177V358H200L195 337H166Q139 335 121 311Z" fill="url(#forge-steel)" stroke="#465d66" stroke-width="1.5"/>
+        <path d="M121 311H342L329 319H137Z" fill="#c3d1cf"/>
+        <path d="M199 338H270M179 365H286" stroke="#d0dedb" stroke-width="2" opacity=".4"/>
+      </g>
+      <path class="forge-workpiece" d="M184 307Q207 303 233 307" stroke="#ffa146" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <g class="forge-impact" fill="none" stroke="#ffcf80" stroke-width="2"><ellipse cx="199" cy="305" rx="24" ry="8"/></g>
+      <g class="forge-sparks" fill="#ffb44f" stroke="#eaa044" stroke-width="2" stroke-linecap="round">
+        <path d="M194 290L183 276M205 290L218 269M225 298L243 291M175 300L155 291M212 311L231 317"/>
+        <circle cx="166" cy="276" r="2"/><circle cx="233" cy="277" r="2"/>
+      </g>
+    </svg>
+  </div>
+  <span class="lab-forge-eyebrow">МАСТЕРСКАЯ БРУНО</span>
+  <h3>Бруно куёт ваш сайт</h3>
+  <p>Готовим изменения. Прототип станет доступен, когда работа завершится.</p>
+  <div class="lab-forge-progress" aria-hidden="true"><span></span></div>
+  <small>Это может занять несколько минут</small>
+</div>
+</main></body></html>

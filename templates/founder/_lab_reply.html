@@ -1,0 +1,13 @@
+<aside class="lab-reply{% if lab_reply.failed %} lab-reply-error{% endif %}" id="lab-reply" data-report-key="{{ lab_reply_key }}" aria-labelledby="lab-reply-title">
+  <div class="lab-reply-mascot" aria-hidden="true">{% include 'founder/_bruno.html' with mascot=lab_reply_mascot pet=True instance_id='lab-reply' only %}</div>
+  <div class="lab-reply-bubble">
+    <div class="lab-reply-heading"><strong>Бруно</strong>{% if selected and not lab_reply.failed and not lab_reply.fresh %}<small>{{ selected.created_at|date:'d.m · H:i' }}</small>{% endif %}</div>
+    <p id="lab-reply-title">{{ lab_reply.title }}</p>
+    <div class="lab-reply-result">
+      <ul>{% for item in lab_reply.items %}<li>{{ item }}</li>{% endfor %}</ul>
+      {% if lab_reply.more %}<details><summary>Все изменения</summary><ul>{% for item in lab_reply.more %}<li>{{ item }}</li>{% endfor %}</ul></details>{% endif %}
+      {% if lab_reply.usage %}<small class="lab-reply-usage">{{ lab_reply.usage }}</small>{% endif %}
+    </div>
+  </div>
+</aside>
+{% if selected %}<a class="lab-reply-archive" href="#lab-report-{{ selected.pk }}" data-lab-report-link>{% if lab_reply.fresh or lab_reply.failed %}История запросов и отчётов{% else %}Отчёт сохранён в истории{% endif %} <span aria-hidden="true">↗</span></a>{% endif %}

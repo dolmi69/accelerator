@@ -14,6 +14,7 @@ from openai import OpenAI
 
 from founder.services.qwen import CodeResult, QwenError, QwenOutputError, generate_code
 from founder.services.site_generator import generate_site
+from founder.services.site_interactions import enhance_interactions
 from founder.models import LabAIUsage
 
 HTML = '<!doctype html><html lang="ru"><head><title>Demo</title></head><body>Привет</body></html>'
@@ -30,7 +31,7 @@ def completion(text=HTML, *, finish="stop", usage=True):
 
 
 @override_settings(AI_PROVIDER="gigachat", QWEN_CODE_MODEL="Qwen/Qwen3-Coder-Next",
-                   QWEN_CODE_MAX_TOKENS=8192, QWEN_CODE_TIMEOUT=90)
+                   QWEN_CODE_MAX_TOKENS=8192, QWEN_CODE_TIMEOUT=90, LAB_PATCH_MAX_TOKENS=2048)
 class QwenTests(TestCase):
     def setUp(self):
         self.key = patch.dict(os.environ, {"CLOUDRU_API_KEY": "test-cloudru-secret"})
@@ -53,6 +54,7 @@ class QwenTests(TestCase):
             body = json.loads(request.content)
             self.assertEqual(body["model"], "Qwen/Qwen3-Coder-Next")
             self.assertEqual(body["max_tokens"], 4096)
+            self.assertEqual(body["temperature"], 0.6)
             self.assertEqual(body["messages"][-1]["content"], "Сайт о сне")
             self.assertFalse(body["stream"])
             return httpx.Response(200, json=completion())
@@ -62,6 +64,57 @@ class QwenTests(TestCase):
         self.assertEqual((result.input_tokens, result.output_tokens), (42, 80))
         self.assertEqual(settings.AI_PROVIDER, "gigachat")
         self.assertEqual(len(requests), 1)
+
+    @override_settings(QWEN_CODE_MAX_TOKENS=81920, LAB_CREATE_MAX_TOKENS=81920,
+                       QWEN_CODE_TIMEOUT=1500, LAB_MAX_REQUEST_RUB='50')
+    def test_first_design_uses_larger_limit_and_hard_cap_still_applies(self):
+        requests = []
+        def handler(request):
+            requests.append(json.loads(request.content))
+            return httpx.Response(200, json=completion())
+        self.use_transport(handler)
+        generate_site('Магазин парфюмерии')
+        self.assertEqual(requests[0]['max_tokens'], 81920)
+        self.assertEqual(requests[0]['temperature'], 0.6)
+        self.assertIn('парфюмерии', requests[0]['messages'][0]['content'])
+        with override_settings(QWEN_CODE_MAX_TOKENS=4096):
+            generate_site('Другой сайт')
+        self.assertEqual(requests[1]['max_tokens'], 4096)
+
+    @override_settings(QWEN_CODE_MAX_TOKENS=81920, LAB_PATCH_MAX_TOKENS=10240,
+                       LAB_PATCH_MAX_RESPONSE_CHARS=120000, LAB_PATCH_MAX_FIND_CHARS=30000,
+                       LAB_PATCH_MAX_REPLACEMENT_CHARS=60000)
+    def test_larger_edit_survives_old_character_caps_and_preserves_other_content(self):
+        replacement = '<section id="notes">' + 'x' * 28000 + '</section>'
+        response = {'changes': [{'target': 'full', 'find': 'Привет', 'replace': replacement}],
+                    'report': {'summary': 'Добавил раздел.', 'completed': ['Добавлен раздел notes.'], 'not_done': []}}
+        def handler(request):
+            self.assertEqual(json.loads(request.content)['max_tokens'], 10240)
+            return httpx.Response(200, json=completion(json.dumps(response, ensure_ascii=False)))
+        self.use_transport(handler)
+        result = generate_site('Добавь раздел', previous_html=HTML, report=True)
+        self.assertEqual(result.text, HTML.replace('Привет', replacement))
+        self.assertEqual(result.report['completed'], ['Добавлен раздел notes.'])
+
+    def test_invalid_temperature_cannot_reserve_budget_or_contact_provider(self):
+        with patch('founder.services.qwen.OpenAI') as provider:
+            for value in [True, -0.1, 1.1, float('nan'), float('inf'), '0.6']:
+                with self.subTest(value=value), self.assertRaises(QwenError):
+                    generate_code('system', [{'role': 'user', 'content': 'site'}], temperature=value)
+            provider.assert_not_called()
+        self.assertFalse(LabAIUsage.objects.exists())
+
+    def test_sandbox_interactions_are_self_contained_idempotent_and_do_not_change_ordinary_pages(self):
+        self.assertEqual(enhance_interactions(HTML), HTML)
+        source = HTML.replace('Привет', '<a href="#">Детали</a><button onclick="alert(\'Пример\')">Купить</button>')
+        result = enhance_interactions(source)
+        self.assertIn('data-lab-interactions="1"', result)
+        self.assertIn('textContent=', result)
+        self.assertNotIn('innerHTML', result)
+        self.assertIn('stopImmediatePropagation', result)
+        self.assertEqual(enhance_interactions(result), result)
+        self.assertTrue(result.endswith('</html>'))
+        self.assertLess(result.index('window.alert=notify'), result.index('onclick='))
 
     def test_paid_calls_are_not_retried_and_provider_payload_is_not_exposed(self):
         for status in (400, 401, 402, 403, 404, 429, 503):
@@ -138,6 +191,7 @@ class QwenTests(TestCase):
         self.assertEqual(result.text, HTML.replace("Привет", "Здравствуйте"))
         self.assertEqual(result.edit_method, "patch")
         self.assertEqual(requests[0]["max_tokens"], 2048)
+        self.assertEqual(requests[0]["temperature"], 0.2)
         self.assertEqual(len(requests[0]["messages"]), 2)
         payload = json.loads(requests[0]["messages"][-1]["content"])
         self.assertEqual(payload["fragments"], [{"id":"full", "html":HTML}])

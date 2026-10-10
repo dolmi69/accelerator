@@ -1,10 +1,4 @@
-{% extends 'base.html' %}
-{% block content %}
-<section class="card auth"><h1>{{ heading }}</h1>{% if note %}<p class="muted">{{ note }}</p>{% endif %}
-{% if profile.avatar %}<img class="avatar" src="{% url 'avatar' user.pk %}" alt="Ваша аватарка">{% endif %}
-{% if form %}<form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<button>Сохранить</button></form>
-{% else %}<p>Ссылка недействительна или уже использована. <a href="{% url 'password_reset' %}">Запросить новую</a>.</p>{% endif %}
-{% if profile %}<p class="muted">Для восстановления пароля укажите email. Отправка писем требует настройки почты владельцем сайта.</p>
-<p><a href="{% url 'password_change' %}">Сменить пароль</a></p>
-<form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="secondary">Выйти из аккаунта</button></form>{% endif %}
-</section>{% endblock %}
+{% extends 'base.html' %}{% block title %}{{ heading }} · {{ project_site.name }}{% endblock %}
+{% block content %}<section class="form-layout"><div class="form-heading"><a class="back-link" href="{% url 'home' %}">{% include '_icon.html' with name='back' %}На главную</a><span class="eyebrow">{{ project_site.name }}</span><h1>{{ heading }}</h1>{% if note %}<p class="intro">{{ note }}</p>{% elif request.path == '/password-reset/' %}<p class="intro">Укажите email своего аккаунта. Мы отправим ссылку для создания нового пароля.</p>{% else %}<p class="intro">Заполните поля ниже. Всё можно проверить перед сохранением.</p>{% endif %}</div>
+<div class="card form-card">{% if form %}<form method="post" enctype="multipart/form-data" class="ui-form">{% csrf_token %}{% include '_fields.html' %}<div class="form-actions"><button type="submit">{% if request.path == '/password-reset/' %}Отправить ссылку{% elif heading == 'Оставить заявку' %}Отправить заявку{% else %}Сохранить{% endif %}{% include '_icon.html' with name='arrow' %}</button></div></form>
+{% else %}{% url 'password_reset' as reset_url %}{% include '_empty.html' with icon='shield' title='Ссылка больше не действует' text='Ссылка недействительна: возможно, она уже использована или срок действия истёк.' href=reset_url action='Получить новую ссылку' %}{% endif %}</div></section>{% endblock %}

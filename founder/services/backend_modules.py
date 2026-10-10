@@ -1,6 +1,6 @@
 """A bounded zero-token dispatcher; uncertain requests continue to the AI editor."""
 import re
-from founder.blueprints.django_basic.module_catalog import BASE_MODULES, DEFAULT_BASE_FEATURES, MODULES, OPTIONAL_MODULES, normalize_modules
+from founder.blueprints.django_basic.module_catalog import BASE_MODULES, DEFAULT_BASE_FEATURES, DEFAULT_MODULES, MODULES, OPTIONAL_MODULES, normalize_modules
 
 MODULE_CHOICES = [(key,MODULES[key][0]) for key in OPTIONAL_MODULES]
 MODULE_GROUPS = (
@@ -9,7 +9,7 @@ MODULE_GROUPS = (
     ('Работа с клиентами', ('favorites', 'reviews', 'booking')),
     ('Продажи и оплата', ('orders', 'payments')),
 )
-DEFAULT_OPTIONAL = [key for key in OPTIONAL_MODULES if key != 'payments']
+DEFAULT_OPTIONAL = list(DEFAULT_MODULES)
 PATTERNS = {
     'registration': r'регистрац\w*|зарегистр\w*|авторизац\w*|логин\w*|вход\w*|войти',
     'password_reset': r'сброс\w*\s+парол\w*|восстанов\w*\s+парол\w*',

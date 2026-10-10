@@ -1,1 +1,1 @@
-{% extends 'base.html' %}{% block content %}<section class="card auth"><h1>{{ heading }}</h1><p>{{ note }}</p><form method="post">{% csrf_token %}<button>Подтвердить</button></form></section>{% endblock %}
+{% extends 'base.html' %}{% block content %}<section class="card status-card"><div class="empty-icon">{% include '_icon.html' with name='shield' %}</div><h1>{{ heading }}</h1><p class="intro">{{ note }}</p><form method="post">{% csrf_token %}<button type="submit">Подтвердить{% include '_icon.html' with name='check' %}</button></form></section>{% endblock %}

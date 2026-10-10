@@ -1,14 +1,18 @@
 from django.conf import settings
+from django.template.loader import render_to_string
+from html import escape
+from .design import integrate_navigation
 import os
 import re
+from pathlib import Path
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
-from django.db.models import Q
+from django.db.models import Q, OuterRef, Subquery
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
-from .models import Conversation
+from .models import Conversation, Message
 from .forms import RegistrationForm
 from django.db import IntegrityError, transaction
 from .lab_viewer import launcher, ancestors
@@ -23,7 +27,8 @@ class LoginView(DjangoLoginView):
 
 @require_GET
 def home(request):
-    return render(request, "home.html")
+    _, routes = app_navigation(request)
+    return render(request, "home.html", {"app_routes": routes})
 
 
 @require_GET
@@ -31,10 +36,27 @@ def health(request):
     return JsonResponse({"project_id": settings.SITE["project_id"], "version_id": settings.SITE["version_id"], "pid": os.getpid()})
 
 
+def app_navigation(request):
+    navigation = render_to_string('_app_navigation.html', request=request)
+    routes = sorted(set(re.findall(r'href="(/[^"<>]*)"', navigation)))
+    navigation = re.sub(r'href="(/[^"<>]*)"', lambda m: m[0] + ' data-app-route="' + escape(m[1], quote=True) + '"', navigation)
+    return navigation, routes
+
+
 @require_GET
 def prototype(request):
     # Read as plain bytes: never interpret model output as a Django template.
     html = (settings.BASE_DIR / 'prototype.html').read_text(encoding='utf-8')
+    navigation, _ = app_navigation(request)
+    from django.contrib.staticfiles import finders
+    def asset(name):
+        path = settings.BASE_DIR / 'static' / name
+        if not path.is_file():
+            path = finders.find(name)
+        return Path(path).read_text() if path else ''
+    css = asset('site-theme.css') + '\n' + asset('app-navigation.css')
+    script = asset('prototype-bridge.js')
+    html = integrate_navigation(html, navigation, css, script)
     if launcher():
         script = "<script>addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.isComposing){e.preventDefault();parent.postMessage({type:'cofounder:lab-exit'},'*')}})</script>"
         html = re.sub(r'(<head\b[^>]*>)', lambda match: match[0] + script, html, count=1, flags=re.I)
@@ -96,7 +118,10 @@ def owned_chat(user, conversation_id):
 @login_required
 @require_GET
 def inbox(request):
-    conversations = Conversation.objects.filter(Q(first=request.user) | Q(second=request.user)).select_related("first", "second").order_by("-created_at")[:50]
+    latest = Message.objects.filter(conversation_id=OuterRef('pk')).order_by('-created_at', '-pk')
+    conversations = Conversation.objects.filter(Q(first=request.user) | Q(second=request.user)).select_related("first", "second").annotate(
+        last_content=Subquery(latest.values('content')[:1]), last_sent_at=Subquery(latest.values('created_at')[:1])
+    ).order_by('-last_sent_at', '-created_at')[:50]
     return render(request, "inbox.html", {"conversations": conversations})
 
 

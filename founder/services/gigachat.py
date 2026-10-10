@@ -293,3 +293,58 @@ def complete_chat(system_prompt, content, *, json_schema=None):
         return answer
     except (ValueError, KeyError, IndexError, TypeError) as exc:
         raise GigaChatFormatError("GigaChat вернул ответ в неверном формате.") from exc
+
+
+def complete_lab(system_prompt, content, *, json_schema, max_tokens=1100):
+    """Bounded lab call with usage accounting and no paid retry/Max fallback.
+
+    Uses existing OAuth/TLS, but never changes the regular conversation model.
+    Connection failures may switch official URLs using the SAME priced model.
+    """
+    from founder.services.ai_costs import reserve, settle, CostLimitError
+    from founder.services.qwen import CodeResult
+    model = settings.LAB_BRUNO_MODEL
+    if model != settings.LAB_BRUNO_PRICE_MODEL:
+        raise GigaChatError('Настройте тариф LAB_BRUNO_PRICE_MODEL для модели лаборатории.')
+    payload = _payload(system_prompt, [{'role': 'user', 'content': content}], False, max_tokens, model)
+    payload.update(temperature=0.1, response_format={'type': 'json_schema', 'schema': json_schema, 'strict': True})
+    for url, _ in _routes():
+        # Obtain credentials before reserving; OAuth failures do not spend inference.
+        headers = _headers()
+        try:
+            usage = reserve(model, payload['messages'], max_tokens,
+                            pricing=(settings.LAB_BRUNO_RUB_PER_MILLION,) * 2)
+        except CostLimitError as exc:
+            raise GigaChatError(str(exc)) from None
+        try:
+            with _client() as client:
+                response = client.post(f'{url}/chat/completions', headers=headers, json=payload)
+        except (httpx.HTTPError, ssl.SSLError) as exc:
+            if _connection_failed(exc):
+                settle(usage, input_tokens=0, output_tokens=0, status='connection_error')
+                _mark_unreachable(url)
+                continue
+            settle(usage)
+            raise GigaChatError('Бруно не успел проверить запрос. Сайт сохранён; автоматического повтора нет.') from None
+        try:
+            _raise_for_status(response)
+            data = response.json()
+            counts = data.get('usage', {})
+            incoming, outgoing = counts.get('prompt_tokens'), counts.get('completion_tokens')
+            incoming = incoming if type(incoming) is int and incoming >= 0 else None
+            outgoing = outgoing if type(outgoing) is int and outgoing >= 0 else None
+            settle(usage, input_tokens=incoming, output_tokens=outgoing, status='output_error')
+            choice = data['choices'][0]
+            text = choice['message']['content']
+            if choice.get('finish_reason') != 'stop' or not isinstance(text, str) or not text.strip():
+                raise GigaChatFormatError('Бруно не завершил проверку. Сайт сохранён.')
+        except GigaChatError:
+            settle(usage)
+            raise
+        except (ValueError, TypeError, KeyError, IndexError, AttributeError):
+            settle(usage)
+            raise GigaChatFormatError('Бруно вернул некорректную проверку. Сайт сохранён.') from None
+        from founder.models import LabAIUsage
+        LabAIUsage.objects.filter(pk=usage.pk, status='output_error').update(status='success')
+        return CodeResult(text, model, incoming, outgoing, request_id=str(usage.pk))
+    raise GigaChatError(UNREACHABLE)

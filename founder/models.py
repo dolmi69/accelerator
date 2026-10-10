@@ -109,6 +109,7 @@ class LabSiteVersion(models.Model):
     source = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True,
                                related_name="derived_versions")
     prompt = models.TextField(max_length=2000)
+    bruno_report = models.JSONField(default=dict, blank=True)
     kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.STATIC)
     presentation = models.JSONField(default=dict, blank=True)
     backend_modules = models.JSONField(default=list, blank=True)

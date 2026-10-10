@@ -1,0 +1,15 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'app-actions.css' %}">
+<dialog id="app-action-dialog" aria-labelledby="app-action-heading">
+  <form id="app-action-form">{% csrf_token %}
+    <header><h2 id="app-action-heading">Сохранить результат</h2><button type="button" id="app-action-close" aria-label="Закрыть">×</button></header>
+    <p id="app-result-title"></p><pre id="app-result-content"></pre>
+    <div id="app-recipient-fields" hidden>
+      <label for="app-recipient-search">Найти участника</label><input id="app-recipient-search" type="search" maxlength="80" autocomplete="off">
+      <label for="app-recipient">Получатель</label><select id="app-recipient"></select>
+    </div>
+    <p id="app-action-status" role="status" aria-live="polite"></p>
+    <a id="app-action-login" href="{% url 'login' %}?next=/" hidden>Войти в аккаунт сайта</a>
+    <footer><button type="button" id="app-action-cancel">Отмена</button><button type="submit" id="app-action-submit">Сохранить</button></footer>
+  </form>
+</dialog>

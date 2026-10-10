@@ -47,7 +47,7 @@ class ProtectionMiddleware:
         if launcher():
             # Exact frame-ancestors replaces DENY only for a locally launched site.
             response.headers.pop('X-Frame-Options', None)
-        if request.path.startswith(("/messages/", "/people/", "/login/", "/register/", '/profile/', '/manage/', '/team/', '/orders/', '/bookings/', '/setup/', '/invite/', '/notifications/', '/password')):
+        if request.path.startswith(("/messages/", "/people/", "/login/", "/register/", '/profile/', '/manage/', '/team/', '/orders/', '/bookings/', '/setup/', '/invite/', '/notifications/', '/password', '/app-api/', '/results/')):
             response["Cache-Control"] = "no-store"
         response['Referrer-Policy'] = 'same-origin'
         return response

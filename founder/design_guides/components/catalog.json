@@ -1,0 +1,50 @@
+[
+  {
+    "id": "hero",
+    "label": "Первый экран: split / center / editorial",
+    "use": "Главное действие и продукт; собственную иллюстрацию создаёт модель.",
+    "html": "<section class=\"forge-section\"><div class=\"forge-shell forge-hero\"><div><span class=\"forge-eyebrow\">Суть продукта</span><h1 class=\"forge-title\">Конкретное предложение</h1><p class=\"forge-lead\">Для кого, какая польза и что сделать дальше.</p><div class=\"forge-actions\"><a class=\"forge-button\" href=\"#offer\">Основное действие</a><a class=\"forge-button forge-button--outline\" href=\"#how\">Как работает</a></div></div><div class=\"forge-visual\">Собственный SVG продукта</div></div></section>"
+  },
+  {
+    "id": "bento",
+    "label": "Гибкая сетка и карточки",
+    "use": "Для особенностей продукта; вместо одинаковых карточек можно чередовать размеры, списки и рисунки.",
+    "html": "<section id=\"offer\" class=\"forge-section\"><div class=\"forge-shell\"><div class=\"forge-section-head\"><div><span class=\"forge-eyebrow\">Возможности</span><h2 class=\"forge-heading\">Польза продукта</h2></div></div><div class=\"forge-grid forge-grid--bento\"><article class=\"forge-card forge-card--soft forge-span-two\"><h3>Главная возможность</h3><p>Конкретный результат.</p></article><article class=\"forge-card\"><h3>Другой сценарий</h3><p>Его польза.</p></article></div></div></section>"
+  },
+  {
+    "id": "products",
+    "label": "Товарные карточки и локальный фильтр",
+    "use": "Без серверного каталога — явно демонстрационные позиции. Настоящие данные открываются через подключённый модуль catalog.",
+    "html": "<section id=\"catalog\" class=\"forge-section\" data-forge-collection><div class=\"forge-shell\"><h2 class=\"forge-heading\">Предложения — пример данных</h2><form class=\"forge-filter\" data-forge-filter><label class=\"forge-field\">Поиск<input name=\"q\" type=\"search\" placeholder=\"Что ищете?\"></label><label class=\"forge-field\">Категория<select name=\"category\"><option value=\"\">Все</option><option value=\"sample\">Пример</option></select></label><button class=\"forge-button\" type=\"submit\">Найти</button></form><p class=\"forge-count\" data-forge-count aria-live=\"polite\"></p><div class=\"forge-grid\"><article class=\"forge-card forge-product\" data-forge-item data-category=\"sample\"><div class=\"forge-product-art\">Собственный SVG товара</div><div class=\"forge-product-content\"><span class=\"forge-tag\">Пример</span><h3>Название товара</h3><p>Короткое описание.</p><div class=\"forge-product-bottom\"><strong class=\"forge-price\">Цена — пример</strong><a class=\"forge-link\" href=\"#details\">Подробнее</a></div></div></article></div><p class=\"forge-empty\" data-forge-empty hidden>Ничего не найдено. Измените фильтр.</p></div></section>"
+  },
+  {
+    "id": "steps",
+    "label": "Сценарий по шагам",
+    "use": "Покажи реальные действия пользователя без выдуманных показателей успеха.",
+    "html": "<section id=\"how\" class=\"forge-section\"><div class=\"forge-shell forge-grid forge-grid--two\"><div><span class=\"forge-eyebrow\">Как это работает</span><h2 class=\"forge-heading\">От действия к результату</h2></div><ol class=\"forge-steps\"><li><h3>Первый шаг</h3><p>Что делает человек.</p></li><li><h3>Следующий шаг</h3><p>Что он получает.</p></li></ol></div></section>"
+  },
+  {
+    "id": "workspace",
+    "label": "Форма и результат рядом",
+    "use": "Для калькуляторов и инструментов. Формулы и обработчики создай под задачу; при правке сохрани исходные.",
+    "html": "<section id=\"workspace\" class=\"forge-section\"><div class=\"forge-shell forge-grid forge-grid--two\"><form class=\"forge-card forge-form\" id=\"calculation-form\"><h2 class=\"forge-heading\">Ввод данных</h2><label class=\"forge-field\" for=\"quantity\">Количество<input id=\"quantity\" name=\"quantity\" type=\"number\" min=\"1\" required><small>Единицы измерения.</small></label><button class=\"forge-button\" type=\"submit\">Рассчитать</button></form><output class=\"forge-result\" id=\"calculation-result\" aria-live=\"polite\"><span class=\"forge-eyebrow\">Результат</span><strong>—</strong><p>Введите данные для расчёта.</p></output></div></section>"
+  },
+  {
+    "id": "tabs",
+    "label": "Вкладки с клавиатурной навигацией",
+    "use": "Автоматически работают по data-forge-tab и aria-controls. У каждого блока должны быть уникальные id.",
+    "html": "<section class=\"forge-section\" data-forge-tabs><div class=\"forge-shell\"><div class=\"forge-tabs\" role=\"tablist\" aria-label=\"Разделы\"><button class=\"forge-tab\" type=\"button\" role=\"tab\" data-forge-tab id=\"tab-overview\" aria-controls=\"panel-overview\" aria-selected=\"true\">Описание</button><button class=\"forge-tab\" type=\"button\" role=\"tab\" data-forge-tab id=\"tab-details\" aria-controls=\"panel-details\" aria-selected=\"false\">Детали</button></div><div id=\"panel-overview\" role=\"tabpanel\" aria-labelledby=\"tab-overview\">Описание.</div><div id=\"panel-details\" role=\"tabpanel\" aria-labelledby=\"tab-details\" hidden>Подробности.</div></div></section>"
+  },
+  {
+    "id": "faq",
+    "label": "Вопросы и ответы",
+    "use": "Работают без дополнительного JavaScript. Ответы основаны на данных проекта.",
+    "html": "<section class=\"forge-section\"><div class=\"forge-shell forge-grid forge-grid--two\"><div><span class=\"forge-eyebrow\">Есть вопросы?</span><h2 class=\"forge-heading\">Поможем разобраться</h2></div><div class=\"forge-faq\"><details><summary>Вопрос посетителя</summary><div>Полезный конкретный ответ.</div></details><details><summary>Другой вопрос</summary><div>Честный ответ без обещаний отсутствующих функций.</div></details></div></div></section>"
+  },
+  {
+    "id": "cta",
+    "label": "Финальное действие",
+    "use": "Может быть полноценной оригинальной секцией; ссылка ведёт в существующий блок или разрешённый маршрут.",
+    "html": "<section class=\"forge-section\"><div class=\"forge-shell\"><div class=\"forge-banner\"><div><h2 class=\"forge-heading\">Что сделать дальше</h2><p class=\"forge-copy\">Короткое пояснение.</p></div><a class=\"forge-button\" href=\"#offer\">Начать</a></div></div></section>"
+  }
+]

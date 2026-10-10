@@ -5,8 +5,9 @@ from the main application, its session cookies, and server-side execution.
 """
 
 import logging
+import math
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import httpx
 from django.conf import settings
@@ -34,6 +35,10 @@ class CodeResult:
     output_tokens: int | None
     request_id: str | None = None
     edit_method: str = "full"
+    request_ids: tuple = ()
+    report: dict = field(default_factory=dict)
+    intent: dict | None = None
+    add_modules: tuple = ()
 
 
 def _token_count(usage, field):
@@ -41,7 +46,7 @@ def _token_count(usage, field):
     return value if type(value) is int and value >= 0 else None
 
 
-def generate_code(system_prompt, messages, *, max_tokens=None):
+def generate_code(system_prompt, messages, *, max_tokens=None, temperature=0.3):
     """Make one paid request, without retries or a silent fallback to another LLM.
 
     Reserve budget before contacting the provider, then settle reported usage.
@@ -53,12 +58,16 @@ def generate_code(system_prompt, messages, *, max_tokens=None):
     model = settings.QWEN_CODE_MODEL.strip()
     limit = settings.QWEN_CODE_MAX_TOKENS
     tokens = limit if max_tokens is None else max_tokens
-    if not model or type(limit) is not int or not 1 <= limit <= 32768:
-        raise QwenError("Проверьте QWEN_CODE_MODEL и QWEN_CODE_MAX_TOKENS (1–32768).")
+    # Cloud.ru serves Coder-Next with a 262144-token context. The provider
+    # additionally validates the combined input/output against that context.
+    if not model or type(limit) is not int or not 1 <= limit <= 262144:
+        raise QwenError("Проверьте QWEN_CODE_MODEL и QWEN_CODE_MAX_TOKENS (1–262144).")
     if type(tokens) is not int or not 1 <= tokens <= limit:
         raise QwenError("Запрошенный размер ответа превышает лимит генератора.")
-    if not 1 <= settings.QWEN_CODE_TIMEOUT <= 300:
-        raise QwenError("QWEN_CODE_TIMEOUT должен быть от 1 до 300 секунд.")
+    if type(temperature) not in (int, float) or not math.isfinite(temperature) or not 0 <= temperature <= 1:
+        raise QwenError("Температура генератора должна быть числом от 0 до 1.")
+    if not 1 <= settings.QWEN_CODE_TIMEOUT <= 1500:
+        raise QwenError("QWEN_CODE_TIMEOUT должен быть от 1 до 1500 секунд.")
     if not isinstance(system_prompt, str) or not system_prompt.strip():
         raise QwenError("Не задана инструкция генератора.")
     if not isinstance(messages, list) or not 1 <= len(messages) <= 20:
@@ -84,7 +93,7 @@ def generate_code(system_prompt, messages, *, max_tokens=None):
         ) as client:
             response = client.chat.completions.create(
                 model=model, messages=normalized, max_tokens=tokens,
-                temperature=0.3, stream=False,
+                temperature=temperature, stream=False,
             )
     except APITimeoutError:
         settle(usage_record)

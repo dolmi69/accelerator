@@ -2,6 +2,7 @@
 # Login and owner access remain available even with public signup disabled.
 BASE_MODULES = ('accounts', 'profile', 'team')
 DEFAULT_BASE_FEATURES = ('registration', 'password_reset', 'chat', 'notifications')
+DEFAULT_MODULES = ('registration',)
 MODULES = {
     'accounts': ('Вход в аккаунт', ()),
     'registration': ('Регистрация', ()),
@@ -25,7 +26,7 @@ OPTIONAL_MODULES = tuple(key for key in MODULES if key not in BASE_MODULES)
 
 def normalize_modules(values=None):
     if values is None:
-        values = DEFAULT_BASE_FEATURES
+        values = DEFAULT_MODULES
     if not isinstance(values, (list, tuple, set)) or any(key not in MODULES for key in values):
         raise ValueError('Неизвестный модуль сайта')
     chosen = set(BASE_MODULES) | set(values)

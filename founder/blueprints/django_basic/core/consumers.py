@@ -5,11 +5,11 @@ from channels.auth import get_user
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.conf import settings
-from django.db import IntegrityError, OperationalError, transaction
+from django.db import IntegrityError, OperationalError
 from django.db.models import Q
 from importlib import import_module
-from .models import Conversation, Message
-from .security import allowed
+from .models import Conversation
+from .chat_service import save_message
 from .capabilities import enabled
 
 
@@ -78,28 +78,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "message", **result})
 
     @database_sync_to_async
-    @transaction.atomic
     def save_message(self, content, nonce):
-        old = Message.objects.filter(sender_id=self.user_id, nonce=nonce).select_related("sender").first()
-        if old:
-            if old.conversation_id != self.conversation_id or old.content != content:
-                return None, False
-            row, created = old, False
-        else:
-            if not allowed("message:" + str(self.user_id), 30, 60):
-                return None, False
-            row, created = Message.objects.get_or_create(sender_id=self.user_id, nonce=nonce,
-                defaults={"conversation_id": self.conversation_id, "content": content})
-            if row.conversation_id != self.conversation_id or row.content != content:
-                return None, False
-        if created:
-            from .services import notify
-            from django.urls import reverse
-            conversation = Conversation.objects.get(pk=self.conversation_id)
-            recipient = conversation.second_id if conversation.first_id == self.user_id else conversation.first_id
-            notify(recipient,'Новое личное сообщение',reverse('chat',args=[self.conversation_id]),key=f'message:{row.pk}')
-        return {"id": row.pk, "sender_id": row.sender_id, "sender": row.sender.username,
-                "content": row.content, "created_at": row.created_at.isoformat(), "nonce": str(row.nonce)}, created
+        return save_message(self.user_id, self.conversation_id, content, nonce)
 
     async def chat_message(self, event):
         if not await self.authorized():

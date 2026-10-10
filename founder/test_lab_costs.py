@@ -18,9 +18,11 @@ MODEL = 'Qwen/Qwen3-Coder-Next'
 HTML = '<!doctype html><html><head><title>Demo</title><style>body{color:#123456}</style></head><body><h1>Demo</h1><section id="offer"><button>Buy</button></section><script>const x=1;</script></body></html>'
 
 
-@override_settings(QWEN_PRICE_MODEL=MODEL, QWEN_INPUT_RUB_PER_MILLION='122', QWEN_OUTPUT_RUB_PER_MILLION='244', LAB_MAX_REQUEST_RUB='10', LAB_GLOBAL_DAILY_RUB='200', LAB_GLOBAL_MONTHLY_RUB='2000', LAB_USER_DAILY_RUB='20', LAB_USER_MONTHLY_RUB='100')
+@override_settings(QWEN_CODE_MAX_TOKENS=16384, LAB_CREATE_MAX_TOKENS=16384, QWEN_PRICE_MODEL=MODEL, QWEN_INPUT_RUB_PER_MILLION='122', QWEN_OUTPUT_RUB_PER_MILLION='244', LAB_MAX_REQUEST_RUB='10', LAB_GLOBAL_DAILY_RUB='200', LAB_GLOBAL_MONTHLY_RUB='2000', LAB_USER_DAILY_RUB='20', LAB_USER_MONTHLY_RUB='100')
 class CostTests(TestCase):
     def setUp(self):
+        from founder.test_lab_support import install_lab_mocks
+        install_lab_mocks(self)
         self.user = User.objects.create_user(username='cost_user', email='cost@example.test')
         self.startup = StartupProfile.objects.create(owner=self.user, name='Demo')
         self.client.force_login(self.user)
@@ -75,6 +77,16 @@ class CostTests(TestCase):
             with self.assertRaises(CostLimitError): self.reserve()
             self.assertEqual(LabAIUsage.objects.count(), 1)
 
+    def test_larger_first_design_is_reserved_and_request_budget_remains_binding(self):
+        with billing_scope(self.user, self.startup, 'create'):
+            usage = reserve(MODEL, [{'content': 'site'}], 16384)
+        self.assertEqual(usage.output_limit, 16384)
+        self.assertGreaterEqual(usage.accounted_micro_rub, 16384 * 244)
+        with override_settings(LAB_MAX_REQUEST_RUB='1'), billing_scope(self.user, self.startup, 'create'):
+            with self.assertRaises(CostLimitError):
+                reserve(MODEL, [{'content': 'site'}], 16384)
+        self.assertEqual(LabAIUsage.objects.count(), 1)
+
     def test_automatic_color_and_explicit_controls_use_zero_ai_even_when_budget_zero(self):
         source = LabSiteVersion.objects.create(startup=self.startup, prompt='Initial', html=HTML, model=MODEL)
         with override_settings(LAB_USER_DAILY_RUB='0', LAB_REQUESTS_PER_DAY=0), patch('founder.lab_views.generate_site') as paid:
@@ -119,7 +131,9 @@ class CostTests(TestCase):
         self.assertLess(len(json.dumps(payload)), len(source)//10)
         output = apply_patch_response(source, regions, json.dumps({'changes':[{'target':region.key,'find':'Buy','replace':'Try'}]}))
         self.assertEqual(output, source.replace('Buy','Try'))
-        with self.assertRaises(QwenError): patch_messages('Change', source)
+        full_payload, full_regions = patch_messages('Change', source)
+        self.assertEqual(full_regions[0].key, 'full')
+        self.assertIn(source, json.loads(full_payload[0]['content'])['fragments'][0]['html'])
         for changes in [[], [{'target':'missing','find':'Buy','replace':'Try'}],
                         [{'target':region.key,'find':'missing','replace':'Try'}],
                         [{'target':region.key,'find':'Buy','replace':'Try'},{'target':region.key,'find':'<button>Buy</button>','replace':'OK'}],
@@ -127,6 +141,7 @@ class CostTests(TestCase):
             with self.assertRaises(QwenError): apply_patch_response(source,regions,json.dumps({'changes':changes}))
         with self.assertRaises(QwenError): apply_patch_response(source,regions,'```json\n{}\n```')
 
+    @override_settings(LAB_PATCH_MAX_TOKENS=2048)
     def test_patch_one_call_and_lower_output_limit_and_invalid_result_no_fallback(self):
         change={'changes':[{'target':'full','find':'Buy','replace':'Try'}]}
         with patch('founder.services.site_generator.generate_code', return_value=CodeResult(json.dumps(change),MODEL,12,24)) as paid:
@@ -139,7 +154,7 @@ class CostTests(TestCase):
             self.assertEqual(paid.call_count,1)
         with patch('founder.services.site_generator.generate_code', return_value=CodeResult(HTML,MODEL,12,24)) as paid:
             generate_site('Redesign',previous_html=HTML,rebuild=True)
-            self.assertEqual(paid.call_args.kwargs['max_tokens'],6144)
+            self.assertEqual(paid.call_args.kwargs['max_tokens'],16384)
 
     def test_theme_is_idempotent_and_revalidates_css(self):
         first=customize(HTML, {'palette':'blue','font':'system'})

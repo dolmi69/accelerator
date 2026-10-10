@@ -11,6 +11,7 @@ urlpatterns = [
     path('startups/<uuid:startup_id>/lab/customize/', lab_views.lab_customize, name='lab_customize'),
     path('startups/<uuid:startup_id>/lab/backend/create/', lab_views.lab_backend_create, name='lab_backend_create'),
     path('startups/<uuid:startup_id>/lab/backend/stop/', lab_views.lab_stop, name='lab_stop'),
+    path('startups/<uuid:startup_id>/lab/backend/activate/', lab_views.lab_activate, name='lab_activate'),
     path('startups/<uuid:startup_id>/lab/<uuid:version_id>/download/', lab_views.lab_download, name='lab_download'),
     path('startups/<uuid:startup_id>/lab/<uuid:version_id>/run/', lab_views.lab_run, name='lab_run'),
     path('startups/<uuid:startup_id>/lab/publish/', lab_testing_views.lab_publish, name='lab_publish'),
