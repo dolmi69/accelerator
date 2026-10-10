@@ -172,3 +172,20 @@ class QuestionFilterTests(TestCase):
         self.assertEqual(self.run_stream("Поговорите с пятью родителями. Попробуем вместе задать им эти вопросы?").strip(),
                          "Поговорите с пятью родителями.")
         self.assertEqual(tidy_reply("Это отличная находка: личный опыт важен."), "Личный опыт важен.")
+
+    def test_contradiction_keeps_the_first_question_and_praise_is_cut(self):
+        text = ("Раньше называли 15, теперь 25. Это рост за какой-то срок или поправка? Надо понять динамику. "
+                "Из 120 пришедших сколько оплатили после роликов в TikTok?")
+        self.assertEqual(self.run_stream(text, keep_first=True).strip(),
+                         "Раньше называли 15, теперь 25. Это рост за какой-то срок или поправка? Надо понять динамику.")
+        self.assertEqual(self.run_stream("Три клиники в Казани — это хорошее начало, теперь ясно, что боль есть."),
+                         "Три клиники в Казани, теперь ясно, что боль есть.")
+        self.assertEqual(tidy_reply("Это отличная новость, такую динамику зафиксируйте."), "Такую динамику зафиксируйте.")
+        self.assertEqual(tidy_reply("Это крутая идея, особенно если учесть удобство. Кто первый клиент?"),
+                         "Кто первый клиент?")
+
+    def test_long_answer_drops_a_final_question_that_was_already_asked(self):
+        text = "1. Дайте пять проверок бесплатно.\n2. Позовите учителей.\nСколько сочинений проверил каждый пользователь?"
+        out = "".join(polish_stream([text], single_question=False,
+                                    asked=["Сколько сочинений проверил каждый пользователь за месяц?"]))
+        self.assertNotIn("Сколько сочинений", out)

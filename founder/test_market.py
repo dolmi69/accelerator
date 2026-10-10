@@ -242,3 +242,37 @@ class MarketChatTests(TestCase):
         with patch("founder.services.market.search_many") as search:
             self.assertIn("Ниша проекта пока непонятна", market.chat_brief(empty))
         search.assert_not_called()
+
+
+@override_settings(AI_PROVIDER="gigachat", MARKET_SEARCH="exa")
+class MarketBlockedTests(TestCase):
+    def test_blocked_answer_is_retried_with_fewer_shorter_sources(self):
+        from founder.services.ai import AIBlockedError
+
+        user = User.objects.create_user("blocked", email="blocked@example.test", password="x")
+        startup = StartupProfile.objects.create(owner=user, name="Платья", one_line_pitch="Аренда платьев на выпускной")
+        found = [SearchResult(f"Прокат {index}", f"https://site{index}.ru/", "Прокат платьев от 3000 рублей. " * 30)
+                 for index in range(8)]
+        answers = ['{"queries": ["аренда платьев"]}', AIBlockedError("blacklist"),
+                   report_json(competitors=[], demand_signals=[])]
+        with patch("founder.services.market.complete_text", side_effect=answers) as model, \
+                patch("founder.services.market.search_many", return_value=found):
+            report = market.create_market_report(startup)
+        self.assertEqual(len(report.sources), 4)
+        self.assertLessEqual(len(report.sources[0]["snippet"]), 300)
+        self.assertNotIn("[5]", model.call_args.args[1])
+
+
+class MarketLinkTests(TestCase):
+    def test_answer_to_market_question_links_to_the_market_page(self):
+        user = User.objects.create_user("link", email="link@example.test", password="x")
+        startup = StartupProfile.objects.create(owner=user, name="Платья")
+        session = ChatSession.objects.create(startup=startup, mode=ChatSession.Mode.COFOUNDER)
+        from founder.models import ChatMessage
+        ChatMessage.objects.create(session=session, role="user", content="Насколько актуальна идея?")
+        ChatMessage.objects.create(session=session, role="assistant", content="Похожие салоны уже работают.", provider="gigachat")
+        ChatMessage.objects.create(session=session, role="user", content="Ок, а что с ценой")
+        ChatMessage.objects.create(session=session, role="assistant", content="Цену проверим.", provider="gigachat")
+        self.client.force_login(user)
+        page = self.client.get(reverse("chat_detail", args=[startup.pk, session.pk]))
+        self.assertContains(page, "«Рынок и конкуренты» →", count=1)

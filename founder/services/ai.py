@@ -20,6 +20,10 @@ class AIResponseFormatError(AIServiceError):
     """Модель ответила, но результат нужно сформировать заново."""
 
 
+class AIBlockedError(AIServiceError):
+    """Модель отказалась разбирать этот текст: его можно сократить и попробовать ещё раз."""
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -292,15 +296,18 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
     # Инвестор в тренировке обращается на «вы», там род не угадывается.
     gender = founder_gender(messages) if session.mode == ChatSession.Mode.COFOUNDER else "male"
     self_male = not (turn and turn.speaker == "margarita")
-    asked = ()
+    asked, keep_first = (), False
     if session.mode == ChatSession.Mode.COFOUNDER:
+        from founder.services.bruno import contradiction, number_change
         from founder.services.mentor import asked_questions
 
         # Вопрос, который уже звучал, ответ теряет: GigaChat часто повторяет его через ход.
         asked = asked_questions(messages)
+        # При противоречии первый вопрос главный («Это рост или поправка?»), второй лишний.
+        keep_first = bool(contradiction(messages) or number_change(messages))
     yield from polish_stream(tidy_stream(_provider_stream(session, messages, memories, turn, plan, economics, market)),
                              single_question=single_question, gender=gender, self_male=self_male,
-                             formal=turn is None, asked=asked)
+                             formal=turn is None, asked=asked, keep_first=keep_first)
 
 
 def _provider_stream(session, messages, memories, turn=None, plan=None, economics=None, market=""):
@@ -395,13 +402,15 @@ def complete_text(prompt, content, *, json_schema=None, max_tokens=None):
     max_tokens нужен длинным отчётам (анализ рынка), остальным хватает значения по умолчанию.
     """
     if settings.AI_PROVIDER == "gigachat":
-        from founder.services.gigachat import GigaChatError, GigaChatFormatError, complete_chat
+        from founder.services.gigachat import GigaChatBlockedError, GigaChatError, GigaChatFormatError, complete_chat
 
         try:
             return complete_chat(prompt, content, json_schema=json_schema,
                                  **({"max_tokens": max_tokens} if max_tokens else {}))
         except GigaChatFormatError as exc:
             raise AIResponseFormatError(str(exc)) from exc
+        except GigaChatBlockedError as exc:
+            raise AIBlockedError(str(exc)) from exc
         except GigaChatError as exc:
             raise AIServiceError(str(exc)) from exc
 

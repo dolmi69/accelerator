@@ -41,6 +41,10 @@ class GigaChatFormatError(GigaChatError):
     """Незавершённый ответ, который можно один раз запросить заново."""
 
 
+class GigaChatBlockedError(GigaChatError):
+    """GigaChat отказался отвечать на этот текст (finish_reason blacklist)."""
+
+
 def _tls_context():
     """Проверяем сертификат через macOS либо указанный доверенный PEM."""
     if settings.GIGACHAT_CA_BUNDLE:
@@ -286,7 +290,7 @@ def complete_chat(system_prompt, content, *, json_schema=None, max_tokens=None):
         if choice.get("finish_reason") in {"length", "error"}:
             raise GigaChatFormatError("GigaChat не завершил формирование оценки.")
         if choice.get("finish_reason") == "blacklist":
-            raise GigaChatError("GigaChat не смог оценить этот текст. Уточните описание сервиса.")
+            raise GigaChatBlockedError("GigaChat не смог оценить этот текст. Уточните описание сервиса.")
         answer = choice["message"]["content"]
         if not isinstance(answer, str) or not answer.strip():
             raise GigaChatFormatError("GigaChat вернул ответ без текста.")

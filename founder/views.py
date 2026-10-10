@@ -291,7 +291,13 @@ def chat_detail(request, startup_id, session_id):
     ideas = {}
     for idea in MentorIdea.objects.filter(message__session=session):
         ideas.setdefault(idea.message_id, []).append(idea)
+    previous_user_text = ""
     for message in chat_messages:
+        # Под ответом на вопрос о рынке — ссылка на полный анализ: модель о нём часто забывает.
+        message.market_link = (session.mode == ChatSession.Mode.COFOUNDER and message.role == ChatMessage.Role.ASSISTANT
+                               and message.provider != "system" and mentor.answer_kind(previous_user_text) == "market")
+        if message.role == ChatMessage.Role.USER:
+            previous_user_text = message.content
         message.mentor_ideas = ideas.get(message.id, [])
         # Кнопка дневника под сообщением с результатом проверки; оценка под ответом Бруно.
         message.evidence_candidate = (session.mode == ChatSession.Mode.COFOUNDER
