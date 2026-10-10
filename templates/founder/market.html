@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Рынок и конкуренты · {{ startup.name }}{% endblock %}
+{% block content %}
+{% include 'founder/_workspace_nav.html' %}
+<div class="page-heading work-heading"><div><span class="eyebrow">АНАЛИЗ РЫНКА ПО ОТКРЫТЫМ ИСТОЧНИКАМ</span><h1>Рынок и конкуренты</h1><p>{{ startup.name }} · Насколько идея актуальна, кто уже решает эту задачу и можно ли на ней заработать.</p></div>
+<form method="post" action="{% url 'market_generate' startup.id %}" data-busy-form>{% csrf_token %}<button class="button primary" data-busy-label="Бруно ищет в интернете и изучает рынок…"{% if not has_story or not search_enabled %} disabled{% endif %}>{% if report %}Проверить рынок заново{% else %}Проверить рынок{% endif %}</button><span class="muted small" role="status"></span></form></div>
+{% if is_demo %}<p class="work-notice">Деморежим: поиск в интернете и AI выключены, отчёт будет демонстрационным.</p>{% elif not search_enabled %}<p class="work-notice">Поиск в интернете выключен в настройках сервера (MARKET_SEARCH), поэтому проверить рынок сейчас нельзя.</p>{% endif %}
+{% if not report %}
+<div class="card work-card work-empty"><h2>{% if has_story %}Бруно готов проверить рынок{% else %}Сначала расскажите о проекте{% endif %}</h2>
+<p>{% if has_story %}Бруно составит поисковые запросы о вашей нише, найдёт конкурентов и цены в открытых источниках и сравнит их с вашим проектом. В поиск уходят только короткие запросы о нише, без вашего имени. Займёт около минуты.{% else %}Опишите идею в анкете или поговорите с Бруно в чате, чтобы было понятно, какую нишу проверять.{% endif %}</p>
+{% if not has_story %}<form method="post" action="{% url 'chat_create' startup.id %}">{% csrf_token %}<button class="button primary">Поговорить с Бруно →</button></form>{% endif %}</div>
+{% else %}
+<section class="card work-card review-summary"><span class="eyebrow">АКТУАЛЬНОСТЬ: {{ relevance_label|upper }}</span><h2>{{ data.verdict }}</h2>{% if data.relevance_reason %}<p>{{ data.relevance_reason }}</p>{% endif %}
+<p class="muted small">Анализ от {{ report.created_at|date:'d.m.Y H:i' }}{% if report.queries %} по запросам: {{ report.queries|join:'; ' }}{% endif %}. Бруно читал только найденные страницы и мог что-то упустить. Цены и цифры проверьте по ссылкам: числа [1], [2] указывают на источник внизу страницы.</p></section>
+<div class="work-grid review-grid">
+<section class="card work-card"><span class="eyebrow">ПРИЗНАКИ СПРОСА</span><h2>Спрос</h2>{% for signal in signals %}<p>✓ {{ signal.text }}{% if signal.source_info %} <a class="muted small" href="{{ signal.source_info.url }}" target="_blank" rel="noopener noreferrer nofollow">[{{ signal.source }}] {{ signal.source_info.domain }}</a>{% endif %}</p>{% empty %}<p class="muted">В найденных источниках явных признаков спроса не видно. Это не значит, что спроса нет: его проверяют разговорами с клиентами.</p>{% endfor %}</section>
+<section class="card work-card"><span class="eyebrow">БЕЗ ВАШЕГО ПРОЕКТА</span><h2>Как решают сейчас</h2><p>{{ data.substitutes|default:'В источниках не видно.' }}</p>{% if data.opportunity %}<h3>Где можно выиграть</h3><p>{{ data.opportunity }}</p>{% endif %}</section>
+</div>
+<section class="card work-card"><span class="eyebrow">КТО УЖЕ НА РЫНКЕ</span><h2>Конкуренты</h2>
+{% for item in competitors %}<article class="review-risk"><strong>{{ forloop.counter }}. {% if item.source_info %}<a href="{{ item.source_info.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ item.name }}</a>{% else %}{{ item.name }}{% endif %}</strong>{% if item.source_info and item.source_info.domain|lower != item.name|lower %}<span class="muted small"> · {{ item.source_info.domain }}</span>{% endif %}<p>{{ item.what }}</p>{% if item.price %}<p><strong>Цена:</strong> {{ item.price }}</p>{% endif %}{% if item.weakness %}<p class="muted">Слабое место: {{ item.weakness }}</p>{% endif %}</article>{% empty %}<p class="muted">В найденных источниках прямых конкурентов не нашлось. Проверьте вручную, как ваши клиенты решают задачу сейчас: это и есть главный конкурент.</p>{% endfor %}</section>
+<div class="work-grid review-grid">
+<section class="card work-card"><span class="eyebrow">ДЕНЬГИ</span><h2>Можно ли заработать</h2>{% if data.money_view %}<p>{{ data.money_view }}</p>{% endif %}{% if data.price_benchmark %}<p><strong>Цены на рынке:</strong> {{ data.price_benchmark }}</p>{% endif %}
+{% if data.economics %}<div class="task-criterion"><strong>Расчёт по вашим цифрам</strong>{% for line in data.economics %}<p>{{ line }}</p>{% endfor %}</div>{% else %}<p class="muted small">Чтобы посчитать прибыль и безубыточность, расскажите Бруно в чате цену для клиента, затраты на одного клиента и расходы в месяц.</p>{% endif %}</section>
+<section class="card work-card review-risks"><span class="eyebrow">ЧТО МОЖЕТ ПОМЕШАТЬ</span><h2>Рыночные риски</h2>{% for risk in data.risks %}<div class="review-risk"><strong>{{ forloop.counter }}.</strong> {{ risk }}</div>{% empty %}<p class="muted">Явных рисков по источникам не видно.</p>{% endfor %}</section>
+</div>
+<section class="card work-card"><span class="eyebrow">ПРОВЕРКИ НА НЕДЕЛЮ</span><h2>Что проверить первым</h2>
+{% for check in checks %}<article class="review-step"><div class="review-week">{{ forloop.counter }}</div><div class="review-step-body"><strong>{{ check.title }}</strong><span class="muted small"> · {{ check.axis_label }}</span><p>{{ check.action }}</p><div class="task-criterion"><strong>Когда проверка закончена</strong><p>{{ check.done_when }}</p></div>
+{% if check.axis_busy %}<p class="muted small">По направлению «{{ check.axis_label }}» уже есть задание в работе.</p>{% else %}<form method="post" action="{% url 'market_check_task' startup.id report.id check.index %}">{% csrf_token %}<button class="button ghost">Взять в задания</button></form>{% endif %}</div></article>{% endfor %}
+</section>
+{% if sources %}<section class="card work-card"><span class="eyebrow">ИСТОЧНИКИ</span><h2>Что нашёл Бруно</h2><ol class="market-sources">{% for source in sources %}<li><a href="{{ source.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ source.title }}</a> <span class="muted small">{{ source.domain }}{% if source.published %} · {{ source.published }}{% endif %}</span></li>{% endfor %}</ol></section>{% endif %}
+{% if history|length > 1 %}<section class="card work-card"><h2>Прошлые анализы</h2>{% for item in history %}<a class="history-row" href="?id={{ item.id }}"><span><strong>{{ item.data.verdict|truncatechars:90 }}</strong><small>{{ item.created_at|date:'d.m.Y H:i' }}{% if item.id == report.id %} · открыт сейчас{% endif %}</small></span><span aria-hidden="true">→</span></a>{% endfor %}</section>{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}" defer></script>{% endblock %}

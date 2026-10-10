@@ -323,3 +323,41 @@ class NormaliseVoteTests(TestCase):
                 self.assertRaisesMessage(panel.AIServiceError, "Акулы не договорились"):
             panel.run_vote(session)
         self.assertFalse(PanelVerdict.objects.filter(session=session).exists())
+
+
+class SharkFocusTests(PanelSetup):
+    def test_prompt_names_open_subtopic_and_drops_copyable_example(self):
+        session = panel.create_panel(self.startup)
+        messages = [{"role": "user", "content": "Пока ищем клиентов через знакомых врачей"}]
+        prompt = system_prompt(session, [], messages, turn=panel.Turn("oleg"))
+        self.assertIn("уже говорил: канал привлечения", prompt)
+        self.assertIn("Спроси про «конкуренты»", prompt)
+        self.assertNotIn(panel.SHARKS["oleg"]["example"], prompt)
+        self.assertNotIn("Ранее сказанное основателем Бруно", prompt)
+        self.assertIn("Бруно в панели не участвует", prompt)
+        margarita = system_prompt(session, [], messages, turn=panel.Turn("margarita"))
+        self.assertIn("не спрашивай это у основателя", margarita)
+
+    def test_subtopics_close_from_founder_words(self):
+        closed, open_ = panel.subtopic_status("margarita", ["Берём 4900 в месяц, за СМС платим около 700"])
+        self.assertEqual(closed, ["цена", "затраты на клиента"])
+        self.assertEqual(open_[0], "стоимость привлечения")
+
+    def test_oleg_sees_market_report(self):
+        from founder.models import MarketReport
+        MarketReport.objects.create(startup=self.startup, sources=[{"domain": "ident.ru", "title": "IDENT",
+                                                                    "url": "https://ident.ru/", "snippet": ""}],
+                                    data={"relevance": "medium", "verdict": "Рынок занят CRM.", "competitors": [
+                                        {"name": "IDENT", "what": "CRM для стоматологий", "price": "", "source": 1}]})
+        session = panel.create_panel(self.startup)
+        prompt = system_prompt(session, [], [{"role": "user", "content": "Делаем запись"}], turn=panel.Turn("oleg"))
+        self.assertIn("Конкурент: IDENT (ident.ru)", prompt)
+        timur = system_prompt(session, [], [{"role": "user", "content": "Делаем запись"}], turn=panel.Turn("timur"))
+        self.assertNotIn("Конкурент: IDENT", timur)
+
+    def test_vote_condition_needs_a_number(self):
+        raw = json.loads(model_vote("oleg", condition_done_when="Получены данные о каналах."))
+        with self.assertRaises(ValueError):
+            panel.normalise_vote(raw, "oleg", ANSWERS)
+        self.assertEqual(panel.normalise_vote(raw, "oleg", ANSWERS, strict=False)["condition"]["success_criterion"],
+                         "Получены данные о каналах.")

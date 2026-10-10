@@ -74,7 +74,8 @@ REVIEW_PROMPT = (
     "если результат отрицательный. Шаги должны быть по силам текущей команде.\n\n"
     "Опирайся только на данные ниже. Не выдумывай клиентов, выручку, конкурентов и "
     "исследования; если чего-то не хватает, скажи об этом в рисках или шагах. "
-    "Названия конкурентов упоминай, только если их назвал основатель. Если в данных "
+    "Названия конкурентов упоминай, только если их назвал основатель или они есть в анализе "
+    "рынка по открытым источникам ниже. Если в данных "
     "есть расчёт денег от программы, бери числа только из него. Иначе, если звучат "
     "цена и затраты, посчитай экономику одного клиента: выручка проекта (то, что "
     "клиент платит проекту) минус затраты на него за тот же период. Цены партнёров "
@@ -109,6 +110,11 @@ def _review_context(startup):
     economics = economics_note(unit_economics([text for text in texts if text], latest_only=False))
     if economics:
         context += "\n\n" + economics
+    from founder.services.market import latest_report, report_note
+
+    market = report_note(latest_report(startup), competitors=5)
+    if market:
+        context += "\n\n" + market
     tasks = list(startup.bruno_tasks.values("axis", "title", "status")[:12])
     if tasks:
         context += "\nЗадания Бруно (todo — в работе): " + json.dumps(tasks, ensure_ascii=False)

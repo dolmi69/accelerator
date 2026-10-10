@@ -14,6 +14,7 @@ from django.views.decorators.http import require_POST
 
 from founder.forms import EvidenceForm
 from founder.models import BrunoTask, BusinessAxis, ChatMessage, ChatSession, EvidenceEntry, StartupProfile
+from founder.services import market as market_service
 from founder.services.ai import AIServiceError
 from founder.services.panel import ORDER as SHARK_ORDER, shark_info
 from founder.services.review import create_review, guess_axis, step_to_task
@@ -171,4 +172,65 @@ def review_step_task(request, startup_id, review_id, index):
         messages.error(request, 'По этому направлению уже есть задание в работе. Сначала завершите или отложите его.')
         return redirect(f"{reverse('review', args=[startup.pk])}?id={current.pk}")
     messages.success(request, 'Шаг добавлен в задания. Результат запишите в дневник, когда сделаете.')
+    return redirect('tasks', startup_id=startup.pk)
+
+
+@login_required
+def market(request, startup_id):
+    startup = owned_startup(request, startup_id)
+    reports = startup.market_reports.all()
+    current = reports.first()
+    if request.GET.get('id'):
+        try:
+            current = get_object_or_404(reports, pk=UUID(request.GET['id']))
+        except (ValueError, TypeError) as exc:
+            raise Http404('Анализ не найден') from exc
+    data = current.data if current else {}
+    sources = current.sources if current else []
+    open_axes = set(startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list('axis', flat=True))
+    axis_labels = dict(BusinessAxis.choices)
+
+    def source(index):
+        return sources[index - 1] if isinstance(index, int) and 0 < index <= len(sources) else None
+
+    return render(request, 'founder/market.html', {
+        'startup': startup, 'workspace_tab': 'market', 'report': current, 'data': data,
+        'relevance_label': market_service.RELEVANCE.get(data.get('relevance'), ''),
+        'signals': [{**item, 'source_info': source(item.get('source'))} for item in data.get('demand_signals', [])],
+        'competitors': [{**item, 'source_info': source(item.get('source'))} for item in data.get('competitors', [])],
+        'checks': [{**check, 'index': index, 'axis_label': axis_labels.get(check['axis'], ''),
+                    'axis_busy': check['axis'] in open_axes} for index, check in enumerate(data.get('checks', []))],
+        'sources': [{**item, 'number': number} for number, item in enumerate(sources, 1)],
+        'history': reports[:8], 'is_demo': settings.AI_PROVIDER == 'demo',
+        'search_enabled': market_service.search_enabled() or settings.AI_PROVIDER == 'demo',
+        'has_story': (any((startup.one_line_pitch, startup.problem, startup.solution, startup.target_customer))
+                      or startup.chat_sessions.filter(mode=ChatSession.Mode.COFOUNDER, messages__role='user').exists()),
+    })
+
+
+@login_required
+@require_POST
+def market_generate(request, startup_id):
+    startup = owned_startup(request, startup_id)
+    try:
+        market_service.create_market_report(startup)
+        messages.success(request, 'Бруно изучил рынок по открытым источникам.')
+    except AIServiceError as exc:
+        messages.error(request, str(exc))
+    return redirect('market', startup_id=startup.pk)
+
+
+@login_required
+@require_POST
+def market_check_task(request, startup_id, report_id, index):
+    startup = owned_startup(request, startup_id)
+    current = get_object_or_404(startup.market_reports, pk=report_id)
+    try:
+        task = market_service.check_to_task(current, index)
+    except ValueError as exc:
+        raise Http404(str(exc)) from exc
+    if task is None:
+        messages.error(request, 'По этому направлению уже есть задание в работе. Сначала завершите или отложите его.')
+        return redirect(f"{reverse('market', args=[startup.pk])}?id={current.pk}")
+    messages.success(request, 'Проверка добавлена в задания. Результат запишите в дневник, когда сделаете.')
     return redirect('tasks', startup_id=startup.pk)

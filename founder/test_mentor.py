@@ -313,3 +313,89 @@ class MentorPromptOrderTests(TestCase):
     def test_glad_to_hear_agreement_is_dropped(self):
         self.assertEqual(tidy_reply("Рада услышать согласие. Вот мой план: отправьте 50 писем."),
                          "Вот мой план: отправьте 50 писем.")
+
+
+class IdeaDevelopmentTests(TestCase):
+    """Развитие идеи по пожеланию и идеи в нише (скилл brainstorming), вопрос о рынке."""
+
+    def test_answer_kinds(self):
+        cases = {
+            "Придумай идею стартапа в сфере фитнеса": "niche",
+            "Хочу что-то для студентов, но не знаю что": "niche",
+            "Какой бизнес можно открыть в маленьком городе?": "niche",
+            "У меня пока нет идеи, но я люблю кофе": "niche",
+            "Какие идеи есть в нише доставки еды?": "niche",
+            "а если добавить подписку?": "develop",
+            "А если сделать это для пенсионеров?": "develop",
+            "хочу, чтобы родители тоже видели прогресс": "develop",
+            "Как развить идею?": "develop",
+            "Насколько актуальна моя идея?": "market",
+            "Есть ли у нас конкуренты?": "market",
+            "Проанализируй рынок аренды платьев": "market",
+            "Ладно. Конкурентов у нас нет, такого никто не делает.": "market",
+            # Рассказ, а не просьба: остаются прежние режимы.
+            "Конкуренты есть, IDENT и Medods, но они дорогие": "short",
+            "Мы делаем сервис в сфере стоматологии для клиник": "short",
+            "а если клиентов не будет?": "short",
+            "предложи идеи для привлечения клиентов": "brainstorm",
+            "Как нам развивать проект дальше?": "long",
+            "Думаю, за первый год займём 5% рынка кофе в городе": "short",
+        }
+        for text, kind in cases.items():
+            self.assertEqual(mentor.answer_kind(text), kind, text)
+
+    def test_chosen_option_points_to_the_item_from_previous_answer(self):
+        messages = [{"role": "assistant", "content": "Варианты:\n1. Подписка для родителей\n2. Разовые пакеты\n3. Бесплатно"},
+                    {"role": "user", "content": "давайте второй"}]
+        self.assertEqual(mentor.chosen_option(messages), (2, "Разовые пакеты"))
+        for text, number in (("3", 3), ("Мне ближе третий", 3), ("первый вариант нравится", 1),
+                             ("второй, потому что проще", 2)):
+            messages[-1]["content"] = text
+            self.assertEqual(mentor.chosen_option(messages)[0], number, text)
+        messages[-1]["content"] = "2 клиента уже заплатили"
+        self.assertIsNone(mentor.chosen_option(messages))
+        from founder.services.bruno import conversation_notes
+        messages[-1]["content"] = "второй"
+        notes = conversation_notes(messages)
+        self.assertIn("выбрал пункт 2", notes)
+        self.assertNotIn("Последний ответ короткий", notes)
+
+    def test_develop_plan_options_reach_prompt_and_become_ideas(self):
+        data = {"thought": "Совместная готовка решает скуку, а не голод", "move": "idea", "question": "Вам ближе первый или второй?",
+                "wish": "Соседи скидываются продуктами", "pick": 2, "pick_why": "проще проверить",
+                "option1_title": "Общий котёл на этаже", "option1_tradeoff": "Плюс: дёшево. Минус: кто моет посуду",
+                "option1_test": "5 соседей за неделю", "option1_axis": "product",
+                "option2_title": "Ужин по пятницам", "option2_tradeoff": "Плюс: просто. Минус: раз в неделю",
+                "option2_test": "2 ужина по 6 человек", "option2_axis": "channels"}
+        plan = mentor.parse_plan(data, "develop")
+        self.assertEqual([idea["axis"] for idea in plan.ideas], ["product", "market"])
+        self.assertEqual(plan.pick, 2)
+        note = mentor.plan_note(plan)
+        self.assertIn("Как ты понял пожелание: Соседи скидываются продуктами", note)
+        self.assertIn("Минус: кто моет посуду", note)
+        self.assertIn("Ты выбрал бы 2-й: проще проверить", note)
+        user = User.objects.create_user("dev", email="dev@example.test", password="x")
+        startup = StartupProfile.objects.create(owner=user, name="Готовим", stage="idea")
+        session = ChatSession.objects.create(startup=startup, mode=ChatSession.Mode.COFOUNDER)
+        message = ChatMessage.objects.create(session=session, role=ChatMessage.Role.ASSISTANT, content="1. ...")
+        self.assertEqual(len(mentor.save_ideas(plan, message)), 2)
+        prompt = system_prompt(session, [], [{"role": "user", "content": "а если добавить общий ужин?"}], plan=plan)
+        self.assertIn("2–3 варианта списком", prompt)
+        self.assertIn("лишние функции на старте только мешают", prompt)
+        niche = system_prompt(session, [], [{"role": "user", "content": "Придумай идею стартапа в сфере фитнеса"}])
+        self.assertIn("Три идеи списком", niche)
+
+    @override_settings(AI_PROVIDER="gigachat", BRUNO_MENTOR_PLAN=True)
+    def test_niche_and_market_plans_ask_planner_for_their_fields(self):
+        user = User.objects.create_user("nich", email="nich@example.test", password="x")
+        startup = StartupProfile.objects.create(owner=user, name="Фитнес", stage="idea")
+        session = ChatSession.objects.create(startup=startup, mode=ChatSession.Mode.COFOUNDER)
+        with patch("founder.services.ai.complete_text", return_value=plan_json(**IDEAS, pick=1)) as model:
+            plan = mentor.prepare_turn(session, [{"role": "user", "content": "Придумай идею стартапа в сфере фитнеса"}])
+        self.assertIn("idea1_customer", model.call_args.args[0])
+        self.assertEqual((plan.kind, len(plan.ideas), plan.pick), ("niche", 3, 1))
+        with patch("founder.services.ai.complete_text",
+                   return_value=plan_json(search1="аренда платьев конкуренты", search2="прокат платьев цены")) as model:
+            plan = mentor.prepare_turn(session, [{"role": "user", "content": "Есть ли у нас конкуренты?"}])
+        self.assertIn("search1, search2", model.call_args.args[0])
+        self.assertEqual(plan.searches, ["аренда платьев конкуренты", "прокат платьев цены"])

@@ -1,3 +1,6 @@
+{% if message.market_link %}
+<a class="evidence-link" href="{% url 'market' startup.id %}">Полный анализ с источниками: «Рынок и конкуренты» →</a>
+{% endif %}
 {% if message.evidence_candidate %}
 <a class="evidence-link" href="{% url 'evidence_create' startup.id %}?message={{ message.id }}">Записать в дневник →</a>
 {% endif %}

@@ -291,7 +291,13 @@ def chat_detail(request, startup_id, session_id):
     ideas = {}
     for idea in MentorIdea.objects.filter(message__session=session):
         ideas.setdefault(idea.message_id, []).append(idea)
+    previous_user_text = ""
     for message in chat_messages:
+        # Под ответом на вопрос о рынке — ссылка на полный анализ: модель о нём часто забывает.
+        message.market_link = (session.mode == ChatSession.Mode.COFOUNDER and message.role == ChatMessage.Role.ASSISTANT
+                               and message.provider != "system" and mentor.answer_kind(previous_user_text) == "market")
+        if message.role == ChatMessage.Role.USER:
+            previous_user_text = message.content
         message.mentor_ideas = ideas.get(message.id, [])
         # Кнопка дневника под сообщением с результатом проверки; оценка под ответом Бруно.
         message.evidence_candidate = (session.mode == ChatSession.Mode.COFOUNDER
@@ -320,8 +326,9 @@ def chat_detail(request, startup_id, session_id):
 
 
 # Подсказки под полем ввода: начинающему проще нажать, чем сформулировать.
-QUICK_REPLIES = ("Объясни подробнее", "Давай подумаем, как улучшить проект", "Давай посчитаем деньги",
-                 "Не знаю", "Помоги подготовиться к встрече с куратором", "Подведи итог встречи")
+QUICK_REPLIES = ("Объясни подробнее", "Давай подумаем, как улучшить проект", "Как можно развить идею?",
+                 "Насколько актуальна идея и кто конкуренты?", "Давай посчитаем деньги", "Не знаю",
+                 "Помоги подготовиться к встрече с куратором", "Подведи итог встречи")
 
 
 @login_required
@@ -461,7 +468,9 @@ def chat_send(request, startup_id, session_id):
             else:
                 if (session.mode == ChatSession.Mode.COFOUNDER and settings.BRUNO_MENTOR_PLAN
                         and settings.AI_PROVIDER != "demo"):
-                    yield _sse({"type": "status", "text": "Бруно думает над проектом…"})
+                    searching = mentor.answer_kind(user_message.content) == "market"
+                    yield _sse({"type": "status", "text": "Бруно ищет в открытых источниках…" if searching
+                                else "Бруно думает над проектом…"})
                 events = (("text", delta) for delta in stream_reply(session, context_messages, memories))
             total_chars = 0
             for kind, delta in events:

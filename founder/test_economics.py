@@ -29,6 +29,13 @@ class SummarizeTests(SimpleTestCase):
         self.assertIn("200 ₽ − 60 ₽ = 140 ₽ (70% от цены)", text)
         self.assertIn("= 1 072 продаж в месяц, примерно 36 в день", text)
 
+    def test_commission_counts_even_when_price_lands_in_monthly_payment(self):
+        # GigaChat отдал цену аренды и как цену сделки, и как платёж клиента: расчёт был пустым.
+        lines = summarize({"customer_payment_month": 3000, "price_per_unit": 3000, "commission_percent": 20})
+        self.assertIn("3 000 ₽ × 20% = 600 ₽", "\n".join(lines))
+        lines = summarize({"customer_payment_month": 3000, "commission_percent": 20})
+        self.assertIn("= 600 ₽", "\n".join(lines))
+
     def test_commission_marketplace_break_even(self):
         text = "\n".join(summarize({"price_per_unit": 3000, "commission_percent": 20, "fixed_costs_month": 30_000}))
         self.assertIn("3 000 ₽ × 20% = 600 ₽", text)
@@ -74,3 +81,11 @@ class ExtractionTests(SimpleTestCase):
     def test_extraction_failure_never_breaks_the_reply(self):
         with patch("founder.services.economics.complete_text", return_value="не json"):
             self.assertEqual(unit_economics(["цена 1990 ₽, затраты 2700 ₽"]), [])
+
+
+class AcquisitionPaybackTests(SimpleTestCase):
+    def test_acquisition_pays_back_in_sales(self):
+        text = "\n".join(summarize({"price_per_unit": 900, "cost_per_unit": 700, "cac": 600}))
+        self.assertIn("Привлечение 600 ₽ окупается за 3 продажи (600 ₽ / 200 ₽).", text)
+        text = "\n".join(summarize({"price_per_unit": 3000, "commission_percent": 20, "cac": 1000}))
+        self.assertIn("окупается за 2 продажи", text)

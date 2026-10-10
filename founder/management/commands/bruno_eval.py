@@ -162,6 +162,51 @@ SCENARIOS = {
              "expect": [r"на что|дол[юия]|грант|результат|зачем"], "reject": [r"поздравля|отличн\w* иде"]},
         ],
     },
+    # Искусственные проекты для развития идеи (скилл brainstorming): маленькие пожелания и выбор варианта.
+    "develop": {
+        "about": "Развитие идеи по небольшим пожеланиям: варианты с плюсами и минусами, выбор, следующий шаг",
+        "startup": {
+            "name": "Готовим вместе", "stage": "idea",
+            "one_line_pitch": "Телеграм-бот подсказывает студентам в общежитии, что приготовить из того, что есть",
+            "target_customer": "Студенты, живущие в общежитии",
+        },
+        "turns": [
+            "Бот, куда кидаешь, что лежит в холодильнике, а он предлагает рецепт на 15 минут.",
+            {"text": "А если добавить, чтобы соседи по этажу скидывались продуктами и готовили вместе?",
+             "expect": [r"(?m)^\s*1[.)]", r"(?m)^\s*2[.)]", r"я бы|выбрал бы|начал бы|начни|начать"],
+             "reject": [r"\d+\s*%\s*(?:студент|рынк)"]},
+            {"text": "Давай второй", "reject": [r"(?m)^\s*4[.)]", r"•"]},
+            {"text": "хочу, чтобы это ещё и деньги приносило", "expect": [r"(?m)^\s*1[.)]", r"плат|деньг|₽|руб|подписк|реклам|партн"]},
+        ],
+    },
+    "niche": {
+        "about": "Идеи в нише: у основателя только интерес к сфере, Бруно предлагает свои варианты",
+        "startup": {"name": "Идея в фитнесе", "stage": "idea"},
+        "turns": [
+            {"text": "У меня пока нет идеи. Хочу что-то в сфере фитнеса, сам хожу в зал третий год.",
+             "expect": [r"(?m)^\s*1[.)]", r"(?m)^\s*2[.)]", r"(?m)^\s*3[.)]", r"провер"],
+             "reject": [r"\d+\s*(?:млн|млрд)", r"рынок\s+(?:фитнеса\s+)?(?:составляет|оценивается)"]},
+            {"text": "Первая интереснее", "reject": [r"(?m)^\s*4[.)]", r"•"]},
+            {"text": "Предложи ещё идеи для бизнеса для студентов в спорте", "expect": [r"(?m)^\s*1[.)]"]},
+        ],
+    },
+    "market_chat": {
+        "about": "Вопрос о рынке в чате: поиск в открытых источниках, конкуренты с сайтами, без выдуманных цифр",
+        "startup": {
+            "name": "Платье на вечер", "stage": "idea",
+            "one_line_pitch": "Девушки сдают друг другу платья на выпускной и свадьбы",
+            "target_customer": "Девушки 17–25 лет",
+        },
+        "market": True,
+        "turns": [
+            "Хочу сделать сайт, где девушки сдают в аренду платья на выпускной друг другу. Аренда за 3 тысячи, берём 20%.",
+            {"text": "Насколько актуальна идея и кто конкуренты?",
+             "expect": [r"\(\w[\w.-]*\.(?:ru|com|рф|net|org|io)\)|\b\w[\w-]*\.(?:ru|com|рф)\b", r"Рынок и конкуренты"],
+             "reject": [r"рынок\s+(?:аренды\s+)?(?:составляет|оценивается)\s+\d"]},
+            {"text": "Ладно. Но у нас конкурентов нет, таких сайтов никто не делает.",
+             "expect": [r"\.(?:ru|com|рф)|прокат|салон|авито|уже"], "reject": [r"отличн|здорово"]},
+        ],
+    },
     "b2b_numbers": {
         "about": "Подробный рассказ с цифрами, B2B",
         "startup": {
@@ -316,7 +361,54 @@ SCENARIOS = {
             {"text": "Команда: я продаю, друг программирует", "reject": [r"(?<!\w)ты(?!\w)"]},
         ],
     },
+    # Искусственные проекты для акул: уклончивый основатель B2C и маркетплейс с цифрами.
+    "panel_evasive": {
+        "about": "Панель акул: B2C-приложение, основатель уходит от ответов и путается в цифрах",
+        "mode": "panel",
+        "vote": True,
+        "startup": {
+            "name": "ПетСиттер", "stage": "idea",
+            "one_line_pitch": "Соседи присматривают за питомцами друг друга за деньги",
+            "target_customer": "Владельцы кошек и собак в многоэтажках",
+        },
+        "turns": [
+            "Ну люди уезжают в отпуск, а кота оставить не с кем",
+            "Не знаю, наверно через соцсети",
+            {"text": "Не знаю", "reject": [r"(?<!\w)ты(?!\w)"]},
+            "Будем брать 300 рублей за визит, себе 15%",
+            "Пока никто не пользовался, но друзьям нравится",
+            "Конкурентов нет, мы первые",
+            "Хватит 50 тысяч на рекламу на полгода, я думаю",
+            {"text": "Ну я один пока, программиста ищу", "reject": [r"(?<!\w)ты(?!\w)", r"Бруно"]},
+        ],
+    },
+    "panel_marketplace": {
+        "about": "Панель акул: маркетплейс репетиторов-студентов с выручкой и удержанием",
+        "mode": "panel",
+        "vote": True,
+        "startup": {
+            "name": "Студент-репетитор", "stage": "traction",
+            "one_line_pitch": "Студенты старших курсов занимаются со школьниками рядом с домом",
+            "target_customer": "Родители школьников 5–9 классов",
+        },
+        "turns": [
+            "Мама восьмиклассника платила 2000 за час взрослому репетитору и искала дешевле",
+            "За два месяца 40 семей, 26 продлили на второй месяц",
+            "Час стоит 900 рублей, студенту отдаём 700",
+            "Родителей находим в чатах школ, один пост приводит 3-4 заявки",
+            "Привлечение семьи обходится примерно в 600 рублей",
+            "Конкуренты Профи.ру и Авито, но там нет проверки студентов",
+            "Студент проходит пробное занятие с нашим методистом",
+            {"text": "Нас трое: я продаю, двое ведут студентов", "reject": [r"(?<!\w)ты(?!\w)", r"Бруно"]},
+        ],
+    },
 }
+# Слова, по которым видно, что акула переспросила уже отвеченное.
+PANEL_REPEAT_HINT = re.compile(r"(?:где|как)\s+(?:вы\s+)?найд[её]те\s+первых\s+сто", re.IGNORECASE)
+# Два вопроса в одном предложении через «и»: «Сколько клиник готовы платить и откуда…?».
+DOUBLE_QUESTION_RE = re.compile(
+    r"[^.!?]{25,}\s(?:и|а также)\s+(?:как|какие|какой|сколько|откуда|где|когда|кто|почему|зачем|чем)\s[^.!?]*\?",
+    re.IGNORECASE)
 
 
 class _Rollback(Exception):
@@ -402,15 +494,24 @@ class Command(BaseCommand):
                     elapsed = time.monotonic() - started
                     ChatMessage.objects.create(session=session, role=ChatMessage.Role.ASSISTANT, content=answer)
                     pitch = session.mode == ChatSession.Mode.PITCH
-                    found = style_issues(answer, long_form=mentor.answer_kind(text) != "short" and not pitch, pitch=pitch,
+                    kind = mentor.reply_kind(context)
+                    found = style_issues(answer, long_form=kind != "short" and not pitch, pitch=pitch,
                                          gender="male" if pitch else founder_gender(context))
                     found += content_issues(answer, turn)
+                    if kind == "short" and DOUBLE_QUESTION_RE.search(answer):
+                        found.append("два вопроса через «и»")
+                    if kind == "choice" and (len(answer) > 1100 or "•" in answer):
+                        found.append("шаг по выбранному варианту длиннее 1100 знаков или со списком «•»")
                     issues += len(found)
                     lines.append(f"**Бруно** ({elapsed:.1f} с, {len(answer)} симв.): {answer}\n")
                     if found:
                         lines.append("> ⚠ " + "; ".join(found) + "\n")
                 if scenario.get("vote"):
                     report, found = self.panel_vote(session)
+                    lines.extend(report)
+                    issues += found
+                if scenario.get("market"):
+                    report, found = self.market_report(startup)
                     lines.extend(report)
                     issues += found
                 if scenario.get("review") or scenario.get("radar_reject_above"):
@@ -464,6 +565,12 @@ class Command(BaseCommand):
                 continue
             found += style_issues(text, pitch=True, gender="male", self_female=speaker == "margarita")
             found += content_issues(text, turn)
+            if DOUBLE_QUESTION_RE.search(text):
+                found.append("два вопроса через «и»")
+            if re.search(r"(?<!\w)Бруно(?!\w)", text):
+                found.append("акула обращается к Бруно")
+            if PANEL_REPEAT_HINT.search(text):
+                found.append("пример из персоны дословно")
         if found:
             lines.append("> ⚠ " + "; ".join(found) + "\n")
         return len(found)
@@ -522,6 +629,37 @@ class Command(BaseCommand):
         if found:
             lines.append("> ⚠ " + "; ".join(found))
         return lines + [""], issues + len(found)
+
+    def market_report(self, startup):
+        """Анализ рынка по открытым источникам: конкуренты с источником, проверки, вывод."""
+        from founder.services.market import RELEVANCE, create_market_report
+
+        started = time.monotonic()
+        try:
+            report = create_market_report(startup)
+        except AIServiceError as exc:
+            return [f"\n### Рынок и конкуренты\n\n[ОШИБКА] {exc}\n"], 1
+        data, sources = report.data, report.sources
+        lines = [f"\n### Рынок и конкуренты ({time.monotonic() - started:.1f} с, источников {len(sources)})\n",
+                 f"Запросы: {'; '.join(report.queries)}\n",
+                 f"Актуальность: {RELEVANCE[data['relevance']]}. {data['relevance_reason']}\n",
+                 f"Итог: {data['verdict']}\n", "Спрос:"]
+        lines += [f"- {item['text']} [{sources[item['source'] - 1]['domain']}]" for item in data["demand_signals"]] or ["- нет"]
+        lines += ["\nКонкуренты:"] + [
+            f"- {item['name']} ({sources[item['source'] - 1]['domain']}): {item['what']}"
+            + (f" Цена: {item['price']}." if item["price"] else "") + (f" Слабое место: {item['weakness']}" if item["weakness"] else "")
+            for item in data["competitors"]] or ["- нет"]
+        lines += [f"\nКак решают сейчас: {data['substitutes']}", f"Цены рынка: {data['price_benchmark']}",
+                  f"Где выиграть: {data['opportunity']}", f"Деньги: {data['money_view']}"]
+        lines += ["Расчёт программы:"] + [f"- {line}" for line in data.get("economics", [])] or []
+        lines += ["\nРиски:"] + [f"- {risk}" for risk in data["risks"]]
+        lines += ["\nПроверки:"] + [f"- [{check['axis']}] {check['title']}: {check['action']} Готово, когда: "
+                                   f"{check['done_when']}" for check in data["checks"]]
+        issues = 0
+        if not data["competitors"]:
+            lines.append("> ⚠ ни одного конкурента с источником")
+            issues += 1
+        return lines + [""], issues
 
     def tasks_report(self, startup):
         from founder.services.workbench import generate_tasks

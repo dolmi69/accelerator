@@ -41,6 +41,10 @@ class GigaChatFormatError(GigaChatError):
     """Незавершённый ответ, который можно один раз запросить заново."""
 
 
+class GigaChatBlockedError(GigaChatError):
+    """GigaChat отказался отвечать на этот текст (finish_reason blacklist)."""
+
+
 def _tls_context():
     """Проверяем сертификат через macOS либо указанный доверенный PEM."""
     if settings.GIGACHAT_CA_BUNDLE:
@@ -260,7 +264,7 @@ def _post_chat(payload):
     raise GigaChatError(UNREACHABLE) from last_error
 
 
-def complete_chat(system_prompt, content, *, json_schema=None):
+def complete_chat(system_prompt, content, *, json_schema=None, max_tokens=None):
     """Полный ответ, при необходимости ограниченный обязательной JSON-схемой.
 
     Схема GigaChat v1 задаётся в response_format.schema (не json_schema).
@@ -272,7 +276,7 @@ def complete_chat(system_prompt, content, *, json_schema=None):
         system_prompt,
         [{"role": "user", "content": content}],
         stream=False,
-        max_tokens=2400 if json_schema is not None else 1400,
+        max_tokens=max_tokens or (2400 if json_schema is not None else 1400),
     )
     if json_schema is not None:
         payload["temperature"] = 0.1
@@ -286,7 +290,7 @@ def complete_chat(system_prompt, content, *, json_schema=None):
         if choice.get("finish_reason") in {"length", "error"}:
             raise GigaChatFormatError("GigaChat не завершил формирование оценки.")
         if choice.get("finish_reason") == "blacklist":
-            raise GigaChatError("GigaChat не смог оценить этот текст. Уточните описание сервиса.")
+            raise GigaChatBlockedError("GigaChat не смог оценить этот текст. Уточните описание сервиса.")
         answer = choice["message"]["content"]
         if not isinstance(answer, str) or not answer.strip():
             raise GigaChatFormatError("GigaChat вернул ответ без текста.")

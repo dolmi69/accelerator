@@ -70,8 +70,9 @@ class RequestProtectionMiddleware(MiddlewareMixin):
             if not request.user.is_authenticated:
                 return None
             consume_limit(f"write:{request.user.pk}", 120, 60)
+            # review_generate раньше сюда не входил: разбор тратил запросы к модели без лимитов.
             ai_request = route in {"chat_send", "metrics_assess", "pitch_finish", "panel_vote", "tasks_generate",
-                                   "card_generate"}
+                                   "card_generate", "review_generate", "market_generate"}
             if route == "card_edit":
                 ai_request = request.POST.get("action") in {"generate", "refine"}
             if ai_request and StartupProfile.objects.filter(pk=kwargs.get("startup_id"), owner=request.user).exists():
