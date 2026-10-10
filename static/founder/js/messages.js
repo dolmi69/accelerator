@@ -7,6 +7,7 @@
   const form = document.querySelector('[data-direct-form]');
   const input = form?.elements.content;
   const sendButton = form?.querySelector('button[type="submit"]');
+  const draft = window.composerDrafts?.attach(input, threadId && myId ? `dm:${myId}:${threadId}` : '') || { clear() {}, active: false };
   const older = document.querySelector('[data-load-older]');
   const status = document.querySelector('[data-connection-status]');
   const errorBox = document.querySelector('[data-direct-error]');
@@ -138,7 +139,7 @@
     const text = document.createElement('p'); text.textContent = content;
     const state = document.createElement('small'); state.textContent = 'Отправляется…'; element.append(text, state); list.append(element);
     const item = {clientId, content, element, state, failed: false}; pending.set(clientId, item); transmit(item);
-    input.value = ''; scroller.scrollTop = scroller.scrollHeight;
+    input.value = ''; draft.clear(); scroller.scrollTop = scroller.scrollHeight;
   });
   input?.addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); form.requestSubmit(); }
@@ -146,7 +147,7 @@
   older?.addEventListener('click', () => { if (send({type: 'sync', conversation: threadId, before: firstId})) older.disabled = true; });
   scroller?.addEventListener('scroll', readVisible, {passive: true});
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { readVisible(); if (ready && threadId && loaded) send({type: 'sync', conversation: threadId, after: lastId}); } });
-  window.addEventListener('beforeunload', event => { if (pending.size || input?.value.trim()) { event.preventDefault(); event.returnValue = ''; } });
+  window.addEventListener('beforeunload', event => { if (pending.size || (input?.value.trim() && !draft.active)) { event.preventDefault(); event.returnValue = ''; } });
   window.addEventListener('pagehide', () => { stopped = true; clearTimeout(timer); socket?.close(); });
   window.addEventListener('pageshow', event => { if (event.persisted) { stopped = false; connect(); } });
   // Session expiry and unread counts stay fresh even on a quiet page.

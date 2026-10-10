@@ -18,7 +18,7 @@
       {% endfor %}
     </div>
     {% if not session.completed_at %}
-      <form id="chat-form" method="post" action="{% url 'chat_send' startup.id session.id %}" enctype="multipart/form-data" class="chat-composer">
+      <form id="chat-form" data-draft-key="bruno:{{ request.user.pk }}:{{ session.id }}" method="post" action="{% url 'chat_send' startup.id session.id %}" enctype="multipart/form-data" class="chat-composer">
         {% csrf_token %}
         <textarea name="content" id="message-input" rows="3" maxlength="4000" placeholder="{% if is_pitch %}Ваш ответ инвестору…{% else %}Напишите Бруно…{% endif %}"></textarea>
         <div class="composer-bottom"><label class="file-button">▣ <span id="file-name">Прикрепить файл</span><input type="file" name="attachment" id="attachment-input" accept=".txt,.md,.csv,.json"></label><button class="button primary" type="submit" id="send-button">Отправить <span aria-hidden="true">↗</span></button></div>
@@ -35,4 +35,4 @@
 
 {% if report %}<p class="work-notice">Оценка отражает качество тренировочного разговора, а не инвестиционную привлекательность бизнеса.</p><section class="card report-card" id="report"><div class="section-top"><div><span class="eyebrow">РАЗБОР ИНВЕСТОРА</span><h2>Как вы ответили инвестору</h2></div><span class="score-badge">{{ report.score }}/100</span></div><p class="report-summary">{{ report.summary }}</p><div class="mistake-grid">{% for mistake in report.mistakes %}<article class="mistake-card"><span class="mistake-number">0{{ forloop.counter }}</span><h3>{{ mistake.title }}</h3>{% if mistake.quote %}<blockquote class="investor-quote">«{{ mistake.quote }}»</blockquote>{% endif %}<p>{{ mistake.detail }}</p><strong>Что улучшить</strong><p>{{ mistake.recommendation }}</p></article>{% endfor %}</div></section>{% endif %}
 {% endblock %}
-{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}" defer></script><script src="{% static 'founder/js/chat.js' %}?v=resilient-4"></script><script src="{% static 'founder/js/dashboard.js' %}"></script>{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}" defer></script><script src="{% static 'founder/js/chat.js' %}?v=resilient-5"></script><script src="{% static 'founder/js/dashboard.js' %}"></script>{% endblock %}
