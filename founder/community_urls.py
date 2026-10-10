@@ -5,6 +5,7 @@ urlpatterns = [
     path('community/', views.community_feed, name='community'),
     path('community/<uuid:startup_id>/', views.card_detail, name='card_detail'),
     path('community/<uuid:startup_id>/save/', views.bookmark, name='bookmark'),
+    path('community/<uuid:startup_id>/report/', views.card_report, name='card_report'),
     path('community/<uuid:startup_id>/message/', views.conversation_start, name='conversation_start'),
     path('startups/<uuid:startup_id>/card/', views.card_edit, name='card_edit'),
     path('startups/<uuid:startup_id>/card/generate/', views.card_generate, name='card_generate'),

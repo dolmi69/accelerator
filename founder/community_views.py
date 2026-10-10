@@ -9,12 +9,14 @@ from django.core.exceptions import ValidationError
 from django.db import OperationalError
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
 from founder.community_forms import CARD_FIELDS, CardRefineForm, ProjectCardForm
-from founder.models import (DirectAttachment, DirectConversation, DirectMessage, ProjectBookmark, ProjectCard,
+from founder.models import (CardReport, DirectAttachment, DirectConversation, DirectMessage, ProjectBookmark, ProjectCard,
                             StartupProfile, UserBlock)
 from founder.services.ai import AIServiceError
+from founder.services.card_reports import mark_report_state
 from founder.services.chat_search import search_response
 from founder.services.direct_attachments import (ALLOWED_EXTENSIONS, MAX_ATTACHMENTS_PER_MESSAGE,
                                                  MAX_PENDING_PER_CONVERSATION, max_bytes, remove_stale_uploads,
@@ -117,6 +119,7 @@ def community_feed(request):
     if saved:
         cards = cards.filter(is_saved=True)
     page = Paginator(cards.order_by('-published_at', '-pk'), 12).get_page(request.GET.get('page'))
+    page.object_list = mark_report_state(page.object_list, request.user)
     params = request.GET.copy()
     params.pop('page', None)
     return render(request, 'community/feed.html', {
@@ -128,6 +131,7 @@ def community_feed(request):
 @login_required
 def card_detail(request, startup_id):
     card = get_object_or_404(published_cards(), startup_id=startup_id)
+    mark_report_state([card], request.user)
     publication = publication_for(card.startup)
     if publication and publication.visibility == 'private' and card.startup.owner_id != request.user.pk:
         publication = None
@@ -138,6 +142,37 @@ def card_detail(request, startup_id):
         'can_message': not blocked_pair(request.user.pk, card.startup.owner_id),
         'lab_publication': publication,
     })
+
+
+@login_required
+@require_POST
+def card_report(request, startup_id):
+    """A member flags a published card; it then shows "Опасно!" (see CARD_REPORT_THRESHOLD)."""
+    card = get_object_or_404(published_cards(), startup_id=startup_id)
+    wants_json = 'application/json' in request.headers.get('Accept', '')
+
+    def fail(message, status):
+        if wants_json:
+            return _json_error(message, status)
+        messages.error(request, message)
+        return redirect('card_detail', startup_id=startup_id)
+
+    if card.startup.owner_id == request.user.pk:
+        return fail('Нельзя пожаловаться на свою карточку.', 400)
+    try:
+        consume_limit(f'card-report:{request.user.pk}', 20, 3600)
+    except RequestLimitExceeded:
+        return fail('Слишком много жалоб подряд. Попробуйте позже.', 429)
+    except OperationalError:
+        return fail('Сервис занят. Повторите через несколько секунд.', 503)
+    CardReport.objects.get_or_create(card=card, reporter=request.user)
+    if wants_json:
+        return JsonResponse({'reported': True})
+    messages.success(request, 'Жалоба отправлена. Спасибо, что помогаете сообществу.')
+    target = request.POST.get('next', '')
+    if url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return redirect(target)
+    return redirect('card_detail', startup_id=startup_id)
 
 
 @login_required

@@ -539,6 +539,16 @@ class ProjectBookmark(models.Model):
         constraints = [models.UniqueConstraint(fields=['user', 'card'], name='unique_project_bookmark')]
 
 
+class CardReport(models.Model):
+    """A member's complaint about a published project card (one per member and card)."""
+    card = models.ForeignKey(ProjectCard, on_delete=models.CASCADE, related_name='reports')
+    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='card_reports')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['card', 'reporter'], name='unique_card_report')]
+
+
 class DirectConversation(models.Model):
     """One private thread per pair, regardless of which card opened it."""
 

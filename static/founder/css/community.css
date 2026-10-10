@@ -131,3 +131,30 @@
 .photo-viewer-image { max-width:100%; max-height:100%; object-fit:contain; border-radius:6px; box-shadow:0 20px 50px #0009; }
 html.has-photo-viewer { overflow:hidden; }
 @media (max-width:720px) { .attachment-chip.is-file { width:calc(50% - 5px); } .composer-tools { flex:1; } .composer-tools [data-compose-help] { display:none; } }
+
+/* Card complaints: "!" button in the card corner, confirmation dialog, "Опасно!" mark. */
+.discovery-identity { display:flex; align-items:center; gap:12px; min-width:0; flex-wrap:wrap; }
+.report-form { margin:0; flex-shrink:0; }
+.report-button { display:inline-grid; place-items:center; width:40px; height:40px; padding:0; border:0; border-radius:50%; background:transparent; color:#9aa8a3; cursor:pointer; transition:background-color .15s, color .15s; flex-shrink:0; }
+button.report-button:hover { background:#fdecea; color:#c8372d; }
+button.report-button:focus-visible { outline:2px solid #c8372d; outline-offset:2px; }
+.report-button.is-reported { color:#c8372d; cursor:default; }
+.report-button.is-reported svg { fill:#fdecea; }
+.discovery-card .danger-label,.public-project .danger-label { margin:0 0 6px; color:#d0261b; font:800 30px/1.1 Manrope, sans-serif; letter-spacing:-.5px; }
+.public-project .danger-label { font-size:40px; }
+.danger-label.is-new { animation:danger-in .35s ease-out; }
+@keyframes danger-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.report-dialog { width:min(440px, calc(100vw - 32px)); padding:0; border:0; border-radius:22px; background:#fff; color:var(--ink); box-shadow:0 30px 80px #12233840; }
+.report-dialog::backdrop { background:#12233866; }
+.report-dialog-body { padding:30px 28px 24px; text-align:center; }
+.report-dialog-icon { display:inline-grid; place-items:center; width:54px; height:54px; margin-bottom:14px; border-radius:50%; background:#fdecea; color:#c8372d; font:800 28px Manrope, sans-serif; }
+.report-dialog h2 { margin:0 0 10px; font-size:21px; }
+.report-dialog-text { margin:0; color:var(--muted); font-size:14px; line-height:1.6; overflow-wrap:anywhere; }
+.report-dialog-error { margin:14px 0 0; color:#a94c3f; font-size:13px; }
+.report-dialog-actions { display:flex; gap:10px; margin-top:24px; }
+.report-dialog-actions .button { flex:1; justify-content:center; }
+.button.report-confirm { background:#c8372d; border-color:#c8372d; color:#fff; }
+.button.report-confirm:hover:not(:disabled) { background:#a92b22; border-color:#a92b22; }
+.button.report-confirm:disabled { opacity:.6; }
+@media (max-width:720px) { .discovery-card .danger-label { font-size:26px; } .public-project .danger-label { font-size:32px; } }
+@media (prefers-reduced-motion:reduce) { .danger-label.is-new { animation:none; } }
