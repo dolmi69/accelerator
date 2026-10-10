@@ -7,7 +7,8 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
-from founder.models import DirectConversation, DirectMessage, User, UserBlock
+from founder.models import DirectAttachment, DirectConversation, DirectMessage, User, UserBlock
+from founder.services.direct_attachments import parse_ids, serialize_attachment
 
 
 def participant_filter(user_id):
@@ -41,7 +42,8 @@ def start_direct_conversation(user, recipient, *, source_card=None):
 def serialize_message(message):
     return {'id': message.pk, 'conversation': str(message.conversation_id),
             'sender_id': message.sender_id, 'client_id': str(message.client_id),
-            'content': message.content, 'created_at': message.created_at.isoformat()}
+            'content': message.content, 'created_at': message.created_at.isoformat(),
+            'attachments': [serialize_attachment(item) for item in message.attachments.all()]}
 
 
 def unread_count(user_id):
@@ -58,7 +60,7 @@ def history(user_id, conversation_id, *, after=None, before=None, since=None):
     """after: newer rows; before: an older page; before+since: the whole gap down to a
     search result (capped, adjacent to `before`, so the client can repeat without holes)."""
     thread = owned_conversation(user_id, conversation_id)
-    query = thread.direct_messages.all()
+    query = thread.direct_messages.prefetch_related('attachments')
     if after is not None:
         rows = list(query.filter(id__gt=after)[:101])
         has_more = len(rows) > 100
@@ -81,9 +83,13 @@ def history(user_id, conversation_id, *, after=None, before=None, since=None):
 
 
 @transaction.atomic
-def send_message(user_id, conversation_id, client_id, content):
-    if not isinstance(content, str) or not content.strip() or len(content) > 4000:
-        raise ValidationError('Сообщение должно содержать от 1 до 4000 символов.')
+def send_message(user_id, conversation_id, client_id, content, attachment_ids=None):
+    content = '' if content is None else content
+    if not isinstance(content, str) or len(content) > 4000:
+        raise ValidationError('Сообщение должно содержать до 4000 символов.')
+    attachment_ids = parse_ids(attachment_ids)
+    if not content.strip() and not attachment_ids:
+        raise ValidationError('Напишите сообщение или прикрепите файл.')
     try:
         client_id = UUID(str(client_id))
     except (ValueError, TypeError, AttributeError) as exc:
@@ -95,13 +101,21 @@ def send_message(user_id, conversation_id, client_id, content):
         raise PermissionDenied('Отправка сообщений в этом диалоге недоступна.')
     previous = DirectMessage.objects.filter(sender_id=user_id, client_id=client_id).first()
     if previous:
-        if previous.conversation_id != thread.pk or previous.content != content.strip():
+        sent_files = set(previous.attachments.values_list('pk', flat=True))
+        if (previous.conversation_id != thread.pk or previous.content != content.strip()
+                or sent_files != set(attachment_ids)):
             raise ValidationError('Идентификатор сообщения уже использован.')
         return previous, False
     if DirectMessage.objects.filter(sender_id=user_id, created_at__gte=timezone.now()-timedelta(minutes=1)).count() >= 30:
         raise ValidationError('Слишком много сообщений. Подождите минуту.')
+    files = list(DirectAttachment.objects.select_for_update().filter(
+        pk__in=attachment_ids, uploader_id=user_id, conversation=thread, message__isnull=True))
+    if len(files) != len(attachment_ids):
+        raise ValidationError('Файл не найден или уже отправлен. Прикрепите его заново.')
     message = DirectMessage.objects.create(conversation=thread, sender_id=user_id,
                                           client_id=client_id, content=content.strip())
+    if files:
+        DirectAttachment.objects.filter(pk__in=attachment_ids).update(message=message)
     DirectConversation.objects.filter(pk=thread.pk).update(updated_at=message.created_at)
     return message, True
 

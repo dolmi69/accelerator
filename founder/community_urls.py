@@ -13,4 +13,7 @@ urlpatterns = [
     path('messages/<uuid:conversation_id>/', views.inbox, name='conversation'),
     path('messages/<uuid:conversation_id>/block/', views.block_contact, name='block_contact'),
     path('messages/<uuid:conversation_id>/search/', views.conversation_search, name='conversation_search'),
+    path('messages/<uuid:conversation_id>/attachments/', views.direct_attachment_upload, name='direct_attachment_upload'),
+    path('messages/attachments/<uuid:attachment_id>/', views.direct_attachment, name='direct_attachment'),
+    path('messages/attachments/<uuid:attachment_id>/delete/', views.direct_attachment_delete, name='direct_attachment_delete'),
 ]

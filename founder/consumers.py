@@ -88,7 +88,8 @@ class MessagesConsumer(JsonWebsocketConsumer):
                     raise ValidationError('Неверный запрос истории.')
                 self.send_json(history(self.user_id, conversation_id, after=after, before=before, since=since))
             elif action == 'send':
-                message, created = send_message(self.user_id, conversation_id, client_id, data.get('content'))
+                message, created = send_message(self.user_id, conversation_id, client_id, data.get('content'),
+                                                data.get('attachments'))
                 event = {'type': 'inbox.event', 'kind': 'message', 'message': serialize_message(message)}
                 # Repeated delivery is safe: the client also deduplicates by DB ID.
                 thread = message.conversation

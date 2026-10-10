@@ -37,7 +37,19 @@
   const setError = text => { if (errorBox) { errorBox.textContent = text; errorBox.hidden = !text; } };
   const nearBottom = () => scroller && scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
   const send = payload => { if (!ready || socket.readyState !== WebSocket.OPEN) return false; socket.send(JSON.stringify(payload)); return true; };
-  const composerState = () => { if (sendButton) sendButton.disabled = !ready || blocked; if (input) input.disabled = blocked; };
+  // Files and photos: upload over POST, the message with their ids over the socket.
+  const files = form && window.DirectAttachments?.composer(form, {onChange: () => composerState()});
+  const composerState = () => {
+    if (sendButton) sendButton.disabled = !ready || blocked || Boolean(files?.busy());
+    if (input) input.disabled = blocked;
+    files?.setDisabled(blocked);
+  };
+  const attachmentsLabel = message => {
+    const items = message.attachments || [];
+    if (!items.length) return '';
+    return items.every(item => item.kind === 'image') ? (items.length > 1 ? `🖼 Фото (${items.length})` : '🖼 Фото')
+      : (items.length > 1 ? `📎 Файлы (${items.length})` : `📎 ${items[0].name}`);
+  };
   function countUnread(value) {
     if (!Number.isInteger(value)) return;
     document.querySelectorAll('[data-unread-count]').forEach(node => { node.textContent = value > 99 ? '99+' : value; node.hidden = value === 0; });
@@ -62,13 +74,17 @@
     const article = document.createElement('article');
     article.className = `direct-bubble ${own ? 'own' : ''}`; article.dataset.id = message.id;
     if (own) article.dataset.ownMessage = '1';
-    const content = document.createElement('p'); content.textContent = message.content;
+    if (message.attachments?.length && window.DirectAttachments) {
+      article.classList.add('has-attachments');
+      article.append(window.DirectAttachments.render(message.attachments));
+    }
+    if (message.content) { const content = document.createElement('p'); content.textContent = message.content; article.append(content); }
     const meta = document.createElement('div'); meta.className = 'direct-meta';
     const time = document.createElement('time'); time.dateTime = message.created_at;
     time.textContent = new Date(message.created_at).toLocaleString('ru-RU', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
     meta.append(time);
     if (own) { const state = document.createElement('span'); state.dataset.delivery = '1'; meta.append(state); }
-    article.append(content, meta);
+    article.append(meta);
     const following = [...list.children].find(node => node.dataset.id && Number(node.dataset.id) > message.id);
     list.insertBefore(article, following || list.querySelector('[data-pending]'));
     document.querySelector('[data-direct-empty]').hidden = true;
@@ -79,14 +95,15 @@
     if (!id) return;
     const row = document.querySelector(`[data-thread="${id}"]`);
     if (!row) { if (data.type === 'message') document.querySelector('[data-new-thread]')?.removeAttribute('hidden'); return; }
-    if (data.message) row.querySelector('[data-thread-preview]').textContent = data.message.content.slice(0, 65);
+    if (data.message) row.querySelector('[data-thread-preview]').textContent = (data.message.content || attachmentsLabel(data.message)).slice(0, 65);
     if (Number.isInteger(data.thread_unread)) {
       const badge = row.querySelector('[data-thread-unread]'); badge.textContent = data.thread_unread; badge.hidden = !data.thread_unread;
     }
     if (data.type === 'message') row.parentElement.prepend(row);
   }
   function transmit(item) {
-    if (send({type: 'send', conversation: threadId, client_id: item.clientId, content: item.content})) {
+    if (send({type: 'send', conversation: threadId, client_id: item.clientId, content: item.content,
+              ...(item.attachments.length ? {attachments: item.attachments.map(file => file.id)} : {})})) {
       item.failed = false; item.state.textContent = 'Отправляется…';
       item.element.querySelector('button')?.remove();
     }
@@ -158,14 +175,17 @@
   form?.addEventListener('submit', event => {
     event.preventDefault(); setError('');
     const content = input.value.trim();
-    if (!content || blocked) return;
-    if (!ready) { setError('Соединение восстанавливается. Ваш текст остаётся в поле.'); return; }
+    if (files?.busy()) { setError('Дождитесь, пока файлы загрузятся.'); return; }
+    const attachments = files?.ready() || [];
+    if ((!content && !attachments.length) || blocked) return;
+    if (!ready) { setError('Соединение восстанавливается. Ваш текст и файлы остаются в поле.'); return; }
     const clientId = crypto.randomUUID();
     const element = document.createElement('article'); element.className = 'direct-bubble own pending'; element.dataset.pending = '1';
-    const text = document.createElement('p'); text.textContent = content;
-    const state = document.createElement('small'); state.textContent = 'Отправляется…'; element.append(text, state); list.append(element);
-    const item = {clientId, content, element, state, failed: false}; pending.set(clientId, item); transmit(item);
-    input.value = ''; draft.clear(); scroller.scrollTop = scroller.scrollHeight;
+    if (attachments.length) { element.classList.add('has-attachments'); element.append(window.DirectAttachments.render(attachments)); }
+    if (content) { const text = document.createElement('p'); text.textContent = content; element.append(text); }
+    const state = document.createElement('small'); state.textContent = 'Отправляется…'; element.append(state); list.append(element);
+    const item = {clientId, content, attachments, element, state, failed: false}; pending.set(clientId, item); transmit(item);
+    input.value = ''; draft.clear(); files?.takeAll(); scroller.scrollTop = scroller.scrollHeight;
   });
   input?.addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); form.requestSubmit(); }
@@ -173,7 +193,7 @@
   older?.addEventListener('click', () => { if (send({type: 'sync', conversation: threadId, before: firstId})) older.disabled = true; });
   scroller?.addEventListener('scroll', readVisible, {passive: true});
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { readVisible(); if (ready && threadId && loaded) send({type: 'sync', conversation: threadId, after: lastId}); } });
-  window.addEventListener('beforeunload', event => { if (pending.size || (input?.value.trim() && !draft.active)) { event.preventDefault(); event.returnValue = ''; } });
+  window.addEventListener('beforeunload', event => { if (pending.size || files?.count() || (input?.value.trim() && !draft.active)) { event.preventDefault(); event.returnValue = ''; } });
   window.addEventListener('pagehide', () => { stopped = true; clearTimeout(timer); socket?.close(); });
   window.addEventListener('pageshow', event => { if (event.persisted) { stopped = false; connect(); } });
   // Session expiry and unread counts stay fresh even on a quiet page.

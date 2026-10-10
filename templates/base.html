@@ -9,7 +9,7 @@
   {% if request.telegram_miniapp %}<script src="https://telegram.org/js/telegram-web-app.js?63"></script>{% endif %}
   <link rel="stylesheet" href="{% static 'founder/css/tailwind.css' %}?v=1">
   <link rel="stylesheet" href="{% static 'founder/css/app.css' %}?v=lab-9">
-  <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=3">
+  <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=4">
   <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=2">
 </head>
 <body>
@@ -56,7 +56,7 @@
   {% include 'founder/_bruno_pet.html' %}
   {% if request.telegram_miniapp %}<script src="{% static 'founder/js/telegram.js' %}" defer></script>{% endif %}
   <script src="{% static 'founder/js/bruno.js' %}?v=6" defer></script>
-  {% if request.user.is_authenticated %}<script src="{% static 'founder/js/drafts.js' %}?v=1"></script><script src="{% static 'founder/js/messages.js' %}?v=5" defer></script><script src="{% static 'founder/js/chat-search.js' %}?v=1" defer></script>{% endif %}
+  {% if request.user.is_authenticated %}<script src="{% static 'founder/js/drafts.js' %}?v=1"></script><script src="{% static 'founder/js/direct-attachments.js' %}?v=1" defer></script><script src="{% static 'founder/js/messages.js' %}?v=6" defer></script><script src="{% static 'founder/js/chat-search.js' %}?v=1" defer></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>
