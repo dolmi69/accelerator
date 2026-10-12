@@ -276,6 +276,11 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
         from founder.services.panel import next_turn
 
         turn = next_turn(session)
+    if turn is not None and turn.final:
+        from founder.services.panel import CLOSING
+
+        yield CLOSING
+        return
     economics = None
     market = ""
     if plan is AUTO_PLAN:
@@ -300,7 +305,7 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
     single_question = not long_answer_requested(session, messages)
     # Инвестор в тренировке обращается на «вы», там род не угадывается.
     gender = founder_gender(messages) if session.mode == ChatSession.Mode.COFOUNDER else "male"
-    self_male = not (turn and turn.speaker == "margarita")
+    self_male = not _shark(turn).get("female")
     asked, keep_first = (), False
     if session.mode == ChatSession.Mode.COFOUNDER:
         from founder.services.bruno import contradiction, number_change
@@ -313,6 +318,13 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
     yield from polish_stream(tidy_stream(_provider_stream(session, messages, memories, turn, plan, economics, market)),
                              single_question=single_question, gender=gender, self_male=self_male,
                              formal=turn is None, asked=asked, keep_first=keep_first)
+
+
+def _shark(turn):
+    """Акула хода в панели; пустой словарь вне панели."""
+    from founder.services.panel import SHARKS
+
+    return SHARKS[turn.speaker] if turn else {}
 
 
 def _provider_stream(session, messages, memories, turn=None, plan=None, economics=None, market=""):
@@ -328,8 +340,8 @@ def _provider_stream(session, messages, memories, turn=None, plan=None, economic
         pass  # Уже посчитан для плана наставника.
     elif turn is None:
         economics = economics_note(unit_economics(founder_texts))
-    elif turn.speaker == "margarita":
-        # В панели деньги считает только Маргарита, зато по всему рассказу, а не по последней реплике.
+    elif _shark(turn).get("economics"):
+        # В панели расчёт получает только финансовая акула, зато по всему рассказу, а не по последней реплике.
         economics = economics_note(unit_economics(founder_texts, latest_only=False))
     else:
         economics = ""

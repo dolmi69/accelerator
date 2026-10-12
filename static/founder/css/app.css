@@ -436,24 +436,43 @@ body:has(#lab-start-form) .bruno-pet { display:none; }
 .feedback-save { border:0; background:#16877d; color:#fff; border-radius:10px; padding:5px 10px; font-size:12px; cursor:pointer; }
 .evidence-link { display:inline-block; margin-top:6px; font-size:12px; font-weight:700; color:#16877d; }
 
-/* Панель акул: у каждой акулы свой цвет — бирюза у Тимура, фиолетовый у Олега, коралл у Маргариты. */
+/* Панель акул: у каждой акулы свой цвет. Тимур бирюзовый, Вадим синий, Маргарита коралловая; фиолетовый остался за Олегом из старых панелей. */
 .shark-timur { --shark:#16877d; --shark-soft:#e1f5ee; }
-.shark-oleg { --shark:#534ab7; --shark-soft:#eeedfe; }
+.shark-vadim { --shark:#2f63c0; --shark-soft:#e6eefb; }
 .shark-margarita { --shark:#d85a30; --shark-soft:#faece7; }
+.shark-oleg { --shark:#534ab7; --shark-soft:#eeedfe; }
 .message-assistant[class*="shark-"] .message-avatar { background:var(--shark); }
 .message-assistant[class*="shark-"] .message-meta { color:var(--shark); }
-.shark-avatar { display:grid; place-items:center; flex:none; width:36px; height:36px; border-radius:50%; color:#fff; background:var(--shark,var(--teal)); font-weight:800; font-size:14px; }
+.shark-avatar { display:grid; place-items:center; flex:none; width:36px; height:36px; border-radius:50%; color:#fff; background:var(--shark,var(--teal)); font-weight:800; font-size:14px; transition:background .3s; }
 .panel-card { text-align:left; }
-.panel-sharks { list-style:none; margin:12px 0 0; padding:0; display:grid; gap:8px; }
-.panel-sharks li { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--line); border-radius:12px; transition:border-color .3s,background .3s; }
-.panel-sharks li.is-current { border-color:var(--shark); background:var(--shark-soft); }
-.panel-sharks strong { display:block; font-size:13px; }
-.panel-sharks small { display:block; color:var(--muted); font-size:11px; line-height:1.4; }
-.panel-progress-label { margin:16px 0 6px; font-size:12px; font-weight:700; }
-.panel-progress { height:6px; border-radius:99px; background:#edf2ef; overflow:hidden; }
-.panel-progress i { display:block; height:100%; border-radius:99px; background:var(--teal); }
+/* Очередь: акулы сверху вниз, линия между аватарами показывает порядок. */
+.panel-steps { list-style:none; margin:12px 0 0; padding:0; display:grid; gap:4px; }
+.panel-steps li { position:relative; display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:12px; transition:background .3s; }
+.panel-steps li + li::before { content:""; position:absolute; left:27px; top:-12px; width:2px; height:20px; background:var(--line); }
+.panel-steps li.is-current { background:var(--shark-soft); }
+.panel-steps li.is-waiting .shark-avatar { background:#c3cdd4; }
+.panel-steps li.is-waiting strong { color:var(--muted); }
+.panel-step-text { min-width:0; }
+.panel-steps strong { display:block; font-size:13px; }
+.panel-steps small { display:block; color:var(--muted); font-size:11px; line-height:1.4; }
+.panel-step-state { margin-left:auto; color:var(--shark); font-size:11px; font-weight:800; white-space:nowrap; }
+.panel-card-link { display:inline-block; margin-top:12px; font-size:12px; }
+/* Вопросы кончились: на месте поля ввода остаётся одна кнопка. */
+.panel-finish { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 18px; padding:16px 18px; border-top:1px solid var(--line); background:#f7f8f6; }
+.panel-finish strong { display:block; font-size:14px; }
+.panel-finish span { display:block; max-width:46ch; color:var(--muted); font-size:12px; line-height:1.5; }
+.chat-composer.is-panel .file-button { display:none; }
+.chat-composer.is-panel .composer-bottom { justify-content:flex-end; }
+/* Оценки под репликами акул не отвлекают от разговора: всплывают на краю реплики при наведении, поставленная оценка видна всегда. */
+@media (hover:hover) {
+  .message-assistant[class*="shark-"] .message-body { position:relative; }
+  .message-assistant[class*="shark-"] .feedback-form:not(:has(.is-active)) { position:absolute; right:12px; bottom:-14px; margin:0; opacity:0; transition:opacity .2s; }
+  .message-assistant[class*="shark-"]:hover .feedback-form,.message-assistant[class*="shark-"]:focus-within .feedback-form { opacity:1; }
+}
 .panel-intro { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:24px; align-items:center; }
-.panel-sharks-wide li { padding:12px 14px; }
+.panel-steps-wide { gap:8px; }
+.panel-steps-wide li { padding:12px 14px; border:1px solid var(--line); }
+.panel-steps-wide li + li::before { display:none; }
 .panel-verdict .vote-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin-top:16px; }
 .vote-card { padding:18px; border-radius:14px; border:1px solid #e5e9e6; border-top:4px solid var(--shark); background:#fbfcfa; font-size:13px; line-height:1.6; transition:opacity .5s,transform .5s; }
 .vote-card.is-pending { opacity:.08; transform:translateY(8px); }
@@ -467,7 +486,7 @@ body:has(#lab-start-form) .bruno-pet { display:none; }
 .panel-reveal-status { min-height:1.4em; margin:6px 0 0; color:var(--muted); font-size:13px; font-weight:700; }
 .investor-history .history-row { grid-template-columns:1fr auto; }
 .vote-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:18px; }
-@media (prefers-reduced-motion:reduce) { .vote-card,.panel-sharks li { transition:none; } }
+@media (prefers-reduced-motion:reduce) { .vote-card,.panel-steps li,.shark-avatar { transition:none; } }
 @media(max-width:900px) { .panel-intro { grid-template-columns:1fr; } }
 /* Free lab controls and private usage summary. */
 .lab-customize{margin-top:24px;padding:28px}

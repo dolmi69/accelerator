@@ -16,6 +16,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from founder.models import ChatMessage, MessageFeedback
+from founder.services.panel import speaker_name
 
 
 class Command(BaseCommand):
@@ -40,7 +41,8 @@ class Command(BaseCommand):
             lines += [
                 f"\n## {reply.created_at:%d.%m.%Y %H:%M} · {reply.session.get_mode_display()} · {reply.model_name or '—'}\n",
                 f"**Основатель:** {asked.content if asked else '—'}\n",
-                f"**Бруно:** {reply.content}\n",
+                # В панели отвечает акула, а не Бруно.
+                f"**{speaker_name(reply.speaker) or 'Бруно'}:** {reply.content}\n",
                 f"**Что не так:** {item.comment or 'не указано'}\n",
             ]
         out = Path(settings.BASE_DIR) / ".runtime" / "bruno_feedback" / f"{time.strftime('%Y%m%d-%H%M%S')}.md"

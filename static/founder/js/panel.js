@@ -45,7 +45,7 @@
     }
   }
 
-  const SHARK_COLORS = { timur: "#16877d", oleg: "#534ab7", margarita: "#d85a30" };
+  const SHARK_COLORS = { timur: "#16877d", vadim: "#2f63c0", margarita: "#d85a30", oleg: "#534ab7" };
 
   function wrap(context, text, maxWidth) {
     const lines = [];
@@ -83,8 +83,9 @@
     title.forEach((line, index) => context.fillText(line, 540, 400 + index * 88));
 
     const top = 820;
+    // Аватары по центру карточки при любом числе голосов.
     votes.forEach((vote, index) => {
-      const x = 240 + index * 300;
+      const x = 540 + (index - (votes.length - 1) / 2) * 300;
       const shark = [...vote.classList].find(name => name.startsWith("shark-"))?.slice(6);
       context.fillStyle = SHARK_COLORS[shark] || "#16877d";
       context.beginPath();
@@ -104,11 +105,13 @@
 
     context.fillStyle = "#ffffff";
     context.font = `800 108px ${font}`;
-    const headline = invested ? [`${invested} из 3 акул`, "вложились"] : ["Акулы пока", "не вложились"];
+    const total = votes.length;
+    const headline = invested ? [`${invested} из ${total} акул`, "вложились"] : ["Акулы пока", "не вложились"];
     headline.forEach((line, index) => context.fillText(line, 540, 1300 + index * 124));
     context.fillStyle = "#c9d4dc";
     context.font = `500 42px ${font}`;
-    const subline = invested === 3 ? "Все три сказали «вкладываю»" : `${3 - invested} ${3 - invested === 1 ? "условие" : "условия"}, чтобы это изменить`;
+    const left = total - invested;
+    const subline = left ? `${left} ${left === 1 ? "условие" : "условия"}, чтобы это изменить` : "Все сказали «вкладываю»";
     context.fillText(subline, 540, 1580);
 
     context.fillStyle = "#7f93a3";

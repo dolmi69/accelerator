@@ -341,8 +341,11 @@ SCENARIOS = {
             {"text": "Не знаю, сколько стоит привлечение", "reject": [r"(?<!\w)ты(?!\w)"]},
         ],
     },
+    # Ответы идут блоками, как спрашивают акулы: Тимур (клиент и продукт), Вадим (рост и команда),
+    # Маргарита (деньги). Уклончивый или короткий ответ получает уточнение, на него отвечает следующая строка.
+    # Если панель закончила раньше, оставшиеся ответы не отправляются.
     "panel": {
-        "about": "Панель акул: три характера, дожим и голосование",
+        "about": "Панель акул: три области по очереди, уточнение и голосование",
         "mode": "panel",
         "vote": True,
         "startup": {
@@ -352,13 +355,15 @@ SCENARIOS = {
         },
         "turns": [
             "Администратор клиники обзванивала пациентов вручную, два часа в день",
+            "Конкуренты продают большие CRM, мы делаем только запись, это проще",
+            "Клиника пользуется каждый день, пока идёт запись пациентов",
+            "Три клиники пользуются бесплатно с сентября",
             "Пока ищем клиентов через знакомых врачей",
+            {"text": "Команда: я продаю, друг программирует", "reject": [r"(?<!\w)ты(?!\w)"]},
+            "Берём 4900 в месяц, за СМС платим около 700",
             {"text": "Не знаю, сколько стоит привлечение", "reject": [r"(?<!\w)ты(?!\w)"]},
             "Прикидываю тысячи три рублей на клинику через рекламу",
-            "Берём 4900 в месяц, за СМС платим около 700",
-            "Три клиники пользуются бесплатно с сентября",
-            "Конкуренты продают большие CRM, мы делаем только запись",
-            {"text": "Команда: я продаю, друг программирует", "reject": [r"(?<!\w)ты(?!\w)"]},
+            "Своих денег хватит на четыре месяца",
         ],
     },
     # Искусственные проекты для акул: уклончивый основатель B2C и маркетплейс с цифрами.
@@ -373,13 +378,17 @@ SCENARIOS = {
         },
         "turns": [
             "Ну люди уезжают в отпуск, а кота оставить не с кем",
-            "Не знаю, наверно через соцсети",
-            {"text": "Не знаю", "reject": [r"(?<!\w)ты(?!\w)"]},
-            "Будем брать 300 рублей за визит, себе 15%",
-            "Пока никто не пользовался, но друзьям нравится",
             "Конкурентов нет, мы первые",
-            "Хватит 50 тысяч на рекламу на полгода, я думаю",
+            {"text": "Не знаю", "reject": [r"(?<!\w)ты(?!\w)"]},
+            "Пока никто не пользовался, но друзьям нравится",
+            "Сделали макет за две недели, показали десяти соседям",
+            "Не знаю, наверно через соцсети",
+            "Буду писать в чаты своего дома и соседних",
             {"text": "Ну я один пока, программиста ищу", "reject": [r"(?<!\w)ты(?!\w)", r"Бруно"]},
+            "Будем брать 300 рублей за визит, себе 15%",
+            {"text": "Не знаю", "reject": [r"(?<!\w)ты(?!\w)"]},
+            "Хватит 50 тысяч на рекламу на полгода, я думаю",
+            "Своих денег у меня тысяч двадцать",
         ],
     },
     "panel_marketplace": {
@@ -393,18 +402,17 @@ SCENARIOS = {
         },
         "turns": [
             "Мама восьмиклассника платила 2000 за час взрослому репетитору и искала дешевле",
+            "Конкуренты Профи.ру и Авито, но там нет проверки студентов, у нас пробное занятие с методистом",
             "За два месяца 40 семей, 26 продлили на второй месяц",
-            "Час стоит 900 рублей, студенту отдаём 700",
             "Родителей находим в чатах школ, один пост приводит 3-4 заявки",
-            "Привлечение семьи обходится примерно в 600 рублей",
-            "Конкуренты Профи.ру и Авито, но там нет проверки студентов",
-            "Студент проходит пробное занятие с нашим методистом",
             {"text": "Нас трое: я продаю, двое ведут студентов", "reject": [r"(?<!\w)ты(?!\w)", r"Бруно"]},
+            "Студентов набираем через знакомых на третьем курсе педвуза",
+            "Час стоит 900 рублей, студенту отдаём 700",
+            "Привлечение семьи обходится примерно в 600 рублей",
+            "Своих денег хватит на три месяца рекламы",
         ],
     },
 }
-# Слова, по которым видно, что акула переспросила уже отвеченное.
-PANEL_REPEAT_HINT = re.compile(r"(?:где|как)\s+(?:вы\s+)?найд[её]те\s+первых\s+сто", re.IGNORECASE)
 # Два вопроса в одном предложении через «и»: «Сколько клиник готовы платить и откуда…?».
 DOUBLE_QUESTION_RE = re.compile(
     r"[^.!?]{25,}\s(?:и|а также)\s+(?:как|какие|какой|сколько|откуда|где|когда|кто|почему|зачем|чем)\s[^.!?]*\?",
@@ -477,6 +485,9 @@ class Command(BaseCommand):
                 for opening in session.messages.order_by("created_at", "id"):
                     lines.append(f"**{panel.speaker_name(opening.speaker) or 'Бруно'}:** {opening.content}\n")
                 for turn in scenario["turns"]:
+                    if session.mode == ChatSession.Mode.PANEL and panel.is_finished(session):
+                        lines.append("_Панель задала все вопросы, остальные ответы сценария не нужны._\n")
+                        break
                     turn = turn if isinstance(turn, dict) else {"text": turn}
                     text = turn["text"]
                     message = ChatMessage.objects.create(session=session, role=ChatMessage.Role.USER, content=text)
@@ -536,41 +547,36 @@ class Command(BaseCommand):
         return lines, issues
 
     def panel_turn(self, session, context, memories, turn, lines):
-        """Ход акулы: реплика соседа отдельно, основной ответ проверяется как реплика инвестора."""
+        """Ход акулы проверяется как реплика инвестора; в метке видно, новый это вопрос или уточнение."""
         current = panel.next_turn(session)
-        parts = [[current.speaker, ""]]
         started = time.monotonic()
         try:
-            for kind, value in panel.split_aside(stream_reply(session, context, memories, turn=current),
-                                                 current.speaker):
-                if kind == "speaker":
-                    parts.append([value, ""])
-                else:
-                    parts[-1][1] += value
+            text = "".join(panel.own_reply(stream_reply(session, context, memories, turn=current),
+                                           current.speaker)).strip()
         except AIServiceError as exc:
-            parts = [[current.speaker, f"[ОШИБКА] {exc}"]]
+            text = f"[ОШИБКА] {exc}"
         elapsed = time.monotonic() - started
-        parts = [(speaker, text.strip()) for speaker, text in parts if text.strip()]
-        found = []
-        for index, (speaker, text) in enumerate(parts):
-            ChatMessage.objects.create(session=session, role=ChatMessage.Role.ASSISTANT, speaker=speaker, content=text)
-            aside = index < len(parts) - 1
-            label = f"{panel.speaker_name(speaker)}{' (реплика)' if aside else ''}"
-            if current.pressing and not aside:
-                label += ", дожим"
-            lines.append(f"**{label}** ({elapsed:.1f} с, {len(text)} симв.): {text}\n")
-            if aside:
-                if "?" in text or len(text) > panel.ASIDE_LIMIT:
-                    found.append("реплика соседа с вопросом или слишком длинная")
-                continue
-            found += style_issues(text, pitch=True, gender="male", self_female=speaker == "margarita")
-            found += content_issues(text, turn)
-            if DOUBLE_QUESTION_RE.search(text):
-                found.append("два вопроса через «и»")
-            if re.search(r"(?<!\w)Бруно(?!\w)", text):
-                found.append("акула обращается к Бруно")
-            if PANEL_REPEAT_HINT.search(text):
-                found.append("пример из персоны дословно")
+        ChatMessage.objects.create(session=session, role=ChatMessage.Role.ASSISTANT, speaker=current.speaker,
+                                   content=text)
+        if current.final:
+            kind = "итог"
+        elif current.follow_up:
+            kind = f"уточнение: {current.follow_up}"
+        else:
+            kind = f"вопрос {current.number}: {current.topic or 'слабое место'}"
+        lines.append(f"**{panel.speaker_name(current.speaker)}** ({kind}; {elapsed:.1f} с, {len(text)} симв.): "
+                     f"{text}\n")
+        found = style_issues(text, pitch=True, gender="male", self_female=panel.SHARKS[current.speaker]["female"])
+        found += content_issues(text, turn)
+        if DOUBLE_QUESTION_RE.search(text):
+            found.append("два вопроса через «и»")
+        if re.search(r"(?<!\w)Бруно(?!\w)", text):
+            found.append("акула обращается к Бруно")
+        if current.final and "?" in text:
+            found.append("вопрос после последнего ответа")
+        # Уточнение — вопрос или просьба («Приведите пример»), но не совет с заданием.
+        if current.follow_up and re.search(r"Вам\s+(?:нужно|стоит|следует|надо)|советую|рекомендую", text):
+            found.append("совет вместо уточнения")
         if found:
             lines.append("> ⚠ " + "; ".join(found) + "\n")
         return len(found)
@@ -581,7 +587,7 @@ class Command(BaseCommand):
             verdict = panel.run_vote(session)
         except (AIServiceError, ValueError) as exc:
             return [f"\n### Голосование\n\n[ОШИБКА] {exc}\n"], 1
-        lines = [f"\n### Голосование ({time.monotonic() - started:.1f} с): {verdict.invested} из 3\n"]
+        lines = [f"\n### Голосование ({time.monotonic() - started:.1f} с): {verdict.invested} из {len(verdict.votes)}\n"]
         issues = 0
         for vote in verdict.votes:
             lines.append(f"- {panel.speaker_name(vote['shark'])}: {vote['decision']}. {vote['reason']} "

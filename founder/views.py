@@ -1,5 +1,4 @@
 import json
-from datetime import timedelta
 from uuid import UUID
 from pathlib import Path
 from asgiref.sync import sync_to_async
@@ -378,14 +377,7 @@ def picture_edit(request, startup_id, session_id):
     return redirect("chat_detail", startup_id=startup_id, session_id=session_id)
 
 
-def _answers_left_label(left):
-    word = "ответ" if left % 10 == 1 and left % 100 != 11 else (
-        "ответа" if left % 10 in (2, 3, 4) and left % 100 not in (12, 13, 14) else "ответов")
-    return f"Ещё {left} {word} до голосования"
-
-
 def _panel_context(session):
-    answers = panel.answer_count(session)
     verdict = PanelVerdict.objects.filter(session=session).first()
     open_axes = set(session.startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list("axis", flat=True))
     axis_labels = dict(BusinessAxis.choices)
@@ -394,16 +386,7 @@ def _panel_context(session):
         shark = panel.shark_info(vote["shark"])
         votes.append({**vote, "index": index, "shark_info": shark, "axis_label": axis_labels[shark["axis"]],
                       "axis_busy": not vote.get("task_id") and shark["axis"] in open_axes})
-    left = max(0, panel.MIN_ANSWERS - answers)
-    return {
-        "answers": answers, "min_answers": panel.MIN_ANSWERS, "max_answers": panel.MAX_ANSWERS,
-        "left_label": _answers_left_label(left), "can_vote": answers >= panel.MIN_ANSWERS,
-        "full": answers >= panel.MAX_ANSWERS,
-        "progress": min(100, answers * 100 // panel.MIN_ANSWERS),
-        "speaker": panel.shark_info(panel.current_speaker(session)),
-        "sharks": [panel.shark_info(key) for key in panel.ORDER],
-        "verdict": verdict, "votes": votes,
-    }
+    return {**panel.progress(session), "verdict": verdict, "votes": votes}
 
 
 @login_required
@@ -411,11 +394,12 @@ def _panel_context(session):
 def chat_search(request, startup_id, session_id):
     session = _owned_session(request, startup_id, session_id)
     rows = session.messages.order_by("-created_at", "-id").values_list(
-        "id", "content", "role", "created_at").iterator(chunk_size=500)
+        "id", "content", "role", "created_at", "speaker").iterator(chunk_size=500)
 
     def describe(row):
         own = row[2] == ChatMessage.Role.USER
-        return {"id": str(row[0]), "own": own, "author": "Вы" if own else "Бруно",
+        # В панели отвечают акулы, а не Бруно.
+        return {"id": str(row[0]), "own": own, "author": "Вы" if own else panel.speaker_name(row[4]) or "Бруно",
                 "created_at": row[3].isoformat()}
 
     return search_response(request, rows, describe)
@@ -450,8 +434,8 @@ def chat_send(request, startup_id, session_id):
     if session.completed_at:
         return JsonResponse({"error": "Эта сессия уже завершена."}, status=409)
     is_panel = session.mode == ChatSession.Mode.PANEL
-    if is_panel and panel.answer_count(session) >= panel.MAX_ANSWERS:
-        return JsonResponse({"error": "Акулы услышали достаточно. Нажмите «Голосование»."}, status=409)
+    if is_panel and panel.is_finished(session):
+        return JsonResponse({"error": "Акулы задали все вопросы. Нажмите «Голосование»."}, status=409)
     form = ChatSendForm(request.POST, request.FILES)
     if not form.is_valid():
         return JsonResponse({"error": form.errors.get_json_data()}, status=400)
@@ -484,32 +468,24 @@ def chat_send(request, startup_id, session_id):
     provider, model_name = provider_label()
     turn = panel.next_turn(session) if is_panel else None
 
-    def speaker_event(key):
-        shark = panel.SHARKS[key]
-        return _sse({"type": "speaker", "speaker": key, "name": shark["name"],
-                     "title": shark["title"], "initial": shark["initial"]})
-
     def generate():
-        # Панель: реплика соседа и ответ акулы хода сохраняются отдельными сообщениями.
-        parts = [(turn.speaker if turn else "", [])]
+        chunks = []
         try:
             if turn:
-                yield speaker_event(turn.speaker)
-            if turn:
-                events = panel.split_aside(stream_reply(session, context_messages, memories, turn=turn), turn.speaker)
+                # Панель: сервер называет акулу хода до текста её реплики.
+                shark = panel.shark_info(turn.speaker)
+                yield _sse({"type": "speaker", "speaker": turn.speaker, "name": shark["name"],
+                            "title": shark["area"], "initial": shark["initial"]})
+                deltas = panel.own_reply(stream_reply(session, context_messages, memories, turn=turn), turn.speaker)
             else:
                 if (session.mode == ChatSession.Mode.COFOUNDER and settings.BRUNO_MENTOR_PLAN
                         and settings.AI_PROVIDER != "demo"):
                     searching = mentor.answer_kind(user_message.content) == "market"
                     yield _sse({"type": "status", "text": "Бруно ищет в открытых источниках…" if searching
                                 else "Бруно думает над проектом…"})
-                events = (("text", delta) for delta in stream_reply(session, context_messages, memories))
+                deltas = stream_reply(session, context_messages, memories)
             total_chars = 0
-            for kind, delta in events:
-                if kind == "speaker":
-                    parts.append((delta, []))
-                    yield speaker_event(delta)
-                    continue
+            for delta in deltas:
                 if not isinstance(delta, str):
                     raise AIServiceError("Модель вернула некорректный текст ответа.")
                 # Восстановлено из beta 0.4 (потерялось при мерже): сбойный поток не должен
@@ -517,23 +493,20 @@ def chat_send(request, startup_id, session_id):
                 total_chars += len(delta)
                 if total_chars > CHAT_REPLY_CHAR_LIMIT:
                     raise AIServiceError("Ответ слишком большой. Попросите Бруно ответить короче.")
-                parts[-1][1].append(delta)
+                chunks.append(delta)
                 yield _sse({"type": "delta", "text": delta})
-            answers = [(speaker, "".join(chunks).strip()) for speaker, chunks in parts]
-            answers = [(speaker, text) for speaker, text in answers if text]
-            if not answers:
+            text = "".join(chunks).strip()
+            if not text:
                 raise AIServiceError("Модель не вернула текст ответа.")
-            started = timezone.now()
-            for offset, (speaker, text) in enumerate(answers):
-                assistant_message = ChatMessage.objects.create(
-                    session=session,
-                    role=ChatMessage.Role.ASSISTANT,
-                    content=text,
-                    speaker=speaker,
-                    provider=provider,
-                    model_name=model_name,
-                    created_at=started + timedelta(microseconds=offset),
-                )
+            assistant_message = ChatMessage.objects.create(
+                session=session,
+                role=ChatMessage.Role.ASSISTANT,
+                content=text,
+                speaker=turn.speaker if turn else "",
+                # Заключительную реплику панели пишет Python, оценивать её незачем.
+                provider="system" if turn and turn.final else provider,
+                model_name="" if turn and turn.final else model_name,
+            )
             mentor.save_ideas(getattr(session, "mentor_plan", None), assistant_message)
             done = {"type": "done", "message_id": str(assistant_message.id)}
             # Монеты только за ответ, который Бруно действительно дал, и за осмысленный вопрос.
