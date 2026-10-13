@@ -20,7 +20,7 @@ class LabRequestRejected(QwenOutputError):
 
 def protect_service_secrets(content):
     """Do not let configured platform credentials enter any model payload."""
-    secrets = ('GIGACHAT_CREDENTIALS', 'CLOUDRU_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'TELEGRAM_BOT_TOKEN')
+    secrets = ('GIGACHAT_CREDENTIALS', 'CLOUDRU_API_KEY', 'OFOX_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'TELEGRAM_BOT_TOKEN')
     if any(os.getenv(name, '').strip() and os.getenv(name).strip() in content for name in secrets):
         raise LabRequestRejected('В запросе или прототипе найден секрет основного сервиса. Его нельзя передавать генератору или вставлять в сайт. Уберите ключ перед продолжением.')
 
@@ -29,7 +29,7 @@ def request_policy(prompt):
     """Local boundary runs before cache, cheap edits and every model call."""
     protect_service_secrets(prompt)
     text = prompt.casefold()
-    if (re.search(r'\.env\b|gigachat_credentials|cloudru_api_key|secret_key|client_secret', text)
+    if (re.search(r'\.env\b|gigachat_credentials|cloudru_api_key|ofox_api_key|secret_key|client_secret', text)
             or (re.search(r'ключ|секрет|токен|credential|api.?key', text)
                 and re.search(r'co.?found|co.?finder|основ[аыуеы].{0,40}(проект|сервис)|наш.{0,20}(сервис|платформ)|общ[иы].{0,10}ключ', text))):
         raise LabRequestRejected('Ключи Co-Founder.AI принадлежат основному сервису. Я не могу использовать их в вашем сайте, читать .env или передавать секреты в прототип. Подключение собственного AI-провайдера пока не реализовано: нужны отдельный ключ владельца и защищённое хранение.')

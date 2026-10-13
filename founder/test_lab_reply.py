@@ -31,7 +31,7 @@ class LabReplyTests(TestCase):
         report = response.context['lab_reply']
         self.assertIn('Текст «Buy» → «Try».', report['items'])
         self.assertEqual(report['usage'], 'AI: 70 токенов')
-        self.assertContains(response, 'lab-reply')
+        self.assertContains(response, 'id="lab-thread"')
         self.assertContains(response, 'Бруно')
         self.assertNotIn('идеально', str(report))
 
@@ -99,7 +99,7 @@ class LabReplyTests(TestCase):
         self.assertEqual(version.bruno_report['title'], 'Дизайн пока не завершён')
         self.assertTrue(version.bruno_report['failed'])
 
-    def test_generated_report_is_stored_with_prompt_and_shown_below_preview(self):
+    def test_generated_report_is_stored_with_prompt_and_shown_in_conversation(self):
         with patch('founder.lab_views.generate_site', return_value=CodeResult(
             HTML.replace('Buy', 'Try'), 'Qwen', 40, 30, edit_method='patch',
         )):
@@ -110,7 +110,9 @@ class LabReplyTests(TestCase):
         self.assertIn('Текст «Buy» → «Try».', version.bruno_report['items'])
         self.assertEqual(version.bruno_report['usage'], 'AI: 70 токенов')
         body = response.content.decode()
-        self.assertLess(body.index('id="lab-site-frame"'), body.index('id="lab-reply"'))
+        self.assertLess(body.index('id="lab-thread"'), body.index('id="lab-form"'))
+        self.assertContains(response, 'lab-turn-current')
+        self.assertContains(response, 'Текст «Buy» → «Try».')
         self.assertIn(f'id="lab-report-{version.pk}"', body)
         self.assertEqual(response.context['versions'][0].history_reply, version.bruno_report)
         self.assertContains(response, 'Запрос и отчёт Бруно')

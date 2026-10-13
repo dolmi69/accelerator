@@ -223,3 +223,42 @@ class GigaLabAccountingTests(TestCase):
                 with override_settings(**changes),self.assertRaises(GigaChatError):self.call()
         client.post.assert_not_called()
         self.assertFalse(LabAIUsage.objects.exists())
+
+
+class BookingContractTests(TestCase):
+    def test_local_confirmation_is_rejected_even_with_demo_prices(self):
+        from founder.services.lab_capabilities import check_contract
+        from founder.services.lab_bruno import LabRequestRejected
+        for html in ('<form id="booking-form"><button>Забронировать</button></form>',
+                     '<script>setTimeout(()=>status.textContent="Бронирование подтверждено",800)</script>'):
+            with self.subTest(html=html), self.assertRaises(LabRequestRejected):
+                check_contract('Бронирование мест, демонстрационные цены', '', html, ['accounts','catalog','booking'])
+
+    def test_missing_real_routes_is_rejected(self):
+        from founder.services.lab_capabilities import check_contract
+        from founder.services.lab_bruno import LabRequestRejected
+        with self.assertRaises(LabRequestRejected):
+            check_contract('Добавь бронирование', '', '<a href="#booking">Записаться</a>', ['accounts','booking'])
+
+    def test_real_module_routes_pass_without_fake_api(self):
+        from founder.services.lab_capabilities import check_contract, capability_prompt
+        html = '<a href="/catalog/" data-app-route="/catalog/">Выбрать время</a><a data-app-route="/bookings/" href="/bookings/">Мои записи</a>'
+        self.assertEqual(check_contract('Добавь бронирование', '', html, ['accounts','catalog','booking'])['source_contract'], 'passed')
+        self.assertIn('BrunoApp.booking нет', capability_prompt(['accounts','booking']))
+
+    def test_backend_instructions_do_not_require_demo_transactions(self):
+        from founder.services.site_generator import BACKEND_FRONT_PROMPT
+        self.assertIn('Демонстрационные цены НЕ означают', BACKEND_FRONT_PROMPT)
+        self.assertNotIn('У форм демонстрационное поведение', BACKEND_FRONT_PROMPT)
+
+    def test_invisible_button_color_and_unbound_filter_are_rejected(self):
+        from founder.services.lab_capabilities import check_contract
+        from founder.services.lab_bruno import LabRequestRejected
+        for html in ('<style>.forge-button{background:var(--primary);color:white}</style>',
+                     '<form data-forge-filter><input name="q"></form>'):
+            with self.subTest(html=html), self.assertRaises(LabRequestRejected):
+                check_contract('Сделай сайт', '', html, [])
+
+    def test_route_parser_ignores_named_anchors_and_untrusted_routes(self):
+        from founder.services.lab_capabilities import AppRoutes
+        self.assertEqual(AppRoutes('<a id="booking"></a><a data-app-route="/bookings/">Missing href</a>').routes, set())

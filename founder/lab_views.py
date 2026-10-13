@@ -123,10 +123,12 @@ def lab(request, startup_id):
 
 
 def generation_key(startup, source, prompt, kind, scope="auto", rebuild=False, modules=None, context=None):
+    code_profile = (f"ofox/{settings.OFOX_CODE_MODEL}/{settings.OFOX_CODE_REASONING_EFFORT}"
+                    if settings.LAB_CODE_PROVIDER == "ofox" else settings.QWEN_CODE_MODEL)
     return hashlib.sha256(json.dumps([
         GENERATOR_REVISION, str(startup.pk), str(source.pk) if source else None,
         hashlib.sha256(source.html.encode()).hexdigest() if source else None,
-        prompt, kind, scope, rebuild, settings.QWEN_CODE_MODEL,
+        prompt, kind, scope, rebuild, code_profile,
         settings.LAB_CREATE_MAX_TOKENS, settings.LAB_PATCH_MAX_TOKENS,
         settings.QWEN_CODE_MAX_TOKENS, settings.LAB_CREATE_TEMPERATURE, settings.LAB_PATCH_TEMPERATURE,
         modules if modules is not None else source.backend_modules if source else [],
@@ -222,8 +224,10 @@ def lab_generate(request, startup_id):
             consume_limit(f"ai-minute:{request.user.pk}", settings.AI_REQUESTS_PER_MINUTE, 60)
             consume_limit(f"ai-day:{request.user.pk}", settings.AI_REQUESTS_PER_DAY, 86400)
             # Zero disables the personal cap during local development.
-            if settings.LAB_REQUESTS_PER_DAY > 0:
-                consume_limit(f"lab-day:{request.user.pk}", settings.LAB_REQUESTS_PER_DAY, 86400)
+            from founder.services.plans import quota
+            daily_limit = quota(request.user, 'lab_requests_per_day')
+            if daily_limit > 0:
+                consume_limit(f"lab-day:{request.user.pk}", daily_limit, 86400)
             consume_limit("lab-global-day", settings.LAB_GLOBAL_REQUESTS_PER_DAY, 86400)
         # A concurrent request may have completed between cache lookup and lease.
         cached = startup.lab_versions.filter(generation_key=key).first()
@@ -465,7 +469,7 @@ def lab_preview(request, startup_id, version_id):
 
 @lru_cache(maxsize=1)
 def _tracker():
-    return (settings.BASE_DIR / 'static/founder/js/lab-tracker.js').read_text()
+    return (settings.BASE_DIR / 'static/founder/js/lab-tracker.js').read_text(encoding="utf-8")
 
 
 def preview_response(html, *, channel=None, parent_origin=None, exit_viewer=False):

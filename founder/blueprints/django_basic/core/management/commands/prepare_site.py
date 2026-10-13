@@ -17,7 +17,7 @@ class Command(BaseCommand):
             path.unlink(missing_ok=True)
         else:
             if not path.exists():
-                with path.open('x') as file:
+                with path.open('x', encoding='utf-8') as file:
                     file.write(secrets.token_urlsafe(32))
                 path.chmod(0o600)
             self.stdout.write('Ссылка владельца подготовлена. Откройте /setup/<содержимое .owner-setup>/ на своём сайте.')

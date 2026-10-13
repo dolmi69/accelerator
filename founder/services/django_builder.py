@@ -19,6 +19,7 @@ from urllib.parse import urlsplit
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import httpx
+from runtime_support import file_lock, is_windows, runtime_environment, detached_process_options, stop_windows_process
 from django.conf import settings
 from founder.models import LabSiteVersion, StartupProfile
 from founder.blueprints.django_basic.core.design import theme_from_html, theme_styles
@@ -80,7 +81,7 @@ def _directory(startup_id):
 
 def _read_state(directory):
     try:
-        data = json.loads((directory / "runtime.json").read_text())
+        data = json.loads((directory / "runtime.json").read_text(encoding="utf-8"))
         if (not isinstance(data, dict) or type(data.get("port")) is not int
                 or not 1024 <= data["port"] <= 65535 or type(data.get("pid")) is not int
                 or data["pid"] <= 1):
@@ -114,41 +115,33 @@ def runtime_status(startup_id):
 def _runtime_lock():
     # Both local and Telegram Django processes use the same lock and process cap.
     try:
-        import fcntl
-    except ImportError:
-        raise BuilderError("Автозапуск доступен на Mac и Linux. Скачайте проект для запуска на Windows.") from None
-    _root().mkdir(parents=True, exist_ok=True)
-    with (_root() / "runtime.lock").open("a") as lock:
-        deadline = time.monotonic() + 30
-        while True:
-            try:
-                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except BlockingIOError:
-                if time.monotonic() >= deadline:
-                    raise BuilderError("Другое приложение ещё запускается. Повторите через несколько секунд.") from None
-                time.sleep(0.1)
-        try:
+        with file_lock(_root() / 'runtime.lock'):
             yield
-        finally:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+    except TimeoutError:
+        raise BuilderError("Другое приложение ещё запускается. Повторите через несколько секунд.") from None
 
 
 def _stop(directory, startup_id):
     state = _read_state(directory)
     if _healthy(state, startup_id):
         # Never kill an unrelated process just because its PID was reused.
-        try:
-            os.kill(state["pid"], signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        deadline = time.monotonic() + 4
-        while time.monotonic() < deadline:
+        if is_windows():
             try:
-                os.kill(state["pid"], 0)
+                stop_windows_process(state['pid'])
+            except (OSError, TimeoutError):
+                raise BuilderError('Не удалось остановить локальный сайт. Повторите попытку.') from None
+        else:
+            try:
+                os.kill(state["pid"], signal.SIGTERM)
             except ProcessLookupError:
-                break
-            time.sleep(0.1)
+                pass
+            deadline = time.monotonic() + 4
+            while time.monotonic() < deadline:
+                try:
+                    os.kill(state["pid"], 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.1)
     (directory / "runtime.json").unlink(missing_ok=True)
 
 
@@ -163,7 +156,7 @@ def _active_path(owner_id):
 
 def _active_project(owner_id):
     try:
-        state = json.loads(_active_path(owner_id).read_text())
+        state = json.loads(_active_path(owner_id).read_text(encoding="utf-8"))
         if (isinstance(state, dict) and isinstance(state.get('project_id'), str)
                 and isinstance(state.get('token'), str) and type(state.get('revision')) is int):
             return state
@@ -248,8 +241,8 @@ def start_runtime(version, *, launcher_origin=None, return_path=None, selection_
             path.parent.mkdir(parents=True, exist_ok=True)
             _atomic_write(path, content)
         # No inherited API keys, accelerator settings, PYTHONPATH or shared DB URL.
-        env = {"PATH": os.defpath, "LANG": "en_US.UTF-8", "PYTHONNOUSERSITE": "1",
-               "DJANGO_SETTINGS_MODULE": "config.settings", "DJANGO_DEBUG": "1", "DJANGO_ALLOWED_HOSTS": "localhost,127.0.0.1"}
+        env = runtime_environment()
+        env.update(DJANGO_SETTINGS_MODULE="config.settings", DJANGO_DEBUG="1", DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1")
         try:
             with (directory / "server.log").open("ab") as log:
                 subprocess.run([sys.executable, "manage.py", "migrate", "--noinput"], cwd=project,
@@ -265,7 +258,7 @@ def start_runtime(version, *, launcher_origin=None, return_path=None, selection_
                     port = candidate.getsockname()[1]
                 process = subprocess.Popen([sys.executable, "-m", "daphne", "-b", "127.0.0.1",
                     "-p", str(port), "config.asgi:application"], cwd=project, env=env,
-                    stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+                    stdin=subprocess.DEVNULL, stdout=log, stderr=log, **detached_process_options())
             state = {"pid": process.pid, "port": port, "version_id": str(version.pk), "build_hash": build_hash}
             deadline = time.monotonic() + 12
             while time.monotonic() < deadline and process.poll() is None:
@@ -287,10 +280,10 @@ def start_runtime(version, *, launcher_origin=None, return_path=None, selection_
 def _open_url(state, project):
     # Only the authorized launcher receives this local one-time owner URL.
     path = project / '.owner-setup'
-    suffix = 'setup/' + path.read_text().strip() + '/' if path.exists() else ''
+    suffix = 'setup/' + path.read_text(encoding="utf-8").strip() + '/' if path.exists() else ''
     hostname = 'localhost'
     try:
-        context = json.loads((project / '.lab-viewer.json').read_text())
+        context = json.loads((project / '.lab-viewer.json').read_text(encoding="utf-8"))
         candidate = urlsplit(context.get('origin', '')).hostname
         if candidate in {'localhost', '127.0.0.1'}:
             # Same hostname as the laboratory keeps SameSite cookies working

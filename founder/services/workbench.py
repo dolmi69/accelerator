@@ -7,6 +7,7 @@ from django.db import transaction
 from founder.models import BrunoTask, BusinessAxis, StartupProfile
 from founder.services.ai import AIResponseFormatError, AIServiceError, complete_text, provider_label
 from founder.services.model_json import first_text, load_model_json
+from founder.services.metrics import ECONOMY_GUIDE
 
 TASK_SCHEMA = {
     'type': 'object', 'properties': {'tasks': {
@@ -39,6 +40,7 @@ TASK_PROMPT = (
     '«получена обратная связь» или «определены позиции». Задание по команде — конкретная '
     'договорённость: кто продаёт, кто делает продукт, кого не хватает и с кем поговорить, '
     'чтобы закрыть пробел.\n'
+    + ECONOMY_GUIDE + '\n'
     'Верни ровно такой JSON, ключи латиницей, без Markdown: '
     '{"tasks": [{"axis": "product|market|finance|team|pitch", "title": "...", '
     '"instructions": "...", "success_criterion": "..."}]}'

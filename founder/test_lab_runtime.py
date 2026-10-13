@@ -25,6 +25,11 @@ class RuntimeSwitchTests(TestCase):
         self.second = StartupProfile.objects.create(owner=self.owner, name='Second')
         self.foreign = StartupProfile.objects.create(owner=self.other, name='Foreign')
         self.alive, self.killed = set(), []
+        # The fake PID/signal model below is POSIX-only; do not pass fake PIDs
+        # to the native Windows process terminator on the Windows CI runner.
+        platform = patch.object(builder, 'is_windows', return_value=False)
+        platform.start()
+        self.addCleanup(platform.stop)
         health = patch.object(builder, '_healthy', side_effect=lambda state, _: bool(state and state['pid'] in self.alive))
         health.start()
         self.addCleanup(health.stop)
@@ -49,7 +54,7 @@ class RuntimeSwitchTests(TestCase):
         self.alive.add(pid)
         state = {'pid': pid, 'port': 9000 + len(self.alive),
                  'version_id': str(version.pk) if version else 'test', 'build_hash': build_hash}
-        (directory / 'runtime.json').write_text(json.dumps(state))
+        (directory / 'runtime.json').write_text(json.dumps(state), encoding="utf-8")
         return directory, state
 
     def test_switch_stops_previous_site_and_preserves_data_and_other_accounts(self):

@@ -16,7 +16,7 @@ class AppDesignTests(TestCase):
     def test_prototype_gets_real_links_inside_existing_card_without_template_execution(self):
         with TemporaryDirectory() as tmp:
             path = Path(tmp)
-            (path/'prototype.html').write_text('<html><head></head><body><div class="container"><h1>{{ user.password }}</h1><button>Calculate</button></div></body></html>')
+            (path/'prototype.html').write_text('<html><head></head><body><div class="container"><h1>{{ user.password }}</h1><button>Calculate</button></div></body></html>', encoding="utf-8")
             with override_settings(BASE_DIR=path):
                 response = self.client.get('/prototype/')
         self.assertContains(response, '<div class="container"><div class="lab-app-navigation">')

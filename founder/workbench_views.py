@@ -28,6 +28,13 @@ def owned_startup(request, startup_id, *, edit=True):
     return get_startup(request, startup_id, edit=edit)
 
 
+def _workspace_return(request, startup, page, section):
+    # Only this fixed destination is accepted, never an arbitrary redirect URL.
+    if request.POST.get('return_to') == 'radar':
+        return redirect(reverse('dashboard', args=[startup.pk]) + '#' + section)
+    return redirect(page, startup_id=startup.pk)
+
+
 @login_required
 def tasks(request, startup_id):
     startup = owned_startup(request, startup_id, edit=False)
@@ -70,7 +77,7 @@ def tasks_generate(request, startup_id):
         messages.success(request, f'Бруно подготовил заданий: {len(items)}.' if items else 'У вас уже есть задания в работе. Сначала сохраните результат или отложите одно из них.')
     except AIServiceError as exc:
         messages.error(request, str(exc))
-    return redirect('tasks', startup_id=startup.pk)
+    return _workspace_return(request, startup, 'tasks', 'project-tasks')
 
 
 @login_required
@@ -140,9 +147,10 @@ def evidence_edit(request, startup_id, entry_id=None):
                              f"Задание выполнено: {activity.quoted(saved.task.title)}")
         messages.success(request, 'Результат сохранён. Следующее обновление радара учтёт эту запись; сама запись не добавляет баллы.'
                          + coins_note(earned))
-        return redirect('evidence_list', startup_id=startup.pk)
+        return _workspace_return(request, startup, 'evidence_list', 'project-tasks')
     return render(request, 'founder/evidence_form.html', {
         'startup': startup, 'workspace_tab': 'evidence', 'form': form, 'entry': entry,
+        'return_to_radar': request.POST.get('return_to') == 'radar',
     }, status=400 if request.method == 'POST' else 200)
 
 
@@ -193,7 +201,7 @@ def review_generate(request, startup_id):
         messages.success(request, 'Бруно разобрал проект и составил план на месяц.')
     except AIServiceError as exc:
         messages.error(request, str(exc))
-    return redirect('review', startup_id=startup.pk)
+    return _workspace_return(request, startup, 'review', 'project-plan')
 
 
 @login_required
@@ -255,7 +263,7 @@ def market_generate(request, startup_id):
         messages.success(request, 'Бруно изучил рынок по открытым источникам.')
     except AIServiceError as exc:
         messages.error(request, str(exc))
-    return redirect('market', startup_id=startup.pk)
+    return _workspace_return(request, startup, 'market', 'project-market')
 
 
 @login_required

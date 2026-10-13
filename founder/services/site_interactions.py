@@ -39,7 +39,14 @@ PREVIEW_INTERACTIONS = '''<script data-lab-interactions="1">
 
 
 def enhance_interactions(html):
-    """Keep ordinary pages untouched; repair only alert and empty-anchor demos."""
+    """Preserve HTML visibility and repair sandbox-blocked demo interactions."""
+    # Generated display:flex/grid rules can override the browser's hidden rule.
+    # Filters should hide elements without needing another paid model request.
+    if ('data-lab-visibility="1"' not in html
+            and re.search(r'\bhidden\s*(?:=|>|\s)|\.hidden\s*=', html)):
+        html = re.sub(r'(<head\b[^>]*>)', lambda match: match[0] +
+                      '<style data-lab-visibility="1">[hidden]:not([hidden="until-found"]){display:none!important}</style>',
+                      html, count=1, flags=re.I)
     if 'data-lab-interactions="1"' in html:
         return html
     if not re.search(r'\balert\s*\(|href\s*=\s*[\"\']#[\"\']', html, re.I):

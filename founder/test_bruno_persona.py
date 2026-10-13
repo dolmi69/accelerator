@@ -31,7 +31,7 @@ class BrunoPersonaTests(TestCase):
         ]
         notes = conversation_notes(messages)
         self.assertIn("Рынок", notes.split("Ещё не обсуждали")[0])
-        self.assertIn("Финансы", notes.split("Ещё не обсуждали")[0])
+        self.assertIn("Экономика", notes.split("Ещё не обсуждали")[0])
         self.assertIn("Команда", notes.split("Ещё не обсуждали")[1])
         self.assertIn("Кто твой главный клиент сегодня?", notes)
 

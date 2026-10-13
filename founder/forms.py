@@ -69,7 +69,7 @@ class LabPromptForm(forms.Form):
         widget=forms.Textarea(attrs={
             "rows": 5,
             "maxlength": 2000,
-            "placeholder": "Например: сделай адаптивную страницу о здоровом сне с тремя советами и раскрывающимися карточками",
+            "placeholder": "Напиши, что нужно создать или изменить…",
         }),
     )
 
@@ -92,7 +92,7 @@ class MetricsForm(forms.ModelForm):
                                       required=False, widget=forms.Textarea(attrs={"rows": 3}))
     product_reason = forms.CharField(label="Что известно о продукте", max_length=500, required=False)
     market_reason = forms.CharField(label="Что известно о рынке", max_length=500, required=False)
-    finance_reason = forms.CharField(label="Что известно о финансах", max_length=500, required=False)
+    finance_reason = forms.CharField(label="Что известно об экономике проекта", max_length=500, required=False)
     team_reason = forms.CharField(label="Что известно о команде", max_length=500, required=False)
     pitch_reason = forms.CharField(label="Что известно о ясности идеи", max_length=500, required=False)
 
@@ -102,7 +102,7 @@ class MetricsForm(forms.ModelForm):
         labels = {
             "product": "Продукт",
             "market": "Рынок",
-            "finance": "Финансы",
+            "finance": "Экономика",
             "team": "Команда",
             "pitch": "Ясность идеи",
             "assessment_notes": "Общий вывод и следующий шаг",

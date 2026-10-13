@@ -6,7 +6,7 @@ from founder.models import MascotState
 METRIC_LABELS = {
     "product": "продукт",
     "market": "рынок",
-    "finance": "финансы",
+    "finance": "экономика",
     "team": "команда",
     "pitch": "ясность идеи",
 }

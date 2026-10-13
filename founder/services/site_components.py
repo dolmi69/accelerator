@@ -11,8 +11,8 @@ MARKER = 'v1'
 
 @lru_cache(maxsize=1)
 def assets():
-    return (f'<style data-forge-components="{MARKER}">' + (ROOT / 'forge.css').read_text() + '</style>',
-            f'<script data-forge-components="{MARKER}">' + (ROOT / 'forge.js').read_text() + '</script>')
+    return (f'<style data-forge-components="{MARKER}">' + (ROOT / 'forge.css').read_text(encoding="utf-8") + '</style>',
+            f'<script data-forge-components="{MARKER}">' + (ROOT / 'forge.js').read_text(encoding="utf-8") + '</script>')
 
 
 class ComponentParts(HTMLParser):
@@ -65,7 +65,7 @@ def attach_components(html):
 
 
 def component_prompt(prompt, *, creating):
-    catalog = json.loads((ROOT / 'catalog.json').read_text())
+    catalog = json.loads((ROOT / 'catalog.json').read_text(encoding="utf-8"))
     intro = '''Библиотека Forge: готовые адаптивные компоненты, CSS и обработчики
 фильтров/вкладок подключит платформа локально. Не генерируй их базовый CSS/JS
 и не используй data-forge-components. Подключение не требует второго AI-вызова.
@@ -85,6 +85,10 @@ forge-grid, forge-grid--two, forge-grid--bento + forge-span-two.
 нарисуй осмысленную иллюстрацию или выбери композицию без неё.
 Не имитируй подключение API. Формулы/обработчики калькуляторов пиши под задачу,
 существующие сохраняй. Вкладки и локальные фильтры уже работают по data-атрибутам.
+Не пиши второй обработчик для того же готового фильтра или вкладки.
+Используй --primary-color последовательно; если нужен --primary, явно объяви
+--primary:var(--primary-color). Не ссылайся на необъявленные CSS-переменные
+без резервного значения. Основная кнопка имеет видимый фон и контрастный текст.
 '''
     if creating:
         chosen = catalog

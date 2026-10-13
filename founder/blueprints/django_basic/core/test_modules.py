@@ -125,7 +125,7 @@ class ModuleTests(TestCase):
 
     def test_owner_setup_requires_secret_and_is_single_use(self):
         with override_settings(BASE_DIR=Path(self.temp.name)):
-            (Path(self.temp.name)/'.owner-setup').write_text('test-owner-token')
+            (Path(self.temp.name)/'.owner-setup').write_text('test-owner-token', encoding="utf-8")
             SiteControl.objects.filter(pk=1).update(setup_claimed=False)
             self.client.logout()
             self.assertEqual(self.client.get('/setup/wrong/').status_code,404)

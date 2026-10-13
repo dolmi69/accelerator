@@ -18,7 +18,7 @@ from founder.services.backend_modules import MODULES, OPTIONAL_MODULES
 from founder.services.site_editor import customize
 from founder.services.lab_bruno import request_policy, protect_service_secrets
 
-GENERATOR_REVISION = 'forge-components-v1'
+GENERATOR_REVISION = 'forge-components-v2-real-actions'
 DESIGN_GUIDE = Path(__file__).resolve().parent.parent / 'design_guides' / 'qwen_frontend.md'
 
 SITE_PROMPT = """Ты веб-дизайнер и фронтенд-разработчик. Создай завершённый статический сайт
@@ -67,7 +67,10 @@ alert/confirm/prompt недоступны в предпросмотре. Есл�
 тегов. Полностью заверши документ закрывающим </html>."""
 
 
-BACKEND_FRONT_PROMPT = SITE_PROMPT + """\nЭтот документ — главная страница приложения
+BACKEND_FRONT_PROMPT = SITE_PROMPT.replace(
+    'У форм демонстрационное поведение без\nотправки данных.',
+    'Для серверных действий используй готовые модули, перечисленные ниже.'
+) + """\nЭтот документ — главная страница приложения
 с готовой серверной частью Django. Подключённые модули перечислены в данных проекта.
 Внутри собственной шапки сайта оставь пустой контейнер <div data-app-navigation></div>:
 платформа вставит сюда настоящие кнопки входа, регистрации и доступных модулей.
@@ -77,6 +80,10 @@ BACKEND_FRONT_PROMPT = SITE_PROMPT + """\nЭтот документ — глав
 Не дублируй системные ссылки, не создавай формы имитации авторизации или чатов.
 Не утверждай, что отключённые модули работают. Не меняй серверные маршруты.
 Сохранение данных и аккаунтов реализовано Django; создавай дизайн и содержимое главной.
+Запрошенные серверные действия выполняй через готовые маршруты и BrunoApp.
+Не заменяй бронирование, заказ, заявку или регистрацию таймером и локальным успехом.
+Если собственного API нет, используй кнопку перехода в настоящий модуль.
+Демонстрационные цены НЕ означают разрешение на имитацию серверного действия.
 HTML остаётся в изолированном предпросмотре; не используй window.parent/top."""
 
 
@@ -115,7 +122,9 @@ def generate_site(prompt, *, previous_html="", max_tokens=None, backend=False, e
             messages = [{'role': 'user', 'content': json.dumps({'task': prompt.strip(), 'fragments': [
                 {'id': part.key, 'html': working_html[part.start:part.end]} for part in regions
             ]}, ensure_ascii=False, separators=(',', ':'))}]
-        instruction = PATCH_PROMPT + ("\nСохрани контейнер data-app-navigation внутри шапки. Платформа вставляет сюда рабочие модули Django; не дублируй их и не имитируй сохранение данных. Сохраняй переменные общей темы." if backend else "")
+        patch_instruction = PATCH_PROMPT.replace('Формы демонстрационные.',
+            'Серверные действия выполняются только через готовые маршруты и BrunoApp, без имитации успеха.') if backend else PATCH_PROMPT
+        instruction = patch_instruction + ("\nСохрани контейнер data-app-navigation внутри шапки. Платформа вставляет сюда рабочие модули Django; не дублируй их и не имитируй сохранение данных. Сохраняй переменные общей темы." if backend else "")
         instruction += '\nРазрешённые target: ' + json.dumps([part.key for part in regions]) + '. target — id переданного фрагмента, а не CSS-селектор или id HTML-элемента. При target="full" ищи точную исходную строку во всём документе. Скопируй find из исходного html, сохрани пробелы, регистр и теги. Не добавляй замену, если find и replace одинаковы.'
     else:
         messages = ([{"role": "assistant", "content": working_html}] if working_html else [])
@@ -191,7 +200,7 @@ def generate_site(prompt, *, previous_html="", max_tokens=None, backend=False, e
         raise
     except (ValueError, KeyError, TypeError, RecursionError):
         reject_output(result.request_id)
-        raise QwenOutputError('Qwen не вернул корректный сайт и отчёт. Предыдущая версия сохранена.') from None
+        raise QwenOutputError('Генератор не вернул корректный сайт и отчёт. Предыдущая версия сохранена.') from None
     fence = re.fullmatch(r"```(?:html)?\s*\n(.*?)\n```", html, re.DOTALL | re.IGNORECASE)
     if fence:
         html = fence[1].strip()

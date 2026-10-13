@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from founder.models import ChatMessage, ChatSession
 from founder.services.onboarding import startup_profile_context
+from founder.services.metrics import ECONOMY_GUIDE
 
 
 class AIServiceError(Exception):
@@ -149,12 +150,13 @@ def system_prompt(session, memories, messages=None, economics="", turn=None, pla
         stage_playbook(startup.stage), situations_for(_last_founder_text(messages)), EXAMPLES,
         onboarding_rules,
         "Суть работы: помоги основателю разобраться в проекте по пяти направлениям "
-        "(продукт, рынок, финансы, команда, ясность идеи) и понять, что делать дальше. "
+        "(продукт, рынок, экономика, команда, ясность идеи) и понять, что делать дальше. "
         "Опирайся на данные, отделяй факты от предположений и не придумывай цифры. "
         "При важных для решения числовых утверждениях мягко уточняй период, источник и размер выборки. "
         "Если новые слова конфликтуют со старыми, назови обе версии и попроси "
         "объяснить изменение. Не требуй консультаций, записей встреч, аудио или "
         "документов как условие оценки: основатель может рассказать всё своими словами.",
+        ECONOMY_GUIDE,
     ]) + "\n" + name_line + safety + notes + f"{profile}\nРанее сказанное основателем:\n{history}"
     status = project_status(startup)
     if status:

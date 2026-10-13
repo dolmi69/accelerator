@@ -1,5 +1,18 @@
 """The generated frontend may call only the trusted prototype bridge."""
 import re
+from html.parser import HTMLParser
+
+
+class AppRoutes(HTMLParser):
+    def __init__(self, html):
+        super().__init__()
+        self.routes = set()
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "a" and attrs.get("href") and attrs.get("href") == attrs.get("data-app-route"):
+            self.routes.add(attrs["href"])
 
 CAPABILITY_PROMPT = '''Для настоящих действий используй только готовый window.BrunoApp,
 уже внедрённый платформой. Не объявляй/переопределяй BrunoApp, authModule,
@@ -41,6 +54,8 @@ def capability_prompt(modules):
         instruction += '\nЗаявки — отдельный готовый модуль leads: кнопка <a href="/request/" data-app-route="/request/">Оставить заявку</a> открывает настоящую форму. Заявка НЕ является сообщением в чат или личным результатом. Не заменяй её results.save или отправкой сообщения. Собственная форма внутри HTML пока не записывает заявку: используй готовую страницу и честно укажи ограничения нестандартных полей.'
     if 'catalog' in enabled:
         instruction += '\nНастоящий каталог открывается через /catalog/ с data-app-route. Демонстрационные карточки главной страницы не добавляют записи в базу каталога; не утверждай обратное.'
+    if 'booking' in enabled:
+        instruction += '\nБронирование: <a href="/catalog/" data-app-route="/catalog/">Выбрать место и свободное время</a> открывает реальный каталог. В карточке владелец добавляет интервалы, пользователь записывается на свободный интервал; Django проверяет занятость. <a href="/bookings/" data-app-route="/bookings/">Мои бронирования</a> открывает сохранённые записи. Собственного API BrunoApp.booking нет. Не создавай локальную форму подтверждения брони, фиктивные свободные часы или таймер успеха. Карточки-примеры не существуют в серверном каталоге, пока владелец их не добавил. Вместимость и групповая бронь пока не поддерживаются: укажи это в отчёте, если запрошены.'
     return instruction
 
 
@@ -50,6 +65,11 @@ def check_contract(prompt, before, after, modules, change_purpose=False):
     scripts = re.sub(r'/\*.*?\*/|(?m:^\s*//[^\n]*)', '', scripts, flags=re.S)
     calls = set(re.findall(r'\bBrunoApp\.(\w+\.\w+)\s*\(', scripts))
     errors = []
+    styles = '\n'.join(re.findall(r'<style\b[^>]*>(.*?)</style\s*>', after, re.I | re.S))
+    if re.search(r'var\(\s*--primary\s*\)', styles) and not re.search(r'--primary\s*:', styles):
+        errors.append('Оформление использует необъявленный цвет --primary: кнопки могут стать невидимыми. Объявите цвет или используйте --primary-color.')
+    if re.search(r'\bdata-forge-filter\b', after) and not re.search(r'\bdata-forge-collection\b', re.sub(r'<script\b[^>]*>.*?</script\s*>|<style\b[^>]*>.*?</style\s*>', '', after, flags=re.I | re.S)):
+        errors.append('Готовый фильтр не подключён к контейнеру каталога data-forge-collection.')
     if re.search(r'\b(?:authModule|chatModule)\b', scripts):
         errors.append('В коде осталась выдуманная авторизация или заглушка чата. Нужны настоящие инструменты сайта.')
     if calls - METHODS or re.search(r'(?:\b(?:const|let|var)\s+BrunoApp\b|\b(?:window\.)?BrunoApp\s*=)', scripts):
@@ -58,7 +78,20 @@ def check_contract(prompt, before, after, modules, change_purpose=False):
         errors.append('Для сохранения и отправки нужна подключённая основа Django.')
     if 'chat.shareResult' in calls and 'chat' not in modules:
         errors.append('Кнопка отправки ссылается на отключённый модуль чатов.')
+    # A generated reservation form cannot persist bookings: use the ready Django
+    # module until an explicit inline booking API exists. Demo prices are not
+    # permission to simulate a transaction.
+    if 'booking' in modules:
+        forms = re.findall(r'<form\b[^>]*>.*?</form\s*>', after, re.I | re.S)
+        if any(re.search(r'бронир|заброни|booking|reservation|reserve', form, re.I) for form in forms):
+            errors.append('Форма бронирования имитирует серверное действие. Используйте переход в готовый каталог и сохранённые бронирования.')
+        if re.search(r'бронировани[ея]\s+подтвержден|место\s+забронировано', after, re.I):
+            errors.append('Главная страница заявляет о подтверждении брони без ответа модуля бронирований.')
     text = prompt.casefold()
+    if 'booking' in modules and re.search(r'бронир|заброни|booking|reservation', text):
+        routes = AppRoutes(after).routes
+        if not {'/catalog/', '/bookings/'}.issubset(routes):
+            errors.append('Бронирование не связано с настоящим выбором свободного времени и историей записей. Добавьте маршруты /catalog/ и /bookings/ через data-app-route.')
     mock = bool(re.search(r'макет|имитаци|демонстрационн|без.{0,20}(сервер|подключ)', text))
     wants_share = bool(re.search(r'чат|chat', text) and re.search(r'результ|расч[её]т|ккал|calor', text)
                        and re.search(r'отправ|подел|пересла|send|shar', text))

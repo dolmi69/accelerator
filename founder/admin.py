@@ -11,6 +11,7 @@ from founder.models import (
 class FounderUserAdmin(UserAdmin):
     fieldsets = UserAdmin.fieldsets + (
         ('Профиль сообщества', {'fields': ('handle', 'display_name', 'occupation', 'bio', 'location', 'profile_website')}),
+        ('Подписка', {'fields': ('pro_until',)}),
     )
     list_display = (*UserAdmin.list_display, 'handle')
     search_fields = (*UserAdmin.search_fields, 'handle', 'display_name')

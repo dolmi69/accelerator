@@ -18,7 +18,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from founder.forms import ChatSendForm, MetricsForm, RegisterForm, StartupForm
+from founder.forms import ChatSendForm, EvidenceForm, MetricsForm, RegisterForm, StartupForm
 from founder.models import (
     BrunoTask, BusinessAxis, ChatAttachment, ChatMessage, ChatSession, MascotState, MentorIdea, MessageFeedback,
     PanelVerdict, PitchReport, ProjectPicture, StartupProfile, CoinTransaction,
@@ -39,6 +39,7 @@ from founder.services import activity
 from founder.services.coins import CHAT_MIN_LENGTH, award, balance, coins_note
 from founder.services.achievements import achievement_cards, award_achievements
 from founder.services.profile import evidence_display, grid_context, history_context, project_cards
+from founder.services.dashboard import workspace_context
 
 
 def register(request):
@@ -109,7 +110,25 @@ def _dashboard_context(startup, metrics_form=None, *, snapshot_id=None, history_
             for key, _ in AXES
         })
     form = metrics_form if metrics_form is not None else MetricsForm(initial=initial)
+    history = history_context(startup, snapshot_id, history_page)
+    selected = history["history_selected"]
+    radar_rows = history["history_rows"] or [
+        {"key": key, "label": label, "score": None} for key, label in AXES
+    ]
+    positions = radar_points(selected).split() if selected else radar_grid(100).split()
+    label_positions = [(110, 8, "middle"), (203, 82, "start"),
+                       (169, 196, "middle"), (51, 196, "middle"), (17, 82, "end")]
+    for row, position, (label_x, label_y, anchor) in zip(radar_rows, positions, label_positions):
+        row["x"], row["y"] = position.split(",")
+        row.update(label_x=label_x, label_y=label_y, label_anchor=anchor)
+    workspace = workspace_context(startup)
+    for task in workspace["overview_tasks"]:
+        task.radar_result_form = EvidenceForm(
+            startup=startup, auto_id=f"task-{task.pk}-%s",
+            initial={"task": task, "axis": task.axis, "claim": task.title},
+        )
     return {
+        **workspace,
         "startup": startup,
         "latest": latest,
         "mascot": state,
@@ -122,7 +141,10 @@ def _dashboard_context(startup, metrics_form=None, *, snapshot_id=None, history_
             for key, label in AXES
         ],
         "achievements": achievement_cards(startup),
-        **history_context(startup, snapshot_id, history_page),
+        **history,
+        "radar_rows": radar_rows,
+        "radar_is_latest": selected == latest,
+        "radar_history_open": bool(snapshot_id or str(history_page) != "1"),
         "axes": [(label, getattr(latest, key, None)) for key, label in AXES],
         "ai_explanations": (
             [(label, latest.assessment_details.get(key, "")) for key, label in AXES]
@@ -233,7 +255,7 @@ def chat_refine(request, startup_id, axis):
         questions = {
             "product": "Что в продукте уже работает и кто им пользуется?",
             "market": "Кто ваш покупатель и какие признаки интереса уже видны?",
-            "finance": "Как планируете брать оплату и какие доходы или расходы уже известны?",
+            "finance": "Какую цену планируете установить и на чём основан её расчёт?",
             "team": "Кто сейчас в команде и за что отвечает каждый?",
             "pitch": "Как объяснить пользу сервиса клиенту в двух предложениях?",
         }

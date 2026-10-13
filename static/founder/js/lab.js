@@ -43,6 +43,27 @@
   }
   if (location.hash === '#lab-results') document.getElementById('lab-results')?.scrollIntoView();
 
+  const toolsDialog = document.getElementById('lab-tools-dialog');
+  const toolsTrigger = document.querySelector('[data-lab-tools-open]');
+  const openTools = () => {
+    if (!toolsDialog || toolsDialog.open) return;
+    document.getElementById('lab-tools').open = true;
+    toolsDialog.showModal();
+  };
+  toolsTrigger?.addEventListener('click', openTools);
+  document.querySelector('[data-lab-tools-close]')?.addEventListener('click', () => toolsDialog?.close());
+  toolsDialog?.addEventListener('click', event => { if (event.target === toolsDialog) {
+    const rect = toolsDialog.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) toolsDialog.close();
+  } });
+  if (['#backend-title', '#lab-free-title'].includes(location.hash)) openTools();
+  document.querySelectorAll('#lab-tools .field-error, #lab-tools .errorlist').forEach(error => { if (error.textContent.trim()) openTools(); });
+  const thread = document.getElementById('lab-thread');
+  if (thread) {
+    const current = thread.querySelector('.lab-turn-current');
+    thread.scrollTop = current ? current.offsetTop - thread.offsetTop : thread.scrollHeight;
+  }
+
   let generating = false;
   const forge = document.getElementById('lab-forge');
   function lockPrototype() {
