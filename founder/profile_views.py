@@ -46,6 +46,8 @@ def user_profile(request, handle):
     from founder.community_views import published_cards
     cards = published_cards().filter(startup__owner=author).order_by('-published_at')
     page = Paginator(cards, 9).get_page(request.GET.get('page'))
+    from founder.services.card_reports import mark_report_state
+    page.object_list = mark_report_state(page.object_list, request.user)
     return render(request, 'profiles/detail.html', {
         'author': author, 'page': page, 'is_owner': author.pk == request.user.pk,
         'can_message': author.pk != request.user.pk and not blocked_pair(author.pk, request.user.pk),

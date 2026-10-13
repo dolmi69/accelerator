@@ -1,0 +1,4 @@
+{% load static %}
+{% if lab_launcher %}<div class="lab-return-bar" data-lab-origin="{{ lab_launcher.origin }}">
+<span>Просмотр в лаборатории</span><a href="{{ lab_launcher.url }}" data-lab-return aria-label="Вернуться в лабораторию">Вернуться в лабораторию <span aria-hidden="true">×</span></a>
+</div><script src="{% static 'lab-viewer.js' %}" defer></script>{% endif %}

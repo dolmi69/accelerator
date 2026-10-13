@@ -11,12 +11,9 @@ from founder.models import (
 class FounderUserAdmin(UserAdmin):
     fieldsets = UserAdmin.fieldsets + (
         ('Профиль сообщества', {'fields': ('handle', 'display_name', 'occupation', 'bio', 'location', 'profile_website')}),
-        ('Тариф Pro', {
-            'fields': ('pro_until',),
-            'description': 'Продление вручную: укажите дату окончания подписки Pro.',
-        }),
+        ('Подписка', {'fields': ('pro_until',)}),
     )
-    list_display = (*UserAdmin.list_display, 'handle', 'pro_until')
+    list_display = (*UserAdmin.list_display, 'handle')
     search_fields = (*UserAdmin.search_fields, 'handle', 'display_name')
 admin.site.register(StartupProfile)
 admin.site.register(StartupMetrics)

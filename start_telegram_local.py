@@ -1,11 +1,11 @@
-"""Run a temporary public HTTPS bridge to this Mac and the launcher bot."""
-import fcntl
+"""Run a temporary public HTTPS bridge and the launcher bot."""
 import ipaddress
 import json
 import os
 from pathlib import Path
 import re
 import secrets
+import shutil
 import signal
 import socket
 import subprocess
@@ -15,6 +15,7 @@ import time
 import httpx
 from dotenv import dotenv_values
 from start_shared_events import ensure_shared_events
+from runtime_support import file_lock, is_windows
 
 
 BASE = Path(__file__).resolve().parent
@@ -49,21 +50,26 @@ def check_fresh_dns(url):
 
 
 def main():
+    try:
+        with file_lock(RUNTIME / 'telegram.lock', timeout=0):
+            _run()
+    except TimeoutError:
+        print("Telegram уже запущен. Повторный запуск не требуется.")
+
+
+def _run():
     os.umask(0o077)
     RUNTIME.mkdir(exist_ok=True)
-    lock = (RUNTIME / "telegram.lock").open("w")
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        print("Telegram уже запущен. Повторный запуск не требуется.")
-        return
     config = dotenv_values(BASE / ".env")
     if not config.get("TELEGRAM_BOT_TOKEN"):
         raise RuntimeError("В .env отсутствует TELEGRAM_BOT_TOKEN.")
     ensure_shared_events()
-    binary = BASE / ".tools" / "cloudflared"
+    binary = BASE / '.tools' / ('cloudflared.exe' if is_windows() else 'cloudflared')
     if not binary.exists():
-        raise RuntimeError("Не найден .tools/cloudflared.")
+        installed = shutil.which('cloudflared')
+        if not installed:
+            raise RuntimeError("Не найден cloudflared. Установите его или поместите бинарник своей ОС в .tools/.")
+        binary = Path(installed)
     with socket.socket() as check:
         # Recently closed connections can keep the port in TIME_WAIT. Match the
         # server's reuse option while still rejecting an active listener.
@@ -75,7 +81,7 @@ def main():
     children, logs = [], []
 
     def start(args, name, env=None):
-        log = (RUNTIME / f"{name}.log").open("w")
+        log = (RUNTIME / f"{name}.log").open("w", encoding="utf-8")
         logs.append(log)
         process = subprocess.Popen(args, cwd=BASE, env=env, stdout=log, stderr=subprocess.STDOUT)
         children.append(process)
@@ -90,7 +96,7 @@ def main():
         print("Создаю временную HTTPS-ссылку…", flush=True)
         url = None
         for _ in range(60):
-            match = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", (RUNTIME / "tunnel.log").read_text())
+            match = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", (RUNTIME / "tunnel.log").read_text(encoding="utf-8"))
             if match:
                 url = match.group(0)
                 break
@@ -103,9 +109,9 @@ def main():
         env.update({k: v for k, v in config.items() if v is not None})
         secret_file = RUNTIME / "web_secret"
         if not secret_file.exists():
-            secret_file.write_text(secrets.token_urlsafe(48))
+            secret_file.write_text(secrets.token_urlsafe(48), encoding="utf-8")
         env.update(TELEGRAM_MINI_APP_URL=url, DJANGO_SETTINGS_MODULE="config.telegram_local",
-                   DJANGO_DEBUG="0", DJANGO_SECRET_KEY=secret_file.read_text().strip(), PYTHONUNBUFFERED="1")
+                   DJANGO_DEBUG="0", DJANGO_SECRET_KEY=secret_file.read_text(encoding="utf-8").strip(), PYTHONUNBUFFERED="1", PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
         start([sys.executable, "manage.py", "runserver", "127.0.0.1:8001", "--insecure", "--noreload"], "website", env)
         # Verify the bridge before publishing its address in the bot menu.
         ready = False
@@ -127,8 +133,8 @@ def main():
         if result.returncode:
             raise RuntimeError("Telegram не принял настройки бота.")
         start([sys.executable, "manage.py", "run_telegram_bot"], "bot", env)
-        (RUNTIME / "telegram.json").write_text(json.dumps({"url": url, "pid": os.getpid()}, indent=2))
-        print(f"Сайт на Mac доступен через {url}\nБот запущен. Не закрывайте этот процесс. Ctrl+C — остановить.", flush=True)
+        (RUNTIME / "telegram.json").write_text(json.dumps({"url": url, "pid": os.getpid()}, indent=2), encoding="utf-8")
+        print(f"Сайт доступен через {url}\nБот запущен. Не закрывайте этот процесс. Ctrl+C — остановить.", flush=True)
         while all(process.poll() is None for process in children):
             time.sleep(2)
         raise RuntimeError("Один из процессов остановился. Подробности в .runtime/*.log.")

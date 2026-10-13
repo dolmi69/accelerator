@@ -26,7 +26,7 @@
       Отправьте ровно {{ invoice.amount_expected_text }} USDT (TRC-20) на этот адрес.
       Зачисление — после {{ required }} подтверждений сети.
     </p>
-    <p class="pay-order">Номер пополнения: {{ invoice.order_id }} · <a href="{% url 'wallet' %}">← К балансу</a></p>
+    <p class="pay-order">Номер пополнения: {{ invoice.order_id }} · <a href="{% url 'payments_wallet' %}">← К балансу</a></p>
   </div>
 </section>
 <style>

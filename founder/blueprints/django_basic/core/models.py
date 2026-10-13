@@ -29,6 +29,20 @@ class Message(models.Model):
         constraints = [models.UniqueConstraint(fields=["sender", "nonce"], name="message_nonce")]
 
 
+class SavedResult(models.Model):
+    """Private text results; never render user content as HTML."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='saved_results')
+    title = models.CharField(max_length=120)
+    content = models.TextField(max_length=1800)
+    nonce = models.UUIDField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        constraints = [models.UniqueConstraint(fields=['owner', 'nonce'], name='result_nonce')]
+
+
 class RateBucket(models.Model):
     """Shared, bounded counters; work across ASGI threads and processes."""
     key = models.CharField(max_length=100, primary_key=True)

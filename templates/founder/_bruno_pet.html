@@ -3,7 +3,7 @@
   <button class="pet-toggle" type="button" aria-label="Свернуть Бруно" aria-expanded="true" aria-controls="bruno-pet-body" hidden>−</button>
   <div id="bruno-pet-body" class="pet-body">
     <a class="pet-project" draggable="false" href="{% if bruno_pet.project %}{% url 'dashboard' bruno_pet.project.id %}{% else %}{% url 'home' %}{% endif %}" aria-label="{% if bruno_pet.project %}Открыть проект {{ bruno_pet.project.name }}{% else %}Перейти к моим проектам{% endif %}" title="Нажмите, чтобы открыть проект. Перетащите, чтобы переместить Бруно.">
-      <span class="pet-bubble"><strong>{% if bruno_pet.project %}К твоему проекту?{% else %}Начнём с идеи?{% endif %}</strong><span>{{ bruno_pet.project.name|default:'Мои проекты' }}</span></span>
+      <span class="pet-bubble"><strong>{% if bruno_pet.project %}К вашему проекту?{% else %}Начнём с идеи?{% endif %}</strong><span>{{ bruno_pet.project.name|default:'Мои проекты' }}</span></span>
       {% include 'founder/_bruno.html' with mascot=bruno_pet.mascot investor=False pet=True instance_id='pet' only %}
     </a>
     <div class="pet-actions">

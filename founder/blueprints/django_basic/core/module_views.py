@@ -5,14 +5,14 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, OperationalError, transaction
-from django.db.models import F, Q
+from django.db.models import F, Q, Prefetch
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from .account_views import form_page
-from .capabilities import can_create_item, editor, manages, module_required
+from .capabilities import can_create_item, editor, manages, module_required, enabled
 from .forms import CheckoutForm, ItemForm, LeadForm, PageForm, ReviewForm, SlotForm, UploadForm
 from .models import Asset, Booking, Favorite, Item, Lead, Order, Page, Review, SiteControl, Slot
 from .services import cancel_booking, cart_rows, checkout, notify, notify_team, reserve_slot, transition_order
@@ -20,6 +20,17 @@ from .services import cancel_booking, cart_rows, checkout, notify, notify_team, 
 
 def paginate(queryset, request):
     return Paginator(queryset, 20).get_page(request.GET.get('page'))
+
+
+def catalog_page(rows, request):
+    """Only public item images; one bounded prefetch, no per-card queries."""
+    if enabled('uploads'):
+        rows = rows.prefetch_related(Prefetch('assets', queryset=Asset.objects.filter(image=True).order_by('pk'), to_attr='public_images'))
+    page = paginate(rows, request)
+    for item in page:
+        images = getattr(item, 'public_images', [])
+        item.cover = images[0] if images else None
+    return page
 
 
 def editable_item(request, item_id):
@@ -48,7 +59,7 @@ def catalog(request):
             pass
     order = {'price':'price','-price':'-price','title':'title'}.get(request.GET.get('sort'), '-created_at')
     rows = rows.order_by(order,'pk')
-    return render(request,'catalog.html',{'page':paginate(rows,request),'query':q,'category':category,
+    return render(request,'catalog.html',{'page':catalog_page(rows,request),'query':q,'category':category,
         'categories':Item.objects.filter(published=True).exclude(category='').values_list('category',flat=True).order_by('category').distinct()[:100],
         'can_create':can_create_item(request.user)})
 
@@ -107,7 +118,7 @@ def favorite(request,item_id):
 @module_required('favorites')
 @require_GET
 def favorites(request):
-    return render(request,'catalog.html',{'page':paginate(Item.objects.filter(published=True,favorite__user=request.user),request), 'heading':'Избранное'})
+    return render(request,'catalog.html',{'page':catalog_page(Item.objects.filter(published=True,favorite__user=request.user).order_by('-created_at'),request), 'heading':'Избранное'})
 
 
 @module_required('leads')

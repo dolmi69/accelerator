@@ -11,7 +11,7 @@
       <h2>Free</h2>
       <p class="plan-price">0 ₽</p>
       <ul>
-        <li>До {{ free_quota }} AI-запросов в сутки</li>
+        <li>До {{ free_quota }} запросов к лаборатории в сутки</li>
         <li>Бруно, радар, задания, питч, лаборатория</li>
       </ul>
       {% if not is_pro %}<p class="plan-current">Ваш текущий тариф</p>{% endif %}
@@ -21,7 +21,7 @@
       <h2>Pro <span class="plan-tag">PRO</span></h2>
       <p class="plan-price">{{ price_rub }} ₽<span class="plan-per">/мес</span></p>
       <ul>
-        <li>До {{ pro_quota }} AI-запросов в сутки</li>
+        <li>До {{ pro_quota }} запросов к лаборатории в сутки</li>
         <li>Бейдж Pro в шапке</li>
         <li>Оплата в тестовом режиме — деньги не списываются</li>
       </ul>

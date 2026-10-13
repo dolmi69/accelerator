@@ -18,7 +18,7 @@ class Element {
   contains(node) { return this.children.includes(node); }
 }
 
-function setup(fetch) {
+function setup(fetch, chips = []) {
   const ids = ['chat-form', 'message-list', 'message-input', 'attachment-input', 'file-name', 'send-button'];
   const elements = Object.fromEntries(ids.map(id => [id, new Element()]));
   const input = elements['message-input'];
@@ -28,13 +28,16 @@ function setup(fetch) {
   let destination;
   const window = { location: { hash: '', pathname: '/chat/test/', assign(value) { destination = value; } } };
   const document = {
-    getElementById: id => elements[id], querySelector: () => null,
+    getElementById: id => elements[id], querySelector: () => null, querySelectorAll: () => chips,
     createElement: () => new Element(), createTextNode: text => ({ textContent: text }),
   };
   const context = { document, window, fetch, FormData: class {}, AbortController, TextDecoder, setTimeout, clearTimeout };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../static/founder/js/chat.js'), 'utf8'), context);
   const submit = () => elements['chat-form'].listeners.submit({ preventDefault() {} });
-  return { elements, input, file, submit, destination: () => destination };
+  // requestSubmit в браузере вызывает обработчик отправки формы.
+  elements['chat-form'].requestSubmit = () => { submitted = submit(); };
+  let submitted;
+  return { elements, input, file, submit, destination: () => destination, submitted: () => submitted };
 }
 
 const rejectedResponse = (status, error) => ({ ok: false, status, json: async () => ({ error }) });
@@ -98,4 +101,46 @@ test('double submit makes only one HTTP request', async () => {
   assert.equal(calls, 1);
   resolve(rejectedResponse(429, 'Подождите'));
   await first;
+});
+
+test('panel stream names each shark and gives the main reply its own bubble', async () => {
+  const margarita = { type: 'speaker', speaker: 'margarita', name: 'Маргарита', title: 'финансист-скептик', initial: 'М' };
+  const app = setup(async () => streamResponse([
+    margarita,
+    { type: 'speaker', speaker: 'timur', name: 'Тимур', title: 'продуктовик', initial: 'Т' },
+    { type: 'delta', text: 'Дай человеку рассказать.' },
+    margarita,
+    { type: 'delta', text: 'Сколько стоит клиент?' },
+    { type: 'done' },
+  ]));
+  await app.submit();
+  const [, aside, main] = app.elements['message-list'].children;
+  assert.equal(app.elements['message-list'].children.length, 3); // Founder, Timur's aside, Margarita.
+  assert.equal(aside.className, 'message message-assistant shark-timur');
+  assert.equal(aside.children[1].children[1].textContent, 'Дай человеку рассказать.');
+  assert.equal(main.children[0].textContent, 'М');
+  assert.equal(main.children[1].children[0].textContent, 'Маргарита · финансист-скептик');
+  assert.equal(main.children[1].children[1].textContent, 'Сколько стоит клиент?');
+  assert.equal(app.destination(), '/chat/test/');
+});
+
+test('quick reply chip sends its text as a normal message', async () => {
+  const chip = new Element();
+  chip.dataset = { quickReply: 'Подведи итог встречи' };
+  let body;
+  const app = setup(async (url, options) => { body = options.body; return streamResponse([{ type: 'done' }]); }, [chip]);
+  app.input.value = '';
+  chip.listeners.click();
+  await app.submitted();
+  assert.ok(body !== undefined); // Запрос ушёл через обычную отправку формы.
+  assert.equal(app.elements['message-list'].children[0].children[1].children[1].textContent, 'Подведи итог встречи');
+});
+
+test('busy Bruno (429 with short Retry-After) is retried instead of shown as an error', async () => {
+  let calls = 0;
+  const busy = { ok: false, status: 429, headers: { get: () => '1' }, json: async () => ({ error: 'Бруно занят' }) };
+  const app = setup(async () => (++calls === 1 ? busy : streamResponse([{ type: 'delta', text: 'Ответ' }, { type: 'done' }])));
+  await app.submit();
+  assert.equal(calls, 2);
+  assert.equal(app.destination(), '/chat/test/');
 });

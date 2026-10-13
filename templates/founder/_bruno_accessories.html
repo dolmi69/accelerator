@@ -1,0 +1,73 @@
+{# Аксессуары из гардероба в координатах исходного PNG: та же область, что у позы, но без обрезки. #}
+{# localize off: в русской локали дробные числа выводятся с запятой, а SVG понимает только точку. #}
+{% load l10n static %}{% localize off %}{% with layer=mascot.accessory_layers %}{% if layer %}
+<svg class="bruno-accessories" x="{{ layer.frame.x }}" y="{{ layer.frame.y }}" width="{{ layer.frame.width }}" height="{{ layer.frame.height }}" viewBox="{{ layer.frame.viewBox }}" overflow="visible" aria-hidden="true">
+{# Силуэт Бруно обрезает то, что на шее, по контуру тела; подбородок или ухо оказываются перед ним. #}
+<mask id="bruno-body-{{ instance_id|default:'card' }}" maskUnits="userSpaceOnUse" x="0" y="0" width="1280" height="1066">
+  <image href="{% static 'founder/img/bruno-silhouette.png' %}" width="1280" height="1066"/>
+  {% if layer.front %}<path d="{{ layer.front }}" fill="#000"/>{% endif %}
+</mask>
+{% for item in layer.items %}
+{# Маска — на внешней группе без transform, иначе она сдвинется вместе с рисунком. #}
+<g class="bruno-accessory accessory-{{ item.code }}"{% if item.code == 'bowtie' %} mask="url(#bruno-body-{{ instance_id|default:'card' }})"{% endif %}><g transform="{{ item.transform }}">
+{% if item.slot == 'eyes' %}
+  {% if item.style == 'reading' %}
+    {# Очки для чтения: полукруглые линзы на кончике носа. #}
+    <path d="{{ item.temples }} {{ item.bridge }}" stroke="{% if item.code == 'shades' %}#141a20{% else %}#3a2a1c{% endif %}" stroke-width="{{ item.stroke }}" stroke-linecap="round" fill="none"/>
+    <path d="{{ item.lenses }}" {% if item.code == 'shades' %}fill="#141a20" fill-opacity=".88"{% else %}fill="#ffffff" fill-opacity=".2"{% endif %} stroke="{% if item.code == 'shades' %}#141a20{% else %}#3a2a1c{% endif %}" stroke-width="{{ item.stroke }}" stroke-linejoin="round"/>
+  {% elif item.code == 'glasses' %}
+    <path d="{{ item.temples }}" stroke="#1d2b36" stroke-width="{{ item.stroke }}" stroke-linecap="round" fill="none"/>
+    <ellipse cx="{{ item.left.cx }}" cy="0" rx="{{ item.left.rx }}" ry="{{ item.left.ry }}" fill="#ffffff" fill-opacity=".14" stroke="#1d2b36" stroke-width="{{ item.stroke }}"/>
+    <ellipse cx="{{ item.right.cx }}" cy="0" rx="{{ item.right.rx }}" ry="{{ item.right.ry }}" fill="#ffffff" fill-opacity=".14" stroke="#1d2b36" stroke-width="{{ item.stroke }}"/>
+    <path d="{{ item.bridge }}" stroke="#1d2b36" stroke-width="{{ item.stroke }}" stroke-linecap="round" fill="none"/>
+  {% else %}
+    <path d="{{ item.temples }}" stroke="#141a20" stroke-width="{{ item.stroke }}" stroke-linecap="round" fill="none"/>
+    <ellipse cx="{{ item.left.cx }}" cy="0" rx="{{ item.left.rx }}" ry="{{ item.left.ry }}" fill="#141a20"/>
+    <ellipse cx="{{ item.right.cx }}" cy="0" rx="{{ item.right.rx }}" ry="{{ item.right.ry }}" fill="#141a20"/>
+    <path d="{{ item.bridge }}" stroke="#141a20" stroke-width="{{ item.stroke }}" stroke-linecap="round" fill="none"/>
+    <ellipse cx="{{ item.left.cx }}" cy="0" rx="{{ item.left.rx }}" ry="{{ item.left.ry }}" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="{{ item.stroke }}" stroke-dasharray="6 200" transform="rotate(-140 {{ item.left.cx }} 0)"/>
+    <ellipse cx="{{ item.right.cx }}" cy="0" rx="{{ item.right.rx }}" ry="{{ item.right.ry }}" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="{{ item.stroke }}" stroke-dasharray="6 200" transform="rotate(-140 {{ item.right.cx }} 0)"/>
+  {% endif %}
+{% elif item.slot == 'head' %}
+  {# Рисунок под макушку шириной 100: основание на y=0 чуть заходит на голову. #}
+  {% if item.code == 'party' %}
+    <path d="M-28 8 L0 -82 L28 8 Z" fill="#7c5cd6"/>
+    <path d="M-20.8 -15 L20.8 -15 L16.8 -28 L-16.8 -28 Z M-10.6 -48 L10.6 -48 L7.5 -58 L-7.5 -58 Z" fill="#f4c542"/>
+    <ellipse cx="0" cy="8" rx="31" ry="7" fill="#5a3fb0"/>
+    <circle cx="0" cy="-84" r="9" fill="#ef6f6c"/>
+  {% elif item.code == 'cap' %}
+    <path d="M-52 10 Q-54 -40 0 -44 Q54 -40 52 10 Z" fill="#2f6fb0"/>
+    <path d="M0 -44 L0 6" stroke="#255d96" stroke-width="3"/>
+    <path d="M30 5 Q78 -2 94 12 Q62 23 26 15 Z" fill="#1f4f82"/>
+    <path d="M-52 10 Q0 1 52 10" stroke="#1f4f82" stroke-width="5" fill="none"/>
+    <circle cx="0" cy="-44" r="5" fill="#1f4f82"/>
+  {% elif item.code == 'crown' %}
+    <path d="M-40 10 L-40 -30 L-20 -10 L0 -42 L20 -10 L40 -30 L40 10 Z" fill="#f2b631" stroke="#c98a12" stroke-width="3" stroke-linejoin="round"/>
+    <rect x="-40" y="-2" width="80" height="10" fill="#c98a12"/>
+    <circle cx="0" cy="-42" r="5" fill="#e85d75"/><circle cx="-40" cy="-30" r="4.5" fill="#5bc0eb"/><circle cx="40" cy="-30" r="4.5" fill="#5bc0eb"/>
+    <circle cx="0" cy="3" r="3.5" fill="#e85d75"/><circle cx="-22" cy="3" r="3" fill="#5bc0eb"/><circle cx="22" cy="3" r="3" fill="#5bc0eb"/>
+  {% endif %}
+{% elif item.code == 'bowtie' %}
+  <g {% if item.style == 'lying' %}transform="scale(1 .8)"{% endif %}>
+    <path d="M0 0 L-30 -16 Q-36 0 -30 16 Z M0 0 L30 -16 Q36 0 30 16 Z" fill="#d6455d" stroke="#a52f44" stroke-width="3" stroke-linejoin="round"/>
+    <rect x="-7" y="-9" width="14" height="18" rx="5" fill="#a52f44"/>
+  </g>
+{% elif item.code == 'scarf' %}
+  {# Кольцо вокруг шеи, узел и два конца; форму считает services/wardrobe.py. Края темнее — там шарф уходит за шею. #}
+  <defs><linearGradient id="bruno-scarf-{{ instance_id|default:'card' }}" gradientUnits="userSpaceOnUse" x1="{{ item.shade.x1 }}" y1="{{ item.shade.y1 }}" x2="{{ item.shade.x2 }}" y2="{{ item.shade.y2 }}">
+    <stop offset="0" stop-color="#0e6159"/><stop offset=".16" stop-color="#16877d"/><stop offset=".84" stop-color="#16877d"/><stop offset="1" stop-color="#0e6159"/>
+  </linearGradient></defs>
+  <g mask="url(#bruno-body-{{ instance_id|default:'card' }})">
+    <path d="{{ item.band }}" fill="url(#bruno-scarf-{{ instance_id|default:'card' }})" stroke="#0e6159" stroke-width="{{ item.stroke }}" stroke-linejoin="round"/>
+    <path d="{{ item.stripes }}" stroke="#eea273" stroke-width="{{ item.stroke }}" stroke-linecap="round"/>
+  </g>
+  {% for tail in item.tails %}
+  <path d="{{ tail.shape }}" fill="#14796f" stroke="#0e6159" stroke-width="{{ item.stroke }}" stroke-linejoin="round"/>
+  <path d="{{ tail.stripes }}" stroke="#eea273" stroke-width="{{ item.stroke }}" stroke-linecap="round"/>
+  {% endfor %}
+  <ellipse cx="{{ item.knot.cx }}" cy="{{ item.knot.cy }}" rx="{{ item.knot.rx }}" ry="{{ item.knot.ry }}" fill="#13756c" stroke="#0e6159" stroke-width="{{ item.stroke }}"/>
+{% endif %}
+</g></g>
+{% endfor %}
+</svg>
+{% endif %}{% endwith %}{% endlocalize %}

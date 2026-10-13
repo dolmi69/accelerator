@@ -9,13 +9,17 @@ from django.urls import reverse
 from founder.models import LabSiteVersion, StartupProfile, User
 from founder.services.qwen import CodeResult
 from founder.services.django_builder import BuilderError, project_files, export_project
+from founder.services.lab_design import design_context, design_pending
 
 HTML = '<!doctype html><html><head></head><body><h1>{{ user.password }}</h1></body></html>'
 
 
-@override_settings(LAB_BACKEND_RUNTIME_ENABLED=True)
+@override_settings(LAB_BACKEND_RUNTIME_ENABLED=True, QWEN_CODE_MAX_TOKENS=16384,
+                   LAB_CREATE_MAX_TOKENS=16384, LAB_PATCH_MAX_TOKENS=2048)
 class BuilderTests(TestCase):
     def setUp(self):
+        from founder.test_lab_support import install_lab_mocks
+        install_lab_mocks(self)
         self.owner = User.objects.create_user(username='builder_owner', email='owner@builder.test')
         self.other = User.objects.create_user(username='builder_other', email='other@builder.test')
         self.startup = StartupProfile.objects.create(owner=self.owner, name='Наш сайт')
@@ -39,20 +43,25 @@ class BuilderTests(TestCase):
         self.assertEqual(version.html, HTML)
         self.assertEqual(version.source_id, self.static.pk)
         self.assertEqual(version.input_tokens, 0)
+        from founder.services.backend_modules import BASE_MODULES
+        self.assertEqual(set(version.backend_modules), {*BASE_MODULES, 'registration'})
         self.client.post(self.route('lab_backend_create'), {'source_version':version.pk})
         self.assertEqual(LabSiteVersion.objects.filter(kind='django').count(), 1)
         page = self.client.get(self.route('lab') + f'?version={version.pk}', HTTP_HOST='localhost:8000')
-        self.assertContains(page, 'Запустить на весь экран')
+        self.assertContains(page, 'На весь экран')
         self.assertContains(page, 'id="lab-viewer"')
+        self.assertContains(page, 'id="lab-site-frame"', count=1)
+        self.assertContains(page, 'id="lab-preview-run"')
+        self.assertNotContains(page, 'id="lab-viewer-frame"')
         self.assertContains(page, 'Скачать Django-проект')
         self.assertContains(page, 'Возможности сайта')
 
-    def test_base_features_are_checked_and_can_be_removed_without_ai(self):
+    def test_only_registration_is_checked_and_can_be_removed_without_ai(self):
         from founder.services.backend_modules import DEFAULT_BASE_FEATURES
         page = self.client.get(self.route('lab') + f'?version={self.static.pk}')
         self.assertContains(page, 'Основы маркетплейса')
-        for key in DEFAULT_BASE_FEATURES:
-            self.assertRegex(page.content.decode(), rf'value="{key}"[^>]*checked')
+        checked = [widget.data['value'] for widget in page.context['backend_form']['modules'] if widget.data['selected']]
+        self.assertEqual(checked, ['registration'])
         with patch('founder.lab_views.generate_site') as generate:
             self.client.post(self.route('lab_backend_create'), {
                 'source_version': self.static.pk, 'modules_selected': '1', 'modules': ['catalog'],
@@ -64,13 +73,41 @@ class BuilderTests(TestCase):
             self.assertNotIn(key, exported)
         self.assertIn('accounts', exported)  # Owner can still sign in and manage the site.
 
+    def test_design_submission_applies_selected_modules_and_preserves_them_on_failure(self):
+        from founder.services.qwen import QwenOutputError
+        data = {'prompt': 'Нужен сайт для продажи духов', 'modules_selected': '1',
+                'modules': ['registration', 'password_reset', 'chat', 'catalog', 'orders']}
+        with patch('founder.lab_views.generate_site', side_effect=QwenOutputError('Обрезано')) as generate:
+            response = self.client.post(self.route('lab_generate'), data)
+            self.assertEqual(response.status_code, 302)
+            generate.assert_called_once()
+            self.assertTrue(generate.call_args.kwargs['backend'])
+        version = LabSiteVersion.objects.get(kind='django')
+        self.assertEqual(version.output_tokens, 0)  # Scaffold makes no additional AI call.
+        self.assertIn('orders', version.backend_modules)
+        self.assertNotIn('notifications', version.backend_modules)
+        with patch('founder.lab_views.generate_site', return_value=CodeResult(HTML, 'Qwen', 12, 34)):
+            response = self.client.post(self.route('lab_generate'), {**data, 'source_version': version.pk})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(LabSiteVersion.objects.first().backend_modules, version.backend_modules)
+
+    def test_invalid_design_modules_do_not_call_ai(self):
+        with patch('founder.lab_views.generate_site') as generate:
+            response = self.client.post(self.route('lab_generate'), {
+                'prompt': 'Магазин', 'modules_selected': '1', 'modules': ['invented-module'],
+            })
+        self.assertEqual(response.status_code, 400)
+        generate.assert_not_called()
+
     def test_backend_generation_and_revision_keep_kind_and_context(self):
         with patch('founder.lab_views.generate_site', return_value=CodeResult(HTML,'Qwen',12,34)) as generate:
             self.client.post(self.route('lab_generate'), {'kind':'django','prompt':'Сайт для клуба'})
             first = LabSiteVersion.objects.get(kind='django')
-            generate.assert_called_with('Сайт для клуба',previous_html='',max_tokens=6144,backend=True)
+            generate.assert_called_with('Сайт для клуба',previous_html='',max_tokens=16384,backend=True,
+                project_context=design_context(self.startup, first.backend_modules), report=True)
             self.client.post(self.route('lab_generate'), {'kind':'django','prompt':'Сделай синим','source_version':first.pk})
-            generate.assert_called_with('Сделай синим',previous_html=HTML,max_tokens=6144,backend=True)
+            generate.assert_called_with('Сделай синим',previous_html=HTML,max_tokens=16384,backend=True,
+                project_context=design_context(self.startup, first.backend_modules, source=first), report=True)
             self.assertEqual(LabSiteVersion.objects.filter(kind='django').count(), 2)
 
     def test_export_only_trusted_source_and_raw_frontend(self):
@@ -143,6 +180,31 @@ class BuilderTests(TestCase):
                 HTTP_HOST='localhost:8000', HTTP_ACCEPT='application/json')
             self.assertEqual(response.status_code, 403)
 
+    def test_preview_opens_real_site_without_owner_setup_and_stop_pauses_autostart(self):
+        version = self.scaffold()
+        with patch('founder.lab_views.start_runtime', return_value='http://127.0.0.1:9000/setup/owner-secret/'):
+            response = self.client.post(self.route('lab_run', version.pk), {'preview': '1'},
+                HTTP_HOST='127.0.0.1:8000', HTTP_ACCEPT='application/json')
+        self.assertEqual(response.json(), {'url': 'http://127.0.0.1:9000/'})
+        with patch('founder.lab_views.stop_runtime') as stop:
+            response = self.client.post(self.route('lab_stop'), {'source_version': version.pk}, HTTP_HOST='localhost:8000')
+        stop.assert_called_once_with(self.startup.pk)
+        self.assertEqual(response.url, self.route('lab') + f'?version={version.pk}&paused=1')
+        with patch('founder.lab_views.start_runtime') as run:
+            page = self.client.get(response.url, HTTP_HOST='localhost:8000')
+        run.assert_not_called()  # GET only renders; startup is a CSRF-protected POST.
+        self.assertContains(page, 'data-autostart="0"')
+        self.assertContains(page, 'Сайт остановлен.')
+        self.assertNotContains(page, f'src="{self.route("lab_preview", version.pk)}"')
+
+    def test_remote_lab_keeps_static_sandbox_without_launching_local_servers(self):
+        version = self.scaffold()
+        with override_settings(ALLOWED_HOSTS=['demo.example']):
+            page = self.client.get(self.route('lab') + f'?version={version.pk}', HTTP_HOST='demo.example')
+        self.assertContains(page, f'src="{self.route("lab_preview", version.pk)}"')
+        self.assertContains(page, 'sandbox="allow-scripts"')
+        self.assertNotContains(page, 'id="lab-preview-run"')
+
     def test_new_scaffold_escapes_startup_text(self):
         self.startup.name='<script>alert(1)</script>'; self.startup.save(update_fields=['name'])
         self.client.post(self.route('lab_backend_create'))
@@ -190,7 +252,47 @@ class BuilderTests(TestCase):
         source.save(update_fields=['backend_modules'])
         with patch('founder.lab_views.generate_site', return_value=CodeResult(HTML, 'Qwen', 2, 3)) as generate:
             self.client.post(self.route('lab_generate'), {'source_version': source.pk, 'prompt': 'Добавь большой блок с описанием магазина'})
-            generate.assert_called_once_with('Добавь большой блок с описанием магазина', previous_html=HTML, max_tokens=6144, backend=True)
+            generate.assert_called_once_with('Добавь большой блок с описанием магазина', previous_html=HTML, max_tokens=16384, backend=True,
+                project_context=design_context(self.startup, source.backend_modules, source=source), report=True)
         latest = LabSiteVersion.objects.first()
         self.assertEqual(latest.kind, 'django')
         self.assertEqual(latest.backend_modules, ['catalog', 'booking'])
+
+    def test_first_design_replaces_scaffold_and_later_edits_use_small_patches(self):
+        from founder.services.lab_design import design_pending
+        self.client.post(self.route('lab_backend_create'), {'modules_selected': '1', 'modules': ['catalog']})
+        scaffold = LabSiteVersion.objects.get(kind='django')
+        self.assertTrue(design_pending(scaffold))
+        self.client.post(self.route('lab_customize'), {'source_version': scaffold.pk, 'palette': 'blue'})
+        themed = LabSiteVersion.objects.first()
+        self.assertTrue(design_pending(themed))
+        self.startup.target_customer = 'Покупатели парфюмерии'
+        self.startup.save(update_fields=['target_customer'])
+        with patch('founder.services.site_generator.generate_code', return_value=CodeResult(json.dumps({'html':HTML,'report':{'summary':'Создал дизайн.', 'completed':['Собрал главную страницу.'], 'not_done':[]}}), 'Qwen', 12, 34)) as paid:
+            response = self.client.post(self.route('lab_generate'), {
+                'source_version': themed.pk, 'prompt': 'Нужен магазин духов',
+            })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(paid.call_count, 1)
+        self.assertEqual(paid.call_args.kwargs['max_tokens'], 16384)
+        self.assertEqual(paid.call_args.kwargs['temperature'], 0.6)
+        self.assertIn('Покупатели парфюмерии', str(paid.call_args.args[1]))
+        self.assertIn('Наш сайт', str(paid.call_args.args[1]))
+        self.assertNotIn(themed.html, str(paid.call_args.args[1]))
+        designed = LabSiteVersion.objects.first()
+        self.assertFalse(design_pending(designed))
+        self.assertEqual(designed.backend_modules, scaffold.backend_modules)
+        change = json.dumps({'changes': [{'target': 'full', 'find': '{{ user.password }}', 'replace': 'Готово'}], 'report':{'summary':'Изменил заголовок.', 'completed':['Заголовок стал «Готово».'], 'not_done':[]}})
+        with patch('founder.services.site_generator.generate_code', return_value=CodeResult(change, 'Qwen', 2, 3)) as paid:
+            response = self.client.post(self.route('lab_generate'), {'source_version': designed.pk, 'prompt': 'Измени заголовок'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(paid.call_args.kwargs['max_tokens'], 2048)
+        self.assertEqual(paid.call_args.kwargs['temperature'], 0.2)
+        self.assertEqual(LabSiteVersion.objects.first().edit_method, 'patch')
+
+    def test_modules_added_to_existing_design_do_not_reset_that_design(self):
+        source = self.scaffold()
+        self.assertFalse(design_pending(source))
+        with patch('founder.lab_views.generate_site', return_value=CodeResult(HTML, 'Qwen', 12, 34)) as paid:
+            self.client.post(self.route('lab_generate'), {'source_version': source.pk, 'prompt': 'Улучшить композицию'})
+        self.assertEqual(paid.call_args.kwargs['previous_html'], HTML)

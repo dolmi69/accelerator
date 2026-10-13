@@ -9,7 +9,7 @@ def launcher():
     if not settings.DEBUG:
         return None
     try:
-        data = json.loads((settings.BASE_DIR / '.lab-viewer.json').read_text())
+        data = json.loads((settings.BASE_DIR / '.lab-viewer.json').read_text(encoding="utf-8"))
         origin = data['origin']
         path = data['return_path']
         parsed = urlsplit(origin)

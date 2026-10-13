@@ -2,7 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.urls import reverse_lazy
 
-from founder import views, workbench_views, lab_views, lab_testing_views, plans_views
+from founder import views, workbench_views, lab_views, lab_testing_views, team_views, coin_views, plans_views
 
 
 urlpatterns = [
@@ -11,6 +11,7 @@ urlpatterns = [
     path('startups/<uuid:startup_id>/lab/customize/', lab_views.lab_customize, name='lab_customize'),
     path('startups/<uuid:startup_id>/lab/backend/create/', lab_views.lab_backend_create, name='lab_backend_create'),
     path('startups/<uuid:startup_id>/lab/backend/stop/', lab_views.lab_stop, name='lab_stop'),
+    path('startups/<uuid:startup_id>/lab/backend/activate/', lab_views.lab_activate, name='lab_activate'),
     path('startups/<uuid:startup_id>/lab/<uuid:version_id>/download/', lab_views.lab_download, name='lab_download'),
     path('startups/<uuid:startup_id>/lab/<uuid:version_id>/run/', lab_views.lab_run, name='lab_run'),
     path('startups/<uuid:startup_id>/lab/publish/', lab_testing_views.lab_publish, name='lab_publish'),
@@ -32,6 +33,24 @@ urlpatterns = [
     path('startups/<uuid:startup_id>/review/generate/', workbench_views.review_generate, name='review_generate'),
     path('startups/<uuid:startup_id>/review/<uuid:review_id>/steps/<int:index>/task/', workbench_views.review_step_task,
          name='review_step_task'),
+    path('startups/<uuid:startup_id>/market/', workbench_views.market, name='market'),
+    path('startups/<uuid:startup_id>/market/generate/', workbench_views.market_generate, name='market_generate'),
+    path('startups/<uuid:startup_id>/market/<uuid:report_id>/checks/<int:index>/task/',
+         workbench_views.market_check_task, name='market_check_task'),
+    path('startups/<uuid:startup_id>/team/', team_views.team, name='team'),
+    path('startups/<uuid:startup_id>/team/invite/', team_views.team_invite, name='team_invite'),
+    path('startups/<uuid:startup_id>/team/<int:member_id>/', team_views.team_member_update, name='team_member_update'),
+    path('startups/<uuid:startup_id>/team/leave/', team_views.team_leave, name='team_leave'),
+    path('invites/<int:member_id>/', team_views.invite_respond, name='invite_respond'),
+    path('startups/<uuid:startup_id>/promote/', coin_views.promote, name='promote'),
+    path('startups/<uuid:startup_id>/promote/buy/', coin_views.promote_buy, name='promote_buy'),
+    path('startups/<uuid:startup_id>/promote/bounty/', coin_views.bounty_fund, name='bounty_fund'),
+    path('startups/<uuid:startup_id>/promote/bounty/<int:bounty_id>/close/', coin_views.bounty_close, name='bounty_close'),
+    path('startups/<uuid:startup_id>/bruno/', coin_views.wardrobe, name='wardrobe'),
+    path('startups/<uuid:startup_id>/bruno/action/', coin_views.wardrobe_action, name='wardrobe_action'),
+    path('startups/<uuid:startup_id>/tasks/<uuid:task_id>/assign/', workbench_views.task_assign, name='task_assign'),
+    path('community/<uuid:startup_id>/join/', team_views.join_request, name='join_request'),
+    path('coins/', coin_views.wallet, name='wallet'),
     path("", views.home, name="home"),
     path("about/", views.about, name="about"),
     path("register/", views.register, name="register"),
@@ -48,11 +67,19 @@ urlpatterns = [
     path("startups/<uuid:startup_id>/chat/new/", views.chat_create, name="chat_create"),
     path("startups/<uuid:startup_id>/chat/refine/<str:axis>/", views.chat_refine, name="chat_refine"),
     path("startups/<uuid:startup_id>/pitch/new/", views.pitch_create, name="pitch_create"),
+    path("startups/<uuid:startup_id>/panel/new/", views.panel_create, name="panel_create"),
+    path("startups/<uuid:startup_id>/chat/<uuid:session_id>/vote/", views.panel_vote, name="panel_vote"),
+    path("startups/<uuid:startup_id>/chat/<uuid:session_id>/vote/<int:index>/task/",
+         views.panel_vote_task, name="panel_vote_task"),
     path("startups/<uuid:startup_id>/chat/<uuid:session_id>/", views.chat_detail, name="chat_detail"),
     path("startups/<uuid:startup_id>/chat/<uuid:session_id>/send/", views.chat_send, name="chat_send"),
+    path("startups/<uuid:startup_id>/chat/<uuid:session_id>/search/", views.chat_search, name="chat_search"),
     path("startups/<uuid:startup_id>/chat/<uuid:session_id>/finish/", views.pitch_finish, name="pitch_finish"),
     path("startups/<uuid:startup_id>/chat/<uuid:session_id>/messages/<uuid:message_id>/feedback/",
          views.message_feedback, name="message_feedback"),
+    path("startups/<uuid:startup_id>/chat/<uuid:session_id>/ideas/<int:idea_id>/task/",
+         views.idea_task, name="idea_task"),
+    path("startups/<uuid:startup_id>/chat/<uuid:session_id>/picture/", views.picture_edit, name="picture_edit"),
     path("tariffs/", plans_views.tariffs, name="tariffs"),
     path("tariffs/pro/test-pay/", plans_views.pro_test_pay, name="pro_test_pay"),
     path("tariffs/pro/test-pay/confirm/", plans_views.pro_test_pay_confirm, name="pro_test_pay_confirm"),

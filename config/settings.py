@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 import dj_database_url
@@ -8,13 +9,19 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
+# Без явного DJANGO_DEBUG отладка включена только для локальных команд manage.py
+# (runserver, test, migrate). Боевой сервер (daphne/gunicorn через config.asgi или
+# config.wsgi) стартует с выключенной отладкой и требует свой DJANGO_SECRET_KEY:
+# забытая переменная больше не открывает отладочные страницы и общий ключ.
+RUN_BY_MANAGE = Path(sys.argv[0]).name == "manage.py"
+DEBUG = os.getenv("DJANGO_DEBUG", "1" if RUN_BY_MANAGE else "0") == "1"
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY:
     if DEBUG:
         SECRET_KEY = "django-insecure-local-development-only-change-before-deploy"
     else:
-        raise RuntimeError("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=0")
+        raise RuntimeError("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=0 "
+                           "(a server started without DJANGO_DEBUG=1 runs in production mode)")
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -116,18 +123,38 @@ ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 GIGACHAT_MODEL = os.getenv("GIGACHAT_MODEL", "GigaChat-3-Pro")
 GIGACHAT_SCOPE = os.getenv("GIGACHAT_SCOPE", "GIGACHAT_API_PERS")
 GIGACHAT_CA_BUNDLE = os.getenv("GIGACHAT_CA_BUNDLE", "")
+# Lab coordination is short and independent from Bruno's conversation model.
+LAB_BRUNO_MODEL = os.getenv("LAB_BRUNO_MODEL", "GigaChat-2-Pro")
+LAB_BRUNO_PRICE_MODEL = os.getenv("LAB_BRUNO_PRICE_MODEL", "GigaChat-2-Pro")
+# Conservative paid-equivalent estimate; free credits/package billing may differ.
+LAB_BRUNO_RUB_PER_MILLION = os.getenv("LAB_BRUNO_RUB_PER_MILLION", "500")
 CLOUDRU_MODEL = os.getenv("CLOUDRU_MODEL", "ai-sage/GigaChat3-10B-A1.8B")
+LAB_CODE_PROVIDER = os.getenv("LAB_CODE_PROVIDER", "cloudru").lower()
+OFOX_CODE_MODEL = os.getenv("OFOX_CODE_MODEL", "openai/gpt-6-luna")
+OFOX_CODE_REASONING_EFFORT = os.getenv("OFOX_CODE_REASONING_EFFORT", "medium")
+OFOX_PRICE_MODEL = os.getenv("OFOX_PRICE_MODEL", "openai/gpt-6-luna")
+OFOX_INPUT_USD_PER_MILLION = os.getenv("OFOX_INPUT_USD_PER_MILLION", "0.10")
+OFOX_OUTPUT_USD_PER_MILLION = os.getenv("OFOX_OUTPUT_USD_PER_MILLION", "0.50")
+# An explicit accounting estimate, not a live currency quote or customer charge.
+OFOX_USD_RUB_RATE = os.getenv("OFOX_USD_RUB_RATE", "100")
 # Independent from AI_PROVIDER: website generation must not switch Bruno's model.
 QWEN_CODE_MODEL = os.getenv("QWEN_CODE_MODEL", "Qwen/Qwen3-Coder-Next")
-QWEN_CODE_MAX_TOKENS = int(os.getenv("QWEN_CODE_MAX_TOKENS", "8192"))
-QWEN_CODE_TIMEOUT = float(os.getenv("QWEN_CODE_TIMEOUT", "180"))
+QWEN_CODE_MAX_TOKENS = int(os.getenv("QWEN_CODE_MAX_TOKENS", "16384"))
+QWEN_CODE_TIMEOUT = float(os.getenv("QWEN_CODE_TIMEOUT", "300"))
 LAB_REQUESTS_PER_DAY = int(os.getenv("LAB_REQUESTS_PER_DAY", "10"))
+LAB_PRO_REQUESTS_PER_DAY = int(os.getenv("LAB_PRO_REQUESTS_PER_DAY", "50"))
 LAB_GLOBAL_REQUESTS_PER_DAY = int(os.getenv("LAB_GLOBAL_REQUESTS_PER_DAY", "30"))
 # Trusted local blueprint only. Public deployment needs a separate runtime host.
 LAB_BACKEND_RUNTIME_ENABLED = os.getenv("LAB_BACKEND_RUNTIME_ENABLED", "1" if DEBUG else "0") == "1"
 LAB_BACKEND_MAX_RUNNING = 3
-LAB_CREATE_MAX_TOKENS = int(os.getenv("LAB_CREATE_MAX_TOKENS", "6144"))
+# A complete first design gets room to finish; edits remain small JSON patches.
+LAB_CREATE_MAX_TOKENS = int(os.getenv("LAB_CREATE_MAX_TOKENS", "16384"))
 LAB_PATCH_MAX_TOKENS = int(os.getenv("LAB_PATCH_MAX_TOKENS", "2048"))
+LAB_PATCH_MAX_RESPONSE_CHARS = int(os.getenv("LAB_PATCH_MAX_RESPONSE_CHARS", "24000"))
+LAB_PATCH_MAX_FIND_CHARS = int(os.getenv("LAB_PATCH_MAX_FIND_CHARS", "6000"))
+LAB_PATCH_MAX_REPLACEMENT_CHARS = int(os.getenv("LAB_PATCH_MAX_REPLACEMENT_CHARS", "12000"))
+LAB_CREATE_TEMPERATURE = float(os.getenv("LAB_CREATE_TEMPERATURE", "0.6"))
+LAB_PATCH_TEMPERATURE = float(os.getenv("LAB_PATCH_TEMPERATURE", "0.2"))
 QWEN_INPUT_BYTE_LIMIT = int(os.getenv("QWEN_INPUT_BYTE_LIMIT", "32000"))
 # RUB / million tokens, native Cloud.ru Qwen3-Coder-Next daytime rate incl. VAT.
 # A model change requires its own matching price settings; no cheap-model fallback.
@@ -140,6 +167,9 @@ LAB_USER_MONTHLY_RUB = os.getenv("LAB_USER_MONTHLY_RUB", "100")
 LAB_GLOBAL_DAILY_RUB = os.getenv("LAB_GLOBAL_DAILY_RUB", "200")
 LAB_GLOBAL_MONTHLY_RUB = os.getenv("LAB_GLOBAL_MONTHLY_RUB", "2000")
 AI_MAX_OUTPUT_TOKENS = 900
+# How many members must report a card before everyone sees "Опасно!" on it.
+# The member who reported always sees the mark on their own screen.
+CARD_REPORT_THRESHOLD = max(1, int(os.getenv("CARD_REPORT_THRESHOLD", "1")))
 AI_REQUESTS_PER_MINUTE = int(os.getenv("AI_REQUESTS_PER_MINUTE", "12"))
 AI_REQUESTS_PER_DAY = int(os.getenv("AI_REQUESTS_PER_DAY", "200"))
 DATA_UPLOAD_MAX_MEMORY_SIZE = 256 * 1024
@@ -170,25 +200,26 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_MINI_APP_URL = os.getenv("TELEGRAM_MINI_APP_URL", "")
 CHAT_BUFFERED_RESPONSES = os.getenv("CHAT_BUFFERED_RESPONSES", "0") == "1"
 BRUNO_HISTORY_CHAR_LIMIT = max(9000, min(60000, int(os.getenv("BRUNO_HISTORY_CHAR_LIMIT", "20000"))))
+# Перед ответом Бруно отдельным коротким запросом обновляет картину проекта и
+# выбирает ход наставника. В юнит-тестах выключено: они не должны ходить в сеть.
+BRUNO_MENTOR_PLAN = os.getenv("BRUNO_MENTOR_PLAN", "1") == "1" and sys.argv[1:2] != ["test"]
+# Поиск в открытых источниках для анализа рынка: exa (без ключа через MCP, с EXA_API_KEY через API,
+# DuckDuckGo запасной), duckduckgo или off. В юнит-тестах выключен: они не ходят в сеть.
+MARKET_SEARCH = "off" if sys.argv[1:2] == ["test"] else os.getenv("MARKET_SEARCH", "exa").lower()
 
 # --- Приём крипты (USDT TRC-20) напрямую на собственный кошелёк ---
 # Сервер держит только публичный ключ (xpub) и не может распоряжаться деньгами.
 PAYMENTS_ENABLED = os.getenv("PAYMENTS_ENABLED", "1" if DEBUG else "0") == "1"
 PAYMENTS_XPUB = os.getenv("PAYMENTS_XPUB", "")
 PAYMENTS_NETWORK = os.getenv("PAYMENTS_NETWORK", "tron")
-PAYMENTS_TRONGRID_API_KEY = os.getenv("PAYMENTS_TRONGRID_API_KEY", "")
+PAYMENTS_TRONGRID_API_KEY = os.environ.get("PAYMENTS_TRONGRID_API_KEY", "")
 PAYMENTS_USDT_CONTRACT = os.getenv("PAYMENTS_USDT_CONTRACT", "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
 PAYMENTS_REQUIRED_CONFIRMATIONS = int(os.getenv("PAYMENTS_REQUIRED_CONFIRMATIONS", "19"))
 PAYMENTS_INVOICE_TTL_MINUTES = int(os.getenv("PAYMENTS_INVOICE_TTL_MINUTES", "30"))
 PAYMENTS_MAX_INVOICE_AMOUNT = os.getenv("PAYMENTS_MAX_INVOICE_AMOUNT", "1000")
-# Основной адрес приёма (индекс HD-кошелька): один адрес на все пополнения.
 PAYMENTS_RECEIVE_INDEX = int(os.getenv("PAYMENTS_RECEIVE_INDEX", "0"))
 
-# --- Тарифы: временная подписка Pro ---
-# Цена берётся из настроек. Расчёт-ориентир: python manage.py lab_usage
-# --ai-budget <AI-бюджет на пользователя, руб.> --margin-percent <маржа, %>
-# При ai-budget=100 и марже 30% порог — 142.86 ₽/мес; розничная цена выше порога.
+# --- Тарифы: цена Pro для страницы тарифов ---
+# Ориентир: python manage.py lab_usage --ai-budget <руб.> --margin-percent <%>
 PRO_PRICE_RUB = os.getenv("PRO_PRICE_RUB", "149")
 PRO_DAYS = int(os.getenv("PRO_DAYS", "30"))
-# «Безлимит» не продаём: у Pro конечная дневная квота AI-запросов.
-PRO_AI_REQUESTS_PER_DAY = int(os.getenv("PRO_AI_REQUESTS_PER_DAY", "500"))

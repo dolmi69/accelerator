@@ -11,7 +11,7 @@ from founder.models import ChatMessage, ChatSession, StartupMetrics
 from founder.services.ai import AIResponseFormatError, AIServiceError, complete_text, provider_label
 from founder.services.mascot import update_mascot
 from founder.services.memory import relevant_memories
-from founder.services.metrics import AXES
+from founder.services.metrics import AXES, ECONOMY_GUIDE
 from founder.services.achievements import award_achievements
 
 
@@ -25,7 +25,7 @@ RADAR_SCHEMA = {
         **{
             key: {
                 "type": "object",
-                "description": label,
+                "description": ECONOMY_GUIDE if key == "finance" else label,
                 "properties": {
                     "score": {"type": "integer", "minimum": 0, "maximum": 100},
                     "reason": {
@@ -71,7 +71,7 @@ RADAR_PROMPT = (
     "при конкретных подтверждениях. Не выдумывай клиентов, выручку и исследования. "
     "Направления: product — работающий продукт и проверка использования; "
     "market — конкретный клиент, спрос, рынок и альтернативы; "
-    "finance — выручка, расходы и юнит-экономика; "
+    + ECONOMY_GUIDE + " "
     "team — состав, роли и релевантный опыт; "
     "pitch — насколько ясно основатель объясняет проблему, решение и отличия сервиса. "
     "Не требуй консультаций, интервью, записей встреч, аудио или документов. "

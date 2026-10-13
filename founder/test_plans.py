@@ -1,64 +1,48 @@
-"""Тесты тарифов Free/Pro: активация, квота, страница и тестовая оплата."""
-
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.test import TestCase, override_settings
+from django.urls import reverse
 from django.utils import timezone
 
-from founder.models import User
-from founder.services import plans
+from founder.models import User, StartupProfile
+from founder.services.plans import is_pro, quota
+from founder.services.qwen import CodeResult
 
 
-@override_settings(PRO_DAYS=30, AI_REQUESTS_PER_DAY=200, PRO_AI_REQUESTS_PER_DAY=500)
-class PlanTests(TestCase):
+@override_settings(LAB_REQUESTS_PER_DAY=1, LAB_PRO_REQUESTS_PER_DAY=2)
+class PlanQuotaTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="u", email="u@example.com", password="***")
-
-    def test_free_by_default(self):
-        self.assertFalse(plans.is_pro(self.user))
-        self.assertEqual(plans.quota(self.user)["plan"], plans.FREE)
-        self.assertEqual(plans.quota(self.user)["requests_per_day"], 200)
-
-    def test_activate_pro_grants_30_days(self):
-        plans.activate_pro(self.user)
-        self.user.refresh_from_db()
-        self.assertTrue(plans.is_pro(self.user))
-        self.assertGreater(self.user.pro_until, timezone.now() + timedelta(days=29))
-        self.assertEqual(plans.quota(self.user)["requests_per_day"], 500)
-
-    def test_expired_pro_is_free(self):
-        self.user.pro_until = timezone.now() - timedelta(days=1)
-        self.user.save(update_fields=["pro_until"])
-        self.assertFalse(plans.is_pro(self.user))
-
-    def test_extend_pro_adds_days(self):
-        first = plans.activate_pro(self.user, days=10)
-        second = plans.activate_pro(self.user, days=10)
-        self.assertGreater(second, first + timedelta(days=9))
-
-    def test_anonymous_is_not_pro(self):
-        self.assertFalse(plans.is_pro(None))
-
-
-@override_settings(
-    PRO_DAYS=30, AI_REQUESTS_PER_DAY=200, PRO_AI_REQUESTS_PER_DAY=500, PRO_PRICE_RUB="149"
-)
-class TariffViewTests(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(username="v", email="v@example.com", password="***")
+        from founder.test_lab_support import install_lab_mocks
+        install_lab_mocks(self)
+        self.user = User.objects.create_user(username='plan-owner', email='plan@example.test')
+        self.project = StartupProfile.objects.create(owner=self.user, name='Сайт')
         self.client.force_login(self.user)
 
-    def test_tariffs_requires_login(self):
-        self.client.logout()
-        self.assertEqual(self.client.get("/tariffs/").status_code, 302)
+    def test_pro_expiry_uses_server_time(self):
+        self.assertFalse(is_pro(self.user))
+        self.assertEqual(quota(self.user, 'lab_requests_per_day'), 1)
+        self.user.pro_until = timezone.now() + timedelta(days=1)
+        self.assertTrue(is_pro(self.user))
+        self.assertEqual(quota(self.user, 'lab_requests_per_day'), 2)
+        self.user.pro_until = timezone.now() - timedelta(seconds=1)
+        self.assertFalse(is_pro(self.user))
 
-    def test_tariffs_page_shows_price(self):
-        resp = self.client.get("/tariffs/")
-        self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "149")
+    def test_upgrade_keeps_used_quota_and_does_not_charge_templates(self):
+        route = reverse('lab_generate', args=[self.project.pk])
+        html = '<!doctype html><html><head></head><body><h1>Demo</h1></body></html>'
+        with patch('founder.lab_views.generate_site', return_value=CodeResult(html, 'Qwen', 4, 8)) as api:
+            self.assertEqual(self.client.post(route, {'prompt':'First design'}).status_code, 302)
+            self.assertEqual(self.client.post(route, {'prompt':'Second design'}).status_code, 429)
+            self.user.pro_until = timezone.now() + timedelta(days=1)
+            self.user.save(update_fields=['pro_until'])
+            self.assertEqual(self.client.post(route, {'prompt':'Second design'}).status_code, 302)
+            self.assertEqual(self.client.post(route, {'prompt':'Third design'}).status_code, 429)
+            self.assertEqual(api.call_count, 2)
 
-    def test_test_pay_activates_pro(self):
-        resp = self.client.post("/tariffs/pro/test-pay/confirm/")
-        self.assertEqual(resp.status_code, 302)
-        self.user.refresh_from_db()
-        self.assertTrue(plans.is_pro(self.user))
+    def test_expired_pro_returns_to_free_quota(self):
+        self.user.pro_until = timezone.now() - timedelta(seconds=1)
+        self.user.save(update_fields=['pro_until'])
+        self.assertEqual(quota(self.user, 'lab_requests_per_day'), 1)
+        with override_settings(LAB_REQUESTS_PER_DAY=0):
+            self.assertEqual(quota(self.user, 'lab_requests_per_day'), 0)

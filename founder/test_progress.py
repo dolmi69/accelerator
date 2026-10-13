@@ -93,7 +93,7 @@ class ProjectProgressTests(TestCase):
         response = self.client.post(url)
         session = self.startup.chat_sessions.get()
         self.assertEqual(session.focus_axis, "finance")
-        self.assertIn("Финансы", system_prompt(session, []))
+        self.assertIn("Экономика", system_prompt(session, []))
         self.assertIn("Цена ещё не определена", session.messages.get().content)
         self.assertEqual(self.client.post(url).url, response.url)
         self.assertEqual(self.startup.chat_sessions.count(), 1)
@@ -109,6 +109,8 @@ class ProjectProgressTests(TestCase):
         self.assertEqual(page.context["latest"].id, latest.id)
         self.assertEqual(page.context["history_previous"].id, first.id)
         self.assertEqual(page.context["history_rows"][0]["delta"], 20)
+        economy = next(row for row in page.context["history_rows"] if row["key"] == "finance")
+        self.assertEqual((economy["label"], economy["score"], economy["before"]), ("Экономика", 40, 20))
         self.assertContains(page, "Появился MVP")
         foreign = self.snapshot(startup=self.private)
         self.assertEqual(self.client.get(reverse("dashboard", args=[self.startup.id]), {"snapshot": foreign.id}).status_code, 404)
@@ -118,6 +120,35 @@ class ProjectProgressTests(TestCase):
         page = self.client.get(reverse("dashboard", args=[self.startup.id]), {"history_page": 2})
         self.assertEqual(page.context["history_page"].paginator.count, 10)
         self.assertEqual(len(page.context["history_page"]), 2)
+
+    def test_unified_radar_uses_selected_scores_comments_and_points_together(self):
+        selected = self.snapshot(score=20, reason="Первая версия")
+        latest = self.snapshot(score=80, reason="Последняя версия")
+        page = self.client.get(reverse("dashboard", args=[self.startup.id]), {"snapshot": selected.id})
+        self.assertEqual(page.context["latest"].id, latest.id)
+        self.assertFalse(page.context["radar_is_latest"])
+        product = page.context["radar_rows"][0]
+        self.assertEqual((product["key"], product["score"], product["reason"]), ("product", 20, "Первая версия"))
+        self.assertEqual((product["x"], product["y"]), ("110.0", "93.6"))
+        self.assertContains(page, 'data-interactive-radar', count=1)
+        self.assertContains(page, 'class="radar-svg"', count=1)
+        self.assertNotContains(page, 'class="profile-table"')
+        self.assertNotContains(page, 'class="card radar-history-card"')
+        self.assertContains(page, 'data-radar-detail=', count=5)
+        self.assertContains(page, 'aria-label="Уточнить с Бруно:', count=5)
+        self.assertContains(page, "Первая версия")
+        self.assertContains(page, "Вернуться к последней")
+
+    def test_unified_radar_distinguishes_zero_scores_from_no_assessment(self):
+        url = reverse("dashboard", args=[self.startup.id])
+        empty = self.client.get(url)
+        self.assertContains(empty, "Нет оценки")
+        self.assertTrue(all(row["score"] is None for row in empty.context["radar_rows"]))
+        self.snapshot(score=0)
+        zero = self.client.get(url)
+        self.assertContains(zero, 'data-score="0"', count=10)
+        self.assertTrue(all(row["score"] == 0 for row in zero.context["radar_rows"]))
+        self.assertContains(zero, 'class="radar-value"', count=1)
 
     def test_manual_edit_invalidates_changed_citation_and_cannot_fake_progress_badge(self):
         self.snapshot()

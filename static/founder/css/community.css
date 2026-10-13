@@ -76,3 +76,85 @@
 .page-heading h1 { font-size:clamp(28px,3.5vw,40px); font-weight:700; line-height:1.2; }
 .community-hero h1,.discovery-card h2,.public-project h1 { font-weight:700; }
 .public-card-layout .metric-list { grid-template-columns:1fr; }
+
+/* Files and photos in personal messages: composer tray, bubbles, photo viewer. */
+.composer-tools { display:flex; align-items:center; gap:8px; min-width:0; }
+.attach-button { flex:none; display:inline-grid; place-items:center; width:38px; height:38px; padding:0; border:0; border-radius:50%; background:transparent; color:var(--muted); cursor:pointer; transition:background-color .15s, color .15s; }
+.attach-button:hover:not(:disabled) { background:#eaf3f0; color:var(--teal-dark); }
+.attach-button:disabled { opacity:.4; cursor:default; }
+.attach-button:focus-visible,.attachment-remove:focus-visible,.direct-photo:focus-visible,.direct-file:focus-visible,.photo-viewer-action:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+.attachment-tray { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+.attachment-tray[hidden] { display:none; }
+.attachment-chip { position:relative; display:flex; align-items:center; gap:10px; height:64px; overflow:hidden; border:1px solid #dce4dc; border-radius:12px; background:#fff; }
+.attachment-chip.is-image { width:64px; }
+.attachment-chip.is-image img { display:block; width:100%; height:100%; object-fit:cover; }
+.attachment-chip.is-file { width:220px; max-width:100%; padding:0 32px 0 10px; }
+.attachment-chip-text { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.attachment-chip-text strong { overflow:hidden; font-size:12px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.attachment-chip-text small { overflow:hidden; color:var(--muted); font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
+.file-badge { flex:none; display:grid; place-items:center; width:40px; height:44px; border-radius:8px; background:#e3f0ec; color:var(--teal-dark); font-size:10px; font-weight:700; letter-spacing:.3px; }
+.attachment-remove { position:absolute; top:4px; right:4px; display:grid; place-items:center; width:22px; height:22px; padding:0; border:0; border-radius:50%; background:#122338cc; color:#fff; cursor:pointer; opacity:0; transition:opacity .15s; }
+.attachment-chip:hover .attachment-remove,.attachment-chip:focus-within .attachment-remove,.attachment-chip.is-error .attachment-remove { opacity:1; }
+@media (hover:none) { .attachment-remove { opacity:1; } }
+.attachment-progress { position:absolute; bottom:0; left:0; width:var(--progress, 4%); height:3px; background:var(--teal); opacity:0; transition:width .2s; }
+.attachment-chip.is-uploading .attachment-progress { opacity:1; }
+.attachment-chip.is-uploading img { opacity:.55; }
+.attachment-chip.is-error { border-color:#e4a497; background:#fff6f3; }
+.attachment-chip.is-error img { opacity:.4; }
+.attachment-chip.is-error small { color:#a94c3f; white-space:normal; line-height:1.3; }
+.attachment-note { flex-basis:100%; color:#a94c3f; font-size:12px; }
+.direct-chat { position:relative; }
+.direct-chat.is-dropping::after { content:'Отпустите, чтобы прикрепить'; position:absolute; inset:8px; z-index:5; display:grid; place-items:center; border:2px dashed var(--teal); border-radius:14px; background:#f3faf7eb; color:var(--teal-dark); font-weight:600; pointer-events:none; }
+.direct-bubble.has-attachments { min-width:0; }
+.direct-media { margin:-5px -8px 8px; overflow:hidden; border-radius:12px; }
+.direct-media:last-child { margin-bottom:-5px; }
+.direct-photo { display:block; width:min(320px, 62vw); max-height:380px; overflow:hidden; background:#dfe7e2; }
+.direct-photo img { display:block; width:100%; height:100%; max-height:380px; object-fit:cover; }
+.direct-media.is-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:3px; width:min(320px, 62vw); }
+.direct-media.is-grid .direct-photo { width:auto; aspect-ratio:1; }
+.direct-media.is-grid .direct-photo:last-child:nth-child(odd) { grid-column:1 / -1; aspect-ratio:2; }
+.direct-files { display:flex; flex-direction:column; gap:6px; margin-bottom:6px; }
+.direct-files:last-child { margin-bottom:0; }
+.direct-file { display:flex; align-items:center; gap:10px; width:min(280px, 62vw); padding:8px 10px; border-radius:12px; background:#ffffffa8; color:inherit; text-decoration:none; transition:background-color .15s; }
+.direct-file:hover { background:#fff; }
+.direct-file-text { display:flex; flex:1; flex-direction:column; min-width:0; }
+.direct-file-text strong { overflow:hidden; font-size:13px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.direct-file-text small { color:var(--muted); font-size:11px; }
+.direct-file-download { flex:none; color:var(--teal-dark); }
+.direct-bubble.pending .direct-file { pointer-events:none; }
+.photo-viewer { position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; padding:64px 16px 16px; background:#0b1520eb; }
+.photo-viewer[hidden] { display:none; }
+.photo-viewer-bar { position:absolute; top:0; right:0; left:0; display:flex; align-items:center; gap:8px; padding:10px 12px 10px 20px; color:#fff; }
+.photo-viewer-name { flex:1; min-width:0; overflow:hidden; font-size:14px; text-overflow:ellipsis; white-space:nowrap; }
+.photo-viewer-action { display:grid; place-items:center; width:40px; height:40px; padding:0; border:0; border-radius:50%; background:#ffffff1f; color:#fff; cursor:pointer; }
+.photo-viewer-action:hover { background:#ffffff38; }
+.photo-viewer-image { max-width:100%; max-height:100%; object-fit:contain; border-radius:6px; box-shadow:0 20px 50px #0009; }
+html.has-photo-viewer { overflow:hidden; }
+@media (max-width:720px) { .attachment-chip.is-file { width:calc(50% - 5px); } .composer-tools { flex:1; } .composer-tools [data-compose-help] { display:none; } }
+
+/* Card complaints: "!" button in the card corner, confirmation dialog, "Опасно!" mark. */
+.discovery-identity { display:flex; align-items:center; gap:12px; min-width:0; flex-wrap:wrap; }
+.report-form { margin:0; flex-shrink:0; }
+.report-button { display:inline-grid; place-items:center; width:40px; height:40px; padding:0; border:0; border-radius:50%; background:transparent; color:#9aa8a3; cursor:pointer; transition:background-color .15s, color .15s; flex-shrink:0; }
+button.report-button:hover { background:#fdecea; color:#c8372d; }
+button.report-button:focus-visible { outline:2px solid #c8372d; outline-offset:2px; }
+.report-button.is-reported { color:#c8372d; cursor:default; }
+.report-button.is-reported svg { fill:#fdecea; }
+.discovery-card .danger-label,.public-project .danger-label { margin:0 0 6px; color:#d0261b; font:800 30px/1.1 Manrope, sans-serif; letter-spacing:-.5px; }
+.public-project .danger-label { font-size:40px; }
+.danger-label.is-new { animation:danger-in .35s ease-out; }
+@keyframes danger-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.report-dialog { width:min(440px, calc(100vw - 32px)); padding:0; border:0; border-radius:22px; background:#fff; color:var(--ink); box-shadow:0 30px 80px #12233840; }
+.report-dialog::backdrop { background:#12233866; }
+.report-dialog-body { padding:30px 28px 24px; text-align:center; }
+.report-dialog-icon { display:inline-grid; place-items:center; width:54px; height:54px; margin-bottom:14px; border-radius:50%; background:#fdecea; color:#c8372d; font:800 28px Manrope, sans-serif; }
+.report-dialog h2 { margin:0 0 10px; font-size:21px; }
+.report-dialog-text { margin:0; color:var(--muted); font-size:14px; line-height:1.6; overflow-wrap:anywhere; }
+.report-dialog-error { margin:14px 0 0; color:#a94c3f; font-size:13px; }
+.report-dialog-actions { display:flex; gap:10px; margin-top:24px; }
+.report-dialog-actions .button { flex:1; justify-content:center; }
+.button.report-confirm { background:#c8372d; border-color:#c8372d; color:#fff; }
+.button.report-confirm:hover:not(:disabled) { background:#a92b22; border-color:#a92b22; }
+.button.report-confirm:disabled { opacity:.6; }
+@media (max-width:720px) { .discovery-card .danger-label { font-size:26px; } .public-project .danger-label { font-size:32px; } }
+@media (prefers-reduced-motion:reduce) { .danger-label.is-new { animation:none; } }

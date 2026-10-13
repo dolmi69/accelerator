@@ -3,7 +3,6 @@
 External Redis services are managed by their operator. We only start the bundled
 binary for the explicitly configured loopback address on port 6387.
 """
-import fcntl
 import os
 from pathlib import Path
 import subprocess
@@ -13,6 +12,7 @@ from urllib.parse import urlsplit
 from dotenv import dotenv_values
 from redis import Redis
 from redis.exceptions import RedisError
+from runtime_support import file_lock, is_windows
 
 BASE = Path(__file__).resolve().parent
 
@@ -24,14 +24,15 @@ def ensure_shared_events():
         return
     runtime = BASE / '.runtime'
     runtime.mkdir(mode=0o700, exist_ok=True)
-    with (runtime / 'events.lock').open('w') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with file_lock(runtime / 'events.lock'):
         with Redis.from_url(url, socket_connect_timeout=2, socket_timeout=2) as client:
             try:
                 if client.ping():
                     return
             except RedisError:
                 pass
+            if is_windows():
+                raise RuntimeError('Redis из REDIS_URL недоступен. На Windows запустите Redis в Docker/WSL или уберите REDIS_URL для локальной работы без Telegram.')
             parts = urlsplit(url)
             local = (parts.scheme == 'redis' and parts.hostname == '127.0.0.1'
                      and parts.port == 6387 and not parts.username and not parts.password)

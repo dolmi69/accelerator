@@ -1,0 +1,1 @@
+<label class="field {% if field.name == 'share_radar' %}checkbox-field{% endif %}"><span>{{ field.label }}{% if show_required and field.field.required %} *{% endif %}</span>{{ field }}{% if field.errors %}<small class="field-error">{{ field.errors|striptags }}</small>{% endif %}</label>

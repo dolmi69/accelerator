@@ -50,11 +50,12 @@ def cost(input_tokens, output_tokens, input_price, output_price):
     return int((input_tokens * input_price + output_tokens * output_price).to_integral_value(rounding=ROUND_CEILING))
 
 
-def reserve(model, normalized, output_limit):
-    if model != settings.QWEN_PRICE_MODEL:
-        raise CostLimitError("Для выбранной модели нужно настроить её собственный тариф QWEN_PRICE_MODEL.")
-    input_price = _decimal(settings.QWEN_INPUT_RUB_PER_MILLION)
-    output_price = _decimal(settings.QWEN_OUTPUT_RUB_PER_MILLION)
+def reserve(model, normalized, output_limit, *, pricing=None):
+    if pricing is None:
+        if model != settings.QWEN_PRICE_MODEL:
+            raise CostLimitError("Для выбранной модели нужно настроить её собственный тариф QWEN_PRICE_MODEL.")
+        pricing = (settings.QWEN_INPUT_RUB_PER_MILLION, settings.QWEN_OUTPUT_RUB_PER_MILLION)
+    input_price, output_price = map(_decimal, pricing)
     if input_price == 0 or output_price == 0:
         raise CostLimitError("Тариф модели должен быть положительным.")
     # UTF-8 bytes + framing margin are deliberately conservative without a tokenizer.

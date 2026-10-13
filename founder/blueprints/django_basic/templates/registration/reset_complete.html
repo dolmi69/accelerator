@@ -1,1 +1,1 @@
-{% extends 'base.html' %}{% block content %}<section class="card auth"><h1>Пароль изменён</h1><a class="button" href="{% url 'login' %}">Войти</a></section>{% endblock %}
+{% extends 'base.html' %}{% block content %}<section class="card status-card">{% url 'login' as target_url %}{% include '_empty.html' with icon='shield' title='Теперь всё в порядке' text='Пароль обновлён. Войдите в аккаунт с новым паролем.' href=target_url action='Войти' %}</section>{% endblock %}

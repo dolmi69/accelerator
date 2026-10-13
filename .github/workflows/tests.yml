@@ -1,0 +1,42 @@
+# Тесты на каждый пуш и PR: платформа, экспортируемый Django-сайт и все JS-тесты.
+# Ключи AI не нужны: в тестах провайдеры подменены, план наставника выключен.
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  django:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Миграции соответствуют моделям
+        run: python manage.py makemigrations --check --dry-run
+      - name: Тесты Django
+        run: python manage.py test founder
+      - name: Тесты экспортируемого сайта
+        run: python manage.py test_blueprint
+
+  javascript:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Чат, черновики и лаборатория
+        run: npm test

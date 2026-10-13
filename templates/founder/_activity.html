@@ -1,0 +1,11 @@
+<ul class="activity-feed">
+  {% for item in items %}
+  <li class="activity-item activity-{{ item.kind }}">
+    <span class="activity-dot" aria-hidden="true"></span>
+    <div><strong>{% if item.actor %}{{ item.actor.public_name }}{% else %}Участник{% endif %}</strong> · {{ item.text }}
+      <span class="muted small"><time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:'d.m H:i' }}</time></span></div>
+  </li>
+  {% empty %}
+  <li class="muted">Пока тихо. Здесь появятся обновления радара, записи дневника, задания и версии сайта.</li>
+  {% endfor %}
+</ul>

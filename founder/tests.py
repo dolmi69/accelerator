@@ -83,7 +83,7 @@ class MVPFlowTests(TestCase):
         self.startup.mascot_state.refresh_from_db()
         self.assertEqual(self.startup.mascot_state.outfit, MascotState.Outfit.SUIT)
         page = self.client.get(reverse("dashboard", args=[self.startup.id]))
-        self.assertContains(page, "Почему Бруно поставил эти оценки")
+        self.assertContains(page, "Комментарий Бруно")
         self.assertContains(page, "Объяснение для finance")
         self.assertContains(page, 'class="radar-value"')
 
@@ -253,10 +253,10 @@ class MVPFlowTests(TestCase):
         self.assertEqual(session.mode, ChatSession.Mode.COFOUNDER)
         self.assertEqual(response.url, reverse("chat_detail", args=[startup.id, session.id]))
         page = self.client.get(response.url)
-        self.assertContains(page, "Расскажи своими словами")
+        self.assertContains(page, "Расскажите своими словами")
         self.assertNotContains(page, "Составить таблицу</button>")
 
-    def test_founder_can_edit_all_five_table_explanations(self):
+    def test_manual_edit_endpoint_is_preserved_but_form_is_temporarily_hidden(self):
         values = {
             "product": 45, "market": 50, "finance": 20, "team": 30, "pitch": 55,
             "product_reason": "Есть прототип; нужно проверить использование.",
@@ -272,10 +272,11 @@ class MVPFlowTests(TestCase):
         self.assertEqual(snapshot.assessment_details["product"], values["product_reason"])
         self.assertEqual(snapshot.assessment_details["pitch"], values["pitch_reason"])
         page = self.client.get(reverse("dashboard", args=[self.startup.id]))
-        self.assertContains(page, "Таблица по пяти направлениям")
+        self.assertContains(page, "Startup Radar")
         self.assertContains(page, values["product_reason"])
         self.assertContains(page, values["pitch_reason"])
-        self.assertContains(page, "Сохранить изменения")
+        self.assertNotContains(page, "Сохранить изменения")
+        self.assertNotContains(page, 'id="edit-table"')
 
 
 class RadarValidationTests(SimpleTestCase):
@@ -360,7 +361,7 @@ class GigaChatAdapterTests(TestCase):
             ))
             report = complete_text("Верни JSON", "Текст питча")
 
-        self.assertEqual(text, "Привет!")
+        self.assertEqual(text, "Здравствуйте!")  # Бруно на «вы»: «Привет» модели заменяется
         self.assertIn('"score":70', report)
         self.assertEqual(sum(request.url.path.endswith("/oauth") for request in calls), 1)
 

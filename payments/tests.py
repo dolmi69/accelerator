@@ -66,7 +66,7 @@ class TopUpViewTests(TestCase):
         resp = self.client.get("/pay/")
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "wallet-chip")
-        self.assertContains(resp, "Кошелёк:")
+        self.assertContains(resp, "USDT:")
 
     def test_topup_uses_main_address(self):
         resp = self.client.post("/pay/topup/new/", {"amount": "10"})

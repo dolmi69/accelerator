@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Гардероб Бруно · {{ startup.name }}{% endblock %}
+{% block content %}
+{% include 'founder/_workspace_nav.html' %}
+<div class="page-heading work-heading"><div><span class="eyebrow">НАРЯДЫ ЗА МОНЕТЫ</span><h1>Гардероб Бруно</h1><p>{{ startup.name }} · Выберите аксессуары для Бруно. Их увидит вся команда.</p></div><a class="coin-balance-big" href="{% url 'wallet' %}" aria-label="Ваш баланс, открыть кошелёк"><span aria-hidden="true">🪙</span><strong>{{ balance }}</strong></a></div>
+
+<div class="wardrobe-layout">
+  <section class="card wardrobe-stage" aria-label="Бруно сейчас">
+    {% include 'founder/_bruno.html' with investor=False instance_id='wardrobe' %}
+    {% if hidden_now %}<p class="work-notice">Сейчас Бруно читает, и книга закрывает шею. Под книгой: {% for item in hidden_now %}{{ item.title|lower }}{% if not forloop.last %}, {% endif %}{% endfor %}. Их снова будет видно, когда Бруно сменит позу.</p>{% endif %}
+    <details class="project-fold"><summary>Об аксессуарах</summary><div class="project-fold-body"><p class="muted small">Аксессуары остаются у Бруно этого проекта навсегда. Любой соавтор может купить их из своего кошелька. Поза меняется вместе с прогрессом, а аксессуары сохраняются.</p></div></details>
+  </section>
+  <div class="wardrobe-shelves">
+    {% for group in groups %}
+    <details class="card project-card-fold project-wardrobe-group" {% if forloop.first %}open{% endif %}><summary>{{ group.title }} <small>{{ group.items|length }} аксессуаров</small></summary><div class="project-fold-body">
+      {% for entry in group.items %}
+      <div class="team-row wardrobe-item {% if entry.worn %}is-worn{% endif %}">
+        <div><strong>{{ entry.item.title }}</strong><p class="muted small">{{ entry.item.description }}</p></div>
+        <form method="post" action="{% url 'wardrobe_action' startup.id %}">{% csrf_token %}<input type="hidden" name="code" value="{{ entry.item.code }}">
+          {% if entry.worn %}<button class="button ghost" name="action" value="take_off" type="submit">Снять</button>
+          {% elif entry.owned %}<button class="button primary" name="action" value="wear" type="submit">Надеть</button>
+          {% else %}<button class="button primary" name="action" value="buy" type="submit" {% if entry.missing %}disabled title="Не хватает {{ entry.missing }} монет"{% endif %}>Купить за {{ entry.item.cost }} 🪙</button>{% endif %}
+        </form>
+      </div>
+      {% endfor %}
+    </div></details>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

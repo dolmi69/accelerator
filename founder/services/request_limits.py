@@ -34,10 +34,10 @@ def consume_limit(identity, limit, seconds):
                                    (deadline - now).total_seconds())
 
 
-def acquire_ai_lease(user_id):
+def acquire_ai_lease(user_id, *, ttl_seconds=600):
     now = timezone.now()
     token = uuid.uuid4()
-    expires = now + timedelta(minutes=10)
+    expires = now + timedelta(seconds=ttl_seconds)
     _, created = AIRequestLease.objects.get_or_create(
         user_id=user_id, defaults={"token": token, "expires_at": expires},
     )

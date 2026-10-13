@@ -16,3 +16,5 @@ artifacts/
 .env.*
 !.env.example
 .idea/
+
+CLAUDE.local.md

@@ -2,8 +2,13 @@
   "name": "cofounder-ai-styles",
   "private": true,
   "scripts": {
+    "test": "node --test tests/chat_client.test.cjs tests/drafts.test.cjs tests/lab_reply.test.cjs tests/lab_workspace.test.cjs tests/lab_capabilities.test.cjs",
+    "test:drafts": "node --test tests/drafts.test.cjs",
     "build:css": "tailwindcss -c tailwind.config.cjs -i assets/tailwind.css -o static/founder/css/tailwind.css --minify",
-    "test:chat": "node --test tests/chat_client.test.cjs"
+    "test:chat": "node --test tests/chat_client.test.cjs",
+    "test:lab-reply": "node --test tests/lab_reply.test.cjs",
+    "test:lab-workspace": "node --test tests/lab_workspace.test.cjs",
+    "test:lab-capabilities": "node --test tests/lab_capabilities.test.cjs"
   },
   "devDependencies": {
     "tailwindcss": "3.4.17"

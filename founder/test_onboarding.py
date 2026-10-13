@@ -84,7 +84,7 @@ class StartupOnboardingTests(TestCase):
         startup, session = self.create_startup(one_line_pitch="", problem="", solution="")
         greeting = session.messages.get().content
         self.assertIn(self.profile["target_customer"], greeting)
-        self.assertNotIn("Расскажи своими словами", greeting)
+        self.assertNotIn("Расскажите своими словами", greeting)
         prompt, _ = self.send(startup, session)
         self.assertIn('"Решение": null', prompt)
         self.assertIn(self.profile["target_customer"], prompt)
@@ -94,7 +94,7 @@ class StartupOnboardingTests(TestCase):
             one_line_pitch="", problem="", solution="", target_customer="", website="",
         )
         page = self.client.get(reverse("chat_detail", args=[startup.id, session.id]))
-        self.assertContains(page, "Расскажи своими словами")
+        self.assertContains(page, "Расскажите своими словами")
         self.assertNotContains(page, 'id="ai-assessment-form"')
 
     def test_details_beyond_short_greeting_are_sent_to_model(self):
@@ -113,7 +113,7 @@ class StartupOnboardingTests(TestCase):
         self.assertEqual(response.status_code, 302)
         new_session = startup.chat_sessions.exclude(id=session.id).get()
         self.assertIn("Продолжим работу", new_session.messages.get().content)
-        self.assertNotIn("Расскажи своими словами", new_session.messages.get().content)
+        self.assertNotIn("Расскажите своими словами", new_session.messages.get().content)
 
     def test_context_stays_with_its_project_and_owner(self):
         startup, session = self.create_startup()

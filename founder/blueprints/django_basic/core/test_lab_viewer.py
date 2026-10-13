@@ -11,7 +11,7 @@ class LabViewerTests(TestCase):
     def test_launcher_toolbar_and_exact_ancestor_without_exported_secrets(self):
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / 'prototype.html').write_text('<html><head></head><body>Site</body></html>')
+            (root / 'prototype.html').write_text('<html><head></head><body>Site</body></html>', encoding="utf-8")
             context = root / '.lab-viewer.json'
             with override_settings(BASE_DIR=root, DEBUG=True):
                 page = self.client.get('/login/')
@@ -19,7 +19,7 @@ class LabViewerTests(TestCase):
                 self.assertEqual(page['X-Frame-Options'], 'DENY')
                 self.assertIn("frame-ancestors 'none'", page['Content-Security-Policy'])
                 context.write_text(json.dumps({'origin': 'http://127.0.0.1:8000',
-                    'return_path': f"/startups/{settings.SITE['project_id']}/lab/?version=abc#backend-title"}))
+                    'return_path': f"/startups/{settings.SITE['project_id']}/lab/?version=abc#backend-title"}), encoding="utf-8")
                 page = self.client.get('/login/')
                 self.assertContains(page, 'Вернуться в лабораторию')
                 self.assertNotIn('X-Frame-Options', page)
@@ -33,7 +33,7 @@ class LabViewerTests(TestCase):
                 with override_settings(DEBUG=False):
                     self.assertNotContains(self.client.get('/login/'), 'data-lab-return')
                 for origin in ['https://evil.example', 'http://localhost.evil.example', 'http://localhost:8000/path', 'http://localhost:bad']:
-                    context.write_text(json.dumps({'origin': origin, 'return_path': f"/startups/{settings.SITE['project_id']}/lab/?version=abc"}))
+                    context.write_text(json.dumps({'origin': origin, 'return_path': f"/startups/{settings.SITE['project_id']}/lab/?version=abc"}), encoding="utf-8")
                     page = self.client.get('/login/')
                     self.assertNotContains(page, 'data-lab-return')
                     self.assertEqual(page['X-Frame-Options'], 'DENY')

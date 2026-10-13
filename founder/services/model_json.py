@@ -26,7 +26,27 @@ def load_model_json(raw):
         end = max(cleaned.rfind("}"), cleaned.rfind("]"))
         if end <= start:
             raise
-        return json.loads(cleaned[start:end + 1])
+        try:
+            return json.loads(cleaned[start:end + 1])
+        except json.JSONDecodeError:
+            return _consecutive_objects(cleaned[start:end + 1])
+
+
+def _consecutive_objects(text):
+    """Несколько объектов подряд («{...}\\n{...}»): GigaChat иногда делит схему на части."""
+    decoder, parts, index = json.JSONDecoder(), [], 0
+    while index < len(text):
+        if text[index] in " \t\r\n,":
+            index += 1
+            continue
+        value, index = decoder.raw_decode(text, index)
+        parts.append(value)
+    if len(parts) > 1 and all(isinstance(part, dict) for part in parts):
+        merged = {}
+        for part in parts:
+            merged.update(part)
+        return merged
+    return parts[0]
 
 
 def first_text(item, *keys):

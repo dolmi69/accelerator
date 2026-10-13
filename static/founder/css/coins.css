@@ -1,0 +1,98 @@
+/* Монеты, продвижение и команда проекта. */
+.coin-chip { display:inline-flex; align-items:center; gap:4px; padding:7px 12px; border-radius:20px; background:#fdf1e6; color:#8a5a2c; font-size:13px; font-weight:800; }
+.topnav .coin-chip:hover { color:#6d4420; background:#f9e2cc; }
+.coin-balance-big { display:inline-flex; align-items:center; gap:10px; padding:14px 22px; border-radius:18px; background:#fdf1e6; color:#8a5a2c; font-family:Manrope,sans-serif; font-size:30px; }
+.coin-balance-big strong { font-weight:800; }
+.coin-price { white-space:nowrap; font-weight:800; color:#8a5a2c; }
+.coin-amount { font-weight:800; color:var(--teal-dark); white-space:nowrap; }
+.coin-amount.negative { color:#97433e; }
+.coin-toast { position:fixed; top:90px; left:50%; transform:translateX(-50%); z-index:60; padding:12px 18px; border-radius:14px; background:var(--navy); color:#fff; font-weight:800; box-shadow:0 10px 30px rgba(18,35,56,.25); animation:coin-pop .25s ease-out; }
+@keyframes coin-pop { from { transform:translate(-50%,-10px); opacity:0; } to { transform:translateX(-50%); opacity:1; } }
+@media (prefers-reduced-motion: reduce) { .coin-toast { animation:none; } }
+
+.team-layout { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr)); gap:20px; margin-bottom:20px; }
+.team-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 0; border-top:1px solid var(--line); }
+.team-row:first-of-type { border-top:0; }
+.team-row p { margin:4px 0 0; }
+.team-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.team-actions form { display:flex; gap:6px; align-items:center; }
+.team-actions select, .team-invite-form input, .team-invite-form select { padding:9px 11px; border:1px solid #d8e5df; border-radius:10px; background:#fff; }
+.team-invite-form { display:grid; gap:12px; margin:14px 0 6px; }
+.team-invite-form label { display:grid; gap:6px; font-size:13px; font-weight:700; }
+.team-leave { margin-top:16px; }
+.invites-card { margin-bottom:22px; }
+.card-team { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 16px; }
+.card-team .eyebrow { width:100%; }
+.viewer-notice { margin-top:-10px; }
+.coin-rule strong { color:var(--ink); }
+
+.promo-card.is-active { border:2px solid var(--orange); }
+.promo-status { color:#8a5a2c; font-weight:700; font-size:13px; }
+.promo-badge { margin-left:auto; margin-right:8px; padding:4px 10px; border-radius:20px; background:#fdf1e6; color:#8a5a2c; font-size:11px; font-weight:800; }
+.discovery-card.is-highlighted { border:2px solid var(--orange); box-shadow:0 12px 32px rgba(238,162,115,.25); }
+
+.testers-wanted { margin:10px 0 26px; }
+.testers-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr)); gap:14px; }
+.testers-card { display:grid; gap:6px; padding:18px; }
+.testers-card:hover { border-color:var(--teal); }
+
+/* Наблюдатель видит проект, но не формы изменений: сервер их всё равно отклонит. */
+.is-viewer .main-content form[method="post"]:not(.viewer-allowed),
+.is-viewer .main-content a[href*="/evidence/new/"] { display:none; }
+
+@media (max-width:680px) {
+  .team-row { flex-direction:column; align-items:flex-start; }
+  .coin-balance-big { font-size:22px; padding:10px 16px; }
+}
+
+/* Гардероб Бруно. app.css обрезает вложенные svg позы, а шапкам нужно выходить за рамку. */
+.bruno-stage svg.bruno-accessories { overflow:visible; }
+/* Шапка выше макушки: место сверху, чтобы её не обрезали карточки с overflow:hidden. */
+.bruno-art.has-hat { padding-top:10%; }
+.wardrobe-layout { display:grid; grid-template-columns:minmax(220px,320px) 1fr; gap:20px; align-items:start; }
+.wardrobe-stage { position:sticky; top:20px; padding:24px; text-align:center; }
+.wardrobe-stage .bruno-art { width:260px; }
+.wardrobe-shelves { display:grid; gap:16px; }
+.wardrobe-item.is-worn strong::after { content:" · надето"; color:var(--teal); font-weight:700; font-size:12px; }
+@media (max-width:760px) { .wardrobe-layout { grid-template-columns:1fr; } .wardrobe-stage { position:static; } }
+
+/* Серия дней */
+.streak-card { display:flex; align-items:center; gap:22px; margin-bottom:20px; }
+.streak-card h2 { margin:0 0 4px; }
+.streak-dots { display:flex; gap:7px; }
+.streak-dots span { width:16px; height:16px; border-radius:50%; background:#e6ebe8; }
+.streak-dots span.lit { background:var(--orange); box-shadow:0 0 0 3px #fdf1e6; }
+
+/* Награды тестировщикам */
+.bounty-form { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin-top:14px; }
+.bounty-form label { display:grid; gap:6px; font-size:13px; font-weight:700; }
+.bounty-form select, .bounty-form input { padding:9px 11px; border:1px solid #d8e5df; border-radius:10px; background:#fff; width:150px; }
+.bounty-chip { justify-self:start; padding:3px 9px; border-radius:20px; background:#fdf1e6; color:#8a5a2c; font-size:12px; font-weight:800; }
+.bounty-notice { background:#fdf1e6; color:#7a4f27; }
+
+/* Заявки в команду и лента */
+.join-team { margin:12px 0; display:grid; gap:8px; }
+.join-details summary { list-style:none; cursor:pointer; text-align:center; }
+.join-details summary::-webkit-details-marker { display:none; }
+.join-form { display:grid; gap:10px; margin-top:10px; }
+.join-form label { display:grid; gap:6px; font-size:13px; font-weight:700; }
+.join-form textarea { padding:10px; border:1px solid #d8e5df; border-radius:10px; resize:vertical; }
+.join-message { margin:8px 0 0; padding:10px 12px; border-radius:10px; background:#f5f7f6; font-size:14px; white-space:pre-line; }
+.join-request { align-items:flex-start; }
+.team-divider { border:0; border-top:1px solid var(--line); margin:18px 0; }
+.activity-feed { list-style:none; margin:0; padding:0; display:grid; gap:12px; }
+.activity-item { display:flex; gap:12px; align-items:flex-start; font-size:14px; line-height:1.5; }
+.activity-item .muted { margin-left:6px; }
+.activity-dot { flex:none; width:10px; height:10px; margin-top:6px; border-radius:50%; background:var(--teal); }
+.activity-coins .activity-dot { background:var(--orange); }
+.activity-team .activity-dot { background:#6e658e; }
+.activity-card { margin-bottom:22px; }
+
+/* Исполнитель задания */
+.task-assignee { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0; font-size:13px; font-weight:700; }
+.task-assignee select { padding:8px 10px; border:1px solid #d8e5df; border-radius:10px; background:#fff; max-width:100%; }
+.task-filter { display:flex; gap:8px; margin:0 0 16px; }
+.task-filter a { padding:7px 14px; border-radius:20px; border:1px solid #d8e5df; font-size:13px; font-weight:700; color:#32675b; background:#fff; }
+.task-filter a[aria-current="page"] { background:#16877d; border-color:#16877d; color:#fff; }
+.viewer-only { display:none; }
+.is-viewer .viewer-only { display:block; }

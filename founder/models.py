@@ -47,12 +47,9 @@ class User(AbstractUser):
     location = models.CharField('Город', max_length=100, blank=True)
     profile_website = models.URLField('Сайт или портфолио', blank=True)
     avatar = models.ImageField(upload_to=avatar_upload_path, blank=True)
+    # Кэш суммы CoinTransaction; меняется только в services/coins.py вместе с записью журнала.
+    coins = models.PositiveIntegerField('Монеты', default=0)
     pro_until = models.DateTimeField('Pro до', null=True, blank=True)
-
-    @property
-    def is_pro(self):
-        from django.utils import timezone
-        return bool(self.pro_until and self.pro_until > timezone.now())
 
     class Meta(AbstractUser.Meta):
         constraints = [models.CheckConstraint(
@@ -103,6 +100,143 @@ class StartupProfile(models.Model):
         return self.name
 
 
+class ProjectMember(models.Model):
+    """Соавтор проекта. Владелец хранится в StartupProfile.owner и сюда не попадает."""
+
+    class Role(models.TextChoices):
+        EDITOR = "editor", "Соавтор"
+        VIEWER = "viewer", "Наблюдатель"
+
+    class Status(models.TextChoices):
+        INVITED = "invited", "Приглашён"
+        REQUESTED = "requested", "Подал заявку"
+        ACTIVE = "active", "Участник"
+
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="members")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="project_memberships")
+    role = models.CharField('Роль', max_length=10, choices=Role.choices, default=Role.EDITOR)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.INVITED)
+    invited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                   related_name="+")
+    # Сопроводительное письмо к заявке «Хочу в команду».
+    message = models.CharField('О себе и чем поможете', max_length=500, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    joined_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [models.UniqueConstraint(fields=["startup", "user"], name="unique_project_member")]
+
+    @property
+    def can_edit(self):
+        return self.status == self.Status.ACTIVE and self.role == self.Role.EDITOR
+
+
+class CoinTransaction(models.Model):
+    """Журнал монет. Начисление за одно и то же событие защищено уникальным ключом."""
+
+    class Kind(models.TextChoices):
+        WELCOME = "welcome", "Стартовый бонус"
+        CHAT = "chat", "Разговор с Бруно"
+        PITCH = "pitch", "Тренировка питча"
+        EVIDENCE = "evidence", "Запись в дневнике"
+        TASK = "task", "Выполненное задание"
+        TEST = "test", "Тест чужого прототипа"
+        STREAK = "streak", "Серия дней подряд"
+        BOUNTY = "bounty", "Награда от автора прототипа"
+        PROMOTION = "promotion", "Продвижение проекта"
+        OUTFIT = "outfit", "Гардероб Бруно"
+        BOUNTY_FUND = "bounty_fund", "Награда тестировщикам"
+        REFUND = "refund", "Возврат остатка награды"
+        ADJUSTMENT = "adjustment", "Корректировка"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="coin_transactions")
+    amount = models.IntegerField()
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name="coin_transactions")
+    note = models.CharField(max_length=200, blank=True)
+    key = models.CharField(max_length=100, null=True, blank=True, unique=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["user", "kind", "created_at"], name="coin_tx_user_kind_date")]
+
+
+class Promotion(models.Model):
+    """Оплаченное монетами продвижение проекта в сообществе."""
+
+    class Kind(models.TextChoices):
+        FEED_TOP = "feed_top", "Поднять карточку в ленте"
+        HIGHLIGHT = "highlight", "Выделить карточку"
+        TESTERS = "testers", "Позвать тестировщиков"
+
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="promotions")
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    bought_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    cost = models.PositiveIntegerField()
+    starts_at = models.DateTimeField(default=timezone.now)
+    ends_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        ordering = ["-ends_at", "-id"]
+        indexes = [models.Index(fields=["kind", "ends_at"], name="promotion_active")]
+
+
+class TestBounty(models.Model):
+    """Монеты, которые участник команды отложил для внешних тестировщиков прототипа.
+
+    Сумма списывается сразу целиком; остаток возвращается тому же человеку при закрытии.
+    """
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="test_bounties")
+    funder = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="test_bounties")
+    reward = models.PositiveIntegerField()
+    remaining = models.PositiveIntegerField()
+    created_at = models.DateTimeField(default=timezone.now)
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+
+class MascotItem(models.Model):
+    """Аксессуар, купленный для Бруно конкретного проекта."""
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="mascot_items")
+    code = models.CharField(max_length=20)
+    bought_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["startup", "code"], name="unique_mascot_item")]
+
+
+class ProjectActivity(models.Model):
+    """Лента «что нового в проекте»: кто из команды что сделал."""
+
+    class Kind(models.TextChoices):
+        RADAR = "radar", "Радар"
+        CHAT = "chat", "Разговор"
+        PITCH = "pitch", "Питч"
+        TASK = "task", "Задания"
+        EVIDENCE = "evidence", "Дневник"
+        REVIEW = "review", "Разбор"
+        CARD = "card", "Карточка"
+        LAB = "lab", "Лаборатория"
+        TEAM = "team", "Команда"
+        COINS = "coins", "Монеты"
+
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="activities")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    text = models.CharField(max_length=240)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["startup", "-created_at"], name="project_activity_recent")]
+
+
 class LabSiteVersion(models.Model):
     """Immutable frontend versions, optionally paired with our Django blueprint."""
 
@@ -115,6 +249,7 @@ class LabSiteVersion(models.Model):
     source = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True,
                                related_name="derived_versions")
     prompt = models.TextField(max_length=2000)
+    bruno_report = models.JSONField(default=dict, blank=True)
     kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.STATIC)
     presentation = models.JSONField(default=dict, blank=True)
     backend_modules = models.JSONField(default=list, blank=True)
@@ -283,13 +418,21 @@ class MascotState(models.Model):
     mood = models.CharField(max_length=20, choices=Mood.choices, default=Mood.CURIOUS)
     outfit = models.CharField(max_length=20, choices=Outfit.choices, default=Outfit.HOODIE)
     reason = models.CharField(max_length=255, blank=True)
+    # Надетые аксессуары из гардероба (по одному на слот: голова, глаза, шея).
+    accessories = models.JSONField(default=list, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def accessory_layers(self):
+        from founder.services.wardrobe import layers
+        return layers(self)
 
 
 class ChatSession(models.Model):
     class Mode(models.TextChoices):
         COFOUNDER = "cofounder", "ИИ-сооснователь"
         PITCH = "pitch", "Симулятор питча"
+        PANEL = "panel", "Панель акул"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     startup = models.ForeignKey(
@@ -300,7 +443,7 @@ class ChatSession(models.Model):
     mode = models.CharField(max_length=20, choices=Mode.choices)
     title = models.CharField(max_length=160, blank=True)
     focus_axis = models.CharField(max_length=12, blank=True, choices=[
-        ("product", "Продукт"), ("market", "Рынок"), ("finance", "Финансы"),
+        ("product", "Продукт"), ("market", "Рынок"), ("finance", "Экономика"),
         ("team", "Команда"), ("pitch", "Ясность идеи"),
     ])
     created_at = models.DateTimeField(default=timezone.now, editable=False)
@@ -312,6 +455,11 @@ class ChatSession(models.Model):
             models.Index(fields=["startup", "-created_at"], name="chat_session_recent"),
         ]
 
+    @property
+    def is_training(self):
+        """Тренировка с инвестором: ответы не становятся фактами о проекте."""
+        return self.mode in {self.Mode.PITCH, self.Mode.PANEL}
+
 
 class ChatMessage(models.Model):
     class Role(models.TextChoices):
@@ -321,7 +469,12 @@ class ChatMessage(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name="messages")
     role = models.CharField(max_length=10, choices=Role.choices)
+    # Кто из команды написал сообщение; у ответов Бруно пусто.
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name="+")
     content = models.TextField(blank=True)
+    # Кто из акул говорит в панели; пусто для Бруно и основателя.
+    speaker = models.CharField(max_length=12, blank=True, db_default="")
     provider = models.CharField(max_length=40, blank=True)
     model_name = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
@@ -411,14 +564,32 @@ class PitchReport(models.Model):
         ]
 
     def clean(self):
-        if self.session_id and self.session.mode != ChatSession.Mode.PITCH:
+        if self.session_id and not self.session.is_training:
             raise ValidationError("Отчёт возможен только для тренировочного питча.")
+
+
+class PanelVerdict(models.Model):
+    """Голоса трёх акул после панели. Тренировка: радар и факты не меняются."""
+
+    session = models.OneToOneField(ChatSession, on_delete=models.CASCADE, related_name="panel_verdict")
+    # [{shark, decision: invest|pass, reason, quote, condition: {title, instructions, success_criterion}, task_id}]
+    votes = models.JSONField(default=list)
+    ai_model = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    def clean(self):
+        if self.session_id and self.session.mode != ChatSession.Mode.PANEL:
+            raise ValidationError("Голосование возможно только в панели акул.")
+
+    @property
+    def invested(self):
+        return sum(1 for vote in self.votes if vote.get("decision") == "invest")
 
 
 class BusinessAxis(models.TextChoices):
     PRODUCT = 'product', 'Продукт'
     MARKET = 'market', 'Рынок'
-    FINANCE = 'finance', 'Финансы'
+    FINANCE = 'finance', 'Экономика'
     TEAM = 'team', 'Команда'
     PITCH = 'pitch', 'Ясность идеи'
 
@@ -437,6 +608,8 @@ class BrunoTask(models.Model):
     instructions = models.TextField(max_length=1200)
     success_criterion = models.CharField(max_length=500)
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.TODO)
+    assignee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='assigned_tasks')
     ai_model = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -448,6 +621,31 @@ class BrunoTask(models.Model):
         )]
 
 
+class ProjectPicture(models.Model):
+    """Что Бруно понял о проекте: по каждой теме текст и статус (факт, догадка, неизвестно)."""
+
+    startup = models.OneToOneField(StartupProfile, on_delete=models.CASCADE, related_name='picture')
+    facts = models.JSONField(default=dict, blank=True)
+    gap = models.CharField(max_length=300, blank=True)
+    moves = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class MentorIdea(models.Model):
+    """Идея из «давай подумаем»: её можно одной кнопкой взять в задания."""
+
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='mentor_ideas')
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name='ideas')
+    title = models.CharField(max_length=160)
+    test = models.CharField(max_length=500)
+    axis = models.CharField(max_length=12, choices=BusinessAxis.choices)
+    task = models.ForeignKey(BrunoTask, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+
 class ProjectReview(models.Model):
     """Полный разбор проекта от Бруно: диагноз стадии, риски и план шагов.
 
@@ -457,6 +655,25 @@ class ProjectReview(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='reviews')
     data = models.JSONField(default=dict)
+    ai_model = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+
+class MarketReport(models.Model):
+    """Анализ рынка от Бруно по открытым источникам: актуальность, конкуренты, деньги.
+
+    Конкуренты и цены попадают в отчёт, только если они есть в тексте найденных
+    источников; расчёт денег проекта делает программа по словам основателя.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='market_reports')
+    data = models.JSONField(default=dict)
+    # [{title, url, snippet, published, domain}] — то, что видела модель, под номерами [1], [2]…
+    sources = models.JSONField(default=list, blank=True)
+    queries = models.JSONField(default=list, blank=True)
     ai_model = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
@@ -545,6 +762,16 @@ class ProjectBookmark(models.Model):
         constraints = [models.UniqueConstraint(fields=['user', 'card'], name='unique_project_bookmark')]
 
 
+class CardReport(models.Model):
+    """A member's complaint about a published project card (one per member and card)."""
+    card = models.ForeignKey(ProjectCard, on_delete=models.CASCADE, related_name='reports')
+    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='card_reports')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['card', 'reporter'], name='unique_card_report')]
+
+
 class DirectConversation(models.Model):
     """One private thread per pair, regardless of which card opened it."""
 
@@ -586,6 +813,40 @@ class DirectMessage(models.Model):
         ordering = ['id']
         indexes = [models.Index(fields=['conversation', 'id'], name='direct_message_history')]
         constraints = [models.UniqueConstraint(fields=['sender', 'client_id'], name='unique_direct_message_retry')]
+
+
+def direct_attachment_path(instance, filename):
+    """Disk names never reuse the sender's file name."""
+    suffix = Path(filename).suffix.lower()[:10]
+    return f"direct_uploads/{instance.conversation_id}/{uuid.uuid4().hex}{suffix}"
+
+
+class DirectAttachment(models.Model):
+    """A file or photo in personal messages. Uploaded first (POST), then linked to a
+    message sent over the socket; until then only the uploader can see it."""
+
+    class Kind(models.TextChoices):
+        IMAGE = 'image', 'Изображение'
+        FILE = 'file', 'Файл'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    conversation = models.ForeignKey(DirectConversation, on_delete=models.CASCADE, related_name='attachments')
+    uploader = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='direct_attachments')
+    message = models.ForeignKey(DirectMessage, on_delete=models.CASCADE, null=True, blank=True,
+                                related_name='attachments')
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    file = models.FileField(upload_to=direct_attachment_path, max_length=500)
+    preview = models.FileField(upload_to=direct_attachment_path, max_length=500, blank=True)
+    original_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=100)
+    size_bytes = models.PositiveBigIntegerField()
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        indexes = [models.Index(fields=['uploader', 'message', 'created_at'], name='direct_attachment_pending')]
 
 
 class UserBlock(models.Model):

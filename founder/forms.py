@@ -4,8 +4,9 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.core.validators import MaxLengthValidator
 
-from founder.models import EvidenceEntry, LabSiteVersion, StartupMetrics, StartupProfile, User
+from founder.models import EvidenceEntry, LabSiteVersion, ProjectMember, StartupMetrics, StartupProfile, User
 from founder.profile_forms import HandleValidationMixin
+from founder.services.coins import BOUNTY_MAX_TESTS, BOUNTY_REWARDS
 from founder.services.json_utils import bounded_json_loads
 
 
@@ -68,7 +69,7 @@ class LabPromptForm(forms.Form):
         widget=forms.Textarea(attrs={
             "rows": 5,
             "maxlength": 2000,
-            "placeholder": "Например: сделай адаптивную страницу о здоровом сне с тремя советами и раскрывающимися карточками",
+            "placeholder": "Напиши, что нужно создать или изменить…",
         }),
     )
 
@@ -83,7 +84,7 @@ class LabCustomizeForm(forms.Form):
 class LabBackendModulesForm(forms.Form):
     from founder.services.backend_modules import MODULE_CHOICES
     modules = forms.MultipleChoiceField(label='Готовые модули',choices=MODULE_CHOICES,
-        required=False,widget=forms.CheckboxSelectMultiple)
+        required=False,widget=forms.CheckboxSelectMultiple(attrs={"form": "lab-form"}))
 
 
 class MetricsForm(forms.ModelForm):
@@ -91,7 +92,7 @@ class MetricsForm(forms.ModelForm):
                                       required=False, widget=forms.Textarea(attrs={"rows": 3}))
     product_reason = forms.CharField(label="Что известно о продукте", max_length=500, required=False)
     market_reason = forms.CharField(label="Что известно о рынке", max_length=500, required=False)
-    finance_reason = forms.CharField(label="Что известно о финансах", max_length=500, required=False)
+    finance_reason = forms.CharField(label="Что известно об экономике проекта", max_length=500, required=False)
     team_reason = forms.CharField(label="Что известно о команде", max_length=500, required=False)
     pitch_reason = forms.CharField(label="Что известно о ясности идеи", max_length=500, required=False)
 
@@ -101,7 +102,7 @@ class MetricsForm(forms.ModelForm):
         labels = {
             "product": "Продукт",
             "market": "Рынок",
-            "finance": "Финансы",
+            "finance": "Экономика",
             "team": "Команда",
             "pitch": "Ясность идеи",
             "assessment_notes": "Общий вывод и следующий шаг",
@@ -188,3 +189,39 @@ class EvidenceForm(forms.ModelForm):
         if value > timezone.localdate():
             raise forms.ValidationError('Для планов используйте задания. Укажите дату уже состоявшегося наблюдения.')
         return value
+
+
+class TeamInviteForm(forms.Form):
+    handle = forms.CharField(label="Тег участника", max_length=33,
+                             widget=forms.TextInput(attrs={"placeholder": "@founder_tag", "autocomplete": "off"}))
+    role = forms.ChoiceField(label="Роль", choices=ProjectMember.Role.choices, initial=ProjectMember.Role.EDITOR)
+
+    def __init__(self, *args, startup, **kwargs):
+        self.startup = startup
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned = super().clean()
+        handle = cleaned.get("handle", "").strip().lstrip("@").lower()
+        if not handle:
+            return cleaned
+        user = User.objects.filter(handle=handle, is_active=True).first()
+        if user is None:
+            self.add_error("handle", "Участник с таким тегом не найден. Тег есть в профиле: @name.")
+        elif user.pk == self.startup.owner_id:
+            self.add_error("handle", "Это владелец проекта.")
+        else:
+            cleaned["user"] = user
+        return cleaned
+
+
+class JoinRequestForm(forms.Form):
+    message = forms.CharField(label="О себе и чем поможете проекту", max_length=500, min_length=10,
+                              widget=forms.Textarea(attrs={"rows": 3, "maxlength": 500,
+                                                           "placeholder": "Например: дизайнер, 3 года в B2C, могу собрать прототип"}))
+
+
+class BountyForm(forms.Form):
+    reward = forms.TypedChoiceField(label="Монет за один тест", coerce=int,
+                                    choices=[(value, f"{value} 🪙") for value in BOUNTY_REWARDS], initial=10)
+    tests = forms.IntegerField(label="Сколько тестов оплатить", min_value=1, max_value=BOUNTY_MAX_TESTS, initial=5)

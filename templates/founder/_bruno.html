@@ -1,6 +1,6 @@
 {% load static %}
 {# Display original reference pixels through SVG viewports; no generated redraw. #}
-<div class="bruno-art bruno-reference {% if investor %}bruno-investor{% else %}bruno-{{ mascot.mood }}{% endif %}">
+<div class="bruno-art bruno-reference {% if investor %}bruno-investor{% else %}bruno-{{ mascot.mood }}{% if mascot.accessories and mascot.accessory_layers.has_hat %} has-hat{% endif %}{% endif %}">
   <svg class="bruno-stage" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Бруно — {% if investor %}строгий инвестор{% else %}{{ mascot.get_mood_display }}{% endif %}" focusable="false">
     <g class="bruno-character">
       {% if investor %}
@@ -19,6 +19,7 @@
       {% endif %}
           <image href="{% static 'founder/img/bruno-reference.png' %}" width="1280" height="1066" {% if investor %}clip-path="url(#bruno-reference-investor-{{ instance_id|default:"card" }})"{% elif mascot.mood == 'confident' %}clip-path="url(#bruno-reference-happy-{{ instance_id|default:"card" }})"{% elif mascot.mood != 'sleepy' and mascot.mood != 'focused' and mascot.mood != 'confident' %}clip-path="url(#bruno-reference-wave-{{ instance_id|default:"card" }})"{% endif %}/>
         </svg>
+      {% if investor %}{% include 'founder/_bruno_investor_suit.html' %}{% elif mascot.accessories %}{% include 'founder/_bruno_accessories.html' %}{% endif %}
     </g>
   </svg>
   {% if not pet %}<button type="button" class="bruno-greet" aria-label="Поздороваться с Бруно" title="Поздороваться с Бруно" hidden="hidden"><span aria-hidden="true">✦</span></button>{% endif %}
