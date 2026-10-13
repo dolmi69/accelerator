@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Оформление Pro · Co-Founder.AI{% endblock %}
+{% block content %}
+<section class="pay-card-wrap">
+  <div class="pay-card">
+    <h1>Оформление Pro</h1>
+    <p class="pay-lead">{{ price_rub }} ₽ за {{ pro_days }} дней</p>
+
+    <div class="flash flash-warning">Тестовый режим — деньги не списываются.</div>
+    {% if is_pro %}
+      <p class="pay-hint">Pro уже активен. Подтверждение продлит подписку ещё на {{ pro_days }} дней.</p>
+    {% endif %}
+
+    <form method="post" action="{% url 'pro_test_pay_confirm' %}">
+      {% csrf_token %}
+      <button type="submit" class="pay-button">Активировать Pro (тест)</button>
+    </form>
+    <p class="pay-order"><a href="{% url 'tariffs' %}">← Назад к тарифам</a></p>
+  </div>
+</section>
+<style>
+  .pay-card-wrap { max-width: 520px; margin: 32px auto; padding: 0 16px; }
+  .pay-card { background:#fff; border:1px solid #e6e6ef; border-radius:18px; padding:28px;
+              box-shadow:0 12px 40px rgba(20,20,60,.08); text-align:center; }
+  .pay-card h1 { margin:.2em 0 .4em; font-size:1.8rem; }
+  .pay-lead { color:#555; margin-bottom:14px; }
+  .pay-button { background:#1f1f4d; color:#fff; border:0; border-radius:10px; padding:12px 20px;
+                font-weight:600; cursor:pointer; }
+  .pay-hint { color:#666; font-size:.9rem; }
+  .pay-order { color:#999; font-size:.85rem; margin-top:16px; }
+  .flash-warning { background:#fff4d6; color:#8a6100; padding:10px 12px; border-radius:10px; margin-bottom:12px; }
+</style>
+{% endblock %}

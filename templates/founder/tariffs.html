@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Тарифы · Co-Founder.AI{% endblock %}
+{% block content %}
+<section class="plans-wrap">
+  <span class="eyebrow">ТАРИФЫ</span>
+  <h1>Free и Pro</h1>
+  <p class="plans-lead">Pro подключается на {{ pro_days }} дней, продление — вручную. «Безлимит» не продаём: у Pro конечная дневная квота.</p>
+
+  <div class="plans-grid">
+    <article class="plan-card">
+      <h2>Free</h2>
+      <p class="plan-price">0 ₽</p>
+      <ul>
+        <li>До {{ free_quota }} AI-запросов в сутки</li>
+        <li>Бруно, радар, задания, питч, лаборатория</li>
+      </ul>
+      {% if not is_pro %}<p class="plan-current">Ваш текущий тариф</p>{% endif %}
+    </article>
+
+    <article class="plan-card plan-card--pro">
+      <h2>Pro <span class="plan-tag">PRO</span></h2>
+      <p class="plan-price">{{ price_rub }} ₽<span class="plan-per">/мес</span></p>
+      <ul>
+        <li>До {{ pro_quota }} AI-запросов в сутки</li>
+        <li>Бейдж Pro в шапке</li>
+        <li>Оплата в тестовом режиме — деньги не списываются</li>
+      </ul>
+      {% if is_pro %}
+        <p class="plan-current">Pro активен до {{ pro_until|date:"d.m.Y" }}</p>
+      {% else %}
+        <a class="pay-button" href="{% url 'pro_test_pay' %}">Оформить</a>
+      {% endif %}
+    </article>
+  </div>
+</section>
+<style>
+  .plans-wrap { max-width: 820px; margin: 32px auto; padding: 0 16px; }
+  .plans-lead { color:#555; }
+  .plans-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:20px; }
+  @media (max-width:680px){ .plans-grid{ grid-template-columns:1fr; } }
+  .plan-card { background:#fff; border:1px solid #e6e6ef; border-radius:16px; padding:24px; }
+  .plan-card--pro { border-color:#f5a623; box-shadow:0 10px 30px rgba(245,166,35,.15); }
+  .plan-card h2 { margin:0 0 8px; }
+  .plan-price { font-size:1.8rem; font-weight:800; color:#1f1f4d; margin:0 0 12px; }
+  .plan-per { font-size:.9rem; font-weight:600; color:#888; }
+  .plan-card ul { margin:0 0 16px; padding-left:18px; color:#444; }
+  .plan-card li { margin:6px 0; }
+  .plan-tag { font-size:.65rem; font-weight:800; color:#fff; background:#f5a623; border-radius:999px; padding:3px 8px; vertical-align:middle; }
+  .plan-current { color:#0d7a3d; font-weight:600; }
+  .pay-button { display:inline-block; background:#1f1f4d; color:#fff; border:0; border-radius:10px; padding:12px 20px; font-weight:600; text-decoration:none; }
+</style>
+{% endblock %}

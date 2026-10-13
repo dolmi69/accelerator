@@ -47,6 +47,12 @@ class User(AbstractUser):
     location = models.CharField('Город', max_length=100, blank=True)
     profile_website = models.URLField('Сайт или портфолио', blank=True)
     avatar = models.ImageField(upload_to=avatar_upload_path, blank=True)
+    pro_until = models.DateTimeField('Pro до', null=True, blank=True)
+
+    @property
+    def is_pro(self):
+        from django.utils import timezone
+        return bool(self.pro_until and self.pro_until > timezone.now())
 
     class Meta(AbstractUser.Meta):
         constraints = [models.CheckConstraint(

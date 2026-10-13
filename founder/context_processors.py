@@ -45,3 +45,11 @@ def community(request):
         return {}
     from founder.services.messaging import unread_count
     return {'direct_unread': unread_count(request.user.pk)}
+
+
+def plan(request):
+    """Тариф Pro для шапки: бейдж и дата окончания."""
+    if not request.user.is_authenticated:
+        return {}
+    from founder.services import plans
+    return {'is_pro': plans.is_pro(request.user), 'pro_until': request.user.pro_until}

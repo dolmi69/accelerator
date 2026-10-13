@@ -59,6 +59,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "founder.context_processors.bruno_pet",
                 "founder.context_processors.community",
+                "founder.context_processors.plan",
                 "payments.context_processors.wallet",
             ],
         },
@@ -182,3 +183,12 @@ PAYMENTS_INVOICE_TTL_MINUTES = int(os.getenv("PAYMENTS_INVOICE_TTL_MINUTES", "30
 PAYMENTS_MAX_INVOICE_AMOUNT = os.getenv("PAYMENTS_MAX_INVOICE_AMOUNT", "1000")
 # Основной адрес приёма (индекс HD-кошелька): один адрес на все пополнения.
 PAYMENTS_RECEIVE_INDEX = int(os.getenv("PAYMENTS_RECEIVE_INDEX", "0"))
+
+# --- Тарифы: временная подписка Pro ---
+# Цена берётся из настроек. Расчёт-ориентир: python manage.py lab_usage
+# --ai-budget <AI-бюджет на пользователя, руб.> --margin-percent <маржа, %>
+# При ai-budget=100 и марже 30% порог — 142.86 ₽/мес; розничная цена выше порога.
+PRO_PRICE_RUB = os.getenv("PRO_PRICE_RUB", "149")
+PRO_DAYS = int(os.getenv("PRO_DAYS", "30"))
+# «Безлимит» не продаём: у Pro конечная дневная квота AI-запросов.
+PRO_AI_REQUESTS_PER_DAY = int(os.getenv("PRO_AI_REQUESTS_PER_DAY", "500"))

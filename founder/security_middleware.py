@@ -13,6 +13,7 @@ from founder.models import StartupProfile
 from founder.services.request_limits import (
     RequestLimitExceeded, acquire_ai_lease, consume_limit, release_ai_lease,
 )
+from founder.services import plans
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ class RequestProtectionMiddleware(MiddlewareMixin):
                 ai_request = request.POST.get("action") in {"generate", "refine"}
             if ai_request and StartupProfile.objects.filter(pk=kwargs.get("startup_id"), owner=request.user).exists():
                 consume_limit(f"ai-minute:{request.user.pk}", settings.AI_REQUESTS_PER_MINUTE, 60)
-                consume_limit(f"ai-day:{request.user.pk}", settings.AI_REQUESTS_PER_DAY, 86400)
+                consume_limit(f"ai-day:{request.user.pk}", plans.quota(request.user)["requests_per_day"], 86400)
                 request.ai_lease = acquire_ai_lease(request.user.pk)
         except RequestLimitExceeded as exc:
             return self.error_response(request, str(exc), 429, retry_after=exc.retry_after)
