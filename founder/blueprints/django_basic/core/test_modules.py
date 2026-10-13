@@ -169,6 +169,8 @@ class ModuleTests(TestCase):
         self.post('upload',data={'file':SimpleUploadedFile('private.pdf',b'%PDF-1.4 test')})
         asset=Asset.objects.get()
         response=self.client.get(reverse('asset',args=[asset.pk]))
+        # Close streaming files before TemporaryDirectory cleanup (Windows locks open files).
+        self.addCleanup(response.close)
         self.assertIn('attachment',response['Content-Disposition'])
         self.client.force_login(self.eve)
         self.assertEqual(self.client.get(reverse('asset',args=[asset.pk])).status_code,404)
@@ -178,6 +180,7 @@ class ModuleTests(TestCase):
         picture=Asset.objects.get(image=True)
         self.client.logout()
         response=self.client.get(reverse('asset',args=[picture.pk]))
+        self.addCleanup(response.close)
         self.assertEqual(response['Content-Type'],'image/jpeg')
         Item.objects.filter(pk=self.item.pk).update(published=False)
         self.assertEqual(self.client.get(reverse('asset',args=[picture.pk])).status_code,404)
