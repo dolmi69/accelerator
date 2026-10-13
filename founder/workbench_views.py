@@ -247,6 +247,7 @@ def market(request, startup_id):
         'checks': [{**check, 'index': index, 'axis_label': axis_labels.get(check['axis'], ''),
                     'axis_busy': check['axis'] in open_axes} for index, check in enumerate(data.get('checks', []))],
         'sources': [{**item, 'number': number} for number, item in enumerate(sources, 1)],
+        'size': data.get('market_size') or {},
         'history': reports[:8], 'is_demo': settings.AI_PROVIDER == 'demo',
         'search_enabled': market_service.search_enabled() or settings.AI_PROVIDER == 'demo',
         'has_story': (any((startup.one_line_pitch, startup.problem, startup.solution, startup.target_customer))

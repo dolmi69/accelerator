@@ -213,6 +213,18 @@ class MarketReportTests(TestCase):
         search.assert_not_called()
         self.assertIn("Ты уже проверял рынок", brief)
 
+    def test_page_shows_market_size_block(self):
+        data = market.parse_market(report_json(), SOURCES)
+        data["market_size"] = market.market_size(
+            market.bottom_up_size(100_000, 20, 50, 40, 3000),
+            market.top_down_size(1_000_000, 0, 0),
+            {"months": 6, "contacts": 260, "customers": 52, "revenue": 156000, "check": 3000})
+        MarketReport.objects.create(startup=self.startup, data=data, sources=SOURCES)
+        page = self.client.get(reverse("market", args=[self.startup.pk]))
+        self.assertContains(page, "TAM / SAM / SOM")
+        self.assertContains(page, "SOM: команда из 3 человек")
+        self.assertContains(page, "144000000")
+
 
 @override_settings(AI_PROVIDER="gigachat", MARKET_SEARCH="exa")
 class MarketChatTests(TestCase):
@@ -276,3 +288,51 @@ class MarketLinkTests(TestCase):
         self.client.force_login(user)
         page = self.client.get(reverse("chat_detail", args=[startup.pk, session.pk]))
         self.assertContains(page, "«Рынок и конкуренты» →", count=1)
+
+
+class MarketSizeTests(TestCase):
+    """TAM/SAM/SOM: расчёт Python без AI — SOM, средний чек и сверка двух методов."""
+
+    def test_som_is_contacts_weeks_conversion_check(self):
+        from founder.services.economics import som_forecast
+
+        som = som_forecast(10, 20, 3000, 6)
+        self.assertEqual(som["contacts"], 260)      # 10 в неделю × 26 недель
+        self.assertEqual(som["customers"], 52)      # 20% конверсии
+        self.assertEqual(som["revenue"], 156000)    # 52 × 3000 ₽
+
+    def test_average_check_from_competitor_prices(self):
+        self.assertEqual(
+            market.average_check([{"price": "от 3000 ₽"}, {"price": "2500 ₽"}, {"price": ""}]),
+            2750,
+        )
+
+    def test_bottom_up_filters_segment(self):
+        size = market.bottom_up_size(100_000, 20, 50, 40, 3000)
+        self.assertEqual(size["customers"], 4000)               # 100k × 0.2 × 0.5 × 0.4
+        self.assertEqual(size["annual_revenue"], 144_000_000)
+
+    def test_top_down_from_companies_or_volume(self):
+        self.assertEqual(market.top_down_size(0, 1000, 3000)["annual_revenue"], 36_000_000)
+        self.assertEqual(market.top_down_size(144_000_000, 0, 0)["annual_revenue"], 144_000_000)
+
+    def test_over_ten_times_names_first_assumption(self):
+        size = market.market_size(market.bottom_up_size(100_000, 20, 50, 40, 3000),
+                                  market.top_down_size(1_000_000, 0, 0), {})
+        self.assertGreater(size["divergence"]["ratio"], market.DIVERGENCE_LIMIT)
+        self.assertEqual(size["divergence"]["wider"], "bottom_up")
+        self.assertTrue(size["divergence"]["first_check"])
+
+    def test_close_methods_have_no_warning(self):
+        size = market.market_size(market.bottom_up_size(100_000, 20, 50, 40, 3000),
+                                  market.top_down_size(100_000_000, 0, 0), {})
+        self.assertLessEqual(size["divergence"]["ratio"], market.DIVERGENCE_LIMIT)
+        self.assertEqual(size["divergence"]["first_check"], "")
+
+    def test_size_note_has_som_and_check(self):
+        size = market.market_size(
+            market.bottom_up_size(100_000, 20, 50, 40, 3000), market.top_down_size(1_000_000, 0, 0),
+            {"months": 6, "contacts": 260, "customers": 52, "revenue": 156000, "check": 3000})
+        note = market.size_note(size)
+        self.assertIn("SOM", note)
+        self.assertIn("156000", note)
