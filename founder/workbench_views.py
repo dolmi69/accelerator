@@ -239,6 +239,11 @@ def market(request, startup_id):
     def source(index):
         return sources[index - 1] if isinstance(index, int) and 0 < index <= len(sources) else None
 
+    size = data.get('market_size') or {}
+    top_source = (size.get('top_down') or {}).get('source')
+    if size and top_source:
+        size = {**size, 'top_down': {**size['top_down'], 'source_info': source(top_source)}}
+
     return render(request, 'founder/market.html', {
         'startup': startup, 'workspace_tab': 'market', 'report': current, 'data': data,
         'relevance_label': market_service.RELEVANCE.get(data.get('relevance'), ''),
@@ -247,7 +252,7 @@ def market(request, startup_id):
         'checks': [{**check, 'index': index, 'axis_label': axis_labels.get(check['axis'], ''),
                     'axis_busy': check['axis'] in open_axes} for index, check in enumerate(data.get('checks', []))],
         'sources': [{**item, 'number': number} for number, item in enumerate(sources, 1)],
-        'size': data.get('market_size') or {},
+        'size': size,
         'history': reports[:8], 'is_demo': settings.AI_PROVIDER == 'demo',
         'search_enabled': market_service.search_enabled() or settings.AI_PROVIDER == 'demo',
         'has_story': (any((startup.one_line_pitch, startup.problem, startup.solution, startup.target_customer))

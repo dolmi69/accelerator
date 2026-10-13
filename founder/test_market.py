@@ -336,3 +336,24 @@ class MarketSizeTests(TestCase):
         note = market.size_note(size)
         self.assertIn("SOM", note)
         self.assertIn("156000", note)
+
+    def _parsed(self, **size):
+        sources = [{"title": "Обзор рынка", "url": "https://market.ru/report", "domain": "market.ru",
+                    "snippet": "Объём рынка проката платьев в России — 12 млрд рублей в год.", "published": ""}]
+        return market.parse_market(report_json(market_size=size), sources)
+
+    def test_top_down_volume_only_from_the_source(self):
+        data = self._parsed(volume="12 млрд ₽", companies="", source=1)
+        self.assertEqual(data["top_down"]["volume"], "12 млрд ₽")
+        self.assertEqual(data["top_down"]["source"], 1)
+
+    def test_top_down_rejects_a_number_absent_from_the_source(self):
+        data = self._parsed(volume="40 млрд ₽", companies="", source=1)
+        self.assertEqual(data["top_down"]["volume"], "")
+        self.assertIsNone(data["top_down"]["source"])
+
+    def test_missing_market_size_is_empty(self):
+        sources = [{"title": "Обзор", "url": "https://market.ru/", "domain": "market.ru",
+                    "snippet": "Текст без чисел.", "published": ""}]
+        data = market.parse_market(report_json(), sources)
+        self.assertEqual(data["top_down"], {"volume": "", "companies": "", "source": None})
