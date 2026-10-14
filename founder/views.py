@@ -40,6 +40,7 @@ from founder.services.coins import CHAT_MIN_LENGTH, award, balance, coins_note
 from founder.services.achievements import achievement_cards, award_achievements
 from founder.services.profile import evidence_display, grid_context, history_context, project_cards
 from founder.services.dashboard import workspace_context
+from founder.services.readiness import readiness_context
 
 
 def register(request):
@@ -129,6 +130,7 @@ def _dashboard_context(startup, metrics_form=None, *, snapshot_id=None, history_
         )
     return {
         **workspace,
+        "readiness": readiness_context(startup),
         "startup": startup,
         "latest": latest,
         "mascot": state,

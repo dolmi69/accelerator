@@ -61,10 +61,11 @@ def reserve(model, normalized, output_limit, *, pricing=None):
     # UTF-8 bytes + framing margin are deliberately conservative without a tokenizer.
     # This is not a measured token count or an absolute provider billing guarantee.
     input_bound = sum(len(m["content"].encode("utf-8")) + 128 for m in normalized) + 512
-    if input_bound > settings.QWEN_INPUT_BYTE_LIMIT:
+    unrestricted = settings.LAB_UNRESTRICTED_TEST_MODE
+    if not unrestricted and input_bound > settings.QWEN_INPUT_BYTE_LIMIT:
         raise CostLimitError("Слишком большой контекст. Выберите отдельный блок для правки или сократите описание.")
     amount = cost(input_bound, output_limit, input_price, output_price)
-    if amount > micro_rub(settings.LAB_MAX_REQUEST_RUB):
+    if not unrestricted and amount > micro_rub(settings.LAB_MAX_REQUEST_RUB):
         raise CostLimitError("Запрос превышает установленный бюджет одной генерации. Упростите задачу.")
     user_id, startup_id, operation = _scope.get()
     date = timezone.localdate()
@@ -77,6 +78,9 @@ def reserve(model, normalized, output_limit, *, pricing=None):
         with transaction.atomic():
             for key, rub_limit in periods:
                 LabSpendBucket.objects.get_or_create(key=key)
+                if unrestricted:
+                    LabSpendBucket.objects.filter(pk=key).update(micro_rub=F("micro_rub")+amount)
+                    continue
                 limit = micro_rub(rub_limit)
                 if amount > limit or not LabSpendBucket.objects.filter(pk=key, micro_rub__lte=limit-amount).update(micro_rub=F("micro_rub")+amount):
                     raise CostLimitError("Бюджет AI-генерации на этот период исчерпан. Правки без AI остаются доступны.")
@@ -111,11 +115,24 @@ def reject_output(request_id):
         LabAIUsage.objects.filter(pk=request_id, status="success").update(status="output_error")
 
 
-def usage_summary(user):
+def usage_summary(user, startup=None):
     date = timezone.localdate()
     rows = LabAIUsage.objects.filter(user=user, created_at__year=date.year, created_at__month=date.month)
+    monthly_cost = rows.aggregate(cost=Sum("accounted_micro_rub"))["cost"] or 0
+    started_at = user.lab_measurement_started_at or (startup.lab_measurement_started_at if startup else None)
+    measuring = bool(started_at)
+    if measuring:
+        rows = LabAIUsage.objects.filter(user=user, created_at__gte=started_at)
+        if not user.lab_measurement_started_at and startup:
+            rows = rows.filter(startup=startup)
     totals = rows.aggregate(input=Sum("input_tokens"), output=Sum("output_tokens"), cost=Sum("accounted_micro_rub"))
+    known_cost = rows.filter(input_tokens__isnull=False, output_tokens__isnull=False).aggregate(cost=Sum("accounted_micro_rub"))["cost"] or 0
+    pending_cost = (totals["cost"] or 0) - known_cost
     return {"input_tokens": totals["input"] or 0, "output_tokens": totals["output"] or 0,
             "accounted_rub": Decimal(totals["cost"] or 0)/1_000_000,
+            "known_rub": Decimal(known_cost)/1_000_000, "reserved_rub": Decimal(pending_cost)/1_000_000,
             "uncertain": rows.filter(status__in=["unknown", "reserved"]).count(),
-            "attempts": rows.count(), "monthly_limit": _decimal(settings.LAB_USER_MONTHLY_RUB)}
+            "attempts": rows.count(), "measuring": measuring,
+            "monthly_accounted_rub": Decimal(monthly_cost)/1_000_000,
+            "monthly_limit": _decimal(settings.LAB_USER_MONTHLY_RUB),
+            "limits_disabled": settings.LAB_UNRESTRICTED_TEST_MODE}

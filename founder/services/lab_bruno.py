@@ -5,6 +5,7 @@ from html.parser import HTMLParser
 import json
 import os
 import re
+from django.conf import settings
 
 from founder.services.gigachat import complete_lab
 from founder.services.qwen import QwenOutputError
@@ -95,7 +96,16 @@ def validate_result(prompt, source, result, chosen):
         prompt, re.I))
     try:
         protect_service_secrets(before + result.text + json.dumps(result.report, ensure_ascii=False))
-        checks = check_contract(prompt, before, result.text, chosen, change_purpose)
+        if settings.LAB_RAW_AI_TEST_MODE:
+            # The experiment has no module routes to bind. Keep source and
+            # purpose checks; never require the disabled blueprint's links.
+            checks = check_contract('', before, result.text, [], change_purpose)
+            if (re.search(r'\bBrunoApp\b|\bdata-app-(?:route|navigation)\b|\bdata-forge-', result.text)
+                    or re.search(r'class\s*=\s*["\'][^"\']*\bforge-', result.text)):
+                raise QwenOutputError('В сыром режиме модель сослалась на отключённые инструменты. Нужен самостоятельный HTML/CSS/JS.')
+            checks['generation_mode'] = 'raw_static_experiment'
+        else:
+            checks = check_contract(prompt, before, result.text, chosen, change_purpose)
         feedback = result.report
         if (not isinstance(feedback, dict) or not isinstance(feedback.get('summary'), str)
                 or not feedback['summary'].strip() or len(feedback['summary']) > 700):
@@ -105,7 +115,10 @@ def validate_result(prompt, source, result, chosen):
             if (not isinstance(values, list) or len(values) > 20
                     or any(not isinstance(item, str) or not item.strip() or len(item) > 400 for item in values)):
                 raise QwenOutputError('Qwen не вернул корректный отчёт. Предыдущая версия сохранена.')
-        feedback = {**feedback, 'checks': {**checks, 'report_source': 'qwen', 'review_mode': 'local'}}
+        feedback = {**feedback, 'checks': {**checks, 'report_source': result.model, 'review_mode': 'local'}}
+        if settings.LAB_RAW_AI_TEST_MODE:
+            feedback['not_done'] = list(dict.fromkeys([*feedback['not_done'],
+                'Сырой тест: серверные модули отключены. Данные не сохраняются на сервере; регистрация и бронирование могут быть только демонстрацией.']))
         if checks['bridge_methods']:
             feedback['not_done'] = list(dict.fromkeys([*feedback['not_done'],
                 'Проверены вызовы готовых инструментов. Работу с данными нужно проверить в запущенном сайте.']))

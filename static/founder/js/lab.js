@@ -38,7 +38,7 @@
   window.addEventListener('hashchange', () => selectSection(sectionFromUrl()));
   selectSection(sectionFromUrl());
   // Keep old bookmarks to feedback or constructor settings usable.
-  if (['#backend-title', '#lab-free-title'].includes(location.hash)) {
+  if (['#backend-title', '#lab-free-title'].includes(location.hash) && document.getElementById('lab-tools')) {
     document.getElementById('lab-tools').open = true;
   }
   if (location.hash === '#lab-results') document.getElementById('lab-results')?.scrollIntoView();
@@ -60,8 +60,7 @@
   document.querySelectorAll('#lab-tools .field-error, #lab-tools .errorlist').forEach(error => { if (error.textContent.trim()) openTools(); });
   const thread = document.getElementById('lab-thread');
   if (thread) {
-    const current = thread.querySelector('.lab-turn-current');
-    thread.scrollTop = current ? current.offsetTop - thread.offsetTop : thread.scrollHeight;
+    thread.scrollTop = thread.scrollHeight;
   }
 
   let generating = false;
@@ -84,6 +83,7 @@
     document.dispatchEvent(new Event('lab:preview-state'));
   }
   form.addEventListener('submit', event => {
+    if (event.defaultPrevented) return;
     if (event.submitter?.hasAttribute('formaction')) return;
     if (generating) { event.preventDefault(); return; }
     if (!form.checkValidity()) return;
@@ -196,9 +196,10 @@
       if (workspace && !workspace.active) return;
       if (!response.ok) throw new Error(data.error || 'Не удалось запустить сайт.');
       const url = new URL(data.url);
-      if (url.protocol !== 'http:' || url.hostname !== window.location.hostname
+      if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname)
           || Number(url.port) < 1024 || url.origin === window.location.origin
-          || url.username || url.password) {
+          || url.username || url.password
+          || (run.dataset.runtimeKind === 'generated' && url.hostname === window.location.hostname)) {
         throw new Error('Получен некорректный адрес предпросмотра.');
       }
       showSite(url.href, true);

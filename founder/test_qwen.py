@@ -30,7 +30,7 @@ def completion(text=HTML, *, finish="stop", usage=True):
     return data
 
 
-@override_settings(LAB_CODE_PROVIDER="cloudru", AI_PROVIDER="gigachat", QWEN_CODE_MODEL="Qwen/Qwen3-Coder-Next",
+@override_settings(OFOX_CODE_STREAM=False, LAB_CODE_PROVIDER="cloudru", OFOX_CODE_API="chat_completions", AI_PROVIDER="gigachat", QWEN_CODE_MODEL="Qwen/Qwen3-Coder-Next",
                    QWEN_CODE_MAX_TOKENS=8192, QWEN_CODE_TIMEOUT=90, LAB_PATCH_MAX_TOKENS=2048,
                    QWEN_PRICE_MODEL="Qwen/Qwen3-Coder-Next",
                    QWEN_INPUT_RUB_PER_MILLION="122", QWEN_OUTPUT_RUB_PER_MILLION="244")
@@ -93,6 +93,34 @@ class QwenTests(TestCase):
         self.assertEqual(row.accounted_micro_rub, 4420)
         self.assertEqual(row.status, 'success')
         self.assertEqual(settings.AI_PROVIDER, 'gigachat')
+
+    @override_settings(LAB_CODE_PROVIDER='ofox', OFOX_CODE_API='responses',
+                       OFOX_CODE_MODEL='anthropic/claude-sonnet-5.5', OFOX_PRICE_MODEL='anthropic/claude-sonnet-5.5',
+                       OFOX_INPUT_USD_PER_MILLION='2', OFOX_OUTPUT_USD_PER_MILLION='10', OFOX_USD_RUB_RATE='100')
+    def test_ofox_sonnet_responses_payload_and_pricing(self):
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            body = json.loads(request.content)
+            self.assertEqual(str(request.url), 'https://api.ofox.ai/v1/responses')
+            self.assertEqual(body['model'], 'anthropic/claude-sonnet-5.5')
+            self.assertEqual(body['max_output_tokens'], 4096)
+            self.assertEqual(body['temperature'], 0.3)
+            self.assertNotIn('reasoning', body)
+            return httpx.Response(200, json={'id':'resp_sonnet','object':'response','created_at':1,
+                'model':'anthropic/claude-sonnet-5.5','status':'completed',
+                'output':[{'id':'msg_sonnet','type':'message','role':'assistant','status':'completed',
+                           'content':[{'type':'output_text','text':HTML,'annotations':[]}]}],
+                'usage':{'input_tokens':42,'output_tokens':80,'total_tokens':122}})
+
+        self.use_transport(handler)
+        with patch.dict(os.environ, {'OFOX_API_KEY':'test-ofox-secret'}):
+            result = generate_code('system', [{'role':'user','content':'site'}], max_tokens=4096)
+        self.assertEqual(result.model, 'anthropic/claude-sonnet-5.5')
+        self.assertEqual(result.text, HTML)
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(LabAIUsage.objects.latest('created_at').accounted_micro_rub, 88400)
 
     @override_settings(LAB_CODE_PROVIDER="ofox")
     def test_ofox_never_uses_cloudru_key_if_its_own_key_is_missing(self):
@@ -169,6 +197,34 @@ class QwenTests(TestCase):
                 self.assertNotIn("PRIVATE", str(error.exception) + str(log.output))
                 self.assertNotIn("test-cloudru-secret", str(error.exception) + str(log.output))
 
+    @override_settings(LAB_CODE_PROVIDER='ofox', OFOX_CODE_API='responses',
+                       OFOX_CODE_MODEL='openai/gpt-6-luna', OFOX_PRICE_MODEL='openai/gpt-6-luna')
+    def test_ofox_gateway_failures_keep_usage_unknown_and_are_not_retried(self):
+        for status in (502, 503, 504):
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as folder, \
+                 override_settings(BASE_DIR=Path(folder)), patch.dict(os.environ, {'OFOX_API_KEY': 'test-ofox-secret'}):
+                calls = []
+
+                def handler(request):
+                    calls.append(request)
+                    return httpx.Response(status, json={'error': {'message': 'PRIVATE test-ofox-secret'}})
+
+                self.use_transport(handler)
+                with self.assertLogs('founder.services.qwen', 'WARNING') as log:
+                    with self.assertRaises(QwenError) as error:
+                        generate_code('system', [{'role': 'user', 'content': 'site'}])
+                self.assertIn(f'HTTP {status}', str(error.exception))
+                self.assertEqual(len(calls), 1)
+                row = LabAIUsage.objects.latest('created_at')
+                self.assertEqual(row.status, 'unknown')
+                self.assertIsNone(row.input_tokens)
+                self.assertIsNone(row.output_tokens)
+                trace = (Path(folder) / '.runtime' / 'lab-ai-diagnostics' / f'{row.pk}.json').read_text()
+                self.assertEqual(json.loads(trace)['http_status'], status)
+                public = str(error.exception) + str(log.output) + trace
+                self.assertNotIn('PRIVATE', public)
+                self.assertNotIn('test-ofox-secret', public)
+
     def test_timeout_has_no_automatic_retry(self):
         calls = []
         def handler(request):
@@ -195,6 +251,108 @@ class QwenTests(TestCase):
                 if "usage" in data:
                     self.assertEqual(record.status, "output_error")
                     self.assertEqual(record.output_tokens, 80)
+
+    def test_compatible_gateway_missing_finish_reason_still_validates_document(self):
+        self.use_transport(lambda request: httpx.Response(200, json=completion(finish=None)))
+        result = generate_site('Создай сайт')
+        self.assertIn('</html>', result.text)
+        self.use_transport(lambda request: httpx.Response(200, json=completion(text='', finish=None, usage=False)))
+        with self.assertRaisesMessage(QwenOutputError, 'пустой ответ без статуса завершения'):
+            generate_site('Создай сайт')
+
+    @override_settings(LAB_CODE_PROVIDER='ofox', OFOX_CODE_MODEL='openai/gpt-6-luna',
+                       OFOX_PRICE_MODEL='openai/gpt-6-luna', OFOX_PROVIDER_TYPE='openai')
+    def test_ofox_channel_is_sent_as_header_without_changing_model(self):
+        def handler(request):
+            self.assertEqual(request.headers['X-OfoxAI-Provider-Type'], 'openai')
+            self.assertEqual(json.loads(request.content)['model'], 'openai/gpt-6-luna')
+            return httpx.Response(200, json=completion())
+        self.use_transport(handler)
+        with patch.dict(os.environ, {'OFOX_API_KEY':'test-ofox-key'}):
+            generate_code('system', [{'role':'user', 'content':'test'}], max_tokens=2048)
+
+    def test_filtered_code_is_never_applied_and_diagnostics_exclude_raw_data(self):
+        data = completion(text=HTML, finish='content_filter')
+        data['choices'][0]['content_filter_results'] = {
+            'protected_material_code': {'filtered':True, 'detected':True, 'citation':'PRIVATE'},
+            'private_field': {'filtered':True, 'text':'PRIVATE'}}
+        with tempfile.TemporaryDirectory() as folder, override_settings(BASE_DIR=Path(folder)):
+            calls = []
+            def handler(request):
+                calls.append(request)
+                return httpx.Response(200, json=data)
+            self.use_transport(handler)
+            with self.assertRaisesMessage(QwenOutputError, 'Фильтр провайдера'):
+                generate_code('PRIVATE instruction', [{'role':'user', 'content':'PRIVATE prompt'}], max_tokens=2048)
+            self.assertEqual(len(calls), 1)
+            record = json.loads(next((Path(folder)/'.runtime/lab-ai-diagnostics').glob('*.json')).read_text())
+            self.assertEqual(record['filters']['output'], {'protected_material_code':{'filtered':True,'detected':True}})
+            self.assertNotIn('PRIVATE', json.dumps(record))
+            self.assertNotIn(HTML, json.dumps(record))
+            self.assertEqual(LabAIUsage.objects.get().status, 'output_error')
+
+    @override_settings(LAB_CODE_PROVIDER='ofox', OFOX_CODE_API='responses', OFOX_PROVIDER_TYPE='',
+                       OFOX_CODE_MODEL='openai/gpt-6-luna', OFOX_PRICE_MODEL='openai/gpt-6-luna')
+    def test_responses_protocol_keeps_model_source_limits_and_usage(self):
+        def handler(request):
+            self.assertEqual(str(request.url), 'https://api.ofox.ai/v1/responses')
+            body = json.loads(request.content)
+            self.assertEqual(body['model'], 'openai/gpt-6-luna')
+            self.assertEqual(body['instructions'], 'system')
+            self.assertEqual(body['reasoning'], {'effort':'low'})
+            self.assertFalse(body['store'])
+            self.assertEqual(body['max_output_tokens'], 2048)
+            self.assertEqual(body['input'][0]['content'][0]['text'], HTML)
+            self.assertEqual(body['input'][0]['content'][0]['type'], 'output_text')
+            self.assertEqual(body['input'][0]['status'], 'completed')
+            self.assertTrue(body['input'][0]['id'].startswith('msg_'))
+            return httpx.Response(200, json={'id':'resp_test','object':'response','created_at':1,
+                'model':'openai/gpt-6-luna','status':'completed',
+                'output':[{'id':'msg_test','type':'message','role':'assistant','status':'completed',
+                           'content':[{'type':'output_text','text':HTML,'annotations':[]}]}],
+                'usage':{'input_tokens':42,'output_tokens':80,'total_tokens':122}})
+        self.use_transport(handler)
+        with patch.dict(os.environ, {'OFOX_API_KEY':'test-ofox-key'}):
+            result = generate_code('system', [{'role':'assistant','content':HTML}, {'role':'user','content':'Измени заголовок'}], max_tokens=2048, reasoning_effort='low')
+        self.assertEqual(result.text, HTML)
+        self.assertEqual((result.input_tokens,result.output_tokens), (42,80))
+        self.assertEqual(LabAIUsage.objects.get().status, 'success')
+
+    @override_settings(LAB_CODE_PROVIDER='ofox', OFOX_CODE_API='responses', OFOX_PROVIDER_TYPE='',
+                       OFOX_CODE_MODEL='openai/gpt-6-luna', OFOX_PRICE_MODEL='openai/gpt-6-luna')
+    def test_responses_incomplete_and_refused_outputs_are_not_applied(self):
+        for reason in ('max_output_tokens','content_filter'):
+            with self.subTest(reason=reason):
+                self.use_transport(lambda request: httpx.Response(200, json={
+                    'id':'resp_test','object':'response','created_at':1,'model':'openai/gpt-6-luna',
+                    'status':'incomplete','incomplete_details':{'reason':reason},
+                    'output':[{'id':'msg_test','type':'message','role':'assistant','status':'incomplete',
+                               'content':[{'type':'output_text','text':HTML,'annotations':[]}]}],
+                    'usage':{'input_tokens':42,'output_tokens':80,'total_tokens':122}}))
+                with patch.dict(os.environ, {'OFOX_API_KEY':'test-ofox-key'}), self.assertRaises(QwenOutputError):
+                    generate_code('system', [{'role':'user','content':'test'}], max_tokens=2048)
+        self.assertFalse(LabAIUsage.objects.filter(status='success').exists())
+
+    @override_settings(LAB_CODE_PROVIDER='ofox', OFOX_CODE_API='responses', OFOX_PROVIDER_TYPE='',
+                       OFOX_CODE_MODEL='openai/gpt-6-luna', OFOX_PRICE_MODEL='openai/gpt-6-luna')
+    def test_model_refusal_is_distinct_from_upstream_filter_and_trace_has_no_text(self):
+        data = {'id':'resp_trace', 'object':'response', 'created_at':1,
+                'model':'openai/gpt-6-luna', 'status':'completed',
+                'output':[{'id':'msg_trace','type':'message','role':'assistant','status':'completed',
+                           'content':[{'type':'refusal','refusal':'PRIVATE refusal explanation'}]}],
+                'usage':{'input_tokens':42,'output_tokens':80,'total_tokens':122}}
+        with tempfile.TemporaryDirectory() as folder, override_settings(BASE_DIR=Path(folder)):
+            self.use_transport(lambda request: httpx.Response(200, json=data, headers={'x-request-id':'req_trace'}))
+            with patch.dict(os.environ, {'OFOX_API_KEY':'test-ofox-key'}), self.assertRaisesMessage(QwenOutputError, 'отказалась выполнить запрос'):
+                generate_code('system', [{'role':'user','content':'test'}], max_tokens=2048)
+            trace = json.loads(next((Path(folder)/'.runtime/lab-ai-diagnostics').glob('*.json')).read_text())
+            self.assertEqual(trace['finish_reason'], 'refusal')
+            self.assertEqual(trace['response_status'], 'completed')
+            self.assertTrue(trace['refusal'])
+            self.assertEqual(trace['provider_request_id'], 'req_trace')
+            self.assertEqual(trace['provider_response_id'], 'resp_trace')
+            self.assertNotIn('PRIVATE', json.dumps(trace))
+        self.assertEqual(LabAIUsage.objects.get().status, 'output_error')
 
     def test_missing_usage_is_unknown_not_zero(self):
         self.use_transport(lambda request: httpx.Response(200, json=completion(usage=False)))

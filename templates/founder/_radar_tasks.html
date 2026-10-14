@@ -14,6 +14,7 @@
           <form method="post" action="{% url 'evidence_create' startup.id %}" class="evidence-form hub-result-form" data-busy-form>{% csrf_token %}<input type="hidden" name="return_to" value="radar">{{ task.radar_result_form.task.as_hidden }}{{ task.radar_result_form.axis.as_hidden }}{{ task.radar_result_form.claim.as_hidden }}
             <label class="field"><span>Что получилось *</span>{{ task.radar_result_form.observation }}</label>
             <div class="hub-result-fields"><label class="field"><span>{{ task.radar_result_form.outcome.label }} *</span>{{ task.radar_result_form.outcome }}</label><label class="field"><span>{{ task.radar_result_form.observed_on.label }} *</span>{{ task.radar_result_form.observed_on }}</label></div>
+            <label class="field"><span>{{ task.radar_result_form.milestone.label }}</span>{{ task.radar_result_form.milestone }}</label>
             <label class="field"><span>{{ task.radar_result_form.source.label }} (необязательно)</span>{{ task.radar_result_form.source }}</label>
             <p class="muted small">Результат сохранится в дневнике, а задание будет завершено. Отрицательный результат тоже подходит.</p>
             <button type="submit" class="button primary" data-busy-label="Сохраняем результат…">Сохранить и завершить</button><span class="muted small" role="status" aria-live="polite"></span>

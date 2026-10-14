@@ -69,6 +69,8 @@ def setup_owner(request, token):
                 Membership.objects.filter(user=user).update(role='owner')
                 user.is_staff = user.is_superuser = True
                 user.save(update_fields=['is_staff','is_superuser'])
+                from .catalog_examples import claim_catalog_examples
+                claim_catalog_examples(user)
         except IntegrityError:
             form.add_error(None, 'Логин или email уже занят.')
         else:

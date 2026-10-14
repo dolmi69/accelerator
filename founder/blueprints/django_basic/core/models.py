@@ -63,6 +63,8 @@ class SiteControl(models.Model):
     """A single row protects the initial owner claim and site-wide preferences."""
     setup_claimed = models.BooleanField(default=False)
     allow_listings = models.BooleanField(default=False)
+    catalog_examples_initialized = models.BooleanField(default=False)
+    catalog_example_owner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
 
 
 class Membership(models.Model):

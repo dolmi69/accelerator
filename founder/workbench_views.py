@@ -110,6 +110,10 @@ def evidence_edit(request, startup_id, entry_id=None):
     startup = owned_startup(request, startup_id)
     entry = get_object_or_404(startup.evidence_entries, pk=entry_id) if entry_id else None
     initial = {}
+    if not entry and request.GET.get('milestone') in EvidenceEntry.Milestone.values:
+        milestone = request.GET['milestone']
+        initial = {'milestone': milestone,
+                   'axis': 'finance' if milestone in ('payment', 'repeat_payments') else 'market'}
     if not entry and request.GET.get('task'):
         try:
             task_id = UUID(request.GET['task'])

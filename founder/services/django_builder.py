@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import shutil
 import socket
 import subprocess
 import sys
@@ -58,6 +59,7 @@ def project_files(version):
         "name": (presentation.get("title") or version.startup.name) if isinstance(presentation, dict) else version.startup.name,
         "project_id": str(version.startup_id), "version_id": str(version.pk),
         'modules':normalize_modules(version.backend_modules),
+        'catalog_context': str(getattr(version.startup, 'one_line_pitch', '') or '')[:300],
     }, ensure_ascii=False, indent=2).encode("utf-8")
     return files
 
@@ -147,7 +149,25 @@ def _stop(directory, startup_id):
 
 def stop_runtime(startup_id):
     with _runtime_lock():
+        from founder.services.generated_runtime import stop_unlocked
+        stop_unlocked(startup_id)
         _stop(_directory(startup_id), startup_id)
+
+
+def delete_runtime(startup_id, owner_id):
+    """Stop and remove only the deleted project's local server and private DB."""
+    with _runtime_lock():
+        directory = _directory(startup_id)
+        from founder.services.generated_runtime import stop_unlocked
+        stop_unlocked(startup_id)
+        _stop(directory, startup_id)
+        if directory.is_symlink():
+            directory.unlink()
+        elif directory.exists():
+            shutil.rmtree(directory)
+        selected = _active_project(owner_id)
+        if selected and selected['project_id'] == str(startup_id):
+            _active_path(owner_id).unlink(missing_ok=True)
 
 
 def _active_path(owner_id):
@@ -170,6 +190,8 @@ def _stop_other_projects(owner_id, keep_startup_id):
     ids = StartupProfile.objects.filter(owner_id=owner_id).exclude(pk=keep_startup_id).values_list('pk', flat=True)
     for startup_id in ids:
         directory = _directory(startup_id)
+        from founder.services.generated_runtime import stop_unlocked
+        stop_unlocked(startup_id)
         if (directory / 'runtime.json').exists():
             _stop(directory, startup_id)
 
@@ -198,6 +220,9 @@ def _atomic_write(path, content):
 
 
 def start_runtime(version, *, launcher_origin=None, return_path=None, selection_token=None):
+    if version.kind == LabSiteVersion.Kind.GENERATED:
+        from founder.services.generated_runtime import start
+        return start(version, launcher_origin=launcher_origin, return_path=return_path, selection_token=selection_token)
     if not settings.LAB_BACKEND_RUNTIME_ENABLED:
         raise BuilderError("Локальный автозапуск отключён. Скачайте Django-проект и запустите его отдельно.")
     files = project_files(version)
@@ -235,6 +260,8 @@ def start_runtime(version, *, launcher_origin=None, return_path=None, selection_
                       if child.is_dir() and child != directory)
         if running >= settings.LAB_BACKEND_MAX_RUNNING:
             raise BuilderError("Локальная лаборатория занята другими пользователями. Попробуйте запустить сайт позже.")
+        from founder.services.generated_runtime import stop_unlocked
+        stop_unlocked(version.startup_id)
         _stop(directory, version.startup_id)
         for name, content in files.items():
             path = project / name

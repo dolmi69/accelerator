@@ -5,14 +5,15 @@ from django.db import IntegrityError, transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from founder.community_views import published_cards
-from founder.forms import JoinRequestForm, TeamInviteForm
+from founder.forms import JoinRequestForm, StartupDeleteForm, TeamInviteForm
 from founder.models import BrunoTask, ProjectMember
 from founder.services import activity
 from founder.services.access import OWNER, ROLE_LABELS, get_startup
 from founder.services.messaging import blocked_pair
+from founder.services.project_deletion import delete_project
 from founder.services.request_limits import RequestLimitExceeded, consume_limit
 
 
@@ -50,6 +51,32 @@ def _release_tasks(member):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
+def startup_delete(request, startup_id):
+    startup = _owner_startup(request, startup_id)
+    form = StartupDeleteForm(request.POST if request.method == "POST" else None, startup=startup)
+    if request.method == "POST" and form.is_valid():
+        name = startup.name
+        delete_project(startup)
+        messages.success(request, f"Проект «{name}» удалён.")
+        return redirect("home")
+    return render(request, "founder/team_confirm_delete.html", {
+        "startup": startup, "workspace_tab": "team", "delete_form": form,
+    }, status=400 if request.method == "POST" else 200)
+
+
+@login_required
+@require_GET
+def team_member_remove(request, startup_id, member_id):
+    startup = _owner_startup(request, startup_id)
+    member = get_object_or_404(startup.members.select_related("user"), pk=member_id,
+                             status=ProjectMember.Status.ACTIVE)
+    return render(request, "founder/team_confirm_delete.html", {
+        "startup": startup, "workspace_tab": "team", "removed_member": member,
+    })
+
+
+@login_required
 @require_POST
 def team_invite(request, startup_id):
     startup = _owner_startup(request, startup_id)
@@ -78,9 +105,10 @@ def team_member_update(request, startup_id, member_id):
     handle = member.user.handle
     if action == "remove":
         was_active = member.status == ProjectMember.Status.ACTIVE
-        member.delete()
-        if was_active:
+        with transaction.atomic():
             _release_tasks(member)
+            member.delete()
+        if was_active:
             activity.log(startup, request.user, activity.Kind.TEAM, f"@{handle} больше не в команде")
             messages.success(request, f"@{handle} больше не в команде проекта.")
         else:

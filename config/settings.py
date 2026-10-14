@@ -127,11 +127,19 @@ LAB_BRUNO_PRICE_MODEL = os.getenv("LAB_BRUNO_PRICE_MODEL", "GigaChat-2-Pro")
 LAB_BRUNO_RUB_PER_MILLION = os.getenv("LAB_BRUNO_RUB_PER_MILLION", "500")
 CLOUDRU_MODEL = os.getenv("CLOUDRU_MODEL", "ai-sage/GigaChat3-10B-A1.8B")
 LAB_CODE_PROVIDER = os.getenv("LAB_CODE_PROVIDER", "cloudru").lower()
-OFOX_CODE_MODEL = os.getenv("OFOX_CODE_MODEL", "openai/gpt-6-luna")
+# Temporary experiments: full model output, no ready modules or free editor.
+LAB_RAW_AI_TEST_MODE = os.getenv("LAB_RAW_AI_TEST_MODE", "0") == "1" and sys.argv[1:2] != ["test"]
+# Explicit, temporary local experiment; never enabled by .env on production.
+LAB_UNRESTRICTED_TEST_MODE = DEBUG and os.getenv("LAB_UNRESTRICTED_TEST_MODE", "0") == "1" and sys.argv[1:2] != ["test"]
+OFOX_CODE_MODEL = os.getenv("OFOX_CODE_MODEL", "openai/gpt-6.1-sol")
+OFOX_CODE_API = os.getenv("OFOX_CODE_API", "responses").strip().lower()
+OFOX_CODE_STREAM = os.getenv("OFOX_CODE_STREAM", "1").strip().lower() in {"1", "true", "yes"}
+# Pin an upstream channel for reproducible tests; empty uses Ofox routing.
+OFOX_PROVIDER_TYPE = os.getenv("OFOX_PROVIDER_TYPE", "").strip().lower()
 OFOX_CODE_REASONING_EFFORT = os.getenv("OFOX_CODE_REASONING_EFFORT", "medium")
-OFOX_PRICE_MODEL = os.getenv("OFOX_PRICE_MODEL", "openai/gpt-6-luna")
-OFOX_INPUT_USD_PER_MILLION = os.getenv("OFOX_INPUT_USD_PER_MILLION", "0.10")
-OFOX_OUTPUT_USD_PER_MILLION = os.getenv("OFOX_OUTPUT_USD_PER_MILLION", "0.50")
+OFOX_PRICE_MODEL = os.getenv("OFOX_PRICE_MODEL", "openai/gpt-6.1-sol")
+OFOX_INPUT_USD_PER_MILLION = os.getenv("OFOX_INPUT_USD_PER_MILLION", "2")
+OFOX_OUTPUT_USD_PER_MILLION = os.getenv("OFOX_OUTPUT_USD_PER_MILLION", "10")
 # An explicit accounting estimate, not a live currency quote or customer charge.
 OFOX_USD_RUB_RATE = os.getenv("OFOX_USD_RUB_RATE", "100")
 # Independent from AI_PROVIDER: website generation must not switch Bruno's model.
@@ -147,12 +155,22 @@ LAB_BACKEND_MAX_RUNNING = 3
 # A complete first design gets room to finish; edits remain small JSON patches.
 LAB_CREATE_MAX_TOKENS = int(os.getenv("LAB_CREATE_MAX_TOKENS", "16384"))
 LAB_PATCH_MAX_TOKENS = int(os.getenv("LAB_PATCH_MAX_TOKENS", "2048"))
+LAB_CHAT_MAX_TOKENS = int(os.getenv("LAB_CHAT_MAX_TOKENS", "2048"))
 LAB_PATCH_MAX_RESPONSE_CHARS = int(os.getenv("LAB_PATCH_MAX_RESPONSE_CHARS", "24000"))
 LAB_PATCH_MAX_FIND_CHARS = int(os.getenv("LAB_PATCH_MAX_FIND_CHARS", "6000"))
 LAB_PATCH_MAX_REPLACEMENT_CHARS = int(os.getenv("LAB_PATCH_MAX_REPLACEMENT_CHARS", "12000"))
 LAB_CREATE_TEMPERATURE = float(os.getenv("LAB_CREATE_TEMPERATURE", "0.6"))
 LAB_PATCH_TEMPERATURE = float(os.getenv("LAB_PATCH_TEMPERATURE", "0.2"))
 QWEN_INPUT_BYTE_LIMIT = int(os.getenv("QWEN_INPUT_BYTE_LIMIT", "32000"))
+if LAB_UNRESTRICTED_TEST_MODE:
+    # Catalog maximum for the current Ofox Sonnet/GPT models, not an app budget.
+    QWEN_CODE_MAX_TOKENS = 128000
+    LAB_CREATE_MAX_TOKENS = 128000
+    LAB_PATCH_MAX_TOKENS = 128000
+    LAB_CHAT_MAX_TOKENS = 128000
+    LAB_PATCH_MAX_RESPONSE_CHARS = 1024000
+    LAB_PATCH_MAX_FIND_CHARS = 1024000
+    LAB_PATCH_MAX_REPLACEMENT_CHARS = 1024000
 # RUB / million tokens, native Cloud.ru Qwen3-Coder-Next daytime rate incl. VAT.
 # A model change requires its own matching price settings; no cheap-model fallback.
 QWEN_PRICE_MODEL = os.getenv("QWEN_PRICE_MODEL", "Qwen/Qwen3-Coder-Next")
@@ -203,3 +221,6 @@ BRUNO_MENTOR_PLAN = os.getenv("BRUNO_MENTOR_PLAN", "1") == "1" and sys.argv[1:2]
 # Поиск в открытых источниках для анализа рынка: exa (без ключа через MCP, с EXA_API_KEY через API,
 # DuckDuckGo запасной), duckduckgo или off. В юнит-тестах выключен: они не ходят в сеть.
 MARKET_SEARCH = "off" if sys.argv[1:2] == ["test"] else os.getenv("MARKET_SEARCH", "exa").lower()
+
+# Separate complete model outputs for server and interface; no template modules.
+LAB_BACKEND_STAGED_GENERATION = os.getenv("LAB_BACKEND_STAGED_GENERATION", "1").strip().lower() in {"1", "true", "yes"}

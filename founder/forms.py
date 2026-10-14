@@ -20,6 +20,24 @@ class RegisterForm(HandleValidationMixin, UserCreationForm):
         fields = ("username", "handle", "email", "password1", "password2")
 
 
+class StartupDeleteForm(forms.Form):
+    confirmation_name = forms.CharField(
+        label="Название проекта для подтверждения", max_length=160,
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+        error_messages={"required": "Введите название проекта, чтобы подтвердить удаление."},
+    )
+
+    def __init__(self, *args, startup, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.startup = startup
+
+    def clean_confirmation_name(self):
+        name = self.cleaned_data["confirmation_name"]
+        if name != self.startup.name.strip():
+            raise forms.ValidationError("Название не совпадает. Проект не удалён.")
+        return name
+
+
 class StartupForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -44,6 +62,7 @@ class StartupForm(forms.ModelForm):
 
 
 class LabPromptForm(forms.Form):
+    message_mode = forms.ChoiceField(required=False, choices=[('auto', 'Автоматически'), ('discuss', 'Обсудить'), ('edit', 'Изменить сайт')])
     edit_scope = forms.ChoiceField(label="Что дорабатываем", required=False, choices=[("auto", "Автоматически")])
     rebuild = forms.BooleanField(label="Полностью пересобрать сайт (больше расход AI)", required=False)
 
@@ -69,7 +88,7 @@ class LabPromptForm(forms.Form):
         widget=forms.Textarea(attrs={
             "rows": 5,
             "maxlength": 2000,
-            "placeholder": "Напиши, что нужно создать или изменить…",
+            "placeholder": "Спросите о сайте или опишите, что изменить…",
         }),
     )
 
@@ -167,7 +186,7 @@ class ChatSendForm(forms.Form):
 class EvidenceForm(forms.ModelForm):
     class Meta:
         model = EvidenceEntry
-        fields = ('task', 'axis', 'claim', 'observation', 'observed_on', 'outcome', 'source', 'source_url', 'next_question')
+        fields = ('task', 'axis', 'claim', 'observation', 'observed_on', 'outcome', 'milestone', 'source', 'source_url', 'next_question')
         labels = {'task': 'Связанное задание (необязательно)'}
         widgets = {
             'observation': forms.Textarea(attrs={'rows': 5, 'placeholder': 'Например: показали прототип пяти владельцам магазинов. Двое согласились на пилот, оплат пока нет.'}),
@@ -180,6 +199,7 @@ class EvidenceForm(forms.ModelForm):
         self.instance.startup = startup
         self.fields['task'].queryset = startup.bruno_tasks.all()
         self.fields['task'].label_from_instance = lambda task: task.title
+        self.fields['milestone'].choices = [('', 'Обычное наблюдение'), *EvidenceEntry.Milestone.choices]
         if self.instance.pk and not self.instance._state.adding:
             self.fields['task'].disabled = True
 

@@ -3,12 +3,14 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from core.models import Membership, SiteControl
+from core.catalog_examples import seed_catalog_examples
 
 
 class Command(BaseCommand):
     help = 'Prepare the private one-time owner link. Never includes accelerator credentials.'
 
     def handle(self,*args,**options):
+        seed_catalog_examples()
         control,_ = SiteControl.objects.get_or_create(pk=1)
         path = settings.BASE_DIR / '.owner-setup'
         if Membership.objects.filter(role='owner').exists() or get_user_model().objects.filter(is_superuser=True).exists():

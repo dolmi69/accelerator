@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=5">
   <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=2">
   <link rel="stylesheet" href="{% static 'founder/css/coins.css' %}?v=5">
-  <link rel="stylesheet" href="{% static 'founder/css/project-workspace.css' %}?v=6">
+  <link rel="stylesheet" href="{% static 'founder/css/project-workspace.css' %}?v=9">
   {% block extra_css %}{% endblock %}
 </head>
 <body class="{% if startup and request.user.is_authenticated %}project-shell {% endif %}{% if workspace_tab == 'lab' %}lab-shell {% endif %}{% if startup.user_role == 'viewer' %}is-viewer{% endif %}">

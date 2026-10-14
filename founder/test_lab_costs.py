@@ -1,5 +1,6 @@
 """Meaningful spend boundaries: local edits, exact patches, cache and failed calls."""
 import json
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.test import TestCase, TransactionTestCase, override_settings
@@ -44,6 +45,23 @@ class CostTests(TestCase):
         self.assertEqual(usage.user_id, self.user.pk)
         self.assertEqual(usage_summary(self.user)['input_tokens'], 100)
 
+    def test_measurement_reset_survives_switching_to_new_project(self):
+        previous = self.reserve()
+        settle(previous, input_tokens=100, output_tokens=20, status='success')
+        self.user.lab_measurement_started_at = timezone.now()
+        self.user.save(update_fields=['lab_measurement_started_at'])
+        other = StartupProfile.objects.create(owner=self.user, name='New test')
+        self.assertEqual(usage_summary(self.user, other)['accounted_rub'], 0)
+        self.assertEqual(usage_summary(self.user, other)['input_tokens'], 0)
+        with billing_scope(self.user, other, 'create'):
+            current = reserve(MODEL, [{'role':'user', 'content':'hello'}], 2048)
+        settle(current, input_tokens=40, output_tokens=10, status='success')
+        summary = usage_summary(self.user, other)
+        self.assertEqual(summary['attempts'], 1)
+        self.assertEqual(summary['input_tokens'], 40)
+        self.assertGreater(summary['monthly_accounted_rub'], summary['accounted_rub'])
+        self.assertEqual(LabAIUsage.objects.filter(user=self.user).count(), 2)
+
     def test_unknown_usage_retains_reserve(self):
         usage = self.reserve()
         initial = usage.accounted_micro_rub
@@ -52,7 +70,10 @@ class CostTests(TestCase):
         self.assertEqual(usage.status, 'unknown')
         self.assertIsNone(usage.output_tokens)
         self.assertEqual(usage.accounted_micro_rub, initial)
-        self.assertEqual(usage_summary(self.user)['uncertain'], 1)
+        summary = usage_summary(self.user)
+        self.assertEqual(summary['uncertain'], 1)
+        self.assertEqual(summary['known_rub'], 0)
+        self.assertEqual(summary['reserved_rub'], summary['accounted_rub'])
 
     def test_each_budget_blocks_before_provider_and_rolls_back(self):
         for setting in ['LAB_MAX_REQUEST_RUB','LAB_USER_DAILY_RUB','LAB_USER_MONTHLY_RUB','LAB_GLOBAL_DAILY_RUB','LAB_GLOBAL_MONTHLY_RUB']:
@@ -60,6 +81,37 @@ class CostTests(TestCase):
                 with self.assertRaises(CostLimitError): self.reserve()
                 self.assertEqual(LabSpendBucket.objects.count(), 0)
                 self.assertEqual(LabAIUsage.objects.count(), 0)
+
+    @override_settings(LAB_UNRESTRICTED_TEST_MODE=True, QWEN_INPUT_BYTE_LIMIT=1,
+                       LAB_MAX_REQUEST_RUB='0', LAB_USER_DAILY_RUB='0', LAB_USER_MONTHLY_RUB='0',
+                       LAB_GLOBAL_DAILY_RUB='0', LAB_GLOBAL_MONTHLY_RUB='0')
+    def test_unrestricted_mode_bypasses_caps_but_keeps_accounting(self):
+        from founder.lab_views import _consume_lab_limits
+        with patch('founder.lab_views.consume_limit') as limit:
+            _consume_lab_limits(self.user, personal=True)
+            _consume_lab_limits(self.user)
+            limit.assert_not_called()
+        usage = self.reserve()
+        self.assertEqual(LabSpendBucket.objects.count(), 4)
+        settle(usage, input_tokens=100, output_tokens=20, status='success')
+        self.assertEqual(set(LabSpendBucket.objects.values_list('micro_rub', flat=True)), {17080})
+        self.assertEqual(usage_summary(self.user)['known_rub'], Decimal('0.01708'))
+        with override_settings(LAB_UNRESTRICTED_TEST_MODE=False):
+            with self.assertRaises(CostLimitError):
+                self.reserve()
+        self.assertEqual(LabAIUsage.objects.count(), 1)
+
+    @override_settings(LAB_UNRESTRICTED_TEST_MODE=True, LAB_RAW_AI_TEST_MODE=True,
+                       QWEN_CODE_MAX_TOKENS=128000, LAB_CREATE_MAX_TOKENS=128000)
+    def test_large_raw_document_is_accepted_and_provider_cap_is_passed(self):
+        large = '<!doctype html><html><head><title>Test</title></head><body>' + (' ' * 130000) + '<p>Done</p></body></html>'
+        with patch('founder.services.site_generator.generate_code', return_value=CodeResult(large, MODEL, 10, 20)) as provider:
+            result = generate_site('Обнови сайт', previous_html=large)
+        self.assertEqual(result.text, large)
+        self.assertEqual(provider.call_args.kwargs['max_tokens'], 128000)
+        with override_settings(LAB_UNRESTRICTED_TEST_MODE=False):
+            with self.assertRaises(QwenError):
+                generate_site('Обнови сайт', previous_html=large)
 
     def test_model_change_requires_own_prices_and_big_context_is_blocked(self):
         with self.assertRaises(CostLimitError): reserve('different-model', [{'content':'x'}], 20)

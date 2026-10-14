@@ -20,13 +20,14 @@ def design_pending(version):
     return False
 
 
-def design_context(startup, modules, presentation=None, source=None):
+def design_context(startup, modules, presentation=None, source=None, *, include_discussion=True):
     """Only compact project facts; no account data, secrets or conversation dump."""
     context = {
         'name': startup.name,
         'description': startup.one_line_pitch,
         'audience': startup.target_customer[:500],
         'solution': startup.solution[:500],
+        'problem': startup.problem[:500],
         'modules': modules,
         'appearance': presentation or {},
     }
@@ -36,4 +37,11 @@ def design_context(startup, modules, presentation=None, source=None):
         facts['content'] = facts['content'][:600]
         facts['fields'] = facts['fields'][:6]
         context['prototype'] = facts
+        context['last_request'] = source.prompt[:300]
+        context['last_report'] = {key: value for key, value in source.bruno_report.items() if key in ('title', 'items')}
+        # Keep context bounded, including old reports with lengthy items.
+        context['last_report'] = str(context['last_report'])[:500]
+        if include_discussion:
+            from founder.services.lab_conversation import recent_context
+            context['recent_discussion'] = recent_context(startup, limit=2, source=source)
     return context

@@ -18,7 +18,8 @@ from django.views.decorators.cache import never_cache
 from django.db import OperationalError, transaction
 
 from founder.forms import LabPromptForm, LabCustomizeForm, LabBackendModulesForm
-from founder.models import LabSiteVersion, StartupProfile, LabAIUsage
+from founder.models import LabSiteVersion, StartupProfile, LabAIUsage, LabConversationTurn
+from founder.services.lab_conversation import route_message, discussion_reply, local_answer, suggestion_for
 from founder.services.qwen import QwenError, QwenOutputError
 from founder.services.site_generator import generate_site, GENERATOR_REVISION
 from founder.services.lab_design import design_context, design_pending
@@ -46,6 +47,25 @@ def _version(startup, value):
     return get_object_or_404(startup.lab_versions.select_related('source'), pk=version_id)
 
 
+def _model_label(model):
+    return {'openai/gpt-6-luna': 'GPT‑6 Luna',
+            'openai/gpt-6.1-sol': 'GPT‑6.1 Sol',
+            'anthropic/claude-sonnet-5.5': 'Claude Sonnet 5.5'}.get(model, model)
+
+
+def _consume_lab_limits(user, *, personal=False):
+    if settings.LAB_UNRESTRICTED_TEST_MODE:
+        return
+    consume_limit(f'ai-minute:{user.pk}', settings.AI_REQUESTS_PER_MINUTE, 60)
+    consume_limit(f'ai-day:{user.pk}', settings.AI_REQUESTS_PER_DAY, 86400)
+    if personal:
+        from founder.services.plans import quota
+        daily_limit = quota(user, 'lab_requests_per_day')
+        if daily_limit > 0:
+            consume_limit(f'lab-day:{user.pk}', daily_limit, 86400)
+    consume_limit('lab-global-day', settings.LAB_GLOBAL_REQUESTS_PER_DAY, 86400)
+
+
 def _lab_page(request, startup, form=None, *, status=200):
     versions = list(startup.lab_versions.select_related('source')[:20])
     selected = _version(startup, request.GET["version"]) if request.GET.get("version") else (
@@ -57,6 +77,14 @@ def _lab_page(request, startup, form=None, *, status=200):
         versions.append(selected)
     for version in versions:
         version.history_reply = saved_reply(version)
+        version.model_label = _model_label(version.model)
+    if selected:
+        selected.model_label = _model_label(selected.model)
+    timeline = [{'version': version, 'created_at': version.created_at} for version in versions]
+    for turn in startup.lab_conversation.select_related('user')[:20]:
+        turn.reply = {**turn.reply, 'suggestion': suggestion_for(turn.prompt, turn.reply)}
+        timeline.append({'discussion': turn, 'created_at': turn.created_at})
+    timeline.sort(key=lambda turn: turn['created_at'])
     backend_form = LabBackendModulesForm(request.POST if form is not None and request.POST.get('modules_selected') else None, initial={'modules': [key for key in selected.backend_modules if key in OPTIONAL_MODULES]
         if selected and selected.kind == 'django' else DEFAULT_OPTIONAL})
     checkboxes = {widget.data['value']: widget for widget in backend_form['modules']}
@@ -77,19 +105,24 @@ def _lab_page(request, startup, form=None, *, status=200):
     return render(request, "founder/lab.html", {
         "startup": startup,
         "workspace_tab": "lab",
-        "form": form or LabPromptForm(source=selected, initial={"kind": selected.kind if selected else LabSiteVersion.Kind.STATIC}),
+        "raw_ai_test": settings.LAB_RAW_AI_TEST_MODE,
+        "backend_staged": settings.LAB_BACKEND_STAGED_GENERATION,
+        "lab_model_label": _model_label(settings.OFOX_CODE_MODEL if settings.LAB_CODE_PROVIDER == 'ofox' else settings.QWEN_CODE_MODEL),
+        "lab_provider_label": 'Ofox' if settings.LAB_CODE_PROVIDER == 'ofox' else 'Cloud.ru',
+        "form": form or LabPromptForm(source=selected, initial={"kind": LabSiteVersion.Kind.GENERATED if settings.LAB_RAW_AI_TEST_MODE else selected.kind if selected else LabSiteVersion.Kind.STATIC}),
         'backend_form': backend_form,
         'module_groups': [{'title': title, 'fields': [checkboxes[key] for key in keys]} for title, keys in MODULE_GROUPS],
         'lab_section': section,
         'backend_labels':[MODULES[key][0] for key in normalize_modules(selected.backend_modules)] if selected and selected.kind == 'django' else [],
-        "usage": usage_summary(request.user),
+        "usage": usage_summary(request.user, startup),
         "selected": selected,
         "lab_reply": reply,
         "lab_reply_key": reply_key if selected or status >= 400 else '',
         "lab_reply_mascot": {"mood": reply["mood"], "get_mood_display": "готов помочь"},
-        "design_pending": design_pending(selected),
+        "design_pending": design_pending(selected) and not settings.LAB_RAW_AI_TEST_MODE,
         "large_design": bool(selected and len(selected.html.encode('utf-8')) > 18_000),
         "versions": versions,
+        "lab_timeline": timeline,
         "publication": publication_for(startup),
         "results": test_results(selected) if selected else None,
         "card_published": hasattr(startup, 'project_card') and startup.project_card.published_at is not None,
@@ -102,7 +135,7 @@ def _lab_page(request, startup, form=None, *, status=200):
 def _reply_redirect(request, startup, version, source=None, *, cached=False, incomplete=False):
     reply = None
     if incomplete:
-        reply = incomplete_reply(source)
+        reply = saved_reply(version)
     elif cached:
         reply = {**saved_reply(version), 'title': 'Открыл сохранённый результат',
                  'usage': 'Новый AI-запрос не понадобился · 0 токенов'}
@@ -123,10 +156,11 @@ def lab(request, startup_id):
 
 
 def generation_key(startup, source, prompt, kind, scope="auto", rebuild=False, modules=None, context=None):
-    code_profile = (f"ofox/{settings.OFOX_CODE_MODEL}/{settings.OFOX_CODE_REASONING_EFFORT}"
+    code_profile = (f"ofox/{settings.OFOX_CODE_MODEL}/{settings.OFOX_CODE_REASONING_EFFORT}/{settings.OFOX_CODE_API}/{settings.OFOX_PROVIDER_TYPE or 'auto'}"
                     if settings.LAB_CODE_PROVIDER == "ofox" else settings.QWEN_CODE_MODEL)
     return hashlib.sha256(json.dumps([
         GENERATOR_REVISION, str(startup.pk), str(source.pk) if source else None,
+        settings.LAB_RAW_AI_TEST_MODE,
         hashlib.sha256(source.html.encode()).hexdigest() if source else None,
         prompt, kind, scope, rebuild, code_profile,
         settings.LAB_CREATE_MAX_TOKENS, settings.LAB_PATCH_MAX_TOKENS,
@@ -148,14 +182,19 @@ def lab_generate(request, startup_id):
     if request.POST.get("start_new"):
         source = None
     prompt = form.cleaned_data["prompt"]
+    # Legacy clients explicitly call the generator. The new composer sends auto.
+    if route_message(prompt, form.cleaned_data.get('message_mode') or 'edit', has_site=bool(source)) == 'discuss':
+        return _lab_discuss(request, startup, source, form)
     try:
         request_policy(prompt)
     except LabRequestRejected as exc:
         form.add_error(None, str(exc))
         return _lab_page(request, startup, form, status=400)
-    kind = form.cleaned_data["kind"]
-    chosen = source.backend_modules if source and source.kind == 'django' else normalize_modules() if kind == 'django' else []
-    if request.POST.get('modules_selected'):
+    raw = settings.LAB_RAW_AI_TEST_MODE or form.cleaned_data['kind'] == LabSiteVersion.Kind.GENERATED
+    kind = (LabSiteVersion.Kind.GENERATED if form.cleaned_data['kind'] == LabSiteVersion.Kind.GENERATED
+            else LabSiteVersion.Kind.STATIC if raw else form.cleaned_data["kind"])
+    chosen = [] if raw else source.backend_modules if source and source.kind == 'django' else normalize_modules() if kind == 'django' else []
+    if not raw and request.POST.get('modules_selected'):
         module_form = LabBackendModulesForm(request.POST)
         if not module_form.is_valid():
             form.add_error(None, 'Выберите модули из списка.')
@@ -165,8 +204,8 @@ def lab_generate(request, startup_id):
             kind = LabSiteVersion.Kind.DJANGO
         else:
             chosen = []
-    scope = form.cleaned_data["edit_scope"] or "auto"
-    rebuild = form.cleaned_data["rebuild"]
+    scope = "auto" if raw else form.cleaned_data["edit_scope"] or "auto"
+    rebuild = True if raw else form.cleaned_data["rebuild"]
     rename = text_command(prompt) if source and scope == 'auto' and not rebuild and not simple_command(prompt) else None
     if rename and chosen == source.backend_modules:
         old, new = rename
@@ -200,9 +239,12 @@ def lab_generate(request, startup_id):
         _log_version(request, startup, source, version)
         messages.success(request,'Готовые модули подключены без AI: 0 токенов. Запустите сайт ниже.')
         return _reply_redirect(request, startup, version, source)
-    context = design_context(startup, chosen, source.presentation if source else {}, source)
-    key = generation_key(startup, source, prompt, kind, scope, rebuild, chosen, context)
-    cached = startup.lab_versions.filter(generation_key=key).first()
+    context = design_context(startup, chosen, {} if raw else source.presentation if source else {}, source)
+    if raw:
+        context['mode'] = 'generated_backend' if kind == LabSiteVersion.Kind.GENERATED else 'raw_static_experiment'
+    # An experiment must invoke the model even for identical prompts.
+    key = None if raw else generation_key(startup, source, prompt, kind, scope, rebuild, chosen, context)
+    cached = startup.lab_versions.filter(generation_key=key).first() if key else None
     if cached:
         messages.success(request, "Открыли уже сохранённый результат. Новый AI-запрос не понадобился.")
         return _reply_redirect(request, startup, cached, source, cached=True)
@@ -214,23 +256,17 @@ def lab_generate(request, startup_id):
         return _reply_redirect(request, startup, version, source)
     generating_design = False
     feedback = None
-    presentation = source.presentation if source else {}
+    presentation = {} if raw else source.presentation if source else {}
     try:
         # Check after free edits/cache lookup. Middleware releases this lease.
         with transaction.atomic():
             # One Qwen call plus validation; no paid planning/review rounds.
             request.ai_lease = acquire_ai_lease(request.user.pk,
-                ttl_seconds=max(600, int(settings.QWEN_CODE_TIMEOUT) + 180))
-            consume_limit(f"ai-minute:{request.user.pk}", settings.AI_REQUESTS_PER_MINUTE, 60)
-            consume_limit(f"ai-day:{request.user.pk}", settings.AI_REQUESTS_PER_DAY, 86400)
-            # Zero disables the personal cap during local development.
-            from founder.services.plans import quota
-            daily_limit = quota(request.user, 'lab_requests_per_day')
-            if daily_limit > 0:
-                consume_limit(f"lab-day:{request.user.pk}", daily_limit, 86400)
-            consume_limit("lab-global-day", settings.LAB_GLOBAL_REQUESTS_PER_DAY, 86400)
+                ttl_seconds=max(600, int(settings.QWEN_CODE_TIMEOUT) *
+                    (2 if kind == LabSiteVersion.Kind.GENERATED and settings.LAB_BACKEND_STAGED_GENERATION else 1) + 180))
+            _consume_lab_limits(request.user, personal=True)
         # A concurrent request may have completed between cache lookup and lease.
-        cached = startup.lab_versions.filter(generation_key=key).first()
+        cached = startup.lab_versions.filter(generation_key=key).first() if key else None
         if cached:
             return _reply_redirect(request, startup, cached, source, cached=True)
         generating_design = True
@@ -242,7 +278,9 @@ def lab_generate(request, startup_id):
         if result.add_modules:
             chosen = normalize_modules([*chosen, *result.add_modules])
             kind = LabSiteVersion.Kind.DJANGO
-        feedback = validate_result(prompt, source, result, chosen)
+        feedback = ({**result.report, 'checks': {'generation_mode': 'generated_backend',
+                    'review_mode': 'local', 'runtime_verified': False}} if kind == LabSiteVersion.Kind.GENERATED
+                    else validate_result(prompt, source, result, chosen))
     except RequestLimitExceeded as exc:
         form.add_error(None, str(exc))
         return _lab_page(request, startup, form, status=429)
@@ -254,7 +292,9 @@ def lab_generate(request, startup_id):
         return _lab_page(request, startup, form, status=400)
     except QwenOutputError as exc:
         if generating_design and kind == LabSiteVersion.Kind.DJANGO:
-            version = _backend_version(startup, source, chosen, prompt, report=incomplete_reply(source))
+            failure_report = incomplete_reply(source)
+            failure_report["items"] = [str(exc), *failure_report["items"]]
+            version = _backend_version(startup, source, chosen, prompt, report=failure_report)
             messages.warning(request, 'AI не завершил дизайн. Сохранили рабочую Django-основу с выбранными модулями без дополнительного AI-запроса. Незавершённый ответ мог быть оплачен; повторную генерацию запускайте только по желанию.')
             return _reply_redirect(request, startup, version, source, incomplete=True)
         form.add_error(None, str(exc))
@@ -277,16 +317,111 @@ def lab_generate(request, startup_id):
         html=result.text, model=result.model,
         input_tokens=result.input_tokens, output_tokens=result.output_tokens,
         generation_key=key, edit_method=result.edit_method,
-        presentation=presentation, backend_modules=chosen, feedback=feedback,
+        presentation=presentation, backend_modules=chosen, backend_files=result.backend_files, feedback=feedback,
     )
     if result.request_id or result.request_ids:
         LabAIUsage.objects.filter(pk__in=result.request_ids or (result.request_id,), user=request.user, startup=startup).update(version=version)
     _log_version(request, startup, source, version)
-    messages.success(request, "Готовая правка применена. Qwen распознал запрос; генерация кода не понадобилась." if intent else "Правка сохранена. Отчёт Qwen и ограничения — под прототипом.")
+    messages.success(request, "Готовая правка применена; генерация кода не понадобилась." if intent else "Правка сохранена. Отчёт Бруно — в истории сообщений.")
     return redirect("lab", startup_id=startup.pk)
 
 
+@login_required
+@require_POST
+def lab_route(request, startup_id):
+    startup = _owned_startup(request, startup_id)
+    source = _version(startup, request.POST['source_version']) if request.POST.get('source_version') else None
+    form = LabPromptForm(request.POST, source=source)
+    if not form.is_valid():
+        return JsonResponse({'error': 'Напишите сообщение до 2000 символов.'}, status=400)
+    from founder.services.lab_bruno import protect_service_secrets
+    try:
+        protect_service_secrets(form.cleaned_data['prompt'])
+    except LabRequestRejected as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+    return JsonResponse({'route': route_message(form.cleaned_data['prompt'],
+        form.cleaned_data.get('message_mode') or 'auto', has_site=bool(source))})
+
+
+@login_required
+@require_POST
+def lab_discuss(request, startup_id):
+    startup = _owned_startup(request, startup_id)
+    source = _version(startup, request.POST['source_version']) if request.POST.get('source_version') else None
+    form = LabPromptForm(request.POST, source=source)
+    if not form.is_valid():
+        return JsonResponse({'error': 'Напишите сообщение до 2000 символов.'}, status=400)
+    return _lab_discuss(request, startup, source, form)
+
+
+def _lab_discuss(request, startup, source, form):
+    """Only discussion records and usage may be written here, never site versions."""
+    as_json = 'application/json' in request.headers.get('Accept', '')
+    try:
+        turn_id = UUID(request.POST['request_id']) if request.POST.get('request_id') else uuid4()
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Некорректный идентификатор сообщения.'}, status=400)
+
+    def response(turn):
+        if as_json:
+            return JsonResponse({'id': str(turn.pk), 'prompt': turn.prompt, 'reply': turn.reply,
+                                 'created_at': turn.created_at.isoformat()})
+        from django.urls import reverse
+        return redirect(reverse_lab_version(startup, source) if source else reverse('lab', args=[startup.pk]))
+
+    existing = LabConversationTurn.objects.filter(pk=turn_id).first()
+    if existing:
+        if existing.startup_id != startup.pk or existing.user_id != request.user.pk:
+            raise Http404('Сообщение не найдено')
+        return response(existing)
+    prompt = form.cleaned_data['prompt']
+    token = None
+    try:
+        from founder.services.lab_bruno import protect_service_secrets
+        protect_service_secrets(prompt)
+        is_local = local_answer(prompt, source) is not None
+        if not is_local:
+            with transaction.atomic():
+                token = acquire_ai_lease(request.user.pk, ttl_seconds=max(600, settings.QWEN_CODE_TIMEOUT + 180))
+                request.ai_lease = token
+                _consume_lab_limits(request.user)
+            existing = LabConversationTurn.objects.filter(pk=turn_id, startup=startup, user=request.user).first()
+            if existing:
+                return response(existing)
+        with billing_scope(request.user, startup, 'discuss'):
+            reply, result = discussion_reply(startup, source, prompt)
+        reply['usage'] = ('Без AI · 0 токенов' if reply.get('local') else
+                          f'AI-ответ · {result.input_tokens + result.output_tokens} токенов'
+                          if result.input_tokens is not None and result.output_tokens is not None else 'AI-ответ · расход уточняется')
+        turn, _ = LabConversationTurn.objects.get_or_create(pk=turn_id, defaults={
+            'startup': startup, 'user': request.user, 'source': source, 'prompt': prompt, 'reply': reply,
+            'model': result.model if result else 'saved-report',
+            'input_tokens': (result.input_tokens or 0) if result else 0,
+            'output_tokens': (result.output_tokens or 0) if result else 0,
+        })
+        if result and result.request_id:
+            LabAIUsage.objects.filter(pk=result.request_id, user=request.user, startup=startup).update(version=source)
+        return response(turn)
+    except (QwenError, RequestLimitExceeded, OperationalError) as exc:
+        error = str(exc) if not isinstance(exc, OperationalError) else 'Сервис занят. Повторите вопрос позже.'
+        status = 429 if isinstance(exc, RequestLimitExceeded) else 503
+        if as_json:
+            return JsonResponse({'error': error}, status=status)
+        form.add_error(None, error)
+        return _lab_page(request, startup, form, status=status)
+    finally:
+        if token:
+            try:
+                release_ai_lease(request.user.pk, token)
+            except OperationalError:
+                pass
+
+
 def _generate_design(request, startup, source, prompt, kind, scope, rebuild, chosen, context):
+    if kind == LabSiteVersion.Kind.GENERATED:
+        from founder.services.generated_backend import generate_backend
+        with billing_scope(request.user, startup, 'patch' if source else 'create'):
+            return generate_backend(prompt, source=source, context=context, checkpoint=(request.user.pk, startup.pk))
     options = {"backend": True} if kind == LabSiteVersion.Kind.DJANGO else {}
     if scope != "auto":
         options["edit_scope"] = scope
@@ -325,6 +460,8 @@ def _customized_version(startup, source, presentation, prompt, kind=None, key=No
 @require_POST
 def lab_customize(request, startup_id):
     startup = _owned_startup(request, startup_id)
+    if settings.LAB_RAW_AI_TEST_MODE:
+        return JsonResponse({'error': 'Готовые настройки отключены на время сырого тестирования. Отправьте изменение модели.'}, status=409)
     source = _version(startup, request.POST.get("source_version"))
     form = LabCustomizeForm(request.POST)
     if not form.is_valid():
@@ -350,6 +487,8 @@ def reverse_lab_version(startup, version):
 @require_POST
 def lab_backend_create(request, startup_id):
     startup = _owned_startup(request, startup_id)
+    if settings.LAB_RAW_AI_TEST_MODE:
+        return JsonResponse({'error': 'Встроенные инструменты отключены на время сырого тестирования.'}, status=409)
     source = _version(startup, request.POST["source_version"]) if request.POST.get("source_version") else None
     form = LabBackendModulesForm(request.POST)
     if not form.is_valid():
@@ -388,7 +527,11 @@ def _backend_version(startup,source,chosen,prompt,*,report=None):
 @require_GET
 def lab_download(request, startup_id, version_id):
     startup = _owned_startup(request, startup_id)
-    version = get_object_or_404(startup.lab_versions, pk=version_id, kind=LabSiteVersion.Kind.DJANGO)
+    version = get_object_or_404(startup.lab_versions, pk=version_id, kind__in=[LabSiteVersion.Kind.DJANGO, LabSiteVersion.Kind.GENERATED])
+    if version.kind == LabSiteVersion.Kind.GENERATED:
+        from founder.services.generated_backend import export_backend
+        return FileResponse(export_backend(version), as_attachment=True,
+            filename=f'site-backend-{str(startup.pk)[:8]}.zip', content_type='application/zip')
     return FileResponse(export_project(version), as_attachment=True,
         filename=f"django-site-{str(startup.pk)[:8]}.zip", content_type="application/zip")
 
@@ -411,7 +554,7 @@ def lab_activate(request, startup_id):
 @require_POST
 def lab_run(request, startup_id, version_id):
     startup = _owned_startup(request, startup_id)
-    version = get_object_or_404(startup.lab_versions, pk=version_id, kind=LabSiteVersion.Kind.DJANGO)
+    version = get_object_or_404(startup.lab_versions, pk=version_id, kind__in=[LabSiteVersion.Kind.DJANGO, LabSiteVersion.Kind.GENERATED])
     as_json = request.headers.get('Accept') == 'application/json'
     if not _local_runtime(request):
         error = "Автозапуск доступен на компьютере с локальной лабораторией. Скачайте проект для отдельного запуска."

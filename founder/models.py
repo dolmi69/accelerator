@@ -50,6 +50,7 @@ class User(AbstractUser):
     # Кэш суммы CoinTransaction; меняется только в services/coins.py вместе с записью журнала.
     coins = models.PositiveIntegerField('Монеты', default=0)
     pro_until = models.DateTimeField('Pro до', null=True, blank=True)
+    lab_measurement_started_at = models.DateTimeField(null=True, blank=True)
 
     class Meta(AbstractUser.Meta):
         constraints = [models.CheckConstraint(
@@ -85,6 +86,7 @@ class StartupProfile(models.Model):
     )
     name = models.CharField(max_length=160)
     one_line_pitch = models.CharField(max_length=300, blank=True)
+    lab_measurement_started_at = models.DateTimeField(null=True, blank=True)
     problem = models.TextField(blank=True)
     solution = models.TextField(blank=True)
     target_customer = models.TextField(blank=True)
@@ -243,6 +245,7 @@ class LabSiteVersion(models.Model):
     class Kind(models.TextChoices):
         STATIC = "static", "Статический сайт"
         DJANGO = "django", "Django: готовые модули"
+        GENERATED = "generated", "Сайт с бэкендом модели"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="lab_versions")
@@ -253,6 +256,7 @@ class LabSiteVersion(models.Model):
     kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.STATIC)
     presentation = models.JSONField(default=dict, blank=True)
     backend_modules = models.JSONField(default=list, blank=True)
+    backend_files = models.JSONField(default=dict, blank=True)
     generation_key = models.CharField(max_length=64, unique=True, null=True, blank=True)
     edit_method = models.CharField(max_length=20, default="full")
     html = models.TextField(max_length=128000)
@@ -261,8 +265,30 @@ class LabSiteVersion(models.Model):
     output_tokens = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
+    @property
+    def is_backend(self):
+        return self.kind in {self.Kind.DJANGO, self.Kind.GENERATED}
+
     class Meta:
         ordering = ["-created_at", "-id"]
+
+
+class LabConversationTurn(models.Model):
+    """Discussion never creates a website version; references its viewed source."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='lab_conversation')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    source = models.ForeignKey(LabSiteVersion, on_delete=models.SET_NULL, null=True, blank=True)
+    prompt = models.TextField(max_length=2000)
+    reply = models.JSONField(default=dict)
+    mode = models.CharField(max_length=12, default='discuss')
+    model = models.CharField(max_length=100, blank=True)
+    input_tokens = models.PositiveIntegerField(default=0)
+    output_tokens = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
 
 
 class LabAIUsage(models.Model):
@@ -700,6 +726,12 @@ class MessageFeedback(models.Model):
 
 class EvidenceEntry(models.Model):
     """Founder-reported observations, including negative and inconclusive results."""
+    class Milestone(models.TextChoices):
+        DEMAND = 'demand', 'Подтверждение спроса'
+        PILOT = 'pilot', 'Пилот с клиентом'
+        PAYMENT = 'payment', 'Первая оплата'
+        REPEAT_PAYMENTS = 'repeat_payments', 'Повторные оплаты'
+
     class Outcome(models.TextChoices):
         SUPPORTED = 'supported', 'Гипотеза получила поддержку'
         REFUTED = 'refuted', 'Гипотеза не подтвердилась'
@@ -715,6 +747,8 @@ class EvidenceEntry(models.Model):
     source_url = models.URLField('Ссылка на источник (необязательно)', max_length=1000, blank=True)
     observed_on = models.DateField('Дата наблюдения', default=timezone.localdate)
     outcome = models.CharField('Результат проверки', max_length=12, choices=Outcome.choices, default=Outcome.UNCLEAR)
+    milestone = models.CharField('Этап готовности (необязательно)', max_length=20,
+                                 choices=Milestone.choices, default='', blank=True)
     next_question = models.CharField('Что ещё нужно выяснить', max_length=500, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
@@ -724,6 +758,8 @@ class EvidenceEntry(models.Model):
 
     def clean(self):
         super().clean()
+        if self.milestone and not (self.source.strip() or self.source_url.strip()):
+            raise ValidationError({'source': 'Укажите источник результата: например, заметки интервью, отчёт пилота или запись об оплате.'})
         if self.task_id:
             if self.task.startup_id != self.startup_id:
                 raise ValidationError({'task': 'Задание должно принадлежать этому проекту.'})
