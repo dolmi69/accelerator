@@ -439,3 +439,178 @@ class SharkFocusTests(PanelSetup):
             panel.normalise_vote(raw, "vadim", ANSWERS)
         self.assertEqual(panel.normalise_vote(raw, "vadim", ANSWERS, strict=False)["condition"]["success_criterion"],
                          "Получены данные о каналах.")
+
+
+class FundingDetectionTests(TestCase):
+    def test_money_from_an_institution_or_company_is_found(self):
+        from founder.services.funding import COMPANY, INSTITUTION, detect
+
+        cases = {
+            "Хотим получить грант Фонда содействия инновациям": INSTITUTION,
+            "Деньги планирую взять не у инвесторов, а у ВШЭ: там есть конкурс": INSTITUTION,
+            "Подали заявку в акселератор Сколково, там дают 1,5 млн": INSTITUTION,
+            "Университет даст лабораторию и деньги на прототип": INSTITUTION,
+            "Сбер может вложиться, если пилот пройдёт": COMPANY,
+            "Договариваемся о пилоте с компанией «Самокат»": COMPANY,
+        }
+        for text, kind in cases.items():
+            self.assertEqual(detect([text])["kind"], kind, text)
+        self.assertEqual(detect(["Деньги планирую взять у ВШЭ."])["name"], "ВШЭ")
+        self.assertEqual(detect(["Договариваемся о пилоте с компанией «Самокат»."])["quote"],
+                         "Договариваемся о пилоте с компанией «Самокат»")
+
+    def test_customers_and_refusals_are_not_a_funding_source(self):
+        from founder.services.funding import detect
+
+        for text in ("Продаём компаниям, инвестиции ищем у бизнес-ангелов", "Мы не будем просить грант",
+                     "Клиенты — университеты и школы, продаём подписку", "Я студент ВШЭ, делаю сервис",
+                     "Хочу привлечь 2 млн от бизнес-ангела", "Наши клиенты дают отзывы"):
+            self.assertIsNone(detect([text]), text)
+
+    def test_latest_mention_in_chats_with_bruno_wins(self):
+        from founder.services.funding import COMPANY, founder_funding
+
+        user = User.objects.create_user(username="funded", email="funded@example.test")
+        startup = StartupProfile.objects.create(owner=user, name="Навигатор")
+        chat = ChatSession.objects.create(startup=startup, mode=ChatSession.Mode.COFOUNDER)
+        answer(chat, "Хотим грант от ВШЭ")
+        answer(chat, "Передумали: пилот с компанией «Самокат» интереснее")
+        # Ответы в самой панели — тренировка, Бруно их акулам не передаёт.
+        answer(panel.create_panel(startup), "Деньги даст фонд «Старт»")
+        self.assertEqual(founder_funding(startup)["kind"], COMPANY)
+
+
+class AudienceTests(PanelSetup):
+    def institution_panel(self, name="ВШЭ"):
+        from founder.services import funding
+        return panel.create_panel(self.startup, funding.audience(funding.INSTITUTION, name))
+
+    def test_commission_opens_with_its_own_areas_and_topics(self):
+        session = self.institution_panel()
+        opening = session.messages.get().content
+        self.assertTrue(opening.startswith("Мы комиссия: решаем, поддержит ли ВШЭ ваш проект."))
+        self.assertIn("Я Тимур, спрашиваю про пользу и результат", opening)
+        self.assertEqual(session.title, "Комиссия: ВШЭ")
+        topics = [turn.topic for turn in panel.schedule(["Студентам первого курса, они не могут найти аудиторию",
+                                                        "Раньше такого не было"], "institution")]
+        self.assertEqual(topics, ["что в проекте нового", "как поймёте, что проект помог"])
+        progress = panel.progress(session)
+        self.assertEqual(progress["audience"]["heading"], "Комиссия: ВШЭ")
+        self.assertEqual(progress["steps"][2]["area"], "смета и деньги")
+
+    def test_commission_prompt_and_vote_speak_for_the_organisation(self):
+        session = self.institution_panel()
+        prompt = system_prompt(session, [], [{"role": "user", "content": "Просим 300 тысяч"}],
+                               turn=panel.Turn("margarita", "что получится на эти деньги", 2))
+        self.assertIn("просит поддержки не у инвесторов, а у организации «ВШЭ»", prompt)
+        self.assertIn("Доля в бизнесе, оценка компании и возврат вложений комиссию не интересуют", prompt)
+        self.assertIn("Ты Маргарита, финансовый эксперт комиссии", prompt)
+        vote = panel.vote_prompt("timur", panel.audience_of(session))
+        self.assertIn("член комиссии «ВШЭ»", vote)
+        self.assertIn("«поддерживаю» — поддержать проект", vote)
+        company = panel.vote_prompt("margarita", {"kind": "company", "name": "Самокат"})
+        self.assertIn("финансовый директор компании", company)
+        self.assertIn("«сотрудничаем»", company)
+
+    def test_start_form_takes_what_bruno_heard_and_founder_can_change_it(self):
+        chat = ChatSession.objects.create(startup=self.startup, mode=ChatSession.Mode.COFOUNDER)
+        answer(chat, "Деньги хотим получить не от инвесторов, а от ВШЭ: подаёмся на грант.")
+        page = self.client.get(reverse("investor", args=[self.startup.pk]))
+        self.assertContains(page, "Бруно передал акулам")
+        self.assertContains(page, 'value="institution" checked')
+        self.assertContains(page, 'value="ВШЭ"')
+        self.client.post(reverse("panel_create", args=[self.startup.pk]))
+        heard = self.startup.chat_sessions.filter(mode=ChatSession.Mode.PANEL).first()
+        self.assertEqual((heard.panel_audience["kind"], heard.panel_audience["name"], heard.panel_audience["source"]),
+                         ("institution", "ВШЭ", "bruno"))
+        self.client.post(reverse("panel_create", args=[self.startup.pk]),
+                         {"audience": "company", "funder_name": "Самокат"})
+        chosen = self.startup.chat_sessions.filter(mode=ChatSession.Mode.PANEL).first()
+        self.assertEqual(chosen.panel_audience, {"kind": "company", "name": "Самокат", "quote": "", "source": "manual"})
+        self.assertIn("Мы представляем компанию «Самокат»", chosen.messages.get().content)
+        self.client.post(reverse("panel_create", args=[self.startup.pk]), {"audience": "investors"})
+        self.assertEqual(panel.audience_of(self.startup.chat_sessions.filter(mode=ChatSession.Mode.PANEL).first())
+                         ["kind"], "investors")
+
+    def test_bruno_chat_shows_that_sharks_will_know(self):
+        chat = ChatSession.objects.create(startup=self.startup, mode=ChatSession.Mode.COFOUNDER)
+        answer(chat, "Хотим, чтобы Сбер вложился после пилота")
+        page = self.client.get(reverse("chat_detail", args=[self.startup.pk, chat.pk]))
+        self.assertContains(page, "Бруно передаст акулам:")
+        self.assertContains(page, "от компании (Сбер)")
+
+    @override_settings(AI_PROVIDER="demo")
+    def test_commission_verdict_uses_its_words(self):
+        session = self.institution_panel()
+        for text in ["Студентам первого курса, они не могут найти аудиторию", "Раньше такого не было, все в чатах",
+                     "Через полгода сократим опоздания на 20%", "Сделали прототип и опросили 40 студентов",
+                     "План: к декабрю бот, к марту приложение", "Команда: я пишу код, Лиза дизайнер",
+                     "Просим 300 тысяч на разработку и серверы", "На эти деньги подключим 2000 студентов",
+                     "Потом будем продавать подписку другим вузам"]:
+            if panel.is_finished(session):
+                break
+            answer(session, text)
+        self.assertTrue(panel.is_finished(session))
+        panel.run_vote(session)
+        page = self.client.get(reverse("chat_detail", args=[self.startup.pk, session.pk]))
+        self.assertContains(page, "из 3 членов комиссии поддержали")
+        self.assertContains(page, "Поддержу, если")
+        self.assertContains(self.client.get(reverse("investor", args=[self.startup.pk])), "Комиссия: ВШЭ")
+
+
+class ReplyCheckTests(PanelSetup):
+    SOURCES = "Берём 1500 рублей за урок. Своих денег 60 тысяч."
+
+    def problem(self, text, founder="Берём 1500 рублей за урок"):
+        return panel.reply_problem(text, self.SOURCES, founder)
+
+    def test_plain_question_with_founder_numbers_passes(self):
+        for text in ("Цена 1500 ₽ за урок понятна. Сколько рублей уходит, чтобы привести одного ученика?",
+                     "С 60 000 ₽ своих денег сколько месяцев вы продержитесь?",
+                     "Сколько учеников придёт за 30 дней?"):
+            self.assertEqual(self.problem(text), "", text)
+
+    def test_jargon_vague_questions_missing_question_and_invented_numbers_fail(self):
+        self.assertIn("CAC", self.problem("Какой у вас CAC?"))
+        self.assertIn("юнит-экономика", self.problem("Как выглядит ваша юнит-экономика по урокам?"))
+        self.assertIn("слишком общий", self.problem("Какова ваша стратегия монетизации?"))
+        self.assertIn("нет вопроса", self.problem("Цена 1500 ₽ понятна."))
+        self.assertIn("4 500 ₽", self.problem("Значит, с трёх уроков у вас 4 500 ₽. Сколько стоит привлечь ученика?"))
+        self.assertIn("35%", self.problem("Маржа выходит 35%. Сколько стоит привлечь ученика?"))
+        # Слово основателя можно повторить.
+        self.assertEqual(self.problem("Вы сказали про CAC. Сколько он в рублях?", founder="CAC пока не считали"), "")
+
+    def test_bad_reply_is_rewritten_once_then_replaced_by_a_plain_question(self):
+        session = panel.create_panel(self.startup)
+        turn = panel.Turn("margarita", "стоимость привлечения", 2)
+        attempts = []
+
+        def generate(replies):
+            def call(current):
+                attempts.append(current.fix)
+                yield replies[len(attempts) - 1]
+            return call
+
+        reply = "".join(panel.checked_reply(session, turn, generate(["Какой у вас CAC?", "Сколько рублей стоит привлечь клиента?"])))
+        self.assertEqual(reply, "Сколько рублей стоит привлечь клиента?")
+        self.assertEqual(attempts[0], "")
+        self.assertIn("простыми словами", attempts[1])
+        attempts.clear()
+        reply = "".join(panel.checked_reply(session, turn, generate(["Какой CAC?", "А LTV какой?"])))
+        self.assertEqual(reply, "Сколько рублей уходит, чтобы привести одного платящего клиента?")
+        follow_up = panel.Turn("margarita", "стоимость привлечения", 2, follow_up="evasive")
+        attempts.clear()
+        reply = "".join(panel.checked_reply(session, follow_up, generate(["Какой CAC?", "Какой CAC?"])))
+        self.assertTrue(reply.startswith("Точных данных может и не быть"), reply)
+
+    def test_closing_line_is_not_checked(self):
+        session = panel.create_panel(self.startup)
+        final = panel.Turn("margarita", final=True)
+        self.assertEqual("".join(panel.checked_reply(session, final, lambda turn: iter([panel.CLOSING]))), panel.CLOSING)
+
+    def test_vote_may_write_thousands_in_full(self):
+        allowed = panel.allowed_numbers(["Своих денег 60 тысяч, урок 1 500 ₽", "Окупится за 2,5 месяца"])
+        self.assertTrue({"60", "60000", "1500", "2.5"} <= allowed)
+        vote = panel.normalise_vote(json.loads(model_vote("margarita", reason="60 000 ₽ своих денег хватит.")),
+                                    "margarita", ANSWERS, allowed)
+        self.assertEqual(vote["reason"], "60 000 ₽ своих денег хватит.")

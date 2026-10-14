@@ -31,7 +31,7 @@ from founder.services.mascot import update_mascot
 from founder.services.memory import conversation_context, remember_user_message
 from founder.services.onboarding import cofounder_opening, has_founder_conversation, has_profile_description
 from founder.services.metrics import AXES, radar_grid, radar_points
-from founder.services import panel
+from founder.services import funding, panel
 from founder.services.pitch import finish_pitch
 from founder.services.radar_assessment import assess_startup
 from founder.services import activity
@@ -294,7 +294,13 @@ def pitch_create(request, startup_id):
 @require_POST
 def panel_create(request, startup_id):
     startup = get_startup(request, startup_id, edit=True)
-    session = panel.create_panel(startup)
+    # Кто решает: основатель выбирает перед панелью, по умолчанию — то, что он говорил Бруно.
+    heard = funding.founder_funding(startup) or {}
+    kind = request.POST.get("audience") or heard.get("kind") or funding.INVESTORS
+    name = request.POST.get("funder_name", heard.get("name", "") if kind == heard.get("kind") else "")
+    source = "bruno" if heard and kind == heard.get("kind") else "manual"
+    audience = funding.audience(kind, name, heard.get("quote", "") if source == "bruno" else "", source)
+    session = panel.create_panel(startup, audience)
     return redirect("chat_detail", startup_id=startup.id, session_id=session.id)
 
 
@@ -327,6 +333,7 @@ def chat_detail(request, startup_id, session_id):
     for idea in MentorIdea.objects.filter(message__session=session):
         ideas.setdefault(idea.message_id, []).append(idea)
     previous_user_text = ""
+    panel_kind = panel.audience_of(session)["kind"]
     for message in chat_messages:
         # Под ответом на вопрос о рынке — ссылка на полный анализ: модель о нём часто забывает.
         message.market_link = (session.mode == ChatSession.Mode.COFOUNDER and message.role == ChatMessage.Role.ASSISTANT
@@ -340,7 +347,15 @@ def chat_detail(request, startup_id, session_id):
                                       and looks_like_evidence(message.content))
         message.rateable = message.role == ChatMessage.Role.ASSISTANT and message.provider != "system"
         message.user_feedback = feedback.get(message.id)
-        message.shark = panel.shark_info(message.speaker)
+        message.shark = panel.shark_info(message.speaker, panel_kind)
+    if session.mode == ChatSession.Mode.COFOUNDER:
+        # Бруно передаёт акулам, откуда основатель ждёт деньги: отметка под последней такой репликой.
+        for message in reversed(chat_messages):
+            if message.role == ChatMessage.Role.USER:
+                heard = funding.detect([message.content])
+                if heard:
+                    message.funding_note = {**heard, "label": funding.KIND_LABELS[heard["kind"]]}
+                    break
     is_panel = session.mode == ChatSession.Mode.PANEL
     return render(request, "founder/chat.html", {
         "startup": session.startup,
@@ -351,6 +366,8 @@ def chat_detail(request, startup_id, session_id):
         "report": report,
         "is_pitch": session.mode == ChatSession.Mode.PITCH,
         "is_panel": is_panel,
+        # Бруно в панели не участвует, и плавающий медведь закрывал реплики акул на телефоне.
+        "hide_bruno_pet": is_panel,
         "is_training": session.is_training,
         "panel": _panel_context(session) if is_panel else None,
         "picture": mentor.picture_view(session.startup) if session.mode == ChatSession.Mode.COFOUNDER else None,
@@ -404,8 +421,9 @@ def _panel_context(session):
     open_axes = set(session.startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list("axis", flat=True))
     axis_labels = dict(BusinessAxis.choices)
     votes = []
+    kind = panel.audience_of(session)["kind"]
     for index, vote in enumerate(verdict.votes if verdict else []):
-        shark = panel.shark_info(vote["shark"])
+        shark = panel.shark_info(vote["shark"], kind)
         votes.append({**vote, "index": index, "shark_info": shark, "axis_label": axis_labels[shark["axis"]],
                       "axis_busy": not vote.get("task_id") and shark["axis"] in open_axes})
     return {**panel.progress(session), "verdict": verdict, "votes": votes}
@@ -495,10 +513,12 @@ def chat_send(request, startup_id, session_id):
         try:
             if turn:
                 # Панель: сервер называет акулу хода до текста её реплики.
-                shark = panel.shark_info(turn.speaker)
+                shark = panel.shark_info(turn.speaker, panel.audience_of(session)["kind"])
                 yield _sse({"type": "speaker", "speaker": turn.speaker, "name": shark["name"],
                             "title": shark["area"], "initial": shark["initial"]})
-                deltas = panel.own_reply(stream_reply(session, context_messages, memories, turn=turn), turn.speaker)
+                # Реплику акулы Python проверяет целиком: вопрос есть, без жаргона и выдуманных цифр.
+                deltas = panel.checked_reply(
+                    session, turn, lambda attempt: stream_reply(session, context_messages, memories, turn=attempt))
             else:
                 if (session.mode == ChatSession.Mode.COFOUNDER and settings.BRUNO_MENTOR_PLAN
                         and settings.AI_PROVIDER != "demo"):

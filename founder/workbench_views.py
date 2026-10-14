@@ -16,7 +16,8 @@ from founder.forms import EvidenceForm
 from founder.models import BrunoTask, BusinessAxis, ChatMessage, ChatSession, CoinTransaction, EvidenceEntry, StartupProfile
 from founder.services import market as market_service
 from founder.services.ai import AIServiceError
-from founder.services.panel import ORDER as SHARK_ORDER, shark_info
+from founder.services.funding import INVESTORS, KIND_LABELS, KINDS, founder_funding
+from founder.services.panel import ORDER as SHARK_ORDER, audience_of, audience_view, shark_info
 from founder.services.access import assignable_users, get_startup, has_team
 from founder.services import activity
 from founder.services.coins import award, coins_note
@@ -159,9 +160,19 @@ def investor(request, startup_id):
     startup = owned_startup(request, startup_id, edit=False)
     sessions = list(startup.chat_sessions.filter(mode__in=[ChatSession.Mode.PITCH, ChatSession.Mode.PANEL])
                     .select_related('pitch_report', 'panel_verdict')[:20])
+    for session in sessions:
+        if session.mode == ChatSession.Mode.PANEL:
+            session.panel_view = audience_view(audience_of(session))
+    heard = founder_funding(startup)
+    if heard:
+        heard['kind_label'] = KIND_LABELS[heard['kind']]
+    selected = heard['kind'] if heard else INVESTORS
+    audiences = [{'kind': kind, 'label': KIND_LABELS[kind], 'checked': kind == selected,
+                  'sharks': [shark_info(key, kind) for key in SHARK_ORDER]} for kind in KINDS]
     return render(request, 'founder/investor.html', {
         'startup': startup, 'workspace_tab': 'investor', 'sessions': sessions,
-        'sharks': [shark_info(key) for key in SHARK_ORDER],
+        'sharks': [shark_info(key) for key in SHARK_ORDER], 'audiences': audiences, 'heard_funding': heard,
+        'funder_name': heard['name'] if heard else '',
     })
 
 

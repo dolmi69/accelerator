@@ -67,7 +67,8 @@
     const { node, avatar, meta } = content.bubble;
     node.className = `message message-assistant shark-${data.speaker}`;
     avatar.textContent = data.initial || data.name.charAt(0);
-    meta.textContent = data.title ? `${data.name} · ${data.title}` : data.name;
+    // Область акулы видна на столе панели над разговором, в реплике достаточно имени.
+    meta.textContent = data.name;
     content.textContent = `${data.name} думает…`;
   }
 

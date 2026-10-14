@@ -448,6 +448,8 @@ class ChatSession(models.Model):
     ])
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     completed_at = models.DateTimeField(null=True, blank=True)
+    # Панель акул: кто решает (инвесторы, вуз или фонд, компания), название организации и откуда Бруно это знает.
+    panel_audience = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

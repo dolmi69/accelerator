@@ -9,6 +9,10 @@
   const storyButton = section.querySelector("[data-story-card]");
   const finalTally = tally.textContent;
   const invested = Number(section.dataset.invested) || 0;
+  // Слова решения зависят от того, кто сидел в панели: инвесторы, комиссия вуза или фонда, компания.
+  const yes = section.dataset.yes || "Вкладываю";
+  const no = section.dataset.no || "Пас";
+  const members = section.dataset.members || "акул";
   let timers = [];
 
   function showAll() {
@@ -29,7 +33,7 @@
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!reduceMotion) {
       votes.forEach(vote => vote.classList.add("is-pending"));
-      tally.textContent = "Акулы совещаются…";
+      tally.textContent = "Панель совещается…";
       skip.hidden = false;
       skip.addEventListener("click", showAll);
       votes.forEach((vote, index) => {
@@ -37,7 +41,7 @@
         timers.push(setTimeout(() => { status.textContent = `${vote.dataset.name} думает…`; }, start + 300));
         timers.push(setTimeout(() => {
           vote.classList.remove("is-pending");
-          const word = vote.dataset.decision === "invest" ? "вкладываю" : "пас";
+          const word = (vote.dataset.decision === "invest" ? yes : no).toLowerCase();
           status.textContent = `${vote.dataset.name}: ${word}.`;
         }, start + 1500));
       });
@@ -94,10 +98,10 @@
       context.fillStyle = "#ffffff";
       context.font = `800 92px ${font}`;
       context.fillText(vote.dataset.initial, x, top + 32);
-      const yes = vote.dataset.decision === "invest";
-      context.fillStyle = yes ? "#9fe1cb" : "#f0997b";
+      const agreed = vote.dataset.decision === "invest";
+      context.fillStyle = agreed ? "#9fe1cb" : "#f0997b";
       context.font = `800 40px ${font}`;
-      context.fillText(yes ? "✓ Вкладываю" : "✗ Пас", x, top + 190);
+      context.fillText(agreed ? `✓ ${yes}` : `✗ ${no}`, x, top + 190);
       context.fillStyle = "#c9d4dc";
       context.font = `500 34px ${font}`;
       context.fillText(vote.dataset.name, x, top + 245);
@@ -106,17 +110,18 @@
     context.fillStyle = "#ffffff";
     context.font = `800 108px ${font}`;
     const total = votes.length;
-    const headline = invested ? [`${invested} из ${total} акул`, "вложились"] : ["Акулы пока", "не вложились"];
+    const headline = [`${invested} из ${total} ${members}`, invested ? section.dataset.tallyWord || "вложились"
+      : section.dataset.none || "не вложились"];
     headline.forEach((line, index) => context.fillText(line, 540, 1300 + index * 124));
     context.fillStyle = "#c9d4dc";
     context.font = `500 42px ${font}`;
     const left = total - invested;
-    const subline = left ? `${left} ${left === 1 ? "условие" : "условия"}, чтобы это изменить` : "Все сказали «вкладываю»";
+    const subline = left ? `${left} ${left === 1 ? "условие" : "условия"}, чтобы это изменить` : `Все сказали «${yes.toLowerCase()}»`;
     context.fillText(subline, 540, 1580);
 
     context.fillStyle = "#7f93a3";
     context.font = `500 32px ${font}`;
-    context.fillText("Тренировка, не инвестиционное решение", 540, 1800);
+    context.fillText("Тренировка, не реальное решение", 540, 1800);
     return canvas;
   }
 

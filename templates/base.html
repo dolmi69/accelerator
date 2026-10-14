@@ -63,7 +63,7 @@
 
     <footer class="site-footer"><span>Co-Founder.AI · MVP</span><span>Меньше тревоги. Больше проверенных решений.</span></footer>
   </div>
-  {% if workspace_tab != 'lab' %}{% include 'founder/_bruno_pet.html' %}{% endif %}
+  {% if workspace_tab != 'lab' and not hide_bruno_pet %}{% include 'founder/_bruno_pet.html' %}{% endif %}
   {% if request.telegram_miniapp %}<script src="{% static 'founder/js/telegram.js' %}" defer></script>{% endif %}
   <script src="{% static 'founder/js/bruno.js' %}?v=6" defer></script>
   {% if request.user.is_authenticated %}<script src="{% static 'founder/js/drafts.js' %}?v=1"></script><script src="{% static 'founder/js/direct-attachments.js' %}?v=1" defer></script><script src="{% static 'founder/js/messages.js' %}?v=6" defer></script><script src="{% static 'founder/js/coins.js' %}?v=1" defer></script><script src="{% static 'founder/js/chat-search.js' %}?v=1" defer></script><script src="{% static 'founder/js/card-reports.js' %}?v=1" defer></script>{% endif %}

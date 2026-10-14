@@ -22,7 +22,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from founder.models import ChatMessage, ChatSession, ProjectPicture, StartupProfile, User
-from founder.services import mentor, panel
+from founder.services import funding, mentor, panel
 from founder.services.ai import AIServiceError, stream_reply
 from founder.services.bruno import founder_gender, style_issues
 from founder.services.memory import conversation_context, remember_user_message
@@ -39,6 +39,20 @@ SCENARIOS = {
             "ну чтобы им было удобнее учиться",
             "не знаю",
             {"text": "а что ты вообще умеешь?", "expect": [r"направлени|радар|таблиц|план"]},
+        ],
+    },
+    # Основатель рассказывает идею и молчит о деньгах: Бруно должен сам выяснить, кто платит, за что,
+    # сколько и как часто. Грант — деньги на запуск, после него Бруно спрашивает, кто будет платить потом.
+    "money": {
+        "about": "Модель заработка: основатель не говорит о деньгах, Бруно выясняет кто платит, за что, сколько",
+        "startup": {"name": "Навигатор по корпусу", "stage": "idea",
+                    "one_line_pitch": "Бот ведёт первокурсника до нужной аудитории"},
+        "turns": [
+            "Первокурсники теряются в корпусах и опаздывают на пары",
+            {"text": "Сделали прототип для одного корпуса, опросили 40 студентов",
+             "expect": [r"плат|зарабат|деньг|подписк|цен"]},
+            {"text": "Хотим получить грант от ВШЭ на запуск", "expect": [r"плат|зарабат|потом|после"]},
+            {"text": "Платить будет вуз за подписку на бота", "expect": [r"сколько|руб|цен"]},
         ],
     },
     "mentor": {
@@ -391,6 +405,31 @@ SCENARIOS = {
             "Своих денег у меня тысяч двадцать",
         ],
     },
+    # Деньги не от инвесторов: основатель просит грант у вуза, акулы играют комиссию.
+    "panel_grant": {
+        "about": "Панель акул как комиссия вуза: грант на студенческий проект",
+        "mode": "panel",
+        "audience": "institution",
+        "funder": "ВШЭ",
+        "vote": True,
+        "startup": {
+            "name": "Навигатор по корпусу", "stage": "idea",
+            "one_line_pitch": "Бот ведёт первокурсника до нужной аудитории",
+            "target_customer": "Первокурсники больших вузов",
+        },
+        "turns": [
+            "Первокурсники теряются в корпусах и опаздывают на пары",
+            "Сейчас спрашивают в чатах групп, карты корпуса нет",
+            {"text": "Не знаю, как это измерить", "reject": [r"(?<!\w)ты(?!\w)"]},
+            "Посчитаем опоздания в начале и в конце семестра через старост",
+            "Сделали прототип для одного корпуса, опросили 40 студентов",
+            "К декабрю бот для трёх корпусов, к марту для всех",
+            {"text": "Я пишу код, Лиза рисует карты", "reject": [r"(?<!\w)ты(?!\w)", r"Бруно"]},
+            "Просим 300 тысяч: 150 на разработку, 100 на серверы, 50 на печать QR-кодов",
+            "На эти деньги охватим 2000 первокурсников",
+            "Потом продадим подписку другим вузам",
+        ],
+    },
     "panel_marketplace": {
         "about": "Панель акул: маркетплейс репетиторов-студентов с выручкой и удержанием",
         "mode": "panel",
@@ -479,7 +518,8 @@ class Command(BaseCommand):
                         content="Сегодня я инвестор. Кто конкретно принимает решение заплатить за ваш продукт?",
                     )
                 elif scenario.get("mode") == "panel":
-                    session = panel.create_panel(startup)
+                    session = panel.create_panel(startup, funding.audience(
+                        scenario.get("audience", funding.INVESTORS), scenario.get("funder", "")))
                 else:
                     session = _create_cofounder_session(startup)
                 for opening in session.messages.order_by("created_at", "id"):
@@ -550,9 +590,15 @@ class Command(BaseCommand):
         """Ход акулы проверяется как реплика инвестора; в метке видно, новый это вопрос или уточнение."""
         current = panel.next_turn(session)
         started = time.monotonic()
+        attempts = []
+
+        def generate(attempt):
+            attempts.append(attempt.fix)
+            return stream_reply(session, context, memories, turn=attempt)
+
         try:
-            text = "".join(panel.own_reply(stream_reply(session, context, memories, turn=current),
-                                           current.speaker)).strip()
+            # Тот же путь, что на сайте: реплика проверяется и при ошибке пишется заново.
+            text = "".join(panel.checked_reply(session, current, generate)).strip()
         except AIServiceError as exc:
             text = f"[ОШИБКА] {exc}"
         elapsed = time.monotonic() - started
@@ -568,6 +614,11 @@ class Command(BaseCommand):
                      f"{text}\n")
         found = style_issues(text, pitch=True, gender="male", self_female=panel.SHARKS[current.speaker]["female"])
         found += content_issues(text, turn)
+        rewrites = [fix for fix in attempts if fix]
+        if rewrites:
+            lines.append("> ↻ переписана: " + " | ".join(rewrites) + "\n")
+        if not current.final and text == panel.plain_reply(session, current):
+            found.append("запасной вопрос: модель дважды не прошла проверку")
         if DOUBLE_QUESTION_RE.search(text):
             found.append("два вопроса через «и»")
         if re.search(r"(?<!\w)Бруно(?!\w)", text):

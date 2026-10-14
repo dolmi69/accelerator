@@ -174,7 +174,12 @@ PLANNER_PROMPT = (
     "выручку, долю или «например, 1000 ₽», которых там нет: если затраты неизвестны, прибыль не "
     "считай, а спроси о них. Запас денег и безубыточность бери из расчёта программы; если его нет, "
     "а названы деньги на старте и расходы в месяц, раздели одно на другое. Комиссия сервиса: "
-    "сервис получает цену × процент, продавец получает остальное."
+    "сервис получает цену × процент, продавец получает остальное.\n"
+    # Без правила модель годами обсуждала сезонность и каналы, так и не узнав, кто платит.
+    "Как проект будет зарабатывать — обязательная часть картины: кто платит, за что, сколько и как часто. "
+    "Если в блоке «Как проект будет зарабатывать» что-то не названо и основатель не спросил о другом прямо, "
+    "gap и question веди к первой неназванной части. Грант и деньги организации — это деньги на запуск, а не "
+    "заработок."
 )
 # Картина проекта обновляется в том же запросе: отдельный запрос после ответа держал чат
 # заблокированным ещё 5–15 секунд.
@@ -499,6 +504,10 @@ def prepare_turn(session, messages, economics=""):
     banned = _banned_moves(recent_moves(picture))
     known = merge_facts(profile_facts(startup), picture.facts if picture else {})
     asked = asked_questions(messages)
+    from founder.services import funding, revenue
+
+    money = revenue.model_for(startup)
+    source = funding.founder_funding(startup)
     try:
         from founder.services.ai import AIServiceError, complete_text
         from founder.services.bruno import project_status
@@ -522,6 +531,7 @@ def prepare_turn(session, messages, economics=""):
             f"Сегодня {timezone.localdate():%d.%m.%Y}.\nАнкета:\n{startup_profile_context(startup)}\n"
             + (status + "\n" if status else "")
             + (economics + "\n" if economics else "")
+            + revenue.status_note(money, source) + "\n"
             + "Картина проекта до этой реплики:\n" + "\n".join(picture_lines(None, known))
             + ("\nТы уже спрашивал (не повторяй и не перефразируй, спроси о другом): " + " | ".join(asked)
                if asked else "")
@@ -542,6 +552,7 @@ def prepare_turn(session, messages, economics=""):
     if repeats_question(plan.question, asked):
         # Модель часто ведёт к тому же пробелу тем же вопросом: пусть ответ спросит о другом.
         plan.question = ""
+    money_question(plan, messages, asked, money, source)
     with transaction.atomic():
         picture, _ = ProjectPicture.objects.select_for_update().get_or_create(startup=startup)
         picture.facts = merge_facts(merge_facts(profile_facts(startup), picture.facts), plan.facts)
@@ -549,6 +560,27 @@ def prepare_turn(session, messages, economics=""):
         picture.moves = (list(picture.moves) + [plan.move])[-MOVES_KEPT:]
         picture.save()
     return plan
+
+
+def money_question(plan, messages, asked, money, source=None):
+    """Бруно точно узнаёт, как проект будет зарабатывать.
+
+    Если в обычном разговоре модель так и не спросила о деньгах, а кто платит, за что, сколько или
+    как часто ещё не названо, вопрос плана заменяется вопросом о первой неизвестной части. Прямой
+    вопрос основателя и противоречие важнее; первую реплику и недавний вопрос о деньгах не трогаем.
+    """
+    from founder.services import revenue
+
+    if plan.kind != "short" or plan.move in ("answer", "contradiction") or not money["missing"]:
+        return
+    if sum(1 for message in messages if message["role"] == "user") < revenue.FIRST_MONEY_TURN:
+        return
+    if revenue.is_money_question(plan.question) or any(revenue.is_money_question(item) for item in asked[-2:]):
+        return
+    question = revenue.next_question(money, asked, source)
+    if question:
+        plan.question = question
+        plan.gap = plan.gap or "Неизвестно, как проект будет зарабатывать"
 
 
 def plan_note(plan):
@@ -614,7 +646,9 @@ def picture_view(startup):
         status = item.get("status") if item.get("status") in STATUSES else "unknown"
         items.append({"key": key, "label": label, "text": item.get("text", ""), "status": status,
                       "status_label": STATUSES[status]})
-    return {"items": items, "gap": picture.gap if picture else "",
+    from founder.services import revenue
+
+    return {"items": items, "gap": picture.gap if picture else "", "revenue": revenue.view(startup),
             "known": sum(1 for item in items if item["text"]), "statuses": list(STATUSES.items())}
 
 

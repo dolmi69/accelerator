@@ -119,7 +119,7 @@ test('panel stream names each shark and gives the main reply its own bubble', as
   assert.equal(aside.className, 'message message-assistant shark-timur');
   assert.equal(aside.children[1].children[1].textContent, 'Дай человеку рассказать.');
   assert.equal(main.children[0].textContent, 'М');
-  assert.equal(main.children[1].children[0].textContent, 'Маргарита · финансист-скептик');
+  assert.equal(main.children[1].children[0].textContent, 'Маргарита');
   assert.equal(main.children[1].children[1].textContent, 'Сколько стоит клиент?');
   assert.equal(app.destination(), '/chat/test/');
 });

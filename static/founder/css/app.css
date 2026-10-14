@@ -444,19 +444,26 @@ body:has(#lab-start-form) .bruno-pet { display:none; }
 .message-assistant[class*="shark-"] .message-avatar { background:var(--shark); }
 .message-assistant[class*="shark-"] .message-meta { color:var(--shark); }
 .shark-avatar { display:grid; place-items:center; flex:none; width:36px; height:36px; border-radius:50%; color:#fff; background:var(--shark,var(--teal)); font-weight:800; font-size:14px; transition:background .3s; }
-.panel-card { text-align:left; }
-/* Очередь: акулы сверху вниз, линия между аватарами показывает порядок. */
-.panel-steps { list-style:none; margin:12px 0 0; padding:0; display:grid; gap:4px; }
-.panel-steps li { position:relative; display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:12px; transition:background .3s; }
-.panel-steps li + li::before { content:""; position:absolute; left:27px; top:-12px; width:2px; height:20px; background:var(--line); }
-.panel-steps li.is-current { background:var(--shark-soft); }
-.panel-steps li.is-waiting .shark-avatar { background:#c3cdd4; }
-.panel-steps li.is-waiting strong { color:var(--muted); }
-.panel-step-text { min-width:0; }
-.panel-steps strong { display:block; font-size:13px; }
-.panel-steps small { display:block; color:var(--muted); font-size:11px; line-height:1.4; }
-.panel-step-state { margin-left:auto; color:var(--shark); font-size:11px; font-weight:800; white-space:nowrap; }
-.panel-card-link { display:inline-block; margin-top:12px; font-size:12px; }
+/* Стол панели над разговором: три места по порядку. Говорящая акула подсвечена её цветом, точки под именем — заданные главные вопросы. */
+.conversation-toolbar:has(.panel-bench) { padding:10px 12px 10px 14px; }
+.panel-bench { list-style:none; margin:0 auto 0 0; padding:0; display:flex; gap:4px; min-width:0; }
+.bench-seat { display:flex; align-items:center; gap:10px; padding:5px 12px 5px 5px; border-radius:999px; transition:background .3s; }
+.bench-seat .shark-avatar { position:relative; width:32px; height:32px; font-size:13px; }
+.bench-seat.is-current { background:var(--shark-soft); }
+.bench-seat.is-current .shark-avatar { box-shadow:0 0 0 2px var(--shark-soft),0 0 0 4px var(--shark); }
+/* Короткая волна вокруг аватара, когда слово переходит к акуле: три раза, потом тихо. */
+.bench-seat.is-current .shark-avatar::after { content:""; position:absolute; inset:-4px; border-radius:50%; border:2px solid var(--shark); opacity:0; animation:bench-speak 1.8s ease-out 3; }
+@keyframes bench-speak { from { opacity:.8; transform:scale(1); } to { opacity:0; transform:scale(1.35); } }
+.bench-seat.is-waiting .shark-avatar { background:#c3cdd4; }
+.bench-seat.is-waiting strong { color:var(--muted); }
+.bench-text { display:grid; min-width:0; line-height:1.25; }
+.bench-text strong { font-size:13px; }
+.bench-text small { color:var(--muted); font-size:11px; white-space:nowrap; }
+.bench-seat.is-current .bench-text small { color:var(--ink); font-weight:700; }
+.bench-pips { display:flex; gap:3px; }
+.bench-pips i { width:6px; height:6px; border-radius:50%; background:#d5dcdf; }
+.bench-pips i.is-on { background:var(--shark); }
+.chat-layout.is-panel { grid-template-columns:minmax(0,1fr); max-width:1000px; }
 /* Вопросы кончились: на месте поля ввода остаётся одна кнопка. */
 .panel-finish { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 18px; padding:16px 18px; border-top:1px solid var(--line); background:#f7f8f6; }
 .panel-finish strong { display:block; font-size:14px; }
@@ -469,25 +476,83 @@ body:has(#lab-start-form) .bruno-pet { display:none; }
   .message-assistant[class*="shark-"] .feedback-form:not(:has(.is-active)) { position:absolute; right:12px; bottom:-14px; margin:0; opacity:0; transition:opacity .2s; }
   .message-assistant[class*="shark-"]:hover .feedback-form,.message-assistant[class*="shark-"]:focus-within .feedback-form { opacity:1; }
 }
-.panel-intro { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:24px; align-items:center; }
-.panel-steps-wide { gap:8px; }
-.panel-steps-wide li { padding:12px 14px; border:1px solid var(--line); }
-.panel-steps-wide li + li::before { display:none; }
-.panel-verdict .vote-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin-top:16px; }
-.vote-card { padding:18px; border-radius:14px; border:1px solid #e5e9e6; border-top:4px solid var(--shark); background:#fbfcfa; font-size:13px; line-height:1.6; transition:opacity .5s,transform .5s; }
-.vote-card.is-pending { opacity:.08; transform:translateY(8px); }
-.vote-card .task-criterion { margin:12px 0; }
+/* Картина проекта: четыре части модели заработка, неназванные приглушены. */
+.revenue-card { margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+.revenue-card > strong { display:block; font-size:13px; }
+.revenue-card > small { display:block; color:var(--muted); font-size:11px; }
+.revenue-card ul { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
+.revenue-card span { display:block; font-size:11px; font-weight:800; color:var(--teal-dark); }
+.revenue-card p { margin:2px 0 0; font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
+.revenue-card .is-missing span,.revenue-card .is-missing p { color:var(--muted); }
+/* Бруно передаёт акулам, откуда основатель ждёт деньги. */
+.funding-note { margin:10px 0 0; padding:9px 12px; border:1px dashed #b9d9cf; border-radius:10px; background:#fff; font-size:12px; line-height:1.5; }
+.funding-note a { color:var(--teal-dark); font-weight:700; }
+/* Итог голосования: решение каждой акулы, её довод и условие. */
+.panel-verdict { margin-top:20px; padding:26px; }
+.verdict-head { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:12px 20px; }
+.verdict-head h2 { margin:0; font-size:26px; }
+.verdict-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.verdict-actions .button,.small-button { min-height:38px; padding:8px 14px; font-size:12px; }
+.panel-reveal-status { min-height:1.4em; margin:4px 0 0; color:var(--muted); font-size:13px; font-weight:700; }
+.panel-verdict .vote-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin-top:16px; }
+.vote-card { display:flex; flex-direction:column; gap:12px; padding:18px; border:1px solid var(--line); border-radius:16px; background:#fff; box-shadow:inset 0 3px 0 var(--shark); font-size:13px; line-height:1.6; transition:opacity .5s,translate .5s; }
+.vote-card.is-pending { opacity:.08; translate:0 8px; }
 .vote-head { display:flex; align-items:center; gap:10px; }
 .vote-head strong { display:block; font-size:14px; }
 .vote-head small { display:block; color:var(--muted); font-size:11px; }
 .vote-badge { margin-left:auto; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:800; white-space:nowrap; }
 .vote-invest { color:#0b625e; background:#e1f5ee; }
 .vote-pass { color:#993c1d; background:#faece7; }
-.panel-reveal-status { min-height:1.4em; margin:6px 0 0; color:var(--muted); font-size:13px; font-weight:700; }
+.vote-reason,.vote-quote { margin:0; }
+.vote-quote { color:var(--muted); font-size:12px; }
+.vote-condition { padding:10px 12px; border-left:3px solid var(--shark); border-radius:0 10px 10px 0; background:#f6f8f7; }
+.vote-condition strong { display:block; font-size:12px; }
+.vote-condition p { margin:2px 0 0; }
+.vote-card > form,.vote-card > .evidence-link,.vote-card > .muted { margin-top:auto; }
+.verdict-note { margin:16px 0 0; color:var(--muted); font-size:12px; }
 .investor-history .history-row { grid-template-columns:1fr auto; }
-.vote-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:18px; }
-@media (prefers-reduced-motion:reduce) { .vote-card,.panel-steps li,.shark-avatar { transition:none; } }
-@media(max-width:900px) { .panel-intro { grid-template-columns:1fr; } }
+/* Старт панели: три аватара вместо номера, выбор того, кто решает о деньгах. */
+.panel-trio { display:flex; }
+.panel-trio i { display:grid; place-items:center; width:30px; height:30px; border:2px solid #fff; border-radius:50%; color:#fff; background:var(--shark); font-style:normal; font-size:12px; font-weight:800; }
+.panel-trio i + i { margin-left:-9px; }
+.panel-start-form { display:grid; gap:14px; margin-top:16px; }
+.panel-start-form .button { justify-self:start; margin-top:2px; }
+.panel-audience { min-width:0; margin:0; padding:0; border:0; }
+.panel-audience legend { margin-bottom:8px; padding:0; color:var(--muted); font-size:12px; font-weight:700; }
+.panel-audience-options { display:flex; flex-wrap:wrap; gap:6px; }
+.panel-audience label { position:relative; }
+.panel-audience input { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
+.panel-audience span { display:block; padding:8px 14px; border:1px solid #d8dfdd; border-radius:999px; background:#fff; font-size:13px; font-weight:600; transition:background .15s,border-color .15s,color .15s; }
+.panel-audience input:checked + span { color:#fff; background:var(--navy); border-color:var(--navy); }
+.panel-audience input:focus-visible + span { outline:3px solid var(--teal); outline-offset:2px; }
+.panel-funder { display:grid; gap:6px; color:var(--muted); font-size:12px; font-weight:700; }
+.panel-funder small { font-weight:400; }
+.panel-funder input { width:100%; padding:10px 12px; border:1px solid #d6dfdf; border-radius:10px; background:#fff; color:var(--ink); font:inherit; font-size:14px; font-weight:500; }
+.panel-funder input:focus { outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(22,135,125,.11); }
+.panel-heard { margin:0; padding:10px 12px; border-radius:12px; background:#eef6f2; font-size:12px; line-height:1.5; }
+.panel-sharks { list-style:none; margin:0; padding:0; display:grid; gap:12px; }
+.panel-sharks li { display:flex; align-items:flex-start; gap:12px; }
+.panel-sharks .shark-avatar { width:32px; height:32px; font-size:13px; }
+.panel-sharks strong { display:block; font-size:13px; }
+.panel-sharks small { display:block; color:var(--muted); font-size:12px; line-height:1.5; }
+@supports selector(:has(*)) {
+  .panel-start:not(:has(input[value="institution"]:checked,input[value="company"]:checked)) .panel-funder,
+  .panel-start:has(input[value="institution"]:checked,input[value="company"]:checked) .panel-sharks[data-audience="investors"],
+  .panel-sharks[data-audience="institution"],.panel-sharks[data-audience="company"] { display:none; }
+  .panel-start:has(input[value="institution"]:checked) .panel-sharks[data-audience="institution"],
+  .panel-start:has(input[value="company"]:checked) .panel-sharks[data-audience="company"] { display:grid; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .vote-card,.bench-seat,.shark-avatar,.panel-audience span { transition:none; }
+  .bench-seat.is-current .shark-avatar::after { animation:none; }
+}
+@media (max-width:680px) {
+  .panel-bench { gap:2px; }
+  .bench-seat { gap:6px; padding:4px 8px 4px 4px; }
+  .bench-seat:not(.is-current) .bench-text,.bench-text small { display:none; }
+  .panel-verdict { padding:18px; }
+  .verdict-head h2 { font-size:22px; }
+}
 /* Free lab controls and private usage summary. */
 .lab-customize{margin-top:24px;padding:28px}
 .lab-settings-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:20px 0}
