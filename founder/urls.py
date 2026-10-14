@@ -2,10 +2,18 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.urls import reverse_lazy
 
-from founder import views, workbench_views, lab_views, lab_testing_views, team_views, coin_views
+from founder import views, workbench_views, lab_views, lab_testing_views, team_views, coin_views, feature_views
 
 
 urlpatterns = [
+    path('startups/<uuid:startup_id>/tasks/features/new/',feature_views.feature_edit,name='feature_create'),
+    path('startups/<uuid:startup_id>/tasks/features/suggest/',feature_views.features_suggest,name='features_suggest'),
+    path('startups/<uuid:startup_id>/tasks/features/transfer/',feature_views.features_transfer,name='features_transfer'),
+    path('startups/<uuid:startup_id>/tasks/features/<uuid:feature_id>/',feature_views.feature_edit,name='feature_edit'),
+    path('startups/<uuid:startup_id>/tasks/features/<uuid:feature_id>/survey/',feature_views.feature_survey_prepare,name='feature_survey_prepare'),
+    path('startups/<uuid:startup_id>/tasks/features/<uuid:feature_id>/kano/',feature_views.feature_kano,name='feature_kano'),
+    path('startups/<uuid:startup_id>/tasks/features/<uuid:feature_id>/kano/<uuid:response_id>/',feature_views.feature_kano,name='feature_kano_edit'),
+
     path('startups/<uuid:startup_id>/lab/', lab_views.lab, name='lab'),
     path('startups/<uuid:startup_id>/lab/generate/', lab_views.lab_generate, name='lab_generate'),
     path('startups/<uuid:startup_id>/lab/route/', lab_views.lab_route, name='lab_route'),

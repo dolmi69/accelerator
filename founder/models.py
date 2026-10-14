@@ -1,12 +1,13 @@
 """Данные основателя, стартапа, диалогов и состояния Бруно."""
 
 import uuid
+from decimal import Decimal
 from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, RegexValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -629,6 +630,7 @@ class BrunoTask(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='bruno_tasks')
+    origin = models.CharField(max_length=12, default='bruno', choices=[('bruno','Задание Бруно'),('mvp','Функция MVP'),('kano','Опрос Кано')])
     axis = models.CharField(max_length=12, choices=BusinessAxis.choices)
     title = models.CharField(max_length=160)
     instructions = models.TextField(max_length=1200)
@@ -643,7 +645,7 @@ class BrunoTask(models.Model):
     class Meta:
         ordering = ['-created_at', '-id']
         constraints = [models.UniqueConstraint(
-            fields=['startup', 'axis'], condition=Q(status='todo'), name='one_open_task_per_axis',
+            fields=['startup', 'axis'], condition=Q(status='todo', origin='bruno'), name='one_open_task_per_axis',
         )]
 
 
@@ -908,3 +910,81 @@ class AIRequestLease(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     token = models.UUIDField(default=uuid.uuid4)
     expires_at = models.DateTimeField()
+
+
+class FeatureCandidate(models.Model):
+    """A proposed capability; scores are derived only from founder-entered data."""
+    class Priority(models.TextChoices):
+        MUST = 'must', 'Must — обязательно'
+        SHOULD = 'should', 'Should — желательно'
+        COULD = 'could', 'Could — позже'
+        WONT = 'wont', "Won’t — не в этой версии"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='feature_candidates')
+    title = models.CharField(max_length=160)
+    description = models.TextField(max_length=700, blank=True)
+    source = models.CharField(max_length=12, default='founder', choices=[('founder','Основатель'),('bruno','Бруно')])
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
+    reach = models.PositiveIntegerField(null=True, blank=True, validators=[MaxValueValidator(1_000_000)])
+    rice_impact = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    confidence = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(0),MaxValueValidator(100)])
+    effort = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.10')),MaxValueValidator(Decimal('99999.99'))])
+    ice_impact = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MinValueValidator(1),MaxValueValidator(10)])
+    ease = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MinValueValidator(1),MaxValueValidator(10)])
+    estimate_basis = models.CharField(max_length=500, blank=True)
+    priority = models.CharField(max_length=10, choices=Priority.choices, default='', blank=True)
+    question_present = models.CharField(max_length=500, blank=True)
+    question_absent = models.CharField(max_length=500, blank=True)
+    task = models.OneToOneField(BrunoTask, null=True, blank=True, on_delete=models.SET_NULL, related_name='mvp_feature')
+    kano_task = models.OneToOneField(BrunoTask, null=True, blank=True, on_delete=models.SET_NULL, related_name='kano_feature')
+    kano_evidence = models.OneToOneField(EvidenceEntry, null=True, blank=True, on_delete=models.SET_NULL, related_name='kano_feature')
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at','id']
+        constraints = [models.UniqueConstraint(fields=['startup','title'],name='unique_project_feature_title')]
+
+    def clean(self):
+        from decimal import Decimal
+        super().clean()
+        if self.rice_impact is not None and self.rice_impact not in map(Decimal,('0.25','0.5','1','2','3')):
+            raise ValidationError({'rice_impact':'Выберите влияние 0,25 / 0,5 / 1 / 2 / 3.'})
+        for name in ('task','kano_task','kano_evidence'):
+            item = getattr(self,name,None)
+            if item and item.startup_id != self.startup_id:
+                raise ValidationError({name:'Связанный результат должен принадлежать этому проекту.'})
+
+
+class KanoResponse(models.Model):
+    class Answer(models.IntegerChoices):
+        LIKE = 1, 'Мне это нравится'
+        EXPECT = 2, 'Так и должно быть'
+        NEUTRAL = 3, 'Мне всё равно'
+        ACCEPT = 4, 'Могу с этим жить'
+        DISLIKE = 5, 'Мне это не нравится'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    feature = models.ForeignKey(FeatureCandidate, on_delete=models.CASCADE, related_name='kano_responses')
+    respondent = models.CharField(max_length=80)
+    present = models.PositiveSmallIntegerField(choices=Answer.choices)
+    absent = models.PositiveSmallIntegerField(choices=Answer.choices)
+    observed_on = models.DateField(default=timezone.localdate)
+    source = models.CharField(max_length=300)
+    notes = models.CharField(max_length=500, blank=True)
+    question_present = models.CharField(max_length=500)
+    question_absent = models.CharField(max_length=500)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['created_at','id']
+        constraints = [models.UniqueConstraint(fields=['feature','respondent'],name='one_kano_response_per_respondent')]
+
+    @property
+    def category(self):
+        from founder.services.mvp import kano_category
+        return kano_category(self.present,self.absent)

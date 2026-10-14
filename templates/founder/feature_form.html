@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Функция MVP · {{ startup.name }}{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'founder/css/mvp.css' %}?v=1">
+{% endblock %}
+{% block content %}
+    {% include 'founder/_workspace_nav.html' %}
+    <div class="page-heading">
+        <div>
+            <a class="mvp-link"
+               href="{% url 'tasks' startup.id %}?method={{ mvp_method }}#mvp-features">← Функции MVP</a>
+            <h1>
+                {% if feature %}
+                    {{ feature.title }}
+                {% else %}
+                    Новая функция MVP
+                {% endif %}
+            </h1>
+            <p class="muted">Оценки вводите вы. Баллы и порядок считает программа.</p>
+        </div>
+    </div>
+    <form method="post" class="card mvp-form">
+        {% csrf_token %}
+        <input type="hidden" name="method" value="{{ mvp_method }}">
+        {{ form.non_field_errors }}
+        <section>
+            <h2>01 · Какую задачу решает</h2>
+            <label class="field">
+                <span>{{ form.title.label }}</span>{{ form.title }}{{ form.title.errors }}
+            </label>
+            <label class="field">
+                <span>{{ form.description.label }}</span>{{ form.description }}{{ form.description.errors }}
+            </label>
+        </section>
+        <section>
+            <h2>02 · Оценки основателя</h2>
+            <p class="muted small">
+                Можно сохранить функцию без оценок. Заполните все поля выбранного метода, чтобы получить балл.
+            </p>
+            <div class="mvp-form-grid">
+                <fieldset>
+                    <legend>RICE · охват и затраты</legend>
+                    <label class="field">
+                        <span>{{ form.reach.label }}</span>{{ form.reach }}{{ form.reach.errors }}
+                    </label>
+                    <label class="field">
+                        <span>{{ form.rice_impact.label }}</span>{{ form.rice_impact }}{{ form.rice_impact.errors }}
+                    </label>
+                    <label class="field">
+                        <span>{{ form.effort.label }}</span>{{ form.effort }}{{ form.effort.errors }}<small>Суммарная работа команды: 2 человека × 2 дня = 4 человеко-дня.</small>
+                    </label>
+                </fieldset>
+                <fieldset>
+                    <legend>ICE · влияние и простота</legend>
+                    <label class="field">
+                        <span>{{ form.ice_impact.label }}</span>{{ form.ice_impact }}{{ form.ice_impact.errors }}
+                    </label>
+                    <label class="field">
+                        <span>{{ form.ease.label }}</span>{{ form.ease }}{{ form.ease.errors }}<small>1 — очень сложно, 10 — очень просто. Не трудозатраты в днях.</small>
+                    </label>
+                </fieldset>
+            </div>
+            <div class="mvp-form-grid">
+                <label class="field">
+                    <span>{{ form.confidence.label }}</span>{{ form.confidence }}{{ form.confidence.errors }}<small>Общая для RICE и ICE: 0–100%. Укажите свою уверенность в исходных оценках.</small>
+                </label>
+                <label class="field">
+                    <span>{{ form.estimate_basis.label }}</span>{{ form.estimate_basis }}{{ form.estimate_basis.errors }}
+                </label>
+            </div>
+        </section>
+        <section>
+            <h2>03 · Что войдёт в первую версию</h2>
+            <label class="field">
+                <span>{{ form.priority.label }}</span>{{ form.priority }}{{ form.priority.errors }}<small>Автогруппа зависит от места в рейтинге. Ваш ручной выбор сохраняется при смене метода. Won’t явно откладывает функцию.</small>
+            </label>
+        </section>
+        <details class="mvp-help">
+            <summary>Формулировки опроса Кано</summary>
+            <div>
+                <label class="field">
+                    <span>{{ form.question_present.label }}</span>{{ form.question_present }}{{ form.question_present.errors }}<small>{{ form.question_present.help_text }}</small>
+                </label>
+                <label class="field">
+                    <span>{{ form.question_absent.label }}</span>{{ form.question_absent }}{{ form.question_absent.errors }}<small>{{ form.question_absent.help_text }}</small>
+                </label>
+                <p class="muted small">
+                    Если оставить пустыми, предложим базовую пару по названию функции. В опросе можно попросить Бруно уточнить формулировки.
+                </p>
+            </div>
+        </details>
+        <div class="mvp-actions">
+            <button class="button primary" type="submit">Сохранить функцию</button>
+            <a class="button ghost"
+               href="{% url 'tasks' startup.id %}?method={{ mvp_method }}#mvp-features">Отмена</a>
+        </div>
+    </form>
+{% endblock %}

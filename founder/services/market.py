@@ -433,7 +433,7 @@ def check_to_task(report, index):
     startup = report.startup
     with transaction.atomic():
         StartupProfile.objects.select_for_update().get(pk=startup.pk)
-        if startup.bruno_tasks.filter(status=BrunoTask.Status.TODO, axis=check["axis"]).exists():
+        if startup.bruno_tasks.filter(origin='bruno',status=BrunoTask.Status.TODO, axis=check["axis"]).exists():
             return None
         task = BrunoTask(startup=startup, axis=check["axis"], title=check["title"][:160],
                          instructions=check["action"][:1200], success_criterion=check["done_when"][:500],

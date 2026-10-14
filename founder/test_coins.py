@@ -268,13 +268,15 @@ class WardrobeTests(TestCase):
         for mood, pose in POSES.items():
             x, y, width, height, view_box = pose.frame
             html = render_to_string('founder/_bruno.html', {'mascot': MascotState(mood=mood), 'investor': False})
-            self.assertIn(f'<svg x="{x}" y="{y}" width="{width}" height="{height}" viewBox="{view_box}"', html, mood)
+            # Attribute line breaks do not change SVG geometry.
+            self.assertIn(f'<svg x="{x}" y="{y}" width="{width}" height="{height}" viewBox="{view_box}"',
+                          ' '.join(html.split()), mood)
             for outfit in (['party', 'glasses', 'bowtie'], ['cap', 'shades', 'scarf'], ['crown']):
                 dressed = render_to_string('founder/_bruno.html', {
                     'mascot': MascotState(mood=mood, accessories=outfit), 'investor': False})
                 # В русской локали дробные числа выводятся с запятой — SVG такое не понимает.
                 self.assertIsNone(re.search(r'="[^"]*\d,\d', dressed), (mood, outfit))
-                self.assertIn(f'viewBox="{view_box}" overflow="visible"', dressed)
+                self.assertIn(f'viewBox="{view_box}" overflow="visible"', ' '.join(dressed.split()))
         self.assertEqual(set(CATALOG), {'party', 'cap', 'crown', 'glasses', 'shades', 'bowtie', 'scarf'})
 
     def test_reading_pose_hides_neck_and_uses_reading_glasses(self):

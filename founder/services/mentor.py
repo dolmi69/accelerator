@@ -653,7 +653,7 @@ def idea_to_task(idea):
 
     if idea.task_id:
         return idea.task
-    if BrunoTask.objects.filter(startup=idea.startup, axis=idea.axis, status=BrunoTask.Status.TODO).exists():
+    if BrunoTask.objects.filter(origin='bruno',startup=idea.startup, axis=idea.axis, status=BrunoTask.Status.TODO).exists():
         raise ValueError(f"По направлению «{idea.get_axis_display()}» уже есть задание в работе. "
                          "Закройте его, потом возьмите новое.")
     task = BrunoTask.objects.create(

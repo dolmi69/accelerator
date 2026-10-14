@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Кано · {{ feature.title }}{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'founder/css/mvp.css' %}?v=1">
+{% endblock %}
+{% block content %}
+    {% include 'founder/_workspace_nav.html' %}
+    <div class="page-heading">
+        <div>
+            <a class="mvp-link"
+               href="{% url 'tasks' startup.id %}?method={{ mvp_method }}#feature-{{ feature.pk }}">← Функции MVP</a><span class="eyebrow">ПОТРЕБНОСТИ РЕАЛЬНЫХ ЛЮДЕЙ</span>
+            <h1>{{ feature.title }}</h1>
+            <p class="muted">Два вопроса одному человеку. Категорию определит программа.</p>
+        </div>
+    </div>
+    <section class="card mvp-survey">
+        <div class="mvp-form-grid">
+            <div class="mvp-question">
+                <span>01 · Если функция есть</span>
+                <h2>{{ present_question }}</h2>
+            </div>
+            <div class="mvp-question">
+                <span>02 · Если функции нет</span>
+                <h2>{{ absent_question }}</h2>
+            </div>
+        </div>
+        {% if startup.user_role != 'viewer' %}
+            <div class="mvp-actions">
+                {% if not responses %}
+                    <form method="post"
+                          action="{% url 'feature_survey_prepare' startup.id feature.pk %}"
+                          data-busy-form>
+                        {% csrf_token %}
+                        <input type="hidden" name="method" value="{{ mvp_method }}">
+                        <input type="hidden" name="with_ai" value="1">
+                        <button class="button ghost" data-busy-label="Бруно формулирует вопросы…">Подготовить опрос с Бруно</button>
+                        <span class="muted small" role="status"></span>
+                    </form>
+                {% endif %}
+                {% if feature.kano_task_id %}
+                    <a class="button ghost"
+                       href="{% url 'tasks' startup.id %}#task-{{ feature.kano_task_id }}">Открыть задание опроса →</a>
+                {% else %}
+                    <form method="post"
+                          action="{% url 'feature_survey_prepare' startup.id feature.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="method" value="{{ mvp_method }}">
+                        <button class="button ghost">Создать задание с этой парой</button>
+                    </form>
+                {% endif %}
+                {% if not responses %}
+                    <a class="mvp-link"
+                       href="{% url 'feature_edit' startup.id feature.pk %}?method={{ mvp_method }}">Изменить вопросы вручную →</a>
+                {% endif %}
+            </div>
+        {% endif %}
+        <p class="muted small">
+            Покажите оба вопроса одному реальному пользователю. Для каждого вопроса используйте одни и те же пять вариантов ответа. Формулировки фиксируются после первого ответа.
+        </p>
+    </section>
+    <div class="mvp-kano-layout">
+        <section class="card mvp-survey">
+            <span class="eyebrow">РЕЗУЛЬТАТЫ</span>
+            <h2>{{ summary.label }}</h2>
+            <p>
+                Ответов: {{ summary.total }} · пригодных: {{ summary.valid }}
+                {% if summary.questionable %}· {{ summary.questionable }} противоречивых{% endif %}
+            </p>
+            <div class="mvp-distribution">
+                {% for item in summary.distribution %}
+                    <div>
+                        <span>{{ item.label }}</span><strong>{{ item.count }}</strong>
+                    </div>
+                {% endfor %}
+            </div>
+            <p class="muted small">
+                Итог — самая частая категория среди пригодных ответов. При ничьей показываем «Смешанные ответы». Противоречивые пары сохранены, но не участвуют в выборе категории. Маленькая выборка не доказывает потребность всего рынка.
+            </p>
+            {% if feature.kano_evidence_id %}
+                <a class="button ghost"
+                   href="{% url 'evidence_list' startup.id %}?axis=product">Результат в дневнике →</a>
+            {% endif %}
+        </section>
+        {% if startup.user_role != 'viewer' %}
+            <form method="post" class="card mvp-form mvp-answer-form">
+                {% csrf_token %}
+                <input type="hidden" name="method" value="{{ mvp_method }}">
+                <h2>
+                    {% if editing_response %}
+                        Исправить ответ
+                    {% else %}
+                        Записать реальный ответ
+                    {% endif %}
+                </h2>
+                {{ form.non_field_errors }}
+                <label class="field">
+                    <span>{{ form.respondent.label }}</span>{{ form.respondent }}{{ form.respondent.errors }}
+                </label>
+                <div class="mvp-form-grid">
+                    <label class="field">
+                        <span>{{ form.present.label }}</span>{{ form.present }}{{ form.present.errors }}
+                    </label>
+                    <label class="field">
+                        <span>{{ form.absent.label }}</span>{{ form.absent }}{{ form.absent.errors }}
+                    </label>
+                </div>
+                <div class="mvp-form-grid">
+                    <label class="field">
+                        <span>{{ form.observed_on.label }}</span>{{ form.observed_on }}{{ form.observed_on.errors }}
+                    </label>
+                    <label class="field">
+                        <span>{{ form.source.label }}</span>{{ form.source }}{{ form.source.errors }}
+                    </label>
+                </div>
+                <label class="field">
+                    <span>{{ form.notes.label }}</span>{{ form.notes }}{{ form.notes.errors }}
+                </label>
+                <button class="button primary">
+                    {% if editing_response %}
+                        Сохранить исправление
+                    {% else %}
+                        Сохранить ответ
+                    {% endif %}
+                </button>
+                {% if editing_response %}
+                    <a class="mvp-link"
+                       href="{% url 'feature_kano' startup.id feature.pk %}?method={{ mvp_method }}">Отмена</a>
+                {% endif %}
+            </form>
+        {% endif %}
+    </div>
+    {% if responses %}
+        <details class="card mvp-survey" open>
+            <summary>Сохранённые ответы · {{ responses|length }}</summary>
+            <div class="mvp-response-list">
+                {% for response in responses %}
+                    <article>
+                        <div>
+                            <strong>{{ response.respondent }}</strong><span>{{ response.observed_on|date:'d.m.Y' }} · {{ response.source }}</span>
+                            <p>Есть: {{ response.get_present_display }} · Нет: {{ response.get_absent_display }}</p>
+                            {% if response.notes %}<p class="muted small">{{ response.notes }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <span class="mvp-priority">{{ response.category_label }}</span>
+                            {% if startup.user_role != 'viewer' %}
+                                <a class="mvp-link"
+                                   href="{% url 'feature_kano_edit' startup.id feature.pk response.pk %}?method={{ mvp_method }}">Исправить →</a>
+                            {% endif %}
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        </details>
+    {% endif %}
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'founder/js/workbench.js' %}" defer></script>
+{% endblock %}

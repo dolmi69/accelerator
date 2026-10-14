@@ -598,7 +598,7 @@ def condition_to_task(verdict, index):
         if vote.get("task_id"):
             return startup.bruno_tasks.filter(pk=vote["task_id"]).first()
         axis = SHARKS[vote["shark"]]["axis"]
-        if startup.bruno_tasks.filter(status=BrunoTask.Status.TODO, axis=axis).exists():
+        if startup.bruno_tasks.filter(origin='bruno',status=BrunoTask.Status.TODO, axis=axis).exists():
             return None
         condition = vote["condition"]
         task = BrunoTask(startup=startup, axis=axis, title=condition["title"][:160],

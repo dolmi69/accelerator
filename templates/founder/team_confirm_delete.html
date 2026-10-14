@@ -1,28 +1,61 @@
 {% extends 'base.html' %}
-{% block title %}{% if removed_member %}Удалить участника{% else %}Удалить проект{% endif %} · {{ startup.name }}{% endblock %}
+{% block title %}
+    {% if removed_member %}
+        Удалить участника
+    {% else %}
+        Удалить проект
+    {% endif %}
+    · {{ startup.name }}
+{% endblock %}
 {% block content %}
-{% include 'founder/_workspace_nav.html' %}
-<a class="back-link" href="{% url 'team' startup.id %}">← Команда проекта</a>
-<section class="card work-card team-delete-confirm" aria-labelledby="delete-title">
-  <span class="team-delete-icon" aria-hidden="true">!</span>
-  {% if removed_member %}
-    <h1 id="delete-title">Удалить участника?</h1>
-    <p><strong>{{ removed_member.user.public_name }}</strong> · @{{ removed_member.user.handle }} потеряет доступ к проекту «{{ startup.name }}».</p>
-    <div class="team-delete-note"><p>Его вклад и сообщения останутся в истории. Незавершённые задания можно будет назначить другому участнику. Аккаунт человека сохраняется.</p></div>
-    <form method="post" action="{% url 'team_member_update' startup.id removed_member.id %}">
-      {% csrf_token %}<input type="hidden" name="action" value="remove">
-      <div class="team-delete-actions"><a class="button ghost" href="{% url 'team' startup.id %}">Отмена</a><button class="button danger" type="submit">Удалить участника</button></div>
-    </form>
-  {% else %}
-    <h1 id="delete-title">Удалить проект?</h1>
-    <p>Вы удаляете стартап <strong>«{{ startup.name }}»</strong> для всей команды. Восстановить его после удаления не получится.</p>
-    <div class="team-delete-note"><p>Будут удалены карточка, радар, планы, задания, дневник, беседы с Бруно и версии сайтов. Участники потеряют доступ. Неиспользованные монеты на награды тестировщикам вернутся тем, кто их внёс.</p></div>
-    <form method="post" action="{% url 'startup_delete' startup.id %}">
-      {% csrf_token %}
-      {{ delete_form.non_field_errors }}
-      <label class="field" for="{{ delete_form.confirmation_name.id_for_label }}">Чтобы подтвердить, введите название:<strong class="team-delete-name">{{ startup.name }}</strong>{{ delete_form.confirmation_name }}{% for error in delete_form.confirmation_name.errors %}<span class="field-error" role="alert">{{ error }}</span>{% endfor %}</label>
-      <div class="team-delete-actions"><a class="button ghost" href="{% url 'team' startup.id %}">Отмена</a><button class="button danger" type="submit">Удалить проект навсегда</button></div>
-    </form>
-  {% endif %}
-</section>
+    {% include 'founder/_workspace_nav.html' %}
+    <a class="back-link" href="{% url 'team' startup.id %}">← Команда проекта</a>
+    <section class="card work-card team-delete-confirm"
+             aria-labelledby="delete-title">
+        <span class="team-delete-icon" aria-hidden="true">!</span>
+        {% if removed_member %}
+            <h1 id="delete-title">Удалить участника?</h1>
+            <p>
+                <strong>{{ removed_member.user.public_name }}</strong> · @{{ removed_member.user.handle }} потеряет доступ к проекту «{{ startup.name }}».
+            </p>
+            <div class="team-delete-note">
+                <p>
+                    Его вклад и сообщения останутся в истории. Незавершённые задания можно будет назначить другому участнику. Аккаунт человека сохраняется.
+                </p>
+            </div>
+            <form method="post"
+                  action="{% url 'team_member_update' startup.id removed_member.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="remove">
+                <div class="team-delete-actions">
+                    <a class="button ghost" href="{% url 'team' startup.id %}">Отмена</a>
+                    <button class="button danger" type="submit">Удалить участника</button>
+                </div>
+            </form>
+        {% else %}
+            <h1 id="delete-title">Удалить проект?</h1>
+            <p>
+                Вы удаляете стартап <strong>«{{ startup.name }}»</strong> для всей команды. Восстановить его после удаления не получится.
+            </p>
+            <div class="team-delete-note">
+                <p>
+                    Будут удалены карточка, радар, планы, задания, дневник, беседы с Бруно и версии сайтов. Участники потеряют доступ. Неиспользованные монеты на награды тестировщикам вернутся тем, кто их внёс.
+                </p>
+            </div>
+            <form method="post" action="{% url 'startup_delete' startup.id %}">
+                {% csrf_token %}
+                {{ delete_form.non_field_errors }}
+                <label class="field" for="{{ delete_form.confirmation_name.id_for_label }}">
+                    Чтобы подтвердить, введите название:<strong class="team-delete-name">{{ startup.name }}</strong>{{ delete_form.confirmation_name }}
+                    {% for error in delete_form.confirmation_name.errors %}
+                        <span class="field-error" role="alert">{{ error }}</span>
+                    {% endfor %}
+                </label>
+                <div class="team-delete-actions">
+                    <a class="button ghost" href="{% url 'team' startup.id %}">Отмена</a>
+                    <button class="button danger" type="submit">Удалить проект навсегда</button>
+                </div>
+            </form>
+        {% endif %}
+    </section>
 {% endblock %}

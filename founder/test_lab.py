@@ -132,8 +132,9 @@ class LabTests(TestCase):
         self.assertEqual(keys, ['registration', 'password_reset', 'chat', 'notifications', 'leads', 'catalog', 'pages', 'uploads', 'favorites', 'reviews', 'booking', 'orders', 'payments'])
         global_page = self.client.get(self.route('lab') + f'?version={version.pk}&section=globalization')
         self.assertEqual(global_page.context['lab_section'], 'globalization')
-        self.assertContains(global_page, 'data-lab-panel="development" hidden')
-        self.assertContains(global_page, 'data-lab-panel="globalization"  aria-labelledby')
+        # Check the selected panel, independently of HTML indentation.
+        self.assertRegex(global_page.content.decode(), r'data-lab-panel="development"\s+hidden')
+        self.assertRegex(global_page.content.decode(), r'data-lab-panel="globalization"\s+aria-labelledby')
 
     def test_large_design_has_scope_control_inside_existing_tools(self):
         version = LabSiteVersion.objects.create(startup=self.startup, prompt='Large',

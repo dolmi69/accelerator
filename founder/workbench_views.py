@@ -38,11 +38,13 @@ def _workspace_return(request, startup, page, section):
 @login_required
 def tasks(request, startup_id):
     startup = owned_startup(request, startup_id, edit=False)
-    open_tasks = startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).select_related('assignee')
+    open_tasks = startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).select_related('assignee','kano_feature')
     mine = request.GET.get('mine') == '1'
     if mine:
         open_tasks = open_tasks.filter(assignee=request.user)
+    from founder.feature_views import board_context
     return render(request, 'founder/tasks.html', {
+        **board_context(startup,request),
         'startup': startup, 'workspace_tab': 'tasks', 'open_tasks': open_tasks, 'mine': mine,
         'past_tasks': startup.bruno_tasks.exclude(status=BrunoTask.Status.TODO).select_related('assignee')[:15],
         'is_demo': settings.AI_PROVIDER == 'demo',
@@ -179,7 +181,7 @@ def review(request, startup_id):
             current = get_object_or_404(reviews, pk=UUID(request.GET['id']))
         except (ValueError, TypeError) as exc:
             raise Http404('Разбор не найден') from exc
-    open_axes = set(startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list('axis', flat=True))
+    open_axes = set(startup.bruno_tasks.filter(origin='bruno',status=BrunoTask.Status.TODO).values_list('axis', flat=True))
     axis_labels = dict(BusinessAxis.choices)
     data = current.data if current else {}
     return render(request, 'founder/review.html', {
@@ -237,7 +239,7 @@ def market(request, startup_id):
             raise Http404('Анализ не найден') from exc
     data = current.data if current else {}
     sources = current.sources if current else []
-    open_axes = set(startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list('axis', flat=True))
+    open_axes = set(startup.bruno_tasks.filter(origin='bruno',status=BrunoTask.Status.TODO).values_list('axis', flat=True))
     axis_labels = dict(BusinessAxis.choices)
 
     def source(index):

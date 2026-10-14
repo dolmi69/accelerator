@@ -1,27 +1,111 @@
-<details class="bruno-hub-tasks" id="project-tasks" aria-labelledby="hub-tasks-heading">
-  <summary class="hub-section-heading"><h3 id="hub-tasks-heading">Задания Бруно</h3><span>{{ overview_task_count }}</span><span class="hub-fold-chevron" aria-hidden="true">⌄</span></summary><div class="hub-tasks-body">
-  {% if overview_tasks %}<p class="hub-task-hint">Сохраните результат, чтобы завершить задание.</p>{% endif %}
-  <div class="hub-task-list">
-    {% for task in overview_tasks %}
-      <div class="hub-task">
-        <input type="checkbox" class="hub-task-check" data-task-checkbox data-task-dialog="task-result-{{ task.pk }}" aria-label="Записать результат задания: {{ task.title }}" aria-haspopup="dialog" aria-controls="task-result-{{ task.pk }}" {% if startup.user_role == 'viewer' %}disabled{% endif %}>
-        <details class="preview-task"><summary><span><strong>{{ task.title }}</strong><small>{{ task.get_axis_display }}{% if task.assignee %} · {{ task.assignee.public_name }}{% else %} · Без исполнителя{% endif %}</small></span><span aria-hidden="true">⌄</span></summary><div class="preview-task-body"><p>{{ task.instructions }}</p><p class="muted small">Готово, когда: {{ task.success_criterion }}</p>{% if startup.user_role != 'viewer' %}<a class="evidence-link" href="{% url 'evidence_create' startup.id %}?task={{ task.id }}" data-task-open="task-result-{{ task.pk }}">Записать результат →</a>{% endif %}</div></details>
-      </div>
-      {% if startup.user_role != 'viewer' %}
-        <dialog class="radar-task-dialog" id="task-result-{{ task.pk }}" aria-labelledby="task-result-title-{{ task.pk }}">
-          <div class="radar-popover-heading"><div><span class="radar-comment-caption">РЕЗУЛЬТАТ ЗАДАНИЯ</span><h3 id="task-result-title-{{ task.pk }}">{{ task.title }}</h3></div><button type="button" class="radar-popover-close" data-task-close aria-label="Закрыть результат задания">×</button></div>
-          <p class="muted small">{{ task.success_criterion }}</p>
-          <form method="post" action="{% url 'evidence_create' startup.id %}" class="evidence-form hub-result-form" data-busy-form>{% csrf_token %}<input type="hidden" name="return_to" value="radar">{{ task.radar_result_form.task.as_hidden }}{{ task.radar_result_form.axis.as_hidden }}{{ task.radar_result_form.claim.as_hidden }}
-            <label class="field"><span>Что получилось *</span>{{ task.radar_result_form.observation }}</label>
-            <div class="hub-result-fields"><label class="field"><span>{{ task.radar_result_form.outcome.label }} *</span>{{ task.radar_result_form.outcome }}</label><label class="field"><span>{{ task.radar_result_form.observed_on.label }} *</span>{{ task.radar_result_form.observed_on }}</label></div>
-            <label class="field"><span>{{ task.radar_result_form.milestone.label }}</span>{{ task.radar_result_form.milestone }}</label>
-            <label class="field"><span>{{ task.radar_result_form.source.label }} (необязательно)</span>{{ task.radar_result_form.source }}</label>
-            <p class="muted small">Результат сохранится в дневнике, а задание будет завершено. Отрицательный результат тоже подходит.</p>
-            <button type="submit" class="button primary" data-busy-label="Сохраняем результат…">Сохранить и завершить</button><span class="muted small" role="status" aria-live="polite"></span>
-          </form>
-        </dialog>
-      {% endif %}
-    {% empty %}<p class="hub-task-hint">Здесь появятся следующие шаги от Бруно.</p>{% endfor %}
-  </div>
-  <div class="hub-task-actions">{% if startup.user_role != 'viewer' and not overview_task_count %}<form method="post" action="{% url 'tasks_generate' startup.id %}" data-busy-form>{% csrf_token %}<input type="hidden" name="return_to" value="radar"><button class="button ghost" data-busy-label="Бруно готовит задания…" {% if not overview_has_story %}disabled{% endif %}>Получить задания</button><span class="muted small" role="status" aria-live="polite"></span></form>{% endif %}<a class="evidence-link" href="{% url 'tasks' startup.id %}">Все задания →</a></div>
-</div></details>
+<details class="bruno-hub-tasks"
+         id="project-tasks"
+         aria-labelledby="hub-tasks-heading">
+    <summary class="hub-section-heading">
+        <h3 id="hub-tasks-heading">Задания Бруно</h3>
+        <span>{{ overview_task_count }}</span><span class="hub-fold-chevron" aria-hidden="true">⌄</span>
+    </summary>
+    <div class="hub-tasks-body">
+        {% if overview_tasks %}<p class="hub-task-hint">Сохраните результат, чтобы завершить задание.</p>{% endif %}
+        <div class="hub-task-list">
+            {% for task in overview_tasks %}
+                <div class="hub-task">
+                    <input type="checkbox"
+                           class="hub-task-check"
+                           data-task-checkbox
+                           data-task-dialog="task-result-{{ task.pk }}"
+                           aria-label="Записать результат задания: {{ task.title }}"
+                           aria-haspopup="dialog"
+                           aria-controls="task-result-{{ task.pk }}"
+                           {% if startup.user_role == 'viewer' %}disabled{% endif %}>
+                    <details class="preview-task">
+                        <summary>
+                            <span><strong>{{ task.title }}</strong><small>{{ task.get_axis_display }}
+                                {% if task.assignee %}
+                                    · {{ task.assignee.public_name }}
+                                {% else %}
+                                    · Без исполнителя
+                                {% endif %}
+                            </small></span><span aria-hidden="true">⌄</span>
+                        </summary>
+                        <div class="preview-task-body">
+                            <p>{{ task.instructions }}</p>
+                            <p class="muted small">Готово, когда: {{ task.success_criterion }}</p>
+                            {% if startup.user_role != 'viewer' %}
+                                <a class="evidence-link"
+                                   href="{% url 'evidence_create' startup.id %}?task={{ task.id }}"
+                                   data-task-open="task-result-{{ task.pk }}">Записать результат →</a>
+                            {% endif %}
+                        </div>
+                    </details>
+                </div>
+                {% if startup.user_role != 'viewer' %}
+                    <dialog class="radar-task-dialog"
+                            id="task-result-{{ task.pk }}"
+                            aria-labelledby="task-result-title-{{ task.pk }}">
+                        <div class="radar-popover-heading">
+                            <div>
+                                <span class="radar-comment-caption">РЕЗУЛЬТАТ ЗАДАНИЯ</span>
+                                <h3 id="task-result-title-{{ task.pk }}">{{ task.title }}</h3>
+                            </div>
+                            <button type="button"
+                                    class="radar-popover-close"
+                                    data-task-close
+                                    aria-label="Закрыть результат задания">×</button>
+                        </div>
+                        <p class="muted small">{{ task.success_criterion }}</p>
+                        <form method="post"
+                              action="{% url 'evidence_create' startup.id %}"
+                              class="evidence-form hub-result-form"
+                              data-busy-form>
+                            {% csrf_token %}
+                            <input type="hidden" name="return_to" value="radar">
+                            {{ task.radar_result_form.task.as_hidden }}{{ task.radar_result_form.axis.as_hidden }}{{ task.radar_result_form.claim.as_hidden }}
+                            <label class="field">
+                                <span>Что получилось *</span>{{ task.radar_result_form.observation }}
+                            </label>
+                            <div class="hub-result-fields">
+                                <label class="field">
+                                    <span>{{ task.radar_result_form.outcome.label }} *</span>{{ task.radar_result_form.outcome }}
+                                </label>
+                                <label class="field">
+                                    <span>{{ task.radar_result_form.observed_on.label }} *</span>{{ task.radar_result_form.observed_on }}
+                                </label>
+                            </div>
+                            <label class="field">
+                                <span>{{ task.radar_result_form.milestone.label }}</span>{{ task.radar_result_form.milestone }}
+                            </label>
+                            <label class="field">
+                                <span>{{ task.radar_result_form.source.label }} (необязательно)</span>{{ task.radar_result_form.source }}
+                            </label>
+                            <p class="muted small">
+                                Результат сохранится в дневнике, а задание будет завершено. Отрицательный результат тоже подходит.
+                            </p>
+                            <button type="submit"
+                                    class="button primary"
+                                    data-busy-label="Сохраняем результат…">Сохранить и завершить</button>
+                            <span class="muted small" role="status" aria-live="polite"></span>
+                        </form>
+                    </dialog>
+                {% endif %}
+            {% empty %}
+                <p class="hub-task-hint">Здесь появятся следующие шаги от Бруно.</p>
+            {% endfor %}
+        </div>
+        <div class="hub-task-actions">
+            {% if startup.user_role != 'viewer' and not overview_task_count %}
+                <form method="post"
+                      action="{% url 'tasks_generate' startup.id %}"
+                      data-busy-form>
+                    {% csrf_token %}
+                    <input type="hidden" name="return_to" value="radar">
+                    <button class="button ghost"
+                            data-busy-label="Бруно готовит задания…"
+                            {% if not overview_has_story %}disabled{% endif %}>Получить задания</button>
+                    <span class="muted small" role="status" aria-live="polite"></span>
+                </form>
+            {% endif %}
+            <a class="evidence-link" href="{% url 'tasks' startup.id %}">Все задания →</a>
+        </div>
+    </div>
+</details>

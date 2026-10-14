@@ -126,7 +126,7 @@ def _valid_tasks(items, available):
 
 
 def generate_tasks(startup):
-    active = set(startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list('axis', flat=True))
+    active = set(startup.bruno_tasks.filter(origin='bruno',status=BrunoTask.Status.TODO).values_list('axis', flat=True))
     if len(active) >= 3:
         return []
     available = [axis for axis in BusinessAxis.values if axis not in active]
@@ -160,7 +160,7 @@ def generate_tasks(startup):
     # Recheck after the API call: a parallel request may already have added tasks.
     with transaction.atomic():
         StartupProfile.objects.select_for_update().get(pk=startup.pk)
-        active = set(startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list('axis', flat=True))
+        active = set(startup.bruno_tasks.filter(origin='bruno',status=BrunoTask.Status.TODO).values_list('axis', flat=True))
         created = []
         for item in items:
             if len(active) >= 3:

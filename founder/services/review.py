@@ -267,7 +267,7 @@ def step_to_task(review, index):
     startup = review.startup
     with transaction.atomic():
         StartupProfile.objects.select_for_update().get(pk=startup.pk)
-        if startup.bruno_tasks.filter(status=BrunoTask.Status.TODO, axis=step["axis"]).exists():
+        if startup.bruno_tasks.filter(origin='bruno',status=BrunoTask.Status.TODO, axis=step["axis"]).exists():
             return None
         task = BrunoTask(startup=startup, axis=step["axis"], title=step["title"][:160],
                          instructions=step["action"][:1200], success_criterion=step["done_when"][:500],

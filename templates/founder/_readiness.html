@@ -1,27 +1,78 @@
-<section class="project-readiness" aria-labelledby="readiness-title" id="project-readiness">
-  <div class="readiness-heading">
-    <div><span class="readiness-eyebrow">ГОТОВНОСТЬ ПРОЕКТА</span><h3 id="readiness-title">{{ readiness.title }}</h3></div>
-    <span class="readiness-level" aria-label="Уровень готовности {{ readiness.level }} из 9">{{ readiness.level }}<small>/9</small></span>
-  </div>
-  <div class="readiness-track" aria-hidden="true">{% for step in readiness.steps %}<span class="{% if step.ready %}is-reached{% endif %} {% if step.current %}is-current{% endif %}">{{ step.number }}</span>{% endfor %}</div>
-  <div class="readiness-phase-labels" aria-hidden="true"><span>Идея</span><span>Прототип</span><span>Клиенты</span></div>
-  <div class="readiness-next">
-    <span class="readiness-next-icon" aria-hidden="true">↗</span>
-    <div><strong>{% if readiness.level == 9 %}Продолжайте развивать проект{% else %}Следующий шаг · уровень {{ readiness.next_level }}{% endif %}</strong><p>{{ readiness.next_description }}</p>
-    {% if startup.user_role != 'viewer' or readiness.level == 9 %}<a class="readiness-action" href="{{ readiness.action_url }}">{{ readiness.action_label }} <span aria-hidden="true">→</span></a>{% endif %}</div>
-  </div>
-  <details class="readiness-details">
-    <summary><span>Как считается уровень</span><span aria-hidden="true">⌄</span></summary>
-    <div class="readiness-details-body">
-      <p class="readiness-explanation">Этапы определяются по сохранённым данным. Уровень показывает самый поздний отмеченный этап; оценки радара на него не влияют.</p>
-      {% if readiness.missing_earlier %}<p class="readiness-gap-note">Для некоторых предыдущих этапов пока нет данных. Они отмечены ниже.</p>{% endif %}
-      <ol class="readiness-stages">{% for step in readiness.steps %}
-        <li class="{% if step.ready %}is-reached{% endif %} {% if step.current %}is-current{% endif %}" {% if step.current %}aria-current="step"{% endif %}>
-          <span class="readiness-stage-number" aria-hidden="true">{% if step.ready %}✓{% else %}{{ step.number }}{% endif %}</span>
-          <div><strong>{{ step.number }}. {{ step.title }}</strong><p>{{ step.criterion }}</p>{% if step.ready and step.url %}<a href="{{ step.url }}">{{ step.source_label }} →</a>{% else %}<small>Пока нет данных</small>{% endif %}</div>
-        </li>{% endfor %}</ol>
-      <p class="readiness-explanation">Внешние тесты: {{ readiness.testers }} человек с завершённым тестом и отзывом. Повторные тесты одного человека и проверки команды не повышают уровень.</p>
-      <p class="readiness-explanation">Пилоты и оплаты — сведения из вашего дневника. Источник помогает разобраться в результате, но не подтверждает его автоматически. Это шкала готовности платформы, не сертификация TRL.</p>
+<section class="project-readiness"
+         aria-labelledby="readiness-title"
+         id="project-readiness">
+    <div class="readiness-heading">
+        <div>
+            <span class="readiness-eyebrow">ГОТОВНОСТЬ ПРОЕКТА</span>
+            <h3 id="readiness-title">{{ readiness.title }}</h3>
+        </div>
+        <span class="readiness-level"
+              aria-label="Уровень готовности {{ readiness.level }} из 9">{{ readiness.level }}<small>/9</small></span>
     </div>
-  </details>
+    <div class="readiness-track" aria-hidden="true">
+        {% for step in readiness.steps %}
+            <span class="{% if step.ready %}is-reached{% endif %} {% if step.current %}is-current{% endif %}">{{ step.number }}</span>
+        {% endfor %}
+    </div>
+    <div class="readiness-phase-labels" aria-hidden="true">
+        <span>Идея</span><span>Прототип</span><span>Клиенты</span>
+    </div>
+    <div class="readiness-next">
+        <span class="readiness-next-icon" aria-hidden="true">↗</span>
+        <div>
+            <strong>
+                {% if readiness.level == 9 %}
+                    Продолжайте развивать проект
+                {% else %}
+                    Следующий шаг · уровень {{ readiness.next_level }}
+                {% endif %}
+            </strong>
+            <p>{{ readiness.next_description }}</p>
+            {% if startup.user_role != 'viewer' or readiness.level == 9 %}
+                <a class="readiness-action" href="{{ readiness.action_url }}">{{ readiness.action_label }} <span aria-hidden="true">→</span></a>
+            {% endif %}
+        </div>
+    </div>
+    <details class="readiness-details">
+        <summary>
+            <span>Как считается уровень</span><span aria-hidden="true">⌄</span>
+        </summary>
+        <div class="readiness-details-body">
+            <p class="readiness-explanation">
+                Этапы определяются по сохранённым данным. Уровень показывает самый поздний отмеченный этап; оценки радара на него не влияют.
+            </p>
+            {% if readiness.missing_earlier %}
+                <p class="readiness-gap-note">Для некоторых предыдущих этапов пока нет данных. Они отмечены ниже.</p>
+            {% endif %}
+            <ol class="readiness-stages">
+                {% for step in readiness.steps %}
+                    <li class="{% if step.ready %}is-reached{% endif %} {% if step.current %}is-current{% endif %}"
+                        {% if step.current %}aria-current="step"{% endif %}>
+                        <span class="readiness-stage-number" aria-hidden="true">
+                            {% if step.ready %}
+                                ✓
+                            {% else %}
+                                {{ step.number }}
+                            {% endif %}
+                        </span>
+                        <div>
+                            <strong>{{ step.number }}. {{ step.title }}</strong>
+                            <p>{{ step.criterion }}</p>
+                            {% if step.ready and step.url %}
+                                <a href="{{ step.url }}">{{ step.source_label }} →</a>
+                            {% else %}
+                                <small>Пока нет данных</small>
+                            {% endif %}
+                        </div>
+                    </li>
+                {% endfor %}
+            </ol>
+            <p class="readiness-explanation">
+                Внешние тесты: {{ readiness.testers }} человек с завершённым тестом и отзывом. Повторные тесты одного человека и проверки команды не повышают уровень.
+            </p>
+            <p class="readiness-explanation">
+                Пилоты и оплаты — сведения из вашего дневника. Источник помогает разобраться в результате, но не подтверждает его автоматически. Это шкала готовности платформы, не сертификация TRL.
+            </p>
+        </div>
+    </details>
 </section>
