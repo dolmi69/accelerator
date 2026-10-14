@@ -102,7 +102,7 @@ def _load(path):
     if path is None:
         return None
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         result = CodeResult(**data['result'])
         _validate_server(data['files'])
         _parse(replace(result, text=json.dumps({'files':data['files'], 'report':result.report})))
@@ -120,7 +120,7 @@ def _save(path, files, result):
         'output_tokens':result.output_tokens,'request_id':result.request_id,'report':result.report}},ensure_ascii=False)
     temporary = path.with_suffix('.tmp')
     descriptor = os.open(temporary, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
-    with os.fdopen(descriptor,'w') as target:
+    with os.fdopen(descriptor,'w',encoding='utf-8') as target:
         target.write(payload)
     temporary.replace(path)
 

@@ -57,3 +57,23 @@ class BackendStageTests(TestCase):
         with patch('founder.services.backend_stages.generate_code',side_effect=[self.answer({'app.py':APP},None),self.answer({'app.py':APP,'index.html':HTML},None)]):
             with self.assertRaisesMessage(QwenOutputError,'переписать сервер'):
                 generate_staged('Создай сайт')
+
+    def test_checkpoint_round_trip_with_non_utf8_os_default(self):
+        original_fdopen = os.fdopen
+        original_read = Path.read_text
+        def windows_fdopen(fd, mode, *args, **kwargs):
+            kwargs.setdefault('encoding', 'cp1252')
+            return original_fdopen(fd, mode, *args, **kwargs)
+        def windows_read(path, *args, **kwargs):
+            kwargs.setdefault('encoding', 'cp1252')
+            return original_read(path, *args, **kwargs)
+        app = APP + '\n# Русское название: парикмахерская\n'
+        with tempfile.TemporaryDirectory() as directory, override_settings(BASE_DIR=Path(directory)), patch('os.fdopen',side_effect=windows_fdopen), patch.object(Path,'read_text',windows_read):
+            with patch('founder.services.backend_stages.generate_code',side_effect=[self.answer({'app.py':app},None),QwenOutputError('filter')]):
+                with self.assertRaisesMessage(QwenOutputError,'Серверный этап сохранён'):
+                    generate_staged('Создай сайт',checkpoint=(1,'encoding-test'))
+            with patch('founder.services.backend_stages.generate_code',return_value=self.answer({'index.html':HTML},None)) as api:
+                result=generate_staged('Создай сайт',checkpoint=(1,'encoding-test'))
+            self.assertEqual(api.call_count,1)
+            self.assertEqual(result.backend_files['app.py'],app)
+            self.assertIn(REPORT['completed'][0],result.report['completed'])
