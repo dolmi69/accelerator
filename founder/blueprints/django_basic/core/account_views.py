@@ -54,7 +54,7 @@ def public_profile(request,user_id):
 def setup_owner(request, token):
     path = settings.BASE_DIR / '.owner-setup'
     try:
-        correct = path.read_text().strip()
+        correct = path.read_text(encoding="utf-8").strip()
     except OSError:
         correct = ''
     if not correct or not secrets.compare_digest(correct, token) or SiteControl.objects.filter(pk=1, setup_claimed=True).exists():

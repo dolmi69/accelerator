@@ -74,7 +74,7 @@ def history_context(startup, snapshot_id=None, page_number=1):
     if selected:
         for key, label in AXES:
             rows.append({
-                "label": label, "score": getattr(selected, key),
+                "key": key, "label": label, "score": getattr(selected, key),
                 "before": getattr(previous, key) if previous else None,
                 "delta": getattr(selected, key) - getattr(previous, key) if previous else None,
                 "reason": selected.assessment_details.get(key, ""),

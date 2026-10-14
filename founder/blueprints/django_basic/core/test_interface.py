@@ -75,3 +75,17 @@ class InterfaceTests(TestCase):
         response=self.client.get('/checkout/')
         self.assertContains(response,'name="nonce"')
         self.assertContains(response,'type="hidden"')
+
+    def test_booking_navigation_is_allowed_before_login_and_requires_login(self):
+        from .views import app_navigation
+        from django.test import RequestFactory
+        from django.contrib.auth.models import AnonymousUser
+        request = RequestFactory().get('/')
+        request.user = AnonymousUser()
+        with override_settings(SITE={**settings.SITE,'modules':['accounts','catalog','booking']}):
+            navigation,routes = app_navigation(request)
+            self.assertIn('/bookings/', routes)
+            self.assertIn('Мои бронирования', navigation)
+            self.assertRedirects(self.client.get('/bookings/'), '/login/?next=/bookings/')
+        with override_settings(SITE={**settings.SITE,'modules':['accounts']}):
+            self.assertNotIn('/bookings/', app_navigation(request)[1])

@@ -1,0 +1,71 @@
+(() => {
+  const nav = document.querySelector('.project-workspace-nav');
+  if (!nav) return;
+  const menus = Array.from(document.querySelectorAll('.project-switcher, .workspace-more'));
+  const sidebar = document.getElementById('project-sidebar');
+  const mobileToggle = document.querySelector('.project-menu-toggle');
+  const collapse = document.querySelector('[data-sidebar-collapse]');
+  const scrim = document.querySelector('[data-sidebar-dismiss]');
+  const mobile = window.matchMedia('(max-width:900px)');
+  document.body.classList.add('js-project-shell');
+  try { document.body.classList.toggle('sidebar-collapsed', localStorage.getItem('project-sidebar') === 'collapsed'); } catch (_) {}
+  function syncSidebar() {
+    const open = document.body.classList.contains('sidebar-open');
+    if (sidebar) sidebar.inert = mobile.matches && !open;
+    if (mobileToggle) { mobileToggle.hidden = false; mobileToggle.setAttribute('aria-expanded', String(open)); }
+    if (scrim) scrim.hidden = !mobile.matches || !open;
+    if (collapse) {
+      collapse.hidden = false;
+      const expanded = !document.body.classList.contains('sidebar-collapsed');
+      collapse.textContent = mobile.matches ? '×' : expanded ? '‹' : '›';
+      collapse.setAttribute('aria-expanded', String(expanded));
+      collapse.setAttribute('aria-label', mobile.matches ? 'Закрыть разделы проекта' : expanded ? 'Свернуть боковое меню' : 'Развернуть боковое меню');
+    }
+  }
+  function closeSidebar() { document.body.classList.remove('sidebar-open'); syncSidebar(); }
+  mobileToggle?.addEventListener('click', () => { document.body.classList.toggle('sidebar-open'); syncSidebar(); });
+  scrim?.addEventListener('click', closeSidebar);
+  collapse?.addEventListener('click', () => {
+    if (mobile.matches) { closeSidebar(); mobileToggle?.focus(); return; }
+    document.body.classList.toggle('sidebar-collapsed');
+    try { localStorage.setItem('project-sidebar', document.body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'expanded'); } catch (_) {}
+    syncSidebar();
+  });
+  mobile.addEventListener('change', () => { closeSidebar(); syncSidebar(); });
+  const topbar = document.querySelector('.topbar');
+  const updateTopbar = () => { if (topbar) document.body.style.setProperty('--project-topbar-height', `${topbar.offsetHeight}px`); };
+  if (topbar && typeof ResizeObserver !== 'undefined') new ResizeObserver(updateTopbar).observe(topbar);
+  updateTopbar(); syncSidebar();
+  document.addEventListener('click', event => {
+    menus.forEach(menu => { if (!menu.contains(event.target)) menu.open = false; });
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    menus.forEach(menu => { if (menu.open) { menu.open = false; menu.querySelector('summary').focus(); } });
+    if (mobile.matches && document.body.classList.contains('sidebar-open')) { closeSidebar(); mobileToggle?.focus(); }
+  });
+  function reveal(element) {
+    for (let node = element; node; node = node.parentElement) {
+      if (node instanceof HTMLDetailsElement) node.open = true;
+    }
+  }
+  function revealAnchor() {
+    if (!location.hash) return;
+    let id;
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch { return; }
+    const target = document.getElementById(id);
+    if (target) {
+      reveal(target);
+      target.scrollIntoView({block:'start'});
+    }
+  }
+  revealAnchor();
+  window.addEventListener('hashchange', revealAnchor);
+  // Browser validation must be able to focus fields inside folded sections.
+  document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('invalid', event => reveal(event.target), true);
+  });
+  document.querySelectorAll('.field-error,.errorlist,.form-error').forEach(error => {
+    if (error.textContent.trim()) reveal(error);
+  });
+})();

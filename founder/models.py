@@ -49,6 +49,7 @@ class User(AbstractUser):
     avatar = models.ImageField(upload_to=avatar_upload_path, blank=True)
     # Кэш суммы CoinTransaction; меняется только в services/coins.py вместе с записью журнала.
     coins = models.PositiveIntegerField('Монеты', default=0)
+    pro_until = models.DateTimeField('Pro до', null=True, blank=True)
 
     class Meta(AbstractUser.Meta):
         constraints = [models.CheckConstraint(
@@ -442,7 +443,7 @@ class ChatSession(models.Model):
     mode = models.CharField(max_length=20, choices=Mode.choices)
     title = models.CharField(max_length=160, blank=True)
     focus_axis = models.CharField(max_length=12, blank=True, choices=[
-        ("product", "Продукт"), ("market", "Рынок"), ("finance", "Финансы"),
+        ("product", "Продукт"), ("market", "Рынок"), ("finance", "Экономика"),
         ("team", "Команда"), ("pitch", "Ясность идеи"),
     ])
     created_at = models.DateTimeField(default=timezone.now, editable=False)
@@ -588,7 +589,7 @@ class PanelVerdict(models.Model):
 class BusinessAxis(models.TextChoices):
     PRODUCT = 'product', 'Продукт'
     MARKET = 'market', 'Рынок'
-    FINANCE = 'finance', 'Финансы'
+    FINANCE = 'finance', 'Экономика'
     TEAM = 'team', 'Команда'
     PITCH = 'pitch', 'Ясность идеи'
 

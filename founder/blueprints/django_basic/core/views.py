@@ -53,7 +53,7 @@ def prototype(request):
         path = settings.BASE_DIR / 'static' / name
         if not path.is_file():
             path = finders.find(name)
-        return Path(path).read_text() if path else ''
+        return Path(path).read_text(encoding="utf-8") if path else ''
     css = asset('site-theme.css') + '\n' + asset('app-navigation.css')
     script = asset('prototype-bridge.js')
     html = integrate_navigation(html, navigation, css, script)

@@ -140,7 +140,7 @@ class MentorChatPageTests(TestCase):
     def test_picture_card_quick_replies_and_owner_only_edit(self):
         session = ChatSession.objects.create(startup=self.startup, mode=ChatSession.Mode.COFOUNDER)
         page = self.client.get(reverse("chat_detail", args=[self.startup.pk, session.pk]))
-        self.assertContains(page, "ЧТО БРУНО ПОНЯЛ")
+        self.assertContains(page, "Картина проекта")
         self.assertContains(page, 'data-quick-reply="Подведи итог встречи"')
         url = reverse("picture_edit", args=[self.startup.pk, session.pk])
         self.client.post(url, {"customer": "Студенты у кампуса", "customer_status": "fact"})

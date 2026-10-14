@@ -126,11 +126,20 @@ LAB_BRUNO_PRICE_MODEL = os.getenv("LAB_BRUNO_PRICE_MODEL", "GigaChat-2-Pro")
 # Conservative paid-equivalent estimate; free credits/package billing may differ.
 LAB_BRUNO_RUB_PER_MILLION = os.getenv("LAB_BRUNO_RUB_PER_MILLION", "500")
 CLOUDRU_MODEL = os.getenv("CLOUDRU_MODEL", "ai-sage/GigaChat3-10B-A1.8B")
+LAB_CODE_PROVIDER = os.getenv("LAB_CODE_PROVIDER", "cloudru").lower()
+OFOX_CODE_MODEL = os.getenv("OFOX_CODE_MODEL", "openai/gpt-6-luna")
+OFOX_CODE_REASONING_EFFORT = os.getenv("OFOX_CODE_REASONING_EFFORT", "medium")
+OFOX_PRICE_MODEL = os.getenv("OFOX_PRICE_MODEL", "openai/gpt-6-luna")
+OFOX_INPUT_USD_PER_MILLION = os.getenv("OFOX_INPUT_USD_PER_MILLION", "0.10")
+OFOX_OUTPUT_USD_PER_MILLION = os.getenv("OFOX_OUTPUT_USD_PER_MILLION", "0.50")
+# An explicit accounting estimate, not a live currency quote or customer charge.
+OFOX_USD_RUB_RATE = os.getenv("OFOX_USD_RUB_RATE", "100")
 # Independent from AI_PROVIDER: website generation must not switch Bruno's model.
 QWEN_CODE_MODEL = os.getenv("QWEN_CODE_MODEL", "Qwen/Qwen3-Coder-Next")
 QWEN_CODE_MAX_TOKENS = int(os.getenv("QWEN_CODE_MAX_TOKENS", "16384"))
 QWEN_CODE_TIMEOUT = float(os.getenv("QWEN_CODE_TIMEOUT", "300"))
 LAB_REQUESTS_PER_DAY = int(os.getenv("LAB_REQUESTS_PER_DAY", "10"))
+LAB_PRO_REQUESTS_PER_DAY = int(os.getenv("LAB_PRO_REQUESTS_PER_DAY", "50"))
 LAB_GLOBAL_REQUESTS_PER_DAY = int(os.getenv("LAB_GLOBAL_REQUESTS_PER_DAY", "30"))
 # Trusted local blueprint only. Public deployment needs a separate runtime host.
 LAB_BACKEND_RUNTIME_ENABLED = os.getenv("LAB_BACKEND_RUNTIME_ENABLED", "1" if DEBUG else "0") == "1"

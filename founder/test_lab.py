@@ -116,9 +116,10 @@ class LabTests(TestCase):
     def test_compact_laboratory_sections_and_grouped_tools(self):
         version = LabSiteVersion.objects.create(startup=self.startup, prompt='Проверка', html=HTML, model='Qwen')
         page = self.client.get(self.route('lab') + f'?version={version.pk}')
-        self.assertContains(page, 'Разработка прототипа')
-        self.assertContains(page, 'Глобализация')
-        self.assertContains(page, '<details class="lab-tools" id="lab-tools">')
+        self.assertContains(page, 'data-lab-section="development"')
+        self.assertContains(page, 'Обратная связь')
+        self.assertContains(page, 'id="lab-tools-dialog"')
+        self.assertContains(page, '<details class="lab-tools" id="lab-tools" open>')
         self.assertContains(page, '<details class="lab-history" id="lab-history">')
         self.assertNotContains(page, 'id_kind')
         self.assertNotContains(page, 'id_edit_scope')

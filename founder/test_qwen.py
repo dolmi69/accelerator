@@ -30,7 +30,7 @@ def completion(text=HTML, *, finish="stop", usage=True):
     return data
 
 
-@override_settings(AI_PROVIDER="gigachat", QWEN_CODE_MODEL="Qwen/Qwen3-Coder-Next",
+@override_settings(LAB_CODE_PROVIDER="cloudru", AI_PROVIDER="gigachat", QWEN_CODE_MODEL="Qwen/Qwen3-Coder-Next",
                    QWEN_CODE_MAX_TOKENS=8192, QWEN_CODE_TIMEOUT=90, LAB_PATCH_MAX_TOKENS=2048,
                    QWEN_PRICE_MODEL="Qwen/Qwen3-Coder-Next",
                    QWEN_INPUT_RUB_PER_MILLION="122", QWEN_OUTPUT_RUB_PER_MILLION="244")
@@ -66,6 +66,40 @@ class QwenTests(TestCase):
         self.assertEqual((result.input_tokens, result.output_tokens), (42, 80))
         self.assertEqual(settings.AI_PROVIDER, "gigachat")
         self.assertEqual(len(requests), 1)
+
+    @override_settings(LAB_CODE_PROVIDER="ofox", OFOX_CODE_MODEL="openai/gpt-6-luna",
+                       OFOX_PRICE_MODEL="openai/gpt-6-luna", OFOX_CODE_REASONING_EFFORT="medium",
+                       OFOX_INPUT_USD_PER_MILLION="0.10", OFOX_OUTPUT_USD_PER_MILLION="0.50",
+                       OFOX_USD_RUB_RATE="100")
+    def test_ofox_luna_request_has_separate_key_reasoning_and_correct_cost(self):
+        requests = []
+        def handler(request):
+            requests.append(request)
+            self.assertEqual(str(request.url), "https://api.ofox.ai/v1/chat/completions")
+            self.assertEqual(request.headers["authorization"], "Bearer test-ofox-secret")
+            body = json.loads(request.content)
+            self.assertEqual(body["model"], "openai/gpt-6-luna")
+            self.assertEqual(body["max_completion_tokens"], 4096)
+            self.assertEqual(body["reasoning_effort"], "medium")
+            self.assertNotIn("temperature", body)
+            self.assertNotIn("max_tokens", body)
+            return httpx.Response(200, json=completion())
+        self.use_transport(handler)
+        with patch.dict(os.environ, {"OFOX_API_KEY": "test-ofox-secret", "CLOUDRU_API_KEY": ""}):
+            result = generate_code('system', [{"role": "user", "content": "site"}], max_tokens=4096)
+        self.assertEqual(result.model, "openai/gpt-6-luna")
+        self.assertEqual(len(requests), 1)
+        row = LabAIUsage.objects.latest('created_at')
+        self.assertEqual(row.accounted_micro_rub, 4420)
+        self.assertEqual(row.status, 'success')
+        self.assertEqual(settings.AI_PROVIDER, 'gigachat')
+
+    @override_settings(LAB_CODE_PROVIDER="ofox")
+    def test_ofox_never_uses_cloudru_key_if_its_own_key_is_missing(self):
+        with patch.dict(os.environ, {"OFOX_API_KEY": ""}), patch('founder.services.qwen.OpenAI') as client:
+            with self.assertRaisesMessage(QwenError, 'OFOX_API_KEY'):
+                generate_code('system', [{"role": "user", "content": "site"}])
+            client.assert_not_called()
 
     @override_settings(QWEN_CODE_MAX_TOKENS=81920, LAB_CREATE_MAX_TOKENS=81920,
                        QWEN_CODE_TIMEOUT=1500, LAB_MAX_REQUEST_RUB='50')

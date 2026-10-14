@@ -10,7 +10,7 @@ from django.db import transaction
 from founder.models import BrunoTask, BusinessAxis, ChatMessage, ChatSession, ProjectReview, StartupProfile
 from founder.services.ai import AIResponseFormatError, AIServiceError, complete_text, provider_label
 from founder.services.bruno import STARTUP_PLAYBOOK, WRITING_RULES
-from founder.services.metrics import AXES
+from founder.services.metrics import AXES, ECONOMY_GUIDE
 from founder.services.model_json import load_model_json
 
 
@@ -51,7 +51,7 @@ REVIEW_PROMPT = (
     "Ты Бруно, опытный сооснователь и наставник. Сделай честный полный разбор "
     "проекта на русском и план на ближайшие четыре недели. Пиши основателю на «вы», "
     "живым языком, как человек, который вник в проект.\n\n"
-    + STARTUP_PLAYBOOK + "\n\n" + WRITING_RULES + "\n\n"
+    + STARTUP_PLAYBOOK + "\n\n" + WRITING_RULES + "\n\n" + ECONOMY_GUIDE + "\n\n"
     "Что вернуть (строго JSON по схеме):\n"
     "stage — реальная стадия по фактам, а не по словам основателя; stage_reason — "
     "почему, с опорой на конкретные факты из рассказа.\n"

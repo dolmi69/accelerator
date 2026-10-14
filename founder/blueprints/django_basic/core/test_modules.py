@@ -125,7 +125,7 @@ class ModuleTests(TestCase):
 
     def test_owner_setup_requires_secret_and_is_single_use(self):
         with override_settings(BASE_DIR=Path(self.temp.name)):
-            (Path(self.temp.name)/'.owner-setup').write_text('test-owner-token')
+            (Path(self.temp.name)/'.owner-setup').write_text('test-owner-token', encoding="utf-8")
             SiteControl.objects.filter(pk=1).update(setup_claimed=False)
             self.client.logout()
             self.assertEqual(self.client.get('/setup/wrong/').status_code,404)
@@ -169,6 +169,8 @@ class ModuleTests(TestCase):
         self.post('upload',data={'file':SimpleUploadedFile('private.pdf',b'%PDF-1.4 test')})
         asset=Asset.objects.get()
         response=self.client.get(reverse('asset',args=[asset.pk]))
+        # Close streaming files before TemporaryDirectory cleanup (Windows locks open files).
+        self.addCleanup(response.close)
         self.assertIn('attachment',response['Content-Disposition'])
         self.client.force_login(self.eve)
         self.assertEqual(self.client.get(reverse('asset',args=[asset.pk])).status_code,404)
@@ -178,6 +180,7 @@ class ModuleTests(TestCase):
         picture=Asset.objects.get(image=True)
         self.client.logout()
         response=self.client.get(reverse('asset',args=[picture.pk]))
+        self.addCleanup(response.close)
         self.assertEqual(response['Content-Type'],'image/jpeg')
         Item.objects.filter(pk=self.item.pk).update(published=False)
         self.assertEqual(self.client.get(reverse('asset',args=[picture.pk])).status_code,404)

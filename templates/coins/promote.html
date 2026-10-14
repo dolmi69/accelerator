@@ -2,7 +2,7 @@
 {% block title %}Продвижение · {{ startup.name }}{% endblock %}
 {% block content %}
 {% include 'founder/_workspace_nav.html' %}
-<div class="page-heading work-heading"><div><span class="eyebrow">ПОКАЖИТЕ ПРОЕКТ ДРУГИМ</span><h1>Продвижение</h1><p>{{ startup.name }} · Тратьте монеты, заработанные работой над проектами, чтобы о проекте узнало больше основателей и тестировщиков.</p></div><a class="coin-balance-big" href="{% url 'wallet' %}" aria-label="Ваш баланс, открыть кошелёк"><span aria-hidden="true">🪙</span><strong>{{ balance }}</strong></a></div>
+<div class="page-heading work-heading"><div><span class="eyebrow">ПОКАЖИТЕ ПРОЕКТ ДРУГИМ</span><h1>Продвижение</h1><p>{{ startup.name }} · Покажите проект сообществу или найдите тестировщиков за монеты.</p></div><a class="coin-balance-big" href="{% url 'wallet' %}" aria-label="Ваш баланс, открыть кошелёк"><span aria-hidden="true">🪙</span><strong>{{ balance }}</strong></a></div>
 
 <div class="work-grid">
 {% for item in offers %}
@@ -24,9 +24,7 @@
 {% endfor %}
 </div>
 
-<section class="card work-card bounty-section" id="bounty">
-  <span class="eyebrow">ПЛАТИТЕ ЗА ОБРАТНУЮ СВЯЗЬ</span>
-  <h2>Награда тестировщикам</h2>
+<details class="card project-card-fold bounty-section" id="bounty" {% if bounties %}open{% endif %}><summary>Награда тестировщикам <small>{{ bounties|length }} активных</small></summary><div class="project-fold-body">
   <p>Отложите монеты из своего кошелька: внешний тестировщик получит награду за тест прототипа с отзывом от {{ bounty_min_feedback }} символов, один раз на проект. Прототип с наградой попадает в блок «Нужны тестировщики». Остаток можно вернуть в любой момент.</p>
   {% for bounty in bounties %}
   <div class="team-row">
@@ -43,12 +41,12 @@
       <button class="button primary" type="submit">Зарезервировать монеты</button>
     </form>
   {% endif %}
-</section>
+</div></details>
 
 {% if history %}
-<section class="card work-card"><h2>История продвижения</h2>
+<details class="card project-card-fold"><summary>История продвижения</summary><div class="project-fold-body">
 {% for promo in history %}<div class="work-history-row"><div><strong>{{ promo.get_kind_display }}</strong><p class="muted small">{{ promo.starts_at|date:'d.m.Y H:i' }} — {{ promo.ends_at|date:'d.m.Y H:i' }}{% if promo.bought_by %} · оплатил(а) @{{ promo.bought_by.handle }}{% endif %}</p></div><span class="coin-amount negative">−{{ promo.cost }}</span></div>{% endfor %}
-</section>
+</div></details>
 {% endif %}
 <p class="work-notice">Продвижение влияет только на место и вид карточки в сообществе. Оно не меняет баллы радара и не делает проект «проверенным».</p>
 {% endblock %}
