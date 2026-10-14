@@ -225,6 +225,7 @@ class ProjectActivity(models.Model):
         LAB = "lab", "Лаборатория"
         TEAM = "team", "Команда"
         COINS = "coins", "Монеты"
+        IDEAS = "ideas", "Идеи"
 
     startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="activities")
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
@@ -674,6 +675,28 @@ class MarketReport(models.Model):
     startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='market_reports')
     data = models.JSONField(default=dict)
     # [{title, url, snippet, published, domain}] — то, что видела модель, под номерами [1], [2]…
+    sources = models.JSONField(default=list, blank=True)
+    queries = models.JSONField(default=list, blank=True)
+    ai_model = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+
+class IdeaRound(models.Model):
+    """Круг Мастерской идей: из зерна идеи Бруно делает три направления с разбором и источниками.
+
+    «Развить дальше» начинает новый круг от направления прошлого (parent + parent_index).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='idea_rounds')
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='children')
+    parent_index = models.PositiveSmallIntegerField(null=True, blank=True)
+    seed = models.CharField(max_length=600)
+    wish = models.CharField(max_length=300, blank=True)
+    data = models.JSONField(default=dict)
+    # [{title, url, snippet, published, domain, kind}] — то, что видела модель, под номерами [1], [2]…
     sources = models.JSONField(default=list, blank=True)
     queries = models.JSONField(default=list, blank=True)
     ai_model = models.CharField(max_length=100, blank=True)

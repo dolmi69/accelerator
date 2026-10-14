@@ -113,11 +113,13 @@ def parse_exa_mcp(body):
     return results
 
 
-def _exa_mcp(query, limit):
+MARKET_OBJECTIVE = "Найти компании и сервисы на рынке России, их цены и отзывы клиентов."
+
+
+def _exa_mcp(query, limit, objective=None):
     body = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {
         "name": "web_search_exa",
-        "arguments": {"query": query, "numResults": limit,
-                      "objective": "Найти компании и сервисы на рынке России, их цены и отзывы клиентов."},
+        "arguments": {"query": query, "numResults": limit, "objective": objective or MARKET_OBJECTIVE},
     }}
     response = httpx.post(EXA_MCP_URL, json=body, timeout=TIMEOUT,
                           headers={"Accept": "application/json, text/event-stream", "User-Agent": USER_AGENT})
@@ -125,7 +127,7 @@ def _exa_mcp(query, limit):
     return parse_exa_mcp(response.text)
 
 
-def _exa_api(query, limit):
+def _exa_api(query, limit, objective=None):
     response = httpx.post(EXA_API_URL, timeout=TIMEOUT, headers={"x-api-key": os.getenv("EXA_API_KEY", "")},
                           json={"query": query, "numResults": limit, "contents": {"highlights": {"numSentences": 4}}})
     response.raise_for_status()
@@ -170,7 +172,7 @@ def parse_duckduckgo(body):
     return results
 
 
-def _duckduckgo(query, limit):
+def _duckduckgo(query, limit, objective=None):
     response = httpx.post(DDG_URL, data={"q": query, "kl": "ru-ru"}, timeout=TIMEOUT,
                           headers={"User-Agent": USER_AGENT})
     response.raise_for_status()
@@ -189,8 +191,11 @@ def enabled():
     return bool(_providers())
 
 
-def search(query, limit=5):
-    """Результаты одного запроса: первый поиск, который ответил непусто."""
+def search(query, limit=5, objective=None):
+    """Результаты одного запроса: первый поиск, который ответил непусто.
+
+    objective — что ищем, своими словами: Exa по нему отбирает страницы, остальные поиски его не знают.
+    """
     query = _clean(query, 200)
     providers = _providers()
     if not providers:
@@ -199,7 +204,7 @@ def search(query, limit=5):
         return []
     for provider in providers:
         try:
-            results = provider(query, limit)
+            results = provider(query, limit, objective) if objective else provider(query, limit)
         except (httpx.HTTPError, SearchError, ValueError) as exc:
             logger.warning("Web search failed: provider=%s error=%s", getattr(provider, "__name__", "search"),
                            type(exc).__name__)

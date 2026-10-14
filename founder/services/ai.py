@@ -415,17 +415,19 @@ def _provider_stream(session, messages, memories, turn=None, plan=None, economic
     raise AIServiceError("Неизвестный AI_PROVIDER. Выберите demo, gigachat, cloudru, openai или anthropic.")
 
 
-def complete_text(prompt, content, *, json_schema=None, max_tokens=None):
+def complete_text(prompt, content, *, json_schema=None, max_tokens=None, temperature=None):
     """Полный ответ; GigaChat поддерживает строгую схему на уровне API.
 
     max_tokens нужен длинным отчётам (анализ рынка), остальным хватает значения по умолчанию.
+    temperature задаёт только GigaChat: Мастерской идей для сырых идей нужна смелость повыше.
     """
     if settings.AI_PROVIDER == "gigachat":
         from founder.services.gigachat import GigaChatBlockedError, GigaChatError, GigaChatFormatError, complete_chat
 
         try:
             return complete_chat(prompt, content, json_schema=json_schema,
-                                 **({"max_tokens": max_tokens} if max_tokens else {}))
+                                 **({"max_tokens": max_tokens} if max_tokens else {}),
+                                 **({"temperature": temperature} if temperature is not None else {}))
         except GigaChatFormatError as exc:
             raise AIResponseFormatError(str(exc)) from exc
         except GigaChatBlockedError as exc:

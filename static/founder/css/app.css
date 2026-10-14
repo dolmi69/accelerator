@@ -769,3 +769,26 @@ mark.chat-search-hit.is-current { background:#f5b544; }
 @keyframes chat-search-flash { 0%, 35% { outline:3px solid #f5b544; outline-offset:4px; } 100% { outline:3px solid transparent; outline-offset:4px; } }
 @media (max-width:680px) { .conversation-toolbar { padding:6px 8px 6px 15px; } .chat-search-bar { padding:4px 4px 4px 12px; } .chat-search-bar button { width:32px; height:32px; } .chat-search-count { padding:0 2px; font-size:11px; } }
 @media (prefers-reduced-motion:reduce) { .is-search-current { animation:none; outline:3px solid #f5b544; outline-offset:4px; } }
+/* Мастерская идей */
+.idea-seed-card form { display:grid; gap:16px; }
+.idea-seed-card .field-help { font-size:12px; }
+.idea-seed-actions { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.idea-directions { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr)); gap:20px; margin-bottom:20px; align-items:start; }
+.idea-directions .idea-direction { margin-bottom:0; display:flex; flex-direction:column; }
+.idea-direction.is-pick { border:2px solid var(--teal); }
+.idea-direction-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.idea-pick { font-size:11px; font-weight:700; color:#fff; background:var(--teal); border-radius:999px; padding:4px 10px; }
+.idea-insight { background:#fff4ea; }
+.idea-warning { background:#fff4ea; }
+.idea-facts { display:grid; gap:10px; margin:0; font-size:14px; line-height:1.55; }
+.idea-facts dt { font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
+.idea-facts dd { margin:2px 0 0; }
+.idea-sources { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px; }
+.idea-actions { display:flex; flex-wrap:wrap; align-items:flex-start; gap:10px; margin-top:auto; padding-top:8px; }
+.idea-develop { flex:1 1 100%; }
+.idea-develop > summary { list-style:none; display:inline-flex; }
+.idea-develop > summary::-webkit-details-marker { display:none; }
+.idea-develop[open] > summary { margin-bottom:12px; }
+.idea-develop form { display:grid; gap:12px; }
+.idea-raw { padding-left:20px; line-height:1.6; }
+.idea-raw li { margin-bottom:8px; }

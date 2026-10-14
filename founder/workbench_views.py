@@ -14,6 +14,7 @@ from django.views.decorators.http import require_POST
 
 from founder.forms import EvidenceForm
 from founder.models import BrunoTask, BusinessAxis, ChatMessage, ChatSession, CoinTransaction, EvidenceEntry, StartupProfile
+from founder.services import ideas as ideas_service
 from founder.services import market as market_service
 from founder.services.ai import AIServiceError
 from founder.services.funding import INVESTORS, KIND_LABELS, KINDS, founder_funding
@@ -289,5 +290,85 @@ def market_check_task(request, startup_id, report_id, index):
     if task is None:
         messages.error(request, 'По этому направлению уже есть задание в работе. Сначала завершите или отложите его.')
         return redirect(f"{reverse('market', args=[startup.pk])}?id={current.pk}")
+    messages.success(request, 'Проверка добавлена в задания. Результат запишите в дневник, когда сделаете.')
+    return redirect('tasks', startup_id=startup.pk)
+
+
+@login_required
+def ideas(request, startup_id):
+    startup = owned_startup(request, startup_id, edit=False)
+    rounds = startup.idea_rounds.select_related('parent')
+    current = rounds.first()
+    if request.GET.get('id'):
+        try:
+            current = get_object_or_404(rounds, pk=UUID(request.GET['id']))
+        except (ValueError, TypeError) as exc:
+            raise Http404('Круг не найден') from exc
+    data = current.data if current else {}
+    sources = current.sources if current else []
+    open_axes = set(startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list('axis', flat=True))
+    axis_labels = dict(BusinessAxis.choices)
+    kinds = {kind: label for kind, (label, _) in ideas_service.SOURCE_KINDS.items()}
+
+    def source(number):
+        item = sources[number - 1]
+        return {**item, 'number': number, 'kind_label': kinds.get(item.get('kind'), '')}
+
+    directions = [{
+        **direction, 'index': index, 'number': index + 1, 'is_pick': data.get('pick') == index + 1,
+        'technique_label': ideas_service.TECHNIQUES.get(direction.get('technique'), ('',))[0],
+        'axis_label': axis_labels.get(direction.get('axis'), ''), 'axis_busy': direction.get('axis') in open_axes,
+        'source_items': [source(number) for number in direction.get('sources', []) if 0 < number <= len(sources)],
+    } for index, direction in enumerate(data.get('directions', []))]
+    parent_title = ''
+    if current and current.parent and current.parent_index is not None:
+        parent_directions = current.parent.data.get('directions', [])
+        if current.parent_index < len(parent_directions):
+            parent_title = parent_directions[current.parent_index].get('title', '')
+    return render(request, 'founder/ideas.html', {
+        'startup': startup, 'workspace_tab': 'ideas', 'round': current, 'data': data, 'directions': directions,
+        'parent_title': parent_title, 'default_seed': ideas_service.default_seed(startup),
+        'sources': [source(number) for number in range(1, len(sources) + 1)],
+        'history': rounds[:10], 'is_demo': settings.AI_PROVIDER == 'demo',
+        'search_enabled': market_service.search_enabled(),
+    })
+
+
+@login_required
+@require_POST
+def ideas_generate(request, startup_id):
+    startup = owned_startup(request, startup_id)
+    parent, index = None, None
+    if request.POST.get('parent'):
+        try:
+            parent = get_object_or_404(startup.idea_rounds, pk=UUID(request.POST['parent']))
+            index = int(request.POST.get('index', ''))
+        except (ValueError, TypeError) as exc:
+            raise Http404('Направление не найдено') from exc
+    try:
+        item = ideas_service.create_round(startup, request.POST.get('seed', ''), request.POST.get('wish', ''),
+                                          parent=parent, parent_index=index)
+    except ValueError as exc:
+        raise Http404(str(exc)) from exc
+    except AIServiceError as exc:
+        messages.error(request, str(exc))
+        return redirect('ideas', startup_id=startup.pk)
+    activity.log(startup, request.user, activity.Kind.IDEAS, f"Мастерская идей: {item.seed[:80]}")
+    messages.success(request, 'Бруно развил идею: три направления ниже.')
+    return redirect(f"{reverse('ideas', args=[startup.pk])}?id={item.pk}")
+
+
+@login_required
+@require_POST
+def ideas_direction_task(request, startup_id, round_id, index):
+    startup = owned_startup(request, startup_id)
+    current = get_object_or_404(startup.idea_rounds, pk=round_id)
+    try:
+        task = ideas_service.direction_to_task(current, index)
+    except ValueError as exc:
+        raise Http404(str(exc)) from exc
+    if task is None:
+        messages.error(request, 'По этому направлению уже есть задание в работе. Сначала завершите или отложите его.')
+        return redirect(f"{reverse('ideas', args=[startup.pk])}?id={current.pk}")
     messages.success(request, 'Проверка добавлена в задания. Результат запишите в дневник, когда сделаете.')
     return redirect('tasks', startup_id=startup.pk)
