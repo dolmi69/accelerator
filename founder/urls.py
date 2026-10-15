@@ -53,6 +53,7 @@ urlpatterns = [
     path('startups/<uuid:startup_id>/value/save/', value_views.value_save, name='value_save'),
     path('startups/<uuid:startup_id>/value/problem/', value_views.value_problem_adopt, name='value_problem_adopt'),
     path('startups/<uuid:startup_id>/value/jobs/', value_views.value_jobs_adopt, name='value_jobs_adopt'),
+    path('startups/<uuid:startup_id>/value/answer/', value_views.value_answer, name='value_answer'),
     path('startups/<uuid:startup_id>/market/generate/', workbench_views.market_generate, name='market_generate'),
     path('startups/<uuid:startup_id>/market/<uuid:report_id>/checks/<int:index>/task/',
          workbench_views.market_check_task, name='market_check_task'),

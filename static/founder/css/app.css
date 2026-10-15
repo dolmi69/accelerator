@@ -754,3 +754,11 @@ mark.chat-search-hit.is-current { background:#f5b544; }
 .value-jobs .value-kind { margin-right:6px; }
 .value-options-title { font-size:15px; font-weight:700; margin-bottom:6px; padding:0; }
 @media (max-width:720px) { .value-insights { grid-template-columns:1fr; } }
+.value-question { margin:0 0 16px; padding:16px 18px; border-radius:14px; border:1px solid #f0d4a8; background:#fff8ec; display:grid; gap:8px; }
+.value-question p { margin:0; }
+.value-question-text { font-size:15px; font-weight:600; line-height:1.5; }
+.value-answer { display:flex; gap:10px; align-items:flex-start; }
+.value-answer textarea { flex:1; padding:10px 12px; border:1px solid #e5d3b4; border-radius:10px; background:#fff; font-size:14px; }
+.value-option.is-incomplete { cursor:default; background:#fafaf7; }
+.value-option.is-incomplete small { color:#a3641f; }
+@media (max-width:720px) { .value-answer { flex-direction:column; align-items:stretch; } }

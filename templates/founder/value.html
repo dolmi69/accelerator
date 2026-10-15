@@ -179,6 +179,25 @@
                     </form>
                 {% endif %}
             </header>
+            {% if question %}
+                <div class="value-question" role="status">
+                    <span class="eyebrow">БРУНО СПРАШИВАЕТ</span>
+                    {% if unknown_labels %}
+                        <p class="muted small">
+                            В картине проекта неизвестно: {{ unknown_labels|join:", "|lower }}. Эти места Бруно не додумывает и пишет «неизвестно».
+                        </p>
+                    {% endif %}
+                    <p class="value-question-text">{{ question }}</p>
+                    {% if can_edit %}
+                        <form method="post" action="{% url 'value_answer' startup.id %}" class="value-answer">
+                            {% csrf_token %}
+                            <label class="sr-only" for="value-answer">Ваш ответ</label>
+                            <textarea id="value-answer" name="answer" rows="2" maxlength="300" placeholder="Ответ попадёт в картину проекта"></textarea>
+                            <button class="button primary" type="submit">Ответить</button>
+                        </form>
+                    {% endif %}
+                </div>
+            {% endif %}
             {% if problem or offered_jobs %}
                 <div class="value-insights">
                     {% if problem %}
@@ -191,7 +210,7 @@
                                     {{ problem.harm_text }}
                                 </p>
                             {% endif %}
-                            {% if can_edit %}
+                            {% if can_edit and problem.complete %}
                                 <form method="post" action="{% url 'value_problem_adopt' startup.id %}">
                                     {% csrf_token %}
                                     <button class="button ghost" type="submit">Взять в картину проекта</button>
@@ -223,10 +242,10 @@
                     {% if options %}
                         <fieldset class="value-options">
                             <legend class="value-options-title">Ценность: выберите формулировку</legend>
-                            {% for label, text in options %}
-                                <label class="value-option">
-                                    <input type="radio" name="choice" value="{{ text }}" data-value-choice{% if text == canvas.value %} checked{% endif %}>
-                                    <span><small>{{ label }}</small>{{ text }}</span>
+                            {% for label, text, selectable in options %}
+                                <label class="value-option{% if not selectable %} is-incomplete{% endif %}">
+                                    <input type="radio" name="choice" value="{{ text }}" data-value-choice{% if text == canvas.value %} checked{% endif %}{% if not selectable %} disabled{% endif %}>
+                                    <span><small>{{ label }}{% if not selectable %} · есть пробелы, ответьте на вопрос Бруно{% endif %}</small>{{ text }}</span>
                                 </label>
                             {% endfor %}
                         </fieldset>

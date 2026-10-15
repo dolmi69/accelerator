@@ -31,7 +31,8 @@ BRAINSTORM = {
     ],
 }
 VALUE = {
-    'formula': 'Наш продукт помогает первокурсникам справиться с нехваткой времени с помощью доставки и получить домашнюю еду',
+    'formula': {'audience': 'первокурсникам', 'problem': 'нехваткой времени', 'method': 'доставки обедов',
+                'result': 'домашнюю еду'},
     'statements': ['Мы это домашняя кухня для студентов, которые хотят есть нормально',
                    'Мы это столовая в общежитии для тех, кто хочет экономить',
                    'Мы это кухня для 10000 студентов'],
@@ -41,7 +42,11 @@ VALUE = {
                 'harm_text': 'Тратит вечер на готовку или переплачивает за доставку'},
     'jobs': {'functional': 'Быстро и сытно поесть между парами', 'social': 'Не стесняться своей еды перед соседями',
              'emotional': 'Почувствовать заботу вдали от дома', 'spiritual': 'Отбросить'},
+    'question': '',
 }
+FULL_PICTURE = {'customer': {'text': 'Первокурсники', 'status': 'fact'},
+                'problem': {'text': 'Нет времени готовить', 'status': 'fact'},
+                'solution': {'text': 'Доставка домашних обедов в общежитие', 'status': 'guess'}}
 
 
 def reply(data):
@@ -111,7 +116,7 @@ class ValueCanvasTests(TestCase):
 
     def test_formulate_value_from_picture_button_and_save(self):
         session = ChatSession.objects.create(startup=self.startup, mode=ChatSession.Mode.COFOUNDER)
-        ProjectPicture.objects.create(startup=self.startup, facts={'customer': {'text': 'Первокурсники', 'status': 'fact'}})
+        ProjectPicture.objects.create(startup=self.startup, facts=FULL_PICTURE)
         chat = self.client.get(reverse('chat_detail', args=[self.startup.pk, session.pk]))
         self.assertContains(chat, 'Сформулировать ценность')
         self.assertContains(chat, f'action="{self.url("value_generate")}"')
@@ -177,7 +182,7 @@ class ValueCanvasTests(TestCase):
         self.assertTrue(value_canvas._no_new_numbers('Без чисел', ''))
 
     def test_value_gives_problem_template_and_jtbd_from_picture(self):
-        ProjectPicture.objects.create(startup=self.startup, facts={'customer': {'text': 'Первокурсники', 'status': 'fact'}})
+        ProjectPicture.objects.create(startup=self.startup, facts=FULL_PICTURE)
         with reply(VALUE):
             self.client.post(self.url('value_generate'))
         canvas = ValueCanvas.objects.get(startup=self.startup)
@@ -195,6 +200,10 @@ class ValueCanvasTests(TestCase):
         picture = ProjectPicture.objects.get(startup=self.startup)
         self.assertEqual(picture.facts['problem'], {'text': problem['text'], 'status': 'guess'})
         self.assertEqual(picture.facts['customer']['text'], 'Первокурсники')
+        self.assertEqual(canvas.options['formula'], ['Наш продукт помогает первокурсникам справиться с нехваткой '
+                                                     'времени с помощью доставки обедов и получить домашнюю еду'])
+        self.assertTrue(canvas.options['formula_complete'])
+        self.assertEqual(canvas.options['question'], '')
         self.client.post(self.url('value_jobs_adopt'))
         self.client.post(self.url('value_jobs_adopt'))
         canvas.refresh_from_db()
@@ -211,10 +220,79 @@ class ValueCanvasTests(TestCase):
         self.assertEqual(self.client.post(self.url('value_jobs_adopt')).status_code, 404)
 
     def test_invented_numbers_drop_problem_and_jobs(self):
+        ProjectPicture.objects.create(startup=self.startup, facts=FULL_PICTURE)
         data = {**VALUE, 'problem': {**VALUE['problem'], 'harm_text': 'Теряет 5000 рублей в месяц'},
                 'jobs': {'functional': 'Поесть за 15 минут', 'social': 'Угостить соседа', 'emotional': 'Спокойствие'}}
         with reply(data):
             self.client.post(self.url('value_generate'))
         canvas = ValueCanvas.objects.get(startup=self.startup)
-        self.assertEqual(canvas.options['problem'], {})
+        self.assertEqual(canvas.options['problem']['harm_text'], 'неизвестно')
         self.assertEqual(set(canvas.options['jobs']), {'social', 'emotional'})
+
+    def test_what_is_not_in_picture_stays_unknown_with_one_question(self):
+        # Picture knows the customer (and the problem from the questionnaire), but not the solution.
+        ProjectPicture.objects.create(startup=self.startup, facts={'customer': {'text': 'Первокурсники', 'status': 'fact'}})
+        data = {**VALUE, 'question': 'Хорошо. Как именно вы будете кормить студентов? И сколько это стоит?'}
+        with reply(data) as model:
+            self.client.post(self.url('value_generate'))
+        payload = json.loads(model.call_args.args[1])
+        self.assertEqual(payload['картина проекта']['solution'], 'неизвестно')
+        options = ValueCanvas.objects.get(startup=self.startup).options
+        self.assertEqual(options['formula'], ['Наш продукт помогает первокурсникам справиться с нехваткой времени '
+                                              'с помощью [неизвестно] и получить [неизвестно]'])
+        self.assertFalse(options['formula_complete'])
+        self.assertEqual((options['analogies'], options['statements']), ([], []))  # Would be invented.
+        self.assertEqual(options['question'], 'Как именно вы будете кормить студентов?')  # Exactly one question.
+        self.assertEqual(options['unknown'], ['solution'])
+        page = self.client.get(self.page)
+        self.assertContains(page, 'БРУНО СПРАШИВАЕТ')
+        self.assertContains(page, 'неизвестно: решение')
+        self.assertContains(page, 'есть пробелы, ответьте на вопрос Бруно')
+        response = self.client.post(self.url('value_save'), {'value': options['formula'][0]}, follow=True)
+        self.assertContains(response, 'осталось «неизвестно»')
+        self.assertFalse(ValueCanvas.objects.get(startup=self.startup).value)
+        # The answer goes to the project picture, and the next run has no gaps.
+        self.client.post(self.url('value_answer'), {'answer': 'Доставка домашних обедов в общежитие'})
+        picture = ProjectPicture.objects.get(startup=self.startup)
+        self.assertEqual(picture.facts['solution'], {'text': 'Доставка домашних обедов в общежитие', 'status': 'guess'})
+        with reply(VALUE):
+            self.client.post(self.url('value_generate'))
+        options = ValueCanvas.objects.get(startup=self.startup).options
+        self.assertTrue(options['formula_complete'])
+        self.assertEqual(options['question'], '')
+
+    def test_everyone_is_not_a_segment(self):
+        ProjectPicture.objects.create(startup=self.startup, facts={**FULL_PICTURE, 'customer': {'text': 'Все люди', 'status': 'guess'}})
+        with reply(VALUE) as model:
+            self.client.post(self.url('value_generate'))
+        self.assertIn('это не сегмент', model.call_args.args[1])
+        options = ValueCanvas.objects.get(startup=self.startup).options
+        self.assertTrue(options['formula'][0].startswith('Наш продукт помогает [неизвестно] справиться'))
+        self.assertTrue(options['problem']['text'].startswith('[неизвестно] хочет [неизвестно]'))
+        self.assertEqual(options['jobs'], {})
+        self.assertIn('«Все» — не сегмент', options['question'])
+        self.assertContains(self.client.get(self.page), 'Взять в картину проекта', count=0)
+        # A model answer «все, кто…» is not accepted as the audience either.
+        ProjectPicture.objects.filter(startup=self.startup).update(facts=FULL_PICTURE)
+        with reply({**VALUE, 'formula': {**VALUE['formula'], 'audience': 'всем, кто хочет есть'}}):
+            self.client.post(self.url('value_generate'))
+        self.assertIn('помогает [неизвестно]', ValueCanvas.objects.get(startup=self.startup).options['formula'][0])
+        # Answers and manual segments «все» are refused.
+        ProjectPicture.objects.filter(startup=self.startup).update(facts={})
+        with reply(VALUE):
+            self.client.post(self.url('value_generate'))
+        response = self.client.post(self.url('value_answer'), {'answer': 'Любой человек'}, follow=True)
+        self.assertContains(response, '«Все» — не сегмент')
+        response = self.client.post(self.url('value_segments_save'), {'new_title': 'Все', 'new_grade': 'A'}, follow=True)
+        self.assertContains(response, '«Все» — не сегмент')
+        self.assertEqual(ValueCanvas.objects.get(startup=self.startup).segments, [])
+        with reply({'segments': [{**SEGMENTS['segments'][0], 'title': 'Все люди'}, SEGMENTS['segments'][1]]}):
+            self.client.post(self.url('value_segments'))
+        self.assertEqual([item['title'] for item in ValueCanvas.objects.get(startup=self.startup).segments], ['Аспиранты'])
+
+    def test_is_everyone(self):
+        for text in ('все', 'Все люди', 'для всех', 'любой человек', 'Каждому', 'все, кто хочет есть',
+                     'широкая аудитория', 'массовый рынок', 'люди'):
+            self.assertTrue(value_canvas.is_everyone(text), text)
+        for text in ('все студенты', 'каждый первокурсник', 'Владельцы кофеен', ''):
+            self.assertFalse(value_canvas.is_everyone(text), text)

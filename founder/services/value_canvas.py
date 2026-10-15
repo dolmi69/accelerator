@@ -49,7 +49,7 @@ SEGMENTS_PROMPT = (
     'Поля: title — короткое название сегмента (до 80 символов); description — кто это и в какой '
     'ситуации (до 300); context — тип бизнеса и отрасль либо жизненная ситуация (до 200); '
     'holder — кто держатель проблемы и кто платит (до 200); grade — одна буква A/B/C/D/X; '
-    'reason — почему такая буква (до 200). '
+    'reason — почему такая буква (до 200). «Все», «любой человек», «все, кто…» — не сегмент, не предлагай их. '
     'Формат: {"segments":[{"title":"...","description":"...","context":"...","holder":"...",'
     '"grade":"A","reason":"..."}]}. ' + RULES
 )
@@ -69,22 +69,47 @@ BRAINSTORM_PROMPT = (
 
 VALUE_PROMPT = (
     'Ты эксперт по подготовке питчдеков в акселераторе Techstars и ментор стартапов в Plug&Play. '
-    'По картине проекта (и по сегментам A и выбранным ситуациям, если они есть) подготовь четыре блока. '
-    '1) formula — одна формулировка «Наш продукт помогает [целевой аудитории] справиться с '
-    '[проблемой или задачей] с помощью [технологии или способа] и получить [результат]». '
+    'Работай только по картине проекта ниже (и по сегментам A и выбранным ситуациям, если они есть). '
+    'Чего в картине нет, не додумывай: в таком поле пиши ровно «неизвестно». Цифр не выдумывай. '
+    '«Все», «любой человек», «все, кто…» — не сегмент: такую аудиторию считай неизвестной. '
+    'Подготовь четыре блока. '
+    '1) formula — части формулы «Наш продукт помогает [аудитории] справиться с [проблемой] с помощью '
+    '[способа] и получить [результат]»: audience — кому, в дательном падеже («первокурсникам в общежитиях»); '
+    'problem — с чем, в творительном («нехваткой времени на готовку»); method — с помощью чего, '
+    'в родительном («доставки домашних обедов»); result — что получить, в винительном («нормальное питание»). '
     '2) analogies — 3 ярких сравнения одной фразой «X для Y» по примеру «Airbnb — мы отели, но у соседей». '
     'Можно добавить statements — до 3 формулировок «Мы это [X] для [Y], которые хотят [Z]». '
     '3) problem — проблема по шаблону «[роль] хочет [результат], но не может, потому что [проблема]»: '
-    'role — кто (с заглавной буквы, например «Первокурсник в общежитии»), want — чего хочет '
-    '(продолжение фразы после «хочет»), because — что мешает (продолжение после «потому что»), '
-    'harm — чем бьёт проблема: список из "money", "time", "effort" (деньги, время, усилия), '
-    'harm_text — в чём именно ущерб, одной фразой. '
+    'role — кто (например «Первокурсник в общежитии»), want — чего хочет (продолжение после «хочет»), '
+    'because — что мешает (продолжение после «потому что»), harm — чем бьёт проблема: список из '
+    '"money", "time", "effort" (деньги, время, усилия), harm_text — в чём ущерб, одной фразой. '
     '4) jobs — задачи клиента по Jobs To Be Done: functional (что нужно сделать), social (как он хочет '
     'выглядеть в глазах других), emotional (что хочет почувствовать), по одной фразе. '
+    '5) question — если чего-то не хватает, один вопрос основателю о самом важном пробеле (на «вы»); '
+    'если всего хватает, пустая строка. '
     'Каждое текстовое поле до 300 символов. '
-    'Формат: {"formula":"...","analogies":["...","...","..."],"statements":["..."],'
+    'Формат: {"formula":{"audience":"...","problem":"...","method":"...","result":"..."},'
+    '"analogies":["...","...","..."],"statements":["..."],'
     '"problem":{"role":"...","want":"...","because":"...","harm":["time"],"harm_text":"..."},'
-    '"jobs":{"functional":"...","social":"...","emotional":"..."}}. ' + RULES
+    '"jobs":{"functional":"...","social":"...","emotional":"..."},"question":"..."}. ' + RULES
+)
+
+UNKNOWN = 'неизвестно'
+# Какая тема картины проекта нужна каждому месту формулы и шаблона проблемы.
+FORMULA_AREAS = {'audience': 'customer', 'problem': 'problem', 'method': 'solution', 'result': 'solution'}
+PROBLEM_AREAS = {'role': 'customer', 'want': 'customer', 'because': 'problem', 'harm_text': 'problem'}
+AREA_QUESTIONS = {
+    'customer': 'Кто ваш первый клиент: опишите одного конкретного человека или компанию, у которых есть эта проблема?',
+    'everyone': '«Все» — не сегмент. Кто заплатит первым: какой человек или какая компания, в какой ситуации?',
+    'problem': 'Какую проблему клиента вы решаете: что у него не получается и чего это ему стоит?',
+    'solution': 'Как именно ваш продукт решает эту проблему: что клиент получает и каким способом?',
+}
+EVERYONE_RE = re.compile(
+    r'^(для\s+)?(все|всем|всех|любой|любому|любые|любым|каждый|каждому|люди|людям)'
+    r'(\s+(люди|людям|человек|желающие|желающим|пользователи|пользователям|покупатели|покупателям|клиенты|клиентам))?$'
+    r'|\b(все|всем|всех)\s+люд\w*|\b(любой|любому|каждый|каждому)\s+человек\w*|\b(все|всем|всех),?\s+кто\b'
+    r'|\bвсе\s+желающ\w*|\bширок\w*\s+аудитори\w*|\bмассов\w*\s+(рын\w*|аудитори\w*)|\bвсе\s+подряд',
+    re.IGNORECASE,
 )
 
 HARMS = {'money': 'деньги', 'time': 'время', 'effort': 'усилия'}
@@ -157,7 +182,8 @@ def suggest_segments(startup):
     added = []
     for item in raw[:6]:
         segment = _fields(item, SEGMENT_FIELDS, source)
-        if not segment or segment['title'].casefold() in known or len(canvas.segments) + len(added) >= MAX_SEGMENTS:
+        if (not segment or segment['title'].casefold() in known or len(canvas.segments) + len(added) >= MAX_SEGMENTS
+                or is_everyone(segment['title']) or is_everyone(segment['description'])):
             continue
         grade = str(item.get('grade', '')).strip().upper()[:1]
         segment.update({'grade': grade if grade in GRADES else 'X', 'suggested': grade if grade in GRADES else 'X',
@@ -193,17 +219,81 @@ def brainstorm(startup):
     return canvas
 
 
+def is_everyone(text):
+    """«Все», «любой человек», «все, кто…» — не сегмент клиентов."""
+    text = ' '.join(str(text or '').replace('ё', 'е').split()).strip(' .,!;:«»"').casefold()
+    return bool(text) and bool(EVERYONE_RE.search(text))
+
+
+def picture_known(startup):
+    """Темы картины проекта, которые основатель уже назвал. Клиент «все» за знание не считается."""
+    from founder.services.mentor import picture_view
+
+    known, everyone = {}, False
+    for item in picture_view(startup)['items']:
+        if not item['text'] or item['status'] == 'unknown':
+            continue
+        if item['key'] == 'customer' and is_everyone(item['text']):
+            everyone = True
+            continue
+        known[item['key']] = item['text']
+    return known, everyone
+
+
+def _slot(value, area, known, source, limit=200):
+    """Место шаблона: «неизвестно», если темы нет в картине, ответ модели пустой или с выдуманной цифрой."""
+    text = _clean(value, limit).rstrip('.')
+    if area not in known or not text or text.casefold().startswith(UNKNOWN) or not _no_new_numbers(text, source):
+        return UNKNOWN
+    if area == 'customer' and is_everyone(text):
+        return UNKNOWN
+    return text
+
+
 def problem_sentence(problem):
     if not problem:
         return ''
-    return f"{problem['role']} хочет {problem['want']}, но не может, потому что {problem['because']}"
+    role = problem['role'] if problem['role'] != UNKNOWN else f'[{UNKNOWN}]'
+    role = role[:1].upper() + role[1:]
+    want = problem['want'] if problem['want'] != UNKNOWN else f'[{UNKNOWN}]'
+    because = problem['because'] if problem['because'] != UNKNOWN else f'[{UNKNOWN}]'
+    return f'{role} хочет {want}, но не может, потому что {because}'
+
+
+def formula_sentence(parts):
+    show = {key: (value if value != UNKNOWN else f'[{UNKNOWN}]') for key, value in parts.items()}
+    return (f"Наш продукт помогает {show['audience']} справиться с {show['problem']} "
+            f"с помощью {show['method']} и получить {show['result']}")
+
+
+def _one_question(text):
+    """Ровно один вопрос: первое предложение с «?», без требований подтвердить «всех»."""
+    text = _clean(text, 300)
+    if '?' not in text:
+        return ''
+    question = re.split(r'(?<=\?)', text, maxsplit=1)[0].strip()
+    question = re.split(r'(?<=[.!])\s+', question)[-1].strip()
+    return question if len(question) > 10 else ''
 
 
 def formulate_value(startup):
-    """По картине проекта: формула ценности, сравнения «X для Y», проблема по шаблону и задачи JTBD."""
+    """По картине проекта: формула ценности, сравнения «X для Y», проблема по шаблону и задачи JTBD.
+
+    Чего нет в картине, Бруно не додумывает: место в шаблоне получает «неизвестно», и основатель
+    видит один вопрос о самом важном пробеле. Цифры только из данных проекта, «все» — не сегмент.
+    """
     canvas = canvas_for(startup)
-    data, source = _ask(VALUE_PROMPT, _project_context(startup, canvas, with_a=True, with_choices=True), 2000)
-    if not isinstance(data, dict):
+    known, everyone = picture_known(startup)
+    data = {'картина проекта': {area: known.get(area, UNKNOWN) for area in ('customer', 'problem', 'solution', 'money',
+                                                                             'channels', 'competitors', 'team')}}
+    if everyone:
+        data['замечание'] = 'Основатель назвал клиентом «всех» — это не сегмент, клиент неизвестен.'
+    extra = _project_context(startup, canvas, with_a=True, with_choices=True)
+    for key in ('сегменты A', 'ситуации, выбранные основателем', 'задачи клиента, выбранные основателем'):
+        if extra.get(key):
+            data[key] = extra[key]
+    reply, source = _ask(VALUE_PROMPT, data, 2000)
+    if not isinstance(reply, dict):
         raise AIResponseFormatError('Бруно не сформулировал ценность. Повторите позже.')
 
     def texts(values, limit):
@@ -211,31 +301,69 @@ def formulate_value(startup):
         seen, result = set(), []
         for value in values:
             text = _clean(value, 300) if isinstance(value, str) else ''
-            if text and text.casefold() not in seen and _no_new_numbers(text, source):
+            if (text and text.casefold() not in seen and _no_new_numbers(text, source)
+                    and UNKNOWN not in text.casefold()):
                 seen.add(text.casefold())
                 result.append(text)
         return result[:limit]
 
-    problem = _fields(data.get('problem'), {'role': 120, 'want': 200, 'because': 240, 'harm_text': 240}, source)
-    if problem:
-        harms = data['problem'].get('harm')
-        harms = harms if isinstance(harms, list) else [harms]
-        problem['harm'] = [key for key in HARMS if key in harms] or []
-        problem['role'] = problem['role'][:1].upper() + problem['role'][1:]
-        for key in ('want', 'because'):
-            problem[key] = problem[key].rstrip('.')
-        problem['text'] = problem_sentence(problem)[:VALUE_LIMIT]
-    jobs_raw = data.get('jobs') if isinstance(data.get('jobs'), dict) else {}
-    jobs = {kind: _clean(jobs_raw.get(kind), 240) for kind in JOB_KINDS
-            if isinstance(jobs_raw.get(kind), str) and jobs_raw.get(kind).strip()
-            and _no_new_numbers(jobs_raw[kind], source)}
-    options = {'formula': texts(data.get('formula'), 1), 'analogies': texts(data.get('analogies'), 3),
-               'statements': texts(data.get('statements'), 3), 'problem': problem or {}, 'jobs': jobs}
-    if not (options['formula'] or options['analogies'] or options['statements'] or problem or jobs):
-        raise AIResponseFormatError('Бруно не сформулировал ценность. Повторите позже.')
+    raw_formula = reply.get('formula') if isinstance(reply.get('formula'), dict) else {}
+    parts = {key: _slot(raw_formula.get(key), area, known, source) for key, area in FORMULA_AREAS.items()}
+    raw_problem = reply.get('problem') if isinstance(reply.get('problem'), dict) else {}
+    problem = {key: _slot(raw_problem.get(key), area, known, source, 240) for key, area in PROBLEM_AREAS.items()}
+    harms = raw_problem.get('harm')
+    harms = harms if isinstance(harms, list) else [harms]
+    problem['harm'] = [key for key in HARMS if key in harms] if 'problem' in known else []
+    problem['text'] = problem_sentence(problem)[:VALUE_LIMIT]
+    problem['complete'] = UNKNOWN not in (problem['role'], problem['want'], problem['because'])
+    raw_jobs = reply.get('jobs') if isinstance(reply.get('jobs'), dict) else {}
+    jobs = {}
+    if 'customer' in known:  # Задачи неизвестного клиента были бы выдумкой.
+        jobs = {kind: _clean(raw_jobs.get(kind), 240) for kind in JOB_KINDS
+                if isinstance(raw_jobs.get(kind), str) and raw_jobs[kind].strip()
+                and UNKNOWN not in raw_jobs[kind].casefold() and _no_new_numbers(raw_jobs[kind], source)}
+    unknown_areas = [area for area in ('customer', 'problem', 'solution') if area not in known]
+    question, question_area = '', ''
+    if unknown_areas:
+        question_area = 'customer' if 'customer' in unknown_areas else unknown_areas[0]
+        question = AREA_QUESTIONS['everyone' if everyone and question_area == 'customer' else question_area]
+        model_question = _one_question(reply.get('question'))
+        if model_question and not everyone and _no_new_numbers(model_question, source):
+            question = model_question
+    options = {
+        'formula': [formula_sentence(parts)[:VALUE_LIMIT]] if any(value != UNKNOWN for value in parts.values()) else [],
+        'formula_complete': all(value != UNKNOWN for value in parts.values()),
+        # Сравнения и «Мы это X для Y» без клиента и решения были бы додуманы.
+        'analogies': texts(reply.get('analogies'), 3) if 'solution' in known else [],
+        'statements': texts(reply.get('statements'), 3) if {'customer', 'solution'} <= set(known) else [],
+        'problem': problem if any(problem[key] != UNKNOWN for key in ('role', 'want', 'because')) else {},
+        'jobs': jobs, 'question': question, 'question_area': question_area,
+        'unknown': unknown_areas, 'everyone': everyone,
+    }
     canvas.options = options
     canvas.save(update_fields=['options', 'updated_at'])
     return canvas
+
+
+def answer_question(startup, canvas, text):
+    """Ответ на вопрос Бруно ложится в картину проекта как догадка."""
+    from founder.models import ProjectPicture
+
+    area = (canvas.options or {}).get('question_area')
+    text = _clean(text, 300)
+    if area not in ('customer', 'problem', 'solution'):
+        raise ValueError('Сейчас у Бруно нет вопроса. Нажмите «Сформулировать ценность».')
+    if not text:
+        raise ValueError('Напишите ответ.')
+    if area == 'customer' and is_everyone(text):
+        raise ValueError('«Все» — не сегмент. Назовите тех, кто заплатит первым: кто они и в какой ситуации.')
+    picture, _ = ProjectPicture.objects.get_or_create(startup=startup)
+    facts = dict(picture.facts)
+    facts[area] = {'text': text, 'status': 'guess'}
+    picture.facts = facts
+    picture.save(update_fields=['facts', 'updated_at'])
+    canvas.options = {**canvas.options, 'question': '', 'question_area': ''}
+    canvas.save(update_fields=['options', 'updated_at'])
 
 
 def adopt_problem(startup, canvas):
@@ -245,6 +373,8 @@ def adopt_problem(startup, canvas):
     problem = (canvas.options or {}).get('problem') or {}
     if not problem.get('text'):
         raise ValueError('Сначала нажмите «Сформулировать ценность».')
+    if not problem.get('complete'):
+        raise ValueError('В проблеме есть «неизвестно». Сначала ответьте на вопрос Бруно.')
     picture, _ = ProjectPicture.objects.get_or_create(startup=startup)
     facts = dict(picture.facts)
     facts['problem'] = {'text': problem['text'][:300], 'status': 'guess'}

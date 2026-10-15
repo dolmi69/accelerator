@@ -14,6 +14,7 @@ from founder.services import value_canvas as service
 from founder.services.access import get_startup
 from founder.services.ai import AIServiceError
 from founder.services.qwen import QwenError
+from founder.services.mentor import AREAS as AREA_LABELS
 
 
 def _back(startup, anchor):
@@ -39,10 +40,14 @@ def value_page(request, startup_id):
         'situations': list(enumerate(canvas.situations)),
         'jobs': [(index, {**item, 'kind_label': service.JOB_KINDS.get(item.get('kind'), '')})
                  for index, item in enumerate(canvas.jobs)],
-        'options': [('Формула', text) for text in options.get('formula', [])]
-                   + [('Сравнение «X для Y»', text) for text in options.get('analogies', [])]
-                   + [('Мы это… для…, которые хотят…', text) for text in options.get('statements', [])],
+        'options': [('Формула', text, options.get('formula_complete', True)) for text in options.get('formula', [])]
+                   + [('Сравнение «X для Y»', text, True) for text in options.get('analogies', [])]
+                   + [('Мы это… для…, которые хотят…', text, True) for text in options.get('statements', [])],
         'problem': options.get('problem') or {},
+        'formula_complete': options.get('formula_complete', True),
+        'question': options.get('question', ''),
+        'unknown_labels': [label for key, label in AREA_LABELS if key in options.get('unknown', [])],
+        'everyone': options.get('everyone', False),
         'problem_harms': [service.HARMS[key] for key in (options.get('problem') or {}).get('harm', [])],
         'offered_jobs': [(kind, service.JOB_KINDS[kind], text) for kind, text in (options.get('jobs') or {}).items()
                          if kind in service.JOB_KINDS],
@@ -79,6 +84,9 @@ def value_segments_save(request, startup_id):
         grade = request.POST.get(f'grade_{index}', item.get('grade', 'X'))
         segments.append({**item, 'grade': grade if grade in service.GRADES else 'X'})
     title = _clean(request, 'new_title', 80)
+    if title and (service.is_everyone(title) or service.is_everyone(_clean(request, 'new_description', 300))):
+        messages.error(request, '«Все» — не сегмент. Назовите конкретных людей или компании: кто они и в какой ситуации.')
+        return _back(startup, 'abcdx')
     if title and len(segments) < service.MAX_SEGMENTS:
         grade = request.POST.get('new_grade', 'X')
         segments.append({'title': title, 'description': _clean(request, 'new_description', 300),
@@ -131,6 +139,9 @@ def value_save(request, startup_id):
     if not text:
         messages.error(request, 'Выберите формулировку или напишите свою.')
         return _back(startup, 'value-step')
+    if service.UNKNOWN in text.casefold():
+        messages.error(request, 'В формулировке осталось «неизвестно». Сначала ответьте на вопрос Бруно.')
+        return _back(startup, 'value-step')
     offered = {item.casefold() for key in ('formula', 'statements', 'analogies')
                for item in (canvas.options or {}).get(key, [])}
     canvas.value = text
@@ -160,6 +171,18 @@ def value_jobs_adopt(request, startup_id):
     try:
         added = service.adopt_jobs(service.canvas_for(startup))
         messages.success(request, f'Задачи клиента добавлены в шаг 2: {added}.' if added else 'Эти задачи уже есть в шаге 2.')
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    return _back(startup, 'value-step')
+
+
+@login_required
+@require_POST
+def value_answer(request, startup_id):
+    startup = get_startup(request, startup_id, edit=True)
+    try:
+        service.answer_question(startup, service.canvas_for(startup), request.POST.get('answer', ''))
+        messages.success(request, 'Ответ записан в картину проекта. Нажмите «Сформулировать ценность» ещё раз.')
     except ValueError as exc:
         messages.error(request, str(exc))
     return _back(startup, 'value-step')
