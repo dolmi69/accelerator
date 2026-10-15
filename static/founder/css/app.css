@@ -744,3 +744,13 @@ mark.chat-search-hit.is-current { background:#f5b544; }
   .value-table-row > span:nth-child(n+3) { grid-column:2; }
   .value-table-head { display:none; }
 }
+.value-insights { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:4px 0 18px; }
+.value-insight { padding:16px 18px; border-radius:14px; background:#f7f8f4; display:grid; gap:10px; align-content:start; }
+.value-insight form { margin:0; }
+.value-problem { margin:0; font-size:15px; line-height:1.55; font-weight:600; }
+.value-harm { margin:0; font-size:13px; color:var(--muted); line-height:1.5; }
+.value-harm-tag { display:inline-block; margin-right:6px; padding:2px 9px; border-radius:20px; background:#fdecea; color:#a3392f; font-size:11px; font-weight:700; }
+.value-jobs { list-style:none; margin:0; padding:0; display:grid; gap:8px; font-size:13px; line-height:1.5; }
+.value-jobs .value-kind { margin-right:6px; }
+.value-options-title { font-size:15px; font-weight:700; margin-bottom:6px; padding:0; }
+@media (max-width:720px) { .value-insights { grid-template-columns:1fr; } }

@@ -40,8 +40,12 @@ def value_page(request, startup_id):
         'jobs': [(index, {**item, 'kind_label': service.JOB_KINDS.get(item.get('kind'), '')})
                  for index, item in enumerate(canvas.jobs)],
         'options': [('Формула', text) for text in options.get('formula', [])]
-                   + [('Мы это… для…, которые хотят…', text) for text in options.get('statements', [])]
-                   + [('Сравнение', text) for text in options.get('analogies', [])],
+                   + [('Сравнение «X для Y»', text) for text in options.get('analogies', [])]
+                   + [('Мы это… для…, которые хотят…', text) for text in options.get('statements', [])],
+        'problem': options.get('problem') or {},
+        'problem_harms': [service.HARMS[key] for key in (options.get('problem') or {}).get('harm', [])],
+        'offered_jobs': [(kind, service.JOB_KINDS[kind], text) for kind, text in (options.get('jobs') or {}).items()
+                         if kind in service.JOB_KINDS],
         'can_edit': startup.user_role != 'viewer',
     })
 
@@ -127,10 +131,35 @@ def value_save(request, startup_id):
     if not text:
         messages.error(request, 'Выберите формулировку или напишите свою.')
         return _back(startup, 'value-step')
-    offered = {item.casefold() for group in (canvas.options or {}).values() for item in group}
+    offered = {item.casefold() for key in ('formula', 'statements', 'analogies')
+               for item in (canvas.options or {}).get(key, [])}
     canvas.value = text
     canvas.value_source = 'bruno' if text.casefold() in offered else 'founder'
     canvas.save(update_fields=['value', 'value_source', 'updated_at'])
     activity.log(startup, request.user, activity.Kind.CARD, f'Ценностное предложение: {activity.quoted(text)}')
     messages.success(request, 'Ценностное предложение сохранено. Бруно и акулы будут на него опираться.')
+    return _back(startup, 'value-step')
+
+
+@login_required
+@require_POST
+def value_problem_adopt(request, startup_id):
+    startup = get_startup(request, startup_id, edit=True)
+    try:
+        service.adopt_problem(startup, service.canvas_for(startup))
+        messages.success(request, 'Проблема записана в картину проекта как догадка. Подтвердите её разговорами с клиентами.')
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    return _back(startup, 'value-step')
+
+
+@login_required
+@require_POST
+def value_jobs_adopt(request, startup_id):
+    startup = get_startup(request, startup_id, edit=True)
+    try:
+        added = service.adopt_jobs(service.canvas_for(startup))
+        messages.success(request, f'Задачи клиента добавлены в шаг 2: {added}.' if added else 'Эти задачи уже есть в шаге 2.')
+    except ValueError as exc:
+        messages.error(request, str(exc))
     return _back(startup, 'value-step')

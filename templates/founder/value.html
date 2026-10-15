@@ -124,8 +124,9 @@
                 {% endif %}
             </header>
             {% if not has_a %}
-                <p class="muted">Шаг откроется, когда хотя бы один сегмент будет отмечен буквой A.</p>
-            {% elif situations or jobs %}
+                <p class="muted">Брейншторм откроется, когда хотя бы один сегмент будет отмечен буквой A.</p>
+            {% endif %}
+            {% if situations or jobs %}
                 <form method="post" action="{% url 'value_brainstorm_save' startup.id %}">
                     {% csrf_token %}
                     {% if situations %}
@@ -151,14 +152,14 @@
                             {% for index, item in jobs %}
                                 <label class="value-table-row" role="row">
                                     <span role="cell"><input type="checkbox" name="jobs" value="{{ index }}"{% if item.chosen %} checked{% endif %}{% if not can_edit %} disabled{% endif %} aria-label="Беру задачу {{ forloop.counter }}"></span>
-                                    <span role="cell"><span class="value-kind kind-{{ item.kind }}">{{ item.kind_label }}</span></span><span role="cell">{{ item.question }}</span><span role="cell">{{ item.value }}</span>
+                                    <span role="cell"><span class="value-kind kind-{{ item.kind }}">{{ item.kind_label }}</span></span><span role="cell">{{ item.question }}</span><span role="cell">{{ item.value|default:"—" }}</span>
                                 </label>
                             {% endfor %}
                         </div>
                     {% endif %}
                     {% if can_edit %}<button class="button primary" type="submit">Сохранить выбор</button>{% endif %}
                 </form>
-            {% else %}
+            {% elif has_a %}
                 <p class="muted">Нажмите «Начать брейншторм»: Бруно опишет пять ситуаций и задачи клиентов из сегмента A.</p>
             {% endif %}
         </li>
@@ -167,7 +168,7 @@
                 <div>
                     <span class="value-step-number">3</span>
                     <h2>Ценностное предложение</h2>
-                    <p class="muted">Бруно соберёт формулировки из картины проекта, сегментов A и выбранных ситуаций. Выберите одну или напишите свою.</p>
+                    <p class="muted">По картине проекта Бруно даст формулу ценности, сравнения «X для Y», проблему по шаблону и задачи клиента по JTBD. Сегменты A и выбранные ситуации тоже учтёт, если они есть.</p>
                 </div>
                 {% if can_edit %}
                     <form method="post" action="{% url 'value_generate' startup.id %}" data-busy-form>
@@ -178,12 +179,50 @@
                     </form>
                 {% endif %}
             </header>
+            {% if problem or offered_jobs %}
+                <div class="value-insights">
+                    {% if problem %}
+                        <section class="value-insight" aria-labelledby="value-problem-title">
+                            <span class="eyebrow" id="value-problem-title">ПРОБЛЕМА</span>
+                            <p class="value-problem">{{ problem.text }}</p>
+                            {% if problem_harms or problem.harm_text %}
+                                <p class="value-harm">
+                                    {% for harm in problem_harms %}<span class="value-harm-tag">{{ harm }}</span>{% endfor %}
+                                    {{ problem.harm_text }}
+                                </p>
+                            {% endif %}
+                            {% if can_edit %}
+                                <form method="post" action="{% url 'value_problem_adopt' startup.id %}">
+                                    {% csrf_token %}
+                                    <button class="button ghost" type="submit">Взять в картину проекта</button>
+                                </form>
+                            {% endif %}
+                        </section>
+                    {% endif %}
+                    {% if offered_jobs %}
+                        <section class="value-insight" aria-labelledby="value-jobs-title">
+                            <span class="eyebrow" id="value-jobs-title">ЗАДАЧИ КЛИЕНТА (JTBD)</span>
+                            <ul class="value-jobs">
+                                {% for kind, label, text in offered_jobs %}
+                                    <li><span class="value-kind kind-{{ kind }}">{{ label }}</span> {{ text }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% if can_edit %}
+                                <form method="post" action="{% url 'value_jobs_adopt' startup.id %}">
+                                    {% csrf_token %}
+                                    <button class="button ghost" type="submit">Сохранить в шаг 2</button>
+                                </form>
+                            {% endif %}
+                        </section>
+                    {% endif %}
+                </div>
+            {% endif %}
             {% if can_edit %}
                 <form method="post" action="{% url 'value_save' startup.id %}" class="value-choose">
                     {% csrf_token %}
                     {% if options %}
                         <fieldset class="value-options">
-                            <legend class="sr-only">Варианты Бруно</legend>
+                            <legend class="value-options-title">Ценность: выберите формулировку</legend>
                             {% for label, text in options %}
                                 <label class="value-option">
                                     <input type="radio" name="choice" value="{{ text }}" data-value-choice{% if text == canvas.value %} checked{% endif %}>

@@ -68,16 +68,26 @@ BRAINSTORM_PROMPT = (
 )
 
 VALUE_PROMPT = (
-    'Ты эксперт по подготовке питчдеков в акселераторе Techstars. Сформулируй ценностное '
-    'предложение проекта точнее и яснее, опираясь на картину проекта, сегменты A и выбранные '
-    'основателем ситуации и задачи клиента (если они есть). '
-    'Дай: formula — одну формулировку по формуле «Наш продукт помогает [целевой аудитории] '
-    'справиться с [проблемой или задачей] с помощью [технологии или способа] и получить '
-    '[результат]»; statements — 5 формулировок по формуле «Мы это [X] для [Y], которые хотят [Z]»; '
-    'analogies — 3 ярких сравнения одной фразой по примеру «Airbnb — мы отели, но у соседей». '
-    'Каждая формулировка до 300 символов. '
-    'Формат: {"formula":"...","statements":["..."],"analogies":["..."]}. ' + RULES
+    'Ты эксперт по подготовке питчдеков в акселераторе Techstars и ментор стартапов в Plug&Play. '
+    'По картине проекта (и по сегментам A и выбранным ситуациям, если они есть) подготовь четыре блока. '
+    '1) formula — одна формулировка «Наш продукт помогает [целевой аудитории] справиться с '
+    '[проблемой или задачей] с помощью [технологии или способа] и получить [результат]». '
+    '2) analogies — 3 ярких сравнения одной фразой «X для Y» по примеру «Airbnb — мы отели, но у соседей». '
+    'Можно добавить statements — до 3 формулировок «Мы это [X] для [Y], которые хотят [Z]». '
+    '3) problem — проблема по шаблону «[роль] хочет [результат], но не может, потому что [проблема]»: '
+    'role — кто (с заглавной буквы, например «Первокурсник в общежитии»), want — чего хочет '
+    '(продолжение фразы после «хочет»), because — что мешает (продолжение после «потому что»), '
+    'harm — чем бьёт проблема: список из "money", "time", "effort" (деньги, время, усилия), '
+    'harm_text — в чём именно ущерб, одной фразой. '
+    '4) jobs — задачи клиента по Jobs To Be Done: functional (что нужно сделать), social (как он хочет '
+    'выглядеть в глазах других), emotional (что хочет почувствовать), по одной фразе. '
+    'Каждое текстовое поле до 300 символов. '
+    'Формат: {"formula":"...","analogies":["...","...","..."],"statements":["..."],'
+    '"problem":{"role":"...","want":"...","because":"...","harm":["time"],"harm_text":"..."},'
+    '"jobs":{"functional":"...","social":"...","emotional":"..."}}. ' + RULES
 )
+
+HARMS = {'money': 'деньги', 'time': 'время', 'effort': 'усилия'}
 
 NUMBER_RE = re.compile(r'\d+(?:[.,]\d+)?')
 
@@ -183,9 +193,16 @@ def brainstorm(startup):
     return canvas
 
 
+def problem_sentence(problem):
+    if not problem:
+        return ''
+    return f"{problem['role']} хочет {problem['want']}, но не может, потому что {problem['because']}"
+
+
 def formulate_value(startup):
+    """По картине проекта: формула ценности, сравнения «X для Y», проблема по шаблону и задачи JTBD."""
     canvas = canvas_for(startup)
-    data, source = _ask(VALUE_PROMPT, _project_context(startup, canvas, with_a=True, with_choices=True), 1600)
+    data, source = _ask(VALUE_PROMPT, _project_context(startup, canvas, with_a=True, with_choices=True), 2000)
     if not isinstance(data, dict):
         raise AIResponseFormatError('Бруно не сформулировал ценность. Повторите позже.')
 
@@ -199,13 +216,53 @@ def formulate_value(startup):
                 result.append(text)
         return result[:limit]
 
-    options = {'formula': texts(data.get('formula'), 1), 'statements': texts(data.get('statements'), 5),
-               'analogies': texts(data.get('analogies'), 3)}
-    if not any(options.values()):
+    problem = _fields(data.get('problem'), {'role': 120, 'want': 200, 'because': 240, 'harm_text': 240}, source)
+    if problem:
+        harms = data['problem'].get('harm')
+        harms = harms if isinstance(harms, list) else [harms]
+        problem['harm'] = [key for key in HARMS if key in harms] or []
+        problem['role'] = problem['role'][:1].upper() + problem['role'][1:]
+        for key in ('want', 'because'):
+            problem[key] = problem[key].rstrip('.')
+        problem['text'] = problem_sentence(problem)[:VALUE_LIMIT]
+    jobs_raw = data.get('jobs') if isinstance(data.get('jobs'), dict) else {}
+    jobs = {kind: _clean(jobs_raw.get(kind), 240) for kind in JOB_KINDS
+            if isinstance(jobs_raw.get(kind), str) and jobs_raw.get(kind).strip()
+            and _no_new_numbers(jobs_raw[kind], source)}
+    options = {'formula': texts(data.get('formula'), 1), 'analogies': texts(data.get('analogies'), 3),
+               'statements': texts(data.get('statements'), 3), 'problem': problem or {}, 'jobs': jobs}
+    if not (options['formula'] or options['analogies'] or options['statements'] or problem or jobs):
         raise AIResponseFormatError('Бруно не сформулировал ценность. Повторите позже.')
     canvas.options = options
     canvas.save(update_fields=['options', 'updated_at'])
     return canvas
+
+
+def adopt_problem(startup, canvas):
+    """Проблема из предложения Бруно уходит в картину проекта как догадка: факт подтверждают люди."""
+    from founder.models import ProjectPicture
+
+    problem = (canvas.options or {}).get('problem') or {}
+    if not problem.get('text'):
+        raise ValueError('Сначала нажмите «Сформулировать ценность».')
+    picture, _ = ProjectPicture.objects.get_or_create(startup=startup)
+    facts = dict(picture.facts)
+    facts['problem'] = {'text': problem['text'][:300], 'status': 'guess'}
+    picture.facts = facts
+    picture.save(update_fields=['facts', 'updated_at'])
+
+
+def adopt_jobs(canvas):
+    """Задачи JTBD из предложения Бруно добавляются к шагу брейншторма как выбранные."""
+    jobs = (canvas.options or {}).get('jobs') or {}
+    if not jobs:
+        raise ValueError('Сначала нажмите «Сформулировать ценность».')
+    known = {item.get('question', '').casefold() for item in canvas.jobs}
+    added = [{'kind': kind, 'question': text, 'value': '', 'chosen': True}
+             for kind, text in jobs.items() if text.casefold() not in known]
+    canvas.jobs = canvas.jobs + added
+    canvas.save(update_fields=['jobs', 'updated_at'])
+    return len(added)
 
 
 def value_context(startup):

@@ -36,6 +36,11 @@ VALUE = {
                    'Мы это столовая в общежитии для тех, кто хочет экономить',
                    'Мы это кухня для 10000 студентов'],
     'analogies': ['Мама на расстоянии одного клика'],
+    'problem': {'role': 'первокурсник в общежитии', 'want': 'нормально питаться во время учёбы.',
+                'because': 'после пар нет сил и времени готовить', 'harm': ['time', 'money', 'fame'],
+                'harm_text': 'Тратит вечер на готовку или переплачивает за доставку'},
+    'jobs': {'functional': 'Быстро и сытно поесть между парами', 'social': 'Не стесняться своей еды перед соседями',
+             'emotional': 'Почувствовать заботу вдали от дома', 'spiritual': 'Отбросить'},
 }
 
 
@@ -86,7 +91,7 @@ class ValueCanvasTests(TestCase):
         with reply(BRAINSTORM) as model:
             self.client.post(self.url('value_brainstorm'))
         model.assert_not_called()
-        self.assertContains(self.client.get(self.page), 'Шаг откроется, когда хотя бы один сегмент')
+        self.assertContains(self.client.get(self.page), 'Брейншторм откроется, когда хотя бы один сегмент')
         with reply(SEGMENTS):
             self.client.post(self.url('value_segments'))
         with reply(BRAINSTORM) as model:
@@ -170,3 +175,46 @@ class ValueCanvasTests(TestCase):
         self.assertTrue(value_canvas._no_new_numbers('Обед за 300 рублей', 'цена 300 рублей'))
         self.assertFalse(value_canvas._no_new_numbers('Экономия 40%', 'цена 300 рублей'))
         self.assertTrue(value_canvas._no_new_numbers('Без чисел', ''))
+
+    def test_value_gives_problem_template_and_jtbd_from_picture(self):
+        ProjectPicture.objects.create(startup=self.startup, facts={'customer': {'text': 'Первокурсники', 'status': 'fact'}})
+        with reply(VALUE):
+            self.client.post(self.url('value_generate'))
+        canvas = ValueCanvas.objects.get(startup=self.startup)
+        problem = canvas.options['problem']
+        self.assertEqual(problem['text'], 'Первокурсник в общежитии хочет нормально питаться во время учёбы, '
+                                          'но не может, потому что после пар нет сил и времени готовить')
+        self.assertEqual(problem['harm'], ['money', 'time'])  # Only known kinds, fixed order.
+        self.assertEqual(set(canvas.options['jobs']), {'functional', 'social', 'emotional'})
+        page = self.client.get(self.page)
+        for text in ('ПРОБЛЕМА', 'деньги', 'время', 'Тратит вечер на готовку', 'Социальная',
+                     'Почувствовать заботу вдали от дома', 'Сравнение «X для Y»'):
+            self.assertContains(page, text)
+        # The problem goes to the project picture as a guess, the jobs to step 2 as chosen.
+        self.client.post(self.url('value_problem_adopt'))
+        picture = ProjectPicture.objects.get(startup=self.startup)
+        self.assertEqual(picture.facts['problem'], {'text': problem['text'], 'status': 'guess'})
+        self.assertEqual(picture.facts['customer']['text'], 'Первокурсники')
+        self.client.post(self.url('value_jobs_adopt'))
+        self.client.post(self.url('value_jobs_adopt'))
+        canvas.refresh_from_db()
+        self.assertEqual([(job['kind'], job['chosen']) for job in canvas.jobs],
+                         [('functional', True), ('social', True), ('emotional', True)])
+        self.assertContains(self.client.get(self.page), 'Быстро и сытно поесть между парами')  # Visible without segment A.
+        self.assertIn('Почувствовать заботу вдали от дома', picture_context(self.startup) + str(canvas.jobs))
+
+    def test_adopt_without_suggestions_is_refused(self):
+        response = self.client.post(self.url('value_problem_adopt'), follow=True)
+        self.assertContains(response, 'Сначала нажмите «Сформулировать ценность»')
+        self.assertFalse(ProjectPicture.objects.filter(startup=self.startup).exists())
+        self.client.force_login(self.viewer)
+        self.assertEqual(self.client.post(self.url('value_jobs_adopt')).status_code, 404)
+
+    def test_invented_numbers_drop_problem_and_jobs(self):
+        data = {**VALUE, 'problem': {**VALUE['problem'], 'harm_text': 'Теряет 5000 рублей в месяц'},
+                'jobs': {'functional': 'Поесть за 15 минут', 'social': 'Угостить соседа', 'emotional': 'Спокойствие'}}
+        with reply(data):
+            self.client.post(self.url('value_generate'))
+        canvas = ValueCanvas.objects.get(startup=self.startup)
+        self.assertEqual(canvas.options['problem'], {})
+        self.assertEqual(set(canvas.options['jobs']), {'social', 'emotional'})
