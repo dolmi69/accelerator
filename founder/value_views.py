@@ -135,7 +135,7 @@ def value_generate(request, startup_id):
 def value_save(request, startup_id):
     startup = get_startup(request, startup_id, edit=True)
     canvas = service.canvas_for(startup)
-    text = _clean(request, 'value', service.VALUE_LIMIT)
+    text = _clean(request, 'value', 1000)  # apply_value trims it to the pitch length at a word boundary.
     if not text:
         messages.error(request, 'Выберите формулировку или напишите свою.')
         return _back(startup, 'value-step')
@@ -144,11 +144,13 @@ def value_save(request, startup_id):
         return _back(startup, 'value-step')
     offered = {item.casefold() for key in ('formula', 'statements', 'analogies')
                for item in (canvas.options or {}).get(key, [])}
-    canvas.value = text
     canvas.value_source = 'bruno' if text.casefold() in offered else 'founder'
-    canvas.save(update_fields=['value', 'value_source', 'updated_at'])
+    updated = service.apply_value(startup, canvas, text)
     activity.log(startup, request.user, activity.Kind.CARD, f'Ценностное предложение: {activity.quoted(text)}')
-    messages.success(request, 'Ценностное предложение сохранено. Бруно и акулы будут на него опираться.')
+    parts = ['питч проекта'] + (['проблему проекта'] if updated['problem'] else []) + (
+        ['черновик карточки'] if updated['card'] else [])
+    messages.success(request, 'Ценностное предложение сохранено и записано в ' + ' и '.join(
+        [', '.join(parts[:-1]), parts[-1]] if len(parts) > 1 else parts) + '. Оттуда его берут карточка и питч.')
     return _back(startup, 'value-step')
 
 

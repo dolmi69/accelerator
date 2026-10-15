@@ -296,3 +296,42 @@ class ValueCanvasTests(TestCase):
             self.assertTrue(value_canvas.is_everyone(text), text)
         for text in ('все студенты', 'каждый первокурсник', 'Владельцы кофеен', ''):
             self.assertFalse(value_canvas.is_everyone(text), text)
+
+    def test_chosen_value_goes_to_project_pitch_problem_and_card(self):
+        from founder.services.project_cards import card_values, get_card, save_card
+        self.startup.one_line_pitch = 'Старый питч'
+        self.startup.save()
+        card = get_card(self.startup)  # Draft created from the profile: tagline = old pitch.
+        save_card(card, {**card_values(card), 'problem': 'Проблема, которую основатель написал сам'}, card.revision)
+        ProjectPicture.objects.create(startup=self.startup, facts=FULL_PICTURE)
+        with reply(VALUE):
+            self.client.post(self.url('value_generate'))
+        canvas = ValueCanvas.objects.get(startup=self.startup)
+        chosen = canvas.options['statements'][0]
+        response = self.client.post(self.url('value_save'), {'value': chosen}, follow=True)
+        self.assertContains(response, 'записано в питч проекта, проблему проекта и черновик карточки')
+        self.startup.refresh_from_db()
+        self.assertEqual(self.startup.one_line_pitch, chosen)
+        self.assertEqual(self.startup.problem, canvas.options['problem']['text'])
+        card.refresh_from_db()
+        self.assertEqual(card.tagline, chosen)  # Untouched field follows the profile.
+        self.assertEqual(card.problem, 'Проблема, которую основатель написал сам')  # Founder's own edit is kept.
+        self.assertIsNone(card.published_at)  # Nothing is published automatically.
+        # Pitch and sharks read the project pitch from the profile.
+        from founder.services.onboarding import startup_profile_context
+        self.assertIn(chosen, startup_profile_context(self.startup))
+
+    def test_incomplete_problem_is_not_written_and_long_value_fits_pitch(self):
+        ProjectPicture.objects.create(startup=self.startup, facts={**FULL_PICTURE, 'customer': {'text': 'все', 'status': 'guess'}})
+        with reply(VALUE):
+            self.client.post(self.url('value_generate'))
+        long_value = 'Мы это домашняя кухня для первокурсников ' + 'которые хотят есть нормально ' * 12
+        self.client.post(self.url('value_save'), {'value': long_value})
+        self.startup.refresh_from_db()
+        self.assertEqual(self.startup.problem, 'Студентам некогда готовить')  # Problem had «неизвестно».
+        self.assertLessEqual(len(self.startup.one_line_pitch), 300)
+        self.assertTrue(self.startup.one_line_pitch.startswith('Мы это домашняя кухня'))
+        pitch = self.startup.one_line_pitch
+        self.assertTrue(pitch.endswith('…'))
+        self.assertEqual(long_value[len(pitch) - 1], ' ')  # Cut at a word boundary, not mid-word.
+        self.assertFalse(ValueCanvas.objects.get(startup=self.startup).value.endswith(' '))

@@ -250,8 +250,8 @@
                             {% endfor %}
                         </fieldset>
                     {% endif %}
-                    <label class="value-final">Итоговая формулировка
-                        <textarea name="value" rows="3" maxlength="400" data-value-final placeholder="Наш продукт помогает … справиться с … с помощью … и получить …">{{ canvas.value }}</textarea>
+                    <label class="value-final">Итоговая формулировка <span class="muted small">— станет питчем проекта; проблема по шаблону станет проблемой проекта</span>
+                        <textarea name="value" rows="3" maxlength="300" data-value-final placeholder="Наш продукт помогает … справиться с … с помощью … и получить …">{{ canvas.value }}</textarea>
                     </label>
                     <button class="button primary" type="submit">Сохранить ценность</button>
                 </form>
