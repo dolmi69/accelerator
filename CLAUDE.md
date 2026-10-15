@@ -91,6 +91,9 @@
 
 ## Текущее состояние и открытые вопросы
 
+### Смена модели GigaChat → Qwen (обсуждается, 2026-10-15)
+Разбор: `docs/2026-10-15-gigachat-vs-qwen.md`. Вывод: до демо 2026-10-20 модель не менять; Qwen подключать второй моделью через Cloud.ru и решать после A/B-прогона `bruno_eval`. Дообучения не было, вся настройка Бруно и акул в коде, откат = `AI_PROVIDER=gigachat`. Но адаптер `cloudru.py` проще GigaChat-ного (`max_tokens` 1400 в запросах без потока, без sampling и temperature, без `finish_reason`, без снятия `<think>`), его надо доработать до сравнения. 429 вызваны личным ключом GigaChat (1 поток), а не моделью. Состояние на GigaChat заморожено тегами `bruno-gigachat-main-2026-10-15` (`12cd06a`) и `bruno-gigachat-sharks-2026-10-15` (`f463380`, ветка `Sharks`); отчёты eval на GigaChat лежат в `docs/eval_baselines/gigachat-2026-10-15/`.
+
 ### Общий мерж 2026-10-11 («merge 2»)
 Эльдар влил в main `Andrey` (`d8b06c9`), `Dima` (`0a1d939`) и `feature/coins-and-collaboration` (`72cb188`). До этого отдельным коммитом `8ac9689` сохранил свою работу по лаборатории. Весь код из `Andrey` есть в main. Мерж с совместными проектами поменял в нём только места, связанные с правами: `founder_name` с автором реплики, `can_edit` в middleware, `acquire_ai_lease(ttl_seconds=…)`. Не влита ветка `origin/Artem` (USDT). Ветка `Bruno-talking` удалена с origin. Новая работа идёт в ветках по задачам от свежего main.
 
