@@ -8,6 +8,8 @@
 а реплики с полями expect/reject — ещё и по сути: поймано ли противоречие,
 верно ли посчитаны деньги. Сценарии с флагами review/tasks/report/vote заодно
 проверяют радар, «Разбор и план», задания Бруно, разбор питча и голосование акул.
+Сценарии mode="value" проходят шаг «Клиент и ценность» по готовой картине проекта:
+сегменты ABCDX, брейншторм и ценность (плоские ключи, «неизвестно», один вопрос, без «все»).
 
     python manage.py bruno_eval                 # все сценарии
     python manage.py bruno_eval -s novice -s pitch
@@ -402,6 +404,34 @@ SCENARIOS = {
             {"text": "Нас трое: я продаю, двое ведут студентов", "reject": [r"(?<!\w)ты(?!\w)", r"Бруно"]},
         ],
     },
+    # «Клиент и ценность»: картина проекта задана сразу, без чата. Проекты не те, что в unit-тестах.
+    "value": {
+        "about": "Клиент и ценность: полная картина — сегменты, брейншторм, формула, сравнения, проблема, JTBD",
+        "mode": "value",
+        "startup": {"name": "КрохаШкаф", "stage": "idea"},
+        "picture": {
+            "customer": {"text": "Родители детей до трёх лет в Казани", "status": "fact"},
+            "problem": {"text": "Одежда и коляски становятся малы через 2–3 месяца, покупать новые дорого, "
+                                "старые некуда деть", "status": "fact"},
+            "solution": {"text": "Подписка на прокат детской одежды и колясок с доставкой и обменом по размеру",
+                         "status": "guess"},
+            "money": {"text": "990 рублей в месяц за набор", "status": "guess"},
+        },
+        "value_expect": {"complete": True, "question": False, "analogies": 2, "jobs": 3, "harm": ["money"]},
+    },
+    "value_unknown": {
+        "about": "Клиент и ценность: клиент «все», решения нет — «неизвестно» и один вопрос",
+        "mode": "value",
+        "segments": False,
+        "startup": {"name": "Тихий час", "stage": "idea"},
+        "picture": {
+            "customer": {"text": "Все люди, у которых есть смартфон", "status": "guess"},
+            "problem": {"text": "Устают от уведомлений и не могут сосредоточиться на работе", "status": "guess"},
+        },
+        "value_expect": {"complete": False, "question": True, "analogies": 0, "jobs": 0,
+                         "unknown_slots": ["помогает [неизвестно]", "с помощью [неизвестно]"],
+                         "question_expect": [r"кто|кому|клиент|сегмент|групп"]},
+    },
 }
 # Слова, по которым видно, что акула переспросила уже отвеченное.
 PANEL_REPEAT_HINT = re.compile(r"(?:где|как)\s+(?:вы\s+)?найд[её]те\s+первых\s+сто", re.IGNORECASE)
@@ -426,6 +456,148 @@ def content_issues(answer, turn):
         if found:
             issues.append(f"по сути: лишнее «{found.group()}»")
     return issues
+
+
+YOU_RE = re.compile(r"(?<!\w)(?:ты|тебе|тебя|твой|твоя|твои)(?!\w)", re.IGNORECASE)
+# Ключи, которые просят промпты «Клиента и ценности»: ответ без вложенности начинается с них.
+FLAT_KEY_RE = re.compile(r"^(?:seg\d+_|sit\d+_|vp_|jtbd_)")
+
+
+def _flat_note(raw):
+    """Что модель прислала: плоские ключи или вложенный JSON (его разбирает flat_fields, но это сигнал)."""
+    from founder.services.model_json import load_model_json
+
+    try:
+        data = load_model_json(raw)
+    except (ValueError, TypeError):
+        return "не JSON"
+    keys = list(data) if isinstance(data, dict) else []
+    nested = [key for key in keys if isinstance(data[key], (dict, list))]
+    if keys and not nested and all(FLAT_KEY_RE.match(str(key).lower()) for key in keys):
+        return "плоские ключи"
+    return f"вложено ({', '.join(map(str, nested or keys))[:80]}), разобрано flat_fields"
+
+
+def value_report(startup, scenario):
+    """Шаг «Клиент и ценность» на настоящей модели: возвращает (строки отчёта, число замечаний).
+
+    Проверяет то, что обещает страница: сегментов «все» нет, буквы ABCDX настоящие, у брейншторма
+    есть ситуации и три вида задач, формула собрана без лишних «неизвестно» (или с ними там,
+    где картины нет), вопрос ровно один и на «вы», цифр сверх данных проекта нет.
+    """
+    from unittest.mock import patch
+
+    from founder.services import value_canvas as vc
+
+    ProjectPicture.objects.update_or_create(startup=startup, defaults={"facts": scenario["picture"]})
+    raws = []
+    real = vc.complete_text
+
+    def recording(*args, **kwargs):
+        raws.append(real(*args, **kwargs))
+        return raws[-1]
+
+    lines, issues = [], 0
+
+    def flag(found):
+        nonlocal issues
+        if found:
+            issues += len(found)
+            lines.append("> ⚠ " + "; ".join(found) + "\n")
+
+    def step(title, action):
+        started = time.monotonic()
+        raws.clear()
+        try:
+            with patch.object(vc, "complete_text", recording):
+                result = action(startup)
+        except AIServiceError as exc:
+            lines.append(f"\n### {title}\n\n[ОШИБКА] {exc}\n")
+            flag(["шаг не выполнен"])
+            return None
+        note = _flat_note(raws[-1]) if raws else "без запроса"
+        lines.append(f"\n### {title} ({time.monotonic() - started:.1f} с, ответ: {note})\n")
+        return result
+
+    lines.append("**Картина проекта:** " + " · ".join(
+        f"{key}: {item['text']}" for key, item in scenario["picture"].items()) + "\n")
+    expect = scenario["value_expect"]
+
+    if scenario.get("segments", True):
+        if step("Сегменты ABCDX", vc.suggest_segments) is not None:
+            canvas = vc.canvas_for(startup)
+            lines += [f"- [{item['grade']}] {item['title']}: {item['description']} Держатель: {item['holder']}. "
+                      f"{item['reason']}" for item in canvas.segments]
+            found = []
+            if len(canvas.segments) < 3:
+                found.append(f"сегментов {len(canvas.segments)} < 3")
+            found += [f"сегмент «все»: {item['title']}" for item in canvas.segments
+                      if vc.is_everyone(item["title"]) or vc.is_everyone(item.get("description", ""))]
+            found += [f"буква {item['grade']}" for item in canvas.segments if item["grade"] not in vc.GRADES]
+            flag(found)
+            if canvas.segments and not vc.segments_of(canvas, "A"):
+                canvas.segments[0]["grade"] = "A"  # Букву ставит основатель; прогон выбирает за него первый.
+                canvas.save(update_fields=["segments"])
+                lines.append("_Бруно не дал ни одного A: прогон отметил первый сегмент буквой A._\n")
+        if vc.segments_of(vc.canvas_for(startup), "A") and step("Брейншторм по сегменту A", vc.brainstorm) is not None:
+            canvas = vc.canvas_for(startup)
+            lines += [f"- Делает: {item['doing']} → хочет: {item['want']} → продукт обещает: {item['promise']}"
+                      for item in canvas.situations]
+            lines += [f"- JTBD {vc.JOB_KINDS[item['kind']]}: {item['question']} → {item['value']}" for item in canvas.jobs]
+            kinds = {item["kind"] for item in canvas.jobs}
+            flag(([f"ситуаций {len(canvas.situations)} < 3"] if len(canvas.situations) < 3 else [])
+                 + ([f"нет задач: {', '.join(vc.JOB_KINDS[k] for k in vc.JOB_KINDS if k not in kinds)}"]
+                    if len(kinds) < 3 else []))
+            canvas.situations = [{**item, "chosen": index < 2} for index, item in enumerate(canvas.situations)]
+            canvas.save(update_fields=["situations"])
+
+    if step("Ценность", vc.formulate_value) is None:
+        return lines, issues
+    options = vc.canvas_for(startup).options
+    problem = options.get("problem") or {}
+    lines += [f"Формула: {text}" for text in options["formula"]] or ["Формула: нет"]
+    lines += [f"- Сравнение: {text}" for text in options["analogies"]]
+    lines += [f"- Мы это…: {text}" for text in options["statements"]]
+    if problem:
+        lines.append(f"Проблема: {problem['text']} Чем бьёт: "
+                     f"{', '.join(vc.HARMS[key] for key in problem['harm']) or 'не указано'}. {problem['harm_text']}")
+    lines += [f"- JTBD {vc.JOB_KINDS[kind]}: {text}" for kind, text in options["jobs"].items()]
+    lines.append(f"Вопрос Бруно: {options['question'] or 'нет'}\n")
+
+    found = []
+    if options["formula_complete"] != expect["complete"]:
+        found.append("в формуле лишнее «неизвестно»" if expect["complete"] else "формула без «неизвестно», хотя картины не хватает")
+    for slot in expect.get("unknown_slots", []):
+        if not any(slot in text for text in options["formula"]):
+            found.append(f"нет «{slot}»")
+    if bool(options["question"]) != expect["question"]:
+        found.append("нет вопроса о пробеле" if expect["question"] else "лишний вопрос при полной картине")
+    question = options["question"]
+    if question:
+        if question.count("?") != 1:
+            found.append(f"вопросов: {question.count('?')}")
+        if YOU_RE.search(question):
+            found.append("вопрос на «ты»")
+        found += content_issues(question, {"expect": expect.get("question_expect", [])})
+    if len(options["analogies"]) < expect["analogies"]:
+        found.append(f"сравнений «X для Y» {len(options['analogies'])} < {expect['analogies']}")
+    if expect["analogies"] == 0 and (options["analogies"] or options["statements"]):
+        found.append("сравнения без решения в картине")
+    if len(options["jobs"]) < expect["jobs"]:
+        found.append(f"задач JTBD {len(options['jobs'])} < {expect['jobs']}")
+    if expect["jobs"] == 0 and options["jobs"]:
+        found.append("задачи JTBD без клиента в картине")
+    for harm in expect.get("harm", []):
+        if harm not in problem.get("harm", []):
+            found.append(f"проблема не бьёт по «{vc.HARMS[harm]}»")
+    if expect["complete"] and not problem.get("complete"):
+        found.append("проблема по шаблону с «неизвестно»")
+    texts = [*options["formula"], *options["analogies"], *options["statements"], problem.get("text", ""),
+             *options["jobs"].values()]
+    found += [f"сегмент «все»: {text[:60]}" for text in texts if re.search(r"помогает\s+всем\b", text, re.IGNORECASE)]
+    found += [f"на «ты»: {text[:60]}" for text in texts if YOU_RE.search(text)]
+    flag(found)
+    return lines, issues
 
 
 class Command(BaseCommand):
@@ -464,6 +636,10 @@ class Command(BaseCommand):
                 user = User.objects.create_user(username=f"eval_{name}", email=f"eval_{name}@example.invalid",
                                                 password=None)
                 startup = StartupProfile.objects.create(owner=user, **scenario["startup"])
+                if scenario.get("mode") == "value":
+                    report, issues = value_report(startup, scenario)
+                    lines.extend(report)
+                    raise _Rollback
                 if scenario.get("mode") == "pitch":
                     session = ChatSession.objects.create(startup=startup, mode=ChatSession.Mode.PITCH)
                     ChatMessage.objects.create(
