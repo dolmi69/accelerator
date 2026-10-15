@@ -8,7 +8,8 @@ from founder.models import ChatSession, ProjectMember, ProjectPicture, StartupPr
 from founder.services import value_canvas
 from founder.services.mentor import picture_context
 
-SEGMENTS = {'segments': [
+# Ответы модели в плоском формате (seg1_title…, sit1_doing…, vp_*, jtbd_*): вложенный JSON GigaChat ломает.
+SEGMENT_LIST = [
     {'title': 'Первокурсники в общежитиях', 'description': 'Готовят себе сами, нет времени',
      'context': 'Студенты вузов', 'holder': 'Сам студент, платит из стипендии', 'grade': 'a',
      'reason': 'Проблема каждый день'},
@@ -18,31 +19,35 @@ SEGMENTS = {'segments': [
      'holder': 'Сотрудник или работодатель', 'grade': 'Z', 'reason': 'Неясно'},
     {'title': 'Фантазия', 'description': 'Сэкономят 47% бюджета', 'context': 'Любые',
      'holder': 'Все', 'grade': 'A', 'reason': 'Рост 300%'},
-]}
+]
+
+
+def flat_segments(items):
+    return {f'seg{number}_{key}': value for number, item in enumerate(items, 1) for key, value in item.items()}
+
+
+SEGMENTS = flat_segments(SEGMENT_LIST)
 BRAINSTORM = {
-    'situations': [
-        {'doing': 'Готовится к сессии ночью', 'want': 'Не тратить время на готовку', 'promise': 'Еда к двери за полчаса'},
-        {'doing': 'Ест лапшу третий день', 'want': 'Почувствовать заботу', 'promise': 'Домашняя еда'},
-    ],
-    'jobs': [
-        {'kind': 'functional', 'question': 'Как быстро поесть?', 'value': 'Готовый обед рядом'},
-        {'kind': 'social', 'question': 'Что скажут соседи?', 'value': 'Можно заказать на компанию'},
-        {'kind': 'magic', 'question': 'Нестандартное', 'value': 'Отбросить'},
-    ],
+    'sit1_doing': 'Готовится к сессии ночью', 'sit1_want': 'Не тратить время на готовку',
+    'sit1_promise': 'Еда к двери за полчаса',
+    'sit2_doing': 'Ест лапшу третий день', 'sit2_want': 'Почувствовать заботу', 'sit2_promise': 'Домашняя еда',
+    'jtbd_functional_question': 'Как быстро поесть?', 'jtbd_functional_value': 'Готовый обед рядом',
+    'jtbd_social_question': 'Что скажут соседи?', 'jtbd_social_value': 'Можно заказать на компанию',
+    'jtbd_magic_question': 'Нестандартное', 'jtbd_magic_value': 'Отбросить',
 }
 VALUE = {
-    'formula': {'audience': 'первокурсникам', 'problem': 'нехваткой времени', 'method': 'доставки обедов',
-                'result': 'домашнюю еду'},
-    'statements': ['Мы это домашняя кухня для студентов, которые хотят есть нормально',
-                   'Мы это столовая в общежитии для тех, кто хочет экономить',
-                   'Мы это кухня для 10000 студентов'],
-    'analogies': ['Мама на расстоянии одного клика'],
-    'problem': {'role': 'первокурсник в общежитии', 'want': 'нормально питаться во время учёбы.',
-                'because': 'после пар нет сил и времени готовить', 'harm': ['time', 'money', 'fame'],
-                'harm_text': 'Тратит вечер на готовку или переплачивает за доставку'},
-    'jobs': {'functional': 'Быстро и сытно поесть между парами', 'social': 'Не стесняться своей еды перед соседями',
-             'emotional': 'Почувствовать заботу вдали от дома', 'spiritual': 'Отбросить'},
-    'question': '',
+    'vp_audience': 'первокурсникам', 'vp_problem': 'нехваткой времени', 'vp_method': 'доставки обедов',
+    'vp_result': 'домашнюю еду',
+    'vp_statement1': 'Мы это домашняя кухня для студентов, которые хотят есть нормально',
+    'vp_statement2': 'Мы это столовая в общежитии для тех, кто хочет экономить',
+    'vp_statement3': 'Мы это кухня для 10000 студентов',
+    'vp_analogy1': 'Мама на расстоянии одного клика',
+    'vp_role': 'первокурсник в общежитии', 'vp_want': 'нормально питаться во время учёбы.',
+    'vp_because': 'после пар нет сил и времени готовить', 'vp_harm': 'time, money, fame',
+    'vp_harm_text': 'Тратит вечер на готовку или переплачивает за доставку',
+    'jtbd_functional': 'Быстро и сытно поесть между парами', 'jtbd_social': 'Не стесняться своей еды перед соседями',
+    'jtbd_emotional': 'Почувствовать заботу вдали от дома', 'jtbd_spiritual': 'Отбросить',
+    'vp_question': '',
 }
 FULL_PICTURE = {'customer': {'text': 'Первокурсники', 'status': 'fact'},
                 'problem': {'text': 'Нет времени готовить', 'status': 'fact'},
@@ -221,8 +226,8 @@ class ValueCanvasTests(TestCase):
 
     def test_invented_numbers_drop_problem_and_jobs(self):
         ProjectPicture.objects.create(startup=self.startup, facts=FULL_PICTURE)
-        data = {**VALUE, 'problem': {**VALUE['problem'], 'harm_text': 'Теряет 5000 рублей в месяц'},
-                'jobs': {'functional': 'Поесть за 15 минут', 'social': 'Угостить соседа', 'emotional': 'Спокойствие'}}
+        data = {**VALUE, 'vp_harm_text': 'Теряет 5000 рублей в месяц', 'jtbd_functional': 'Поесть за 15 минут',
+                'jtbd_social': 'Угостить соседа', 'jtbd_emotional': 'Спокойствие'}
         with reply(data):
             self.client.post(self.url('value_generate'))
         canvas = ValueCanvas.objects.get(startup=self.startup)
@@ -232,7 +237,7 @@ class ValueCanvasTests(TestCase):
     def test_what_is_not_in_picture_stays_unknown_with_one_question(self):
         # Picture knows the customer (and the problem from the questionnaire), but not the solution.
         ProjectPicture.objects.create(startup=self.startup, facts={'customer': {'text': 'Первокурсники', 'status': 'fact'}})
-        data = {**VALUE, 'question': 'Хорошо. Как именно вы будете кормить студентов? И сколько это стоит?'}
+        data = {**VALUE, 'vp_question': 'Хорошо. Как именно вы будете кормить студентов? И сколько это стоит?'}
         with reply(data) as model:
             self.client.post(self.url('value_generate'))
         payload = json.loads(model.call_args.args[1])
@@ -274,7 +279,7 @@ class ValueCanvasTests(TestCase):
         self.assertContains(self.client.get(self.page), 'Взять в картину проекта', count=0)
         # A model answer «все, кто…» is not accepted as the audience either.
         ProjectPicture.objects.filter(startup=self.startup).update(facts=FULL_PICTURE)
-        with reply({**VALUE, 'formula': {**VALUE['formula'], 'audience': 'всем, кто хочет есть'}}):
+        with reply({**VALUE, 'vp_audience': 'всем, кто хочет есть'}):
             self.client.post(self.url('value_generate'))
         self.assertIn('помогает [неизвестно]', ValueCanvas.objects.get(startup=self.startup).options['formula'][0])
         # Answers and manual segments «все» are refused.
@@ -286,7 +291,7 @@ class ValueCanvasTests(TestCase):
         response = self.client.post(self.url('value_segments_save'), {'new_title': 'Все', 'new_grade': 'A'}, follow=True)
         self.assertContains(response, '«Все» — не сегмент')
         self.assertEqual(ValueCanvas.objects.get(startup=self.startup).segments, [])
-        with reply({'segments': [{**SEGMENTS['segments'][0], 'title': 'Все люди'}, SEGMENTS['segments'][1]]}):
+        with reply(flat_segments([{**SEGMENT_LIST[0], 'title': 'Все люди'}, SEGMENT_LIST[1]])):
             self.client.post(self.url('value_segments'))
         self.assertEqual([item['title'] for item in ValueCanvas.objects.get(startup=self.startup).segments], ['Аспиранты'])
 
@@ -335,3 +340,45 @@ class ValueCanvasTests(TestCase):
         self.assertTrue(pitch.endswith('…'))
         self.assertEqual(long_value[len(pitch) - 1], ' ')  # Cut at a word boundary, not mid-word.
         self.assertFalse(ValueCanvas.objects.get(startup=self.startup).value.endswith(' '))
+
+    def test_prompts_ask_for_flat_keys(self):
+        for prompt in (value_canvas.SEGMENTS_PROMPT, value_canvas.BRAINSTORM_PROMPT, value_canvas.VALUE_PROMPT):
+            self.assertIn('Никаких вложенных объектов', prompt)
+        self.assertIn('seg1_title', value_canvas.SEGMENTS_PROMPT)
+        self.assertIn('sit1_doing', value_canvas.BRAINSTORM_PROMPT)
+        self.assertIn('jtbd_emotional_value', value_canvas.BRAINSTORM_PROMPT)
+        for key in ('vp_audience', 'vp_analogy1', 'vp_role', 'vp_harm', 'jtbd_functional', 'vp_question'):
+            self.assertIn(key, value_canvas.VALUE_PROMPT)
+
+    def test_flat_keys_found_when_gigachat_nests_them_anyway(self):
+        ProjectPicture.objects.create(startup=self.startup, facts=FULL_PICTURE)
+        nested = {'result': {'formula': {k: VALUE[k] for k in ('vp_audience', 'vp_problem', 'vp_method', 'vp_result')},
+                             'problem': {'VP_ROLE': VALUE['vp_role'], 'vp_want': VALUE['vp_want'],
+                                         'vp_because': VALUE['vp_because'], 'vp_harm': ['время', 'денег']},
+                             'vp_analogies': ['Мама на расстоянии одного клика', 'Столовая, но в комнате'],
+                             'jtbd': [{'jtbd_functional': VALUE['jtbd_functional']}]}}
+        with reply(nested):
+            self.client.post(self.url('value_generate'))
+        options = ValueCanvas.objects.get(startup=self.startup).options
+        self.assertTrue(options['formula_complete'])
+        self.assertEqual(options['analogies'], ['Мама на расстоянии одного клика', 'Столовая, но в комнате'])
+        self.assertEqual(options['problem']['harm'], ['money', 'time'])  # Russian words in any case.
+        self.assertTrue(options['problem']['complete'])
+        self.assertEqual(options['jobs'], {'functional': VALUE['jtbd_functional']})
+        # Segments and brainstorm, also nested by the model.
+        with reply({'segments': SEGMENTS}):
+            self.client.post(self.url('value_segments'))
+        canvas = ValueCanvas.objects.get(startup=self.startup)
+        self.assertEqual([item['title'] for item in canvas.segments][:2], ['Первокурсники в общежитиях', 'Аспиранты'])
+        with reply({'brainstorm': BRAINSTORM}):
+            self.client.post(self.url('value_brainstorm'))
+        canvas.refresh_from_db()
+        self.assertEqual(len(canvas.situations), 2)
+        self.assertEqual([job['kind'] for job in canvas.jobs], ['functional', 'social'])
+
+    def test_empty_or_broken_reply_is_an_error_not_an_empty_value(self):
+        ProjectPicture.objects.create(startup=self.startup, facts=FULL_PICTURE)
+        with reply({'answer': {'nothing': {}}}):
+            response = self.client.post(self.url('value_generate'), follow=True)
+        self.assertContains(response, 'не сформулировал ценность')
+        self.assertEqual(ValueCanvas.objects.get(startup=self.startup).options, {})

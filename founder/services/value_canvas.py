@@ -40,6 +40,12 @@ RULES = (
     '«инновационный»). Верни только JSON без пояснений.'
 )
 
+# GigaChat ломает вложенный JSON (списки объектов, объекты в объектах), поэтому все три запроса
+# просят плоские ключи: seg1_title…, sit1_doing…, vp_*, jtbd_*. Разбор (flat_fields) всё равно
+# ищет эти ключи на любой глубине: модель иногда сама заворачивает ответ в лишний объект.
+MAX_SUGGESTED_SEGMENTS = 5
+MAX_SITUATIONS = 5
+
 SEGMENTS_PROMPT = (
     'Ты Бруно, наставник стартапов. Шаг «Сегментация ЦА по ABCDX». '
     'Посмотри на проблему проекта шире: у каких групп клиентов возникает такая же сложность? '
@@ -48,25 +54,28 @@ SEGMENTS_PROMPT = (
     'Для каждого сегмента предложи букву ABCDX: A — проблема острая, есть деньги и к ним легко '
     'дотянуться; B — подходят, но слабее; C — возьмём, если придут сами; D — не наши; '
     'X — непонятно, нужно проверить. Буква — только предложение, решает основатель. '
-    'Поля: title — короткое название сегмента (до 80 символов); description — кто это и в какой '
-    'ситуации (до 300); context — тип бизнеса и отрасль либо жизненная ситуация (до 200); '
-    'holder — кто держатель проблемы и кто платит (до 200); grade — одна буква A/B/C/D/X; '
-    'reason — почему такая буква (до 200). «Все», «любой человек», «все, кто…» — не сегмент, не предлагай их. '
-    'Формат: {"segments":[{"title":"...","description":"...","context":"...","holder":"...",'
-    '"grade":"A","reason":"..."}]}. ' + RULES
+    '«Все», «любой человек», «все, кто…» — не сегмент, не предлагай их. '
+    'Ключи плоские, N — номер сегмента от 1 до 5: segN_title — короткое название (до 80 символов); '
+    'segN_description — кто это и в какой ситуации (до 300); segN_context — тип бизнеса и отрасль '
+    'либо жизненная ситуация (до 200); segN_holder — кто держатель проблемы и кто платит (до 200); '
+    'segN_grade — одна буква A/B/C/D/X; segN_reason — почему такая буква (до 200). '
+    'Формат: {"seg1_title":"...","seg1_description":"...","seg1_context":"...","seg1_holder":"...",'
+    '"seg1_grade":"A","seg1_reason":"...","seg2_title":"..."}. Никаких вложенных объектов и списков. ' + RULES
 )
 
 BRAINSTORM_PROMPT = (
     'Ты Бруно, наставник стартапов. Шаг «Брейншторм после ABCDX»: работаем только с сегментами A '
     '(они ниже). Опиши 5 ситуаций, в которых такой клиент может захотеть купить продукт. '
     'Смотри не на боль, а на тягу к изменениям: что человек хочет изменить или почувствовать, '
-    'какой результат ожидает, что продукт может ему пообещать. '
-    'Затем по Jobs To Be Done назови задачи клиента: функциональные, социальные и эмоциональные, '
-    'по 1–2 каждого вида. Для задачи: question — вопрос, над которым клиент думает; '
-    'value — какую ценность даёт продукт. '
-    'Формат: {"situations":[{"doing":"что делает клиент","want":"что хочет изменить или почувствовать",'
-    '"promise":"что обещает продукт"}],"jobs":[{"kind":"functional|social|emotional",'
-    '"question":"...","value":"..."}]}. Каждое поле до 240 символов. ' + RULES
+    'какой результат ожидает, что продукт может ему пообещать. Ключи плоские, N от 1 до 5: '
+    'sitN_doing — что делает клиент; sitN_want — что хочет изменить или почувствовать; '
+    'sitN_promise — что обещает продукт. '
+    'Затем задачи клиента по Jobs To Be Done, по одной каждого вида: jtbd_functional_question, '
+    'jtbd_social_question, jtbd_emotional_question — вопрос, над которым клиент думает; '
+    'jtbd_functional_value, jtbd_social_value, jtbd_emotional_value — какую ценность даёт продукт. '
+    'Каждое поле до 240 символов. Формат: {"sit1_doing":"...","sit1_want":"...","sit1_promise":"...",'
+    '"jtbd_functional_question":"...","jtbd_functional_value":"..."}. '
+    'Никаких вложенных объектов и списков. ' + RULES
 )
 
 VALUE_PROMPT = (
@@ -74,28 +83,32 @@ VALUE_PROMPT = (
     'Работай только по картине проекта ниже (и по сегментам A и выбранным ситуациям, если они есть). '
     'Чего в картине нет, не додумывай: в таком поле пиши ровно «неизвестно». Цифр не выдумывай. '
     '«Все», «любой человек», «все, кто…» — не сегмент: такую аудиторию считай неизвестной. '
-    'Подготовь четыре блока. '
-    '1) formula — части формулы «Наш продукт помогает [аудитории] справиться с [проблемой] с помощью '
-    '[способа] и получить [результат]»: audience — кому, в дательном падеже («первокурсникам в общежитиях»); '
-    'problem — с чем, в творительном («нехваткой времени на готовку»); method — с помощью чего, '
-    'в родительном («доставки домашних обедов»); result — что получить, в винительном («нормальное питание»). '
-    '2) analogies — 3 ярких сравнения одной фразой «X для Y» по примеру «Airbnb — мы отели, но у соседей». '
-    'Можно добавить statements — до 3 формулировок «Мы это [X] для [Y], которые хотят [Z]». '
-    '3) problem — проблема по шаблону «[роль] хочет [результат], но не может, потому что [проблема]»: '
-    'role — кто (например «Первокурсник в общежитии»), want — чего хочет (продолжение после «хочет»), '
-    'because — что мешает (продолжение после «потому что»), harm — чем бьёт проблема: список из '
-    '"money", "time", "effort" (деньги, время, усилия), harm_text — в чём ущерб, одной фразой. '
-    '4) jobs — задачи клиента по Jobs To Be Done: functional (что нужно сделать), social (как он хочет '
-    'выглядеть в глазах других), emotional (что хочет почувствовать), по одной фразе. '
-    '5) question — если чего-то не хватает, один вопрос основателю о самом важном пробеле (на «вы»); '
-    'если всего хватает, пустая строка. '
-    'Каждое текстовое поле до 300 символов. '
-    'Формат: {"formula":{"audience":"...","problem":"...","method":"...","result":"..."},'
-    '"analogies":["...","...","..."],"statements":["..."],'
-    '"problem":{"role":"...","want":"...","because":"...","harm":["time"],"harm_text":"..."},'
-    '"jobs":{"functional":"...","social":"...","emotional":"..."},"question":"..."}. ' + RULES
+    'Ключи плоские. '
+    '1) Формула «Наш продукт помогает [аудитории] справиться с [проблемой] с помощью [способа] '
+    'и получить [результат]»: vp_audience — кому, в дательном падеже («первокурсникам в общежитиях»); '
+    'vp_problem — с чем, в творительном («нехваткой времени на готовку»); vp_method — с помощью чего, '
+    'в родительном («доставки домашних обедов»); vp_result — что получить, в винительном '
+    '(«нормальное питание»). Каждая часть до 55 символов. '
+    '2) vp_analogy1, vp_analogy2, vp_analogy3 — яркие сравнения одной фразой «X для Y» по примеру '
+    '«Airbnb — мы отели, но у соседей». Можно добавить vp_statement1–vp_statement3 по формуле '
+    '«Мы это [X] для [Y], которые хотят [Z]». '
+    '3) Проблема по шаблону «[роль] хочет [результат], но не может, потому что [проблема]»: '
+    'vp_role — кто (например «Первокурсник в общежитии»), vp_want — чего хочет (продолжение после '
+    '«хочет»), vp_because — что мешает (продолжение после «потому что»), vp_harm — чем бьёт: '
+    'через запятую из слов money, time, effort (деньги, время, усилия), vp_harm_text — в чём ущерб. '
+    '4) Задачи клиента по Jobs To Be Done, одной фразой: jtbd_functional — что нужно сделать, '
+    'jtbd_social — как он хочет выглядеть в глазах других, jtbd_emotional — что хочет почувствовать. '
+    '5) vp_question — если чего-то не хватает, один вопрос основателю о самом важном пробеле (на «вы»); '
+    'если всего хватает, пустая строка. Каждое поле до 300 символов, все значения — строки. '
+    'Формат: {"vp_audience":"...","vp_problem":"...","vp_method":"...","vp_result":"...",'
+    '"vp_analogy1":"...","vp_analogy2":"...","vp_analogy3":"...","vp_statement1":"...",'
+    '"vp_role":"...","vp_want":"...","vp_because":"...","vp_harm":"time, money","vp_harm_text":"...",'
+    '"jtbd_functional":"...","jtbd_social":"...","jtbd_emotional":"...","vp_question":"..."}. '
+    'Никаких вложенных объектов и списков. ' + RULES
 )
 
+# Чем бьёт проблема: модель пишет и по-английски, и по-русски в любом падеже («времени», «денег»).
+HARM_WORDS = {'money': ('money', 'деньг', 'денег', 'финанс'), 'time': ('time', 'врем'), 'effort': ('effort', 'усили')}
 UNKNOWN = 'неизвестно'
 # Какая тема картины проекта нужна каждому месту формулы и шаблона проблемы.
 FORMULA_AREAS = {'audience': 'customer', 'problem': 'problem', 'method': 'solution', 'result': 'solution'}
@@ -130,6 +143,42 @@ def segments_of(canvas, grade):
 
 def _clean(value, limit):
     return ' '.join(str(value or '').split())[:limit]
+
+
+def flat_fields(data):
+    """Плоские ключи ответа на любой глубине: {"result": {"vp_role": …}} читается так же, как {"vp_role": …}.
+
+    Первое значение ключа побеждает. Список строк (модель иногда шлёт "vp_analogy": [...])
+    разворачивается в key1, key2… Ключи приводятся к нижнему регистру.
+    """
+    found = {}
+
+    def walk(value, depth=0):
+        if depth > 6:
+            return
+        if isinstance(value, dict):
+            for key, item in value.items():
+                key = str(key).strip().lower()
+                if isinstance(item, (str, int, float)) and not isinstance(item, bool):
+                    found.setdefault(key, str(item))
+                elif isinstance(item, list) and item and all(isinstance(entry, str) for entry in item):
+                    found.setdefault(key, ', '.join(item))  # "vp_harm": ["time", "money"]
+                    single = key[:-3] + 'y' if key.endswith('ies') else key.rstrip('s')
+                    for number, entry in enumerate(item, 1):  # "vp_analogies": [...] → vp_analogy1…
+                        found.setdefault(f'{single}{number}', entry)
+                else:
+                    walk(item, depth + 1)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item, depth + 1)
+
+    walk(data)
+    return found
+
+
+def numbered(flat, prefix, field, limit):
+    """Значения prefixN_field для N = 1…limit, по порядку номеров."""
+    return [(number, flat.get(f'{prefix}{number}_{field}', '')) for number in range(1, limit + 1)]
 
 
 def _project_context(startup, canvas, *, with_a=False, with_choices=False):
@@ -177,12 +226,15 @@ def _fields(item, limits, source):
 def suggest_segments(startup):
     canvas = canvas_for(startup)
     data, source = _ask(SEGMENTS_PROMPT, _project_context(startup, canvas), 1800)
-    raw = data.get('segments') if isinstance(data, dict) else None
-    if not isinstance(raw, list):
+    flat = flat_fields(data)
+    raw = [{field: flat.get(f'seg{number}_{field}', '') for field in (*SEGMENT_FIELDS, 'grade')}
+           for number in range(1, MAX_SUGGESTED_SEGMENTS + 1)]
+    raw = [item for item in raw if item['title']]
+    if not raw:
         raise AIResponseFormatError('Бруно не вернул список сегментов. Повторите позже.')
     known = {item.get('title', '').casefold() for item in canvas.segments}
     added = []
-    for item in raw[:6]:
+    for item in raw:
         segment = _fields(item, SEGMENT_FIELDS, source)
         if (not segment or segment['title'].casefold() in known or len(canvas.segments) + len(added) >= MAX_SEGMENTS
                 or is_everyone(segment['title']) or is_everyone(segment['description'])):
@@ -204,14 +256,14 @@ def brainstorm(startup):
     if not segments_of(canvas, 'A'):
         raise ValueError('Сначала отметьте хотя бы один сегмент буквой A: брейншторм идёт по идеальным клиентам.')
     data, source = _ask(BRAINSTORM_PROMPT, _project_context(startup, canvas, with_a=True), 2200)
-    if not isinstance(data, dict) or not isinstance(data.get('situations'), list) or not isinstance(data.get('jobs'), list):
-        raise AIResponseFormatError('Бруно не закончил брейншторм. Повторите позже.')
-    situations = [entry for entry in (_fields(item, SITUATION_FIELDS, source) for item in data['situations'][:6]) if entry]
+    flat = flat_fields(data)
+    raw_situations = [{field: flat.get(f'sit{number}_{field}', '') for field in SITUATION_FIELDS}
+                      for number in range(1, MAX_SITUATIONS + 1)]
+    situations = [entry for entry in (_fields(item, SITUATION_FIELDS, source) for item in raw_situations) if entry]
     jobs = []
-    for item in data['jobs'][:9]:
-        entry = _fields(item, JOB_FIELDS, source)
-        kind = item.get('kind') if isinstance(item, dict) else None
-        if entry and kind in JOB_KINDS:
+    for kind in JOB_KINDS:
+        entry = _fields({field: flat.get(f'jtbd_{kind}_{field}', '') for field in JOB_FIELDS}, JOB_FIELDS, source)
+        if entry:
             jobs.append({'kind': kind, **entry})
     if not situations and not jobs:
         raise AIResponseFormatError('Бруно не закончил брейншторм. Повторите позже.')
@@ -295,49 +347,47 @@ def formulate_value(startup):
         if extra.get(key):
             data[key] = extra[key]
     reply, source = _ask(VALUE_PROMPT, data, 2000)
-    if not isinstance(reply, dict):
+    flat = flat_fields(reply)
+    if not flat:
         raise AIResponseFormatError('Бруно не сформулировал ценность. Повторите позже.')
 
-    def texts(values, limit):
-        values = values if isinstance(values, list) else [values]
+    def texts(prefix, limit):
         seen, result = set(), []
-        for value in values:
-            text = _clean(value, 300) if isinstance(value, str) else ''
+        for number in range(1, limit + 1):
+            text = _clean(flat.get(f'{prefix}{number}', ''), 300)
             if (text and text.casefold() not in seen and _no_new_numbers(text, source)
                     and UNKNOWN not in text.casefold()):
                 seen.add(text.casefold())
                 result.append(text)
-        return result[:limit]
+        return result
 
-    raw_formula = reply.get('formula') if isinstance(reply.get('formula'), dict) else {}
-    parts = {key: _slot(raw_formula.get(key), area, known, source, 55) for key, area in FORMULA_AREAS.items()}
-    raw_problem = reply.get('problem') if isinstance(reply.get('problem'), dict) else {}
-    problem = {key: _slot(raw_problem.get(key), area, known, source, 240) for key, area in PROBLEM_AREAS.items()}
-    harms = raw_problem.get('harm')
-    harms = harms if isinstance(harms, list) else [harms]
-    problem['harm'] = [key for key in HARMS if key in harms] if 'problem' in known else []
+    parts = {key: _slot(flat.get(f'vp_{key}'), area, known, source, 55) for key, area in FORMULA_AREAS.items()}
+    problem = {key: _slot(flat.get(f'vp_{key}'), area, known, source, 240) for key, area in PROBLEM_AREAS.items()}
+    harm_words = flat.get('vp_harm', '').casefold()
+    problem['harm'] = ([key for key, stems in HARM_WORDS.items() if any(stem in harm_words for stem in stems)]
+                       if 'problem' in known else [])
     problem['text'] = problem_sentence(problem)[:PROBLEM_LIMIT]
     problem['complete'] = UNKNOWN not in (problem['role'], problem['want'], problem['because'])
-    raw_jobs = reply.get('jobs') if isinstance(reply.get('jobs'), dict) else {}
     jobs = {}
     if 'customer' in known:  # Задачи неизвестного клиента были бы выдумкой.
-        jobs = {kind: _clean(raw_jobs.get(kind), 240) for kind in JOB_KINDS
-                if isinstance(raw_jobs.get(kind), str) and raw_jobs[kind].strip()
-                and UNKNOWN not in raw_jobs[kind].casefold() and _no_new_numbers(raw_jobs[kind], source)}
+        for kind in JOB_KINDS:
+            text = _clean(flat.get(f'jtbd_{kind}', ''), 240)
+            if text and UNKNOWN not in text.casefold() and _no_new_numbers(text, source):
+                jobs[kind] = text
     unknown_areas = [area for area in ('customer', 'problem', 'solution') if area not in known]
     question, question_area = '', ''
     if unknown_areas:
         question_area = 'customer' if 'customer' in unknown_areas else unknown_areas[0]
         question = AREA_QUESTIONS['everyone' if everyone and question_area == 'customer' else question_area]
-        model_question = _one_question(reply.get('question'))
+        model_question = _one_question(flat.get('vp_question'))
         if model_question and not everyone and _no_new_numbers(model_question, source):
             question = model_question
     options = {
         'formula': [formula_sentence(parts)[:VALUE_LIMIT]] if any(value != UNKNOWN for value in parts.values()) else [],
         'formula_complete': all(value != UNKNOWN for value in parts.values()),
         # Сравнения и «Мы это X для Y» без клиента и решения были бы додуманы.
-        'analogies': texts(reply.get('analogies'), 3) if 'solution' in known else [],
-        'statements': texts(reply.get('statements'), 3) if {'customer', 'solution'} <= set(known) else [],
+        'analogies': texts('vp_analogy', 3) if 'solution' in known else [],
+        'statements': texts('vp_statement', 3) if {'customer', 'solution'} <= set(known) else [],
         'problem': problem if any(problem[key] != UNKNOWN for key in ('role', 'want', 'because')) else {},
         'jobs': jobs, 'question': question, 'question_area': question_area,
         'unknown': unknown_areas, 'everyone': everyone,
