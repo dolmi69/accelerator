@@ -262,6 +262,24 @@ class MarketBlockedTests(TestCase):
         self.assertLessEqual(len(report.sources[0]["snippet"]), 300)
         self.assertNotIn("[5]", model.call_args.args[1])
 
+    def test_blocked_answer_first_drops_full_pages_and_keeps_sources(self):
+        from founder.services.ai import AIBlockedError
+
+        user = User.objects.create_user("blocked2", email="blocked2@example.test", password="x")
+        startup = StartupProfile.objects.create(owner=user, name="Холодильник", one_line_pitch="Прокат холодильников")
+        found = [SearchResult(f"Прокат {index}", f"https://site{index}.ru/", "Холодильник напрокат от 500 рублей.")
+                 for index in range(3)]
+        with_pages = [{**item.as_dict(), "page": "Длинный текст страницы конкурента."} for item in found]
+        answers = ['{"queries": ["прокат холодильника"]}', AIBlockedError("blacklist"),
+                   report_json(competitors=[], demand_signals=[])]
+        with patch("founder.services.market.complete_text", side_effect=answers) as model, \
+                patch("founder.services.market.search_many", return_value=found), \
+                patch("founder.services.market.read_pages", return_value=with_pages):
+            report = market.create_market_report(startup)
+        self.assertEqual(len(report.sources), 3)
+        self.assertNotIn("page", report.sources[0])
+        self.assertNotIn("Со страницы", model.call_args.args[1])
+
 
 class MarketLinkTests(TestCase):
     def test_answer_to_market_question_links_to_the_market_page(self):

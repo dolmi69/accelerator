@@ -146,7 +146,7 @@
 
 {% if versions %}
 <details class="lab-history" id="lab-history">
-  <summary><span>История</span><small>{{ versions|length }} версий</small></summary>
+  <summary><span>История</span><small>{{ versions|length|plural:"версия,версии,версий" }}</small></summary>
   <div class="lab-history-list">
     {% for version in versions %}
     <article class="lab-history-entry">

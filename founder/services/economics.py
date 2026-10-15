@@ -190,6 +190,15 @@ def _break_even(v, profit, unit_profit, lines):
     elif v["margin_percent"]:
         lines.append(f"Безубыточность: {_rub(fixed)} / {v['margin_percent']:g}% маржи = выручка "
                      f"{_rub(fixed / v['margin_percent'] * 100)} в месяц.")
+    elif v["customer_payment_month"] and not v["cost_per_customer_month"] and not v["cost_per_unit"]:
+        # Подписка без затрат на клиента: раньше расчёт молчал и просил «остаток с одной продажи».
+        need = math.ceil(fixed / v["customer_payment_month"])
+        lines.append(f"Безубыточность: {_rub(fixed)} / {_rub(v['customer_payment_month'])} с клиента = "
+                     f"{_count(need)} платящих клиентов в месяц, если на самого клиента вы ничего не тратите.")
+    elif v["price_per_unit"] and not v["commission_percent"] and not v["cost_per_unit"]:
+        sales = math.ceil(fixed / v["price_per_unit"])
+        lines.append(f"Безубыточность: {_rub(fixed)} / {_rub(v['price_per_unit'])} = {_count(sales)} продаж в месяц, "
+                     "если на саму продажу вы ничего не тратите. Впишите затраты на продажу, и расчёт станет точнее.")
     else:
         lines.append(f"Постоянные расходы {_rub(fixed)} в месяц: чтобы посчитать безубыточность, нужно знать, "
                      "сколько проекту остаётся с одной продажи.")
@@ -264,12 +273,18 @@ INPUT_LABELS = (
 def inputs_text(values):
     """Числа основателя одной строкой: «цена продажи 500 ₽, затраты на продажу 200 ₽…»."""
     parts = []
+    expenses = [item for item in (values or {}).get("expenses") or [] if isinstance(item, dict)]
     for key, template in INPUT_LABELS:
         value = _number((values or {}).get(key))
         if value:
             shown = (f"{value:g}%" if key == "commission_percent" else _count(int(value)) if key == "customers"
                      else _rub(value))
-            parts.append(template.format(shown))
+            part = template.format(shown)
+            if key == "fixed_costs_month" and expenses:
+                # Статьи расходов нужны Бруно и Маргарите: «на что уйдут деньги» — их частый вопрос.
+                part += " (" + ", ".join(f"{item.get('name', '')} {_rub(_number(item.get('amount')))}"
+                                         for item in expenses[:8]) + ")"
+            parts.append(part)
     return ", ".join(parts)
 
 

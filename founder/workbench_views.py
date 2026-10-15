@@ -234,6 +234,12 @@ def review_step_task(request, startup_id, review_id, index):
     return redirect('tasks', startup_id=startup.pk)
 
 
+def _shows_customers(startup):
+    """Число платящих клиентов спрашиваем только у проекта, который уже продаёт."""
+    return (startup.stage in (StartupProfile.Stage.TRACTION, StartupProfile.Stage.GROWTH)
+            or bool(startup.economics.get('customers')))
+
+
 @login_required
 def market(request, startup_id, economics_form=None):
     startup = owned_startup(request, startup_id, edit=False)
@@ -267,9 +273,8 @@ def market(request, startup_id, economics_form=None):
                     'axis_busy': check['axis'] in open_axes} for index, check in enumerate(data.get('checks', []))],
         'economics_lines': (economics_service.summarize(startup.economics) if startup.economics
                             else data.get('economics', [])),
-        # «490», а не «490,0»: целые числа в форме показываем без дробной части.
-        'economics_form': economics_form or EconomicsForm(initial={
-            key: int(value) if float(value).is_integer() else value for key, value in startup.economics.items()}),
+        'economics_form': economics_form or EconomicsForm(
+            initial=EconomicsForm.initial_from(startup.economics), show_customers=_shows_customers(startup)),
         'history': reports[:8], 'is_demo': settings.AI_PROVIDER == 'demo',
         'search_enabled': market_service.search_enabled() or settings.AI_PROVIDER == 'demo',
         'has_story': (any((startup.one_line_pitch, startup.problem, startup.solution, startup.target_customer))
@@ -294,12 +299,12 @@ def market_generate(request, startup_id):
 def market_economics(request, startup_id):
     """Основатель вводит числа экономики прямо на странице рынка: расчёт видят и страница, и Бруно в чате."""
     startup = owned_startup(request, startup_id)
-    form = EconomicsForm(request.POST)
+    form = EconomicsForm(request.POST, show_customers=_shows_customers(startup))
     if not form.is_valid():
         response = market(request, startup_id, economics_form=form)
         response.status_code = 400
         return response
-    values = {key: float(value) for key, value in form.cleaned_data.items() if value}
+    values = form.economics()
     startup.economics = values
     startup.save(update_fields=['economics', 'updated_at'])
     economics_service.remember_inputs(startup, values)

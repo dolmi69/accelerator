@@ -62,29 +62,52 @@ class EconomicsInputTests(TestCase):
 
     def test_numbers_entered_on_market_page_are_calculated_and_remembered(self):
         page = self.client.get(reverse("market", args=[self.startup.pk]))
-        self.assertContains(page, "Цена одной продажи для клиента")
+        self.assertContains(page, "Расходы в месяц, которые планируете")
+        self.assertNotContains(page, "Платящих клиентов сейчас")  # стадия идеи: клиентов ещё нет
         response = self.client.post(reverse("market_economics", args=[self.startup.pk]), {
-            "price_per_unit": "300", "cost_per_unit": "120", "fixed_costs_month": "54000", "cash_on_hand": "200000"})
+            "pricing": "sale", "price": "300", "cost": "120", "cash_on_hand": "200000",
+            "expense_name": ["Аренда", "Зарплата бариста", ""], "expense_amount": ["30 000", "24000", ""]})
         self.assertRedirects(response, reverse("market", args=[self.startup.pk]) + "#economics",
                              fetch_redirect_response=False)
         self.startup.refresh_from_db()
-        self.assertEqual(self.startup.economics, {"price_per_unit": 300.0, "cost_per_unit": 120.0,
-                                                  "fixed_costs_month": 54000.0, "cash_on_hand": 200000.0})
+        self.assertEqual(self.startup.economics, {
+            "price_per_unit": 300.0, "cost_per_unit": 120.0, "fixed_costs_month": 54000.0, "cash_on_hand": 200000.0,
+            "expenses": [{"name": "Аренда", "amount": 30000.0}, {"name": "Зарплата бариста", "amount": 24000.0}]})
         page = self.client.get(reverse("market", args=[self.startup.pk]))
         self.assertContains(page, "Расчёт по вашим цифрам")
         self.assertContains(page, "300 продаж в месяц")
+        self.assertContains(page, 'value="Зарплата бариста"')
         money = ProjectPicture.objects.get(startup=self.startup).facts["money"]
         self.assertIn("цена продажи 300 ₽", money["text"])
+        self.assertIn("Аренда 30 000 ₽", money["text"])
         # Отчёты по всему рассказу берут введённые числа без запроса к модели.
         with patch("founder.services.economics.complete_text") as model:
             lines = economics.project_economics(self.startup, ["Кофе по 250 ₽"], latest_only=False)
         model.assert_not_called()
         self.assertTrue(any("300 продаж" in line for line in lines))
 
+    def test_subscription_price_goes_to_monthly_payment(self):
+        self.client.post(reverse("market_economics", args=[self.startup.pk]),
+                         {"pricing": "month", "price": "990", "cost": "450"})
+        self.startup.refresh_from_db()
+        self.assertEqual(self.startup.economics, {"customer_payment_month": 990.0, "cost_per_customer_month": 450.0})
+        # Старые данные без списка расходов показываются одной строкой.
+        self.startup.economics = {"customer_payment_month": 990.0, "fixed_costs_month": 5000.0}
+        self.startup.save()
+        page = self.client.get(reverse("market", args=[self.startup.pk]))
+        self.assertContains(page, 'value="Постоянные расходы"')
+        self.assertContains(page, 'value="month" checked')
+
     def test_empty_or_negative_numbers_are_rejected(self):
-        response = self.client.post(reverse("market_economics", args=[self.startup.pk]), {"price_per_unit": ""})
+        response = self.client.post(reverse("market_economics", args=[self.startup.pk]), {"price": ""})
         self.assertContains(response, "Заполните хотя бы одно число", status_code=400)
-        response = self.client.post(reverse("market_economics", args=[self.startup.pk]), {"price_per_unit": "-5"})
+        response = self.client.post(reverse("market_economics", args=[self.startup.pk]), {"price": "-5"})
+        self.assertEqual(response.status_code, 400)
+        response = self.client.post(reverse("market_economics", args=[self.startup.pk]),
+                                    {"expense_name": ["Реклама"], "expense_amount": [""]})
+        self.assertContains(response, "укажите сумму", status_code=400)
+        response = self.client.post(reverse("market_economics", args=[self.startup.pk]),
+                                    {"expense_name": ["Реклама"], "expense_amount": ["много"]})
         self.assertEqual(response.status_code, 400)
         self.startup.refresh_from_db()
         self.assertEqual(self.startup.economics, {})
@@ -93,7 +116,16 @@ class EconomicsInputTests(TestCase):
         other = User.objects.create_user("money2", email="money2@example.test", password="x")
         self.client.force_login(other)
         self.assertEqual(self.client.post(reverse("market_economics", args=[self.startup.pk]),
-                                          {"price_per_unit": "1"}).status_code, 404)
+                                          {"price": "1"}).status_code, 404)
+
+
+class PluralFilterTests(TestCase):
+    def test_counts_agree_with_the_word(self):
+        from django.template import engines
+
+        template = engines["django"].from_string('{% for n in numbers %}{{ n|plural:"версия,версии,версий" }};{% endfor %}')
+        self.assertEqual(template.render({"numbers": [1, 3, 5, 11, 21, 22, 112]}),
+                         "1 версия;3 версии;5 версий;11 версий;21 версия;22 версии;112 версий;")
 
 
 class PageReadingTests(TestCase):

@@ -173,6 +173,8 @@ class Subtopic:
     numeric: bool = False
     # Вопрос по теме простыми словами: заготовка демо-режима и запасной вопрос, если реплика модели не прошла проверку.
     question: str = ""
+    # Что именно значит тема, для промпта: «стоимость привлечения» Маргарита поняла как цену закупки товара.
+    hint: str = ""
 
 
 TEAM_RE = (r"команд\w*\s*(?::|из|это|—|-)|(?<!\w)нас\s+(?:двое|трое|четверо|\d)|(?<!\w)я\s+(?:один|одна|сам|сама)(?!\w)"
@@ -205,8 +207,10 @@ SUBTOPICS = {
         Subtopic("откуда придут следующие клиенты",
                  r"канал|сарафан|реклам|таргет|холодн\w*\s+(?:звонк|письм)|рассылк|seo|instagram|инстаграм"
                  r"|(?<!\w)vk(?!\w)|(?<!\w)вк(?!\w)|вконтакт|телеграм|tiktok|тикток|партн[её]р|блогер"
-                 r"|чат\w*\s+(?:школ|дом|район|родител)|знакомы[хм]|выставк",
-                 question="Откуда придут следующие десять клиентов, когда знакомые закончатся?"),
+                 r"|чат\w*\s+(?:\w+\s+)?(?:школ|дом|район|родител|общежит|вуз|универ|курс|групп)|объявлени|комендант"
+                 r"|знакомы[хм]|выставк",
+                 question="Откуда придут следующие десять клиентов, когда знакомые закончатся?",
+                 hint="какой канал приведёт новых клиентов и сколько клиентов из него ждать"),
         Subtopic("кто в команде что делает", TEAM_RE,
                  question="Кто в команде что делает и кто из вас продаёт?"),
     ),
@@ -217,7 +221,9 @@ SUBTOPICS = {
                  r"привлеч|(?<!\w)cac(?!\w)|реклам\w*\s+(?:\w+\s+){0,2}(?:\d|тысяч)"
                  r"|(?:руб\w*|₽)\s+(?:на|за)\s+(?:одного\s+|одну\s+)?(?:клиент|клиник|сем|покупател|заказ)",
                  numeric=True,
-                 question="Сколько рублей уходит, чтобы привести одного платящего клиента?"),
+                 question="Сколько рублей уходит, чтобы привести одного платящего клиента?",
+                 hint=("сколько рублей или часов уходит, чтобы привести одного платящего клиента: реклама, "
+                       "скидки, листовки, время на переписку; не про закупку товара и не про доставку")),
         # Не «до первых продаж»: у проекта с выручкой этот вопрос звучал нелепо (ВелоПочин, 420 подписчиков).
         Subtopic("сколько денег нужно и на что",
                  r"запас|бюджет|накоплен|инвестиц|грант|сколько\s+нужно|хватит|своих\s+денег|полгода"
@@ -501,6 +507,9 @@ def opening_message(startup, audience=None):
     audience = audience or funding.audience(INVESTORS)
     kind = audience["kind"]
     customer = startup.target_customer.strip()[:300].rstrip(".")
+    if customer[1:2].islower():
+        # «В анкете ваш клиент: российские первокурсники…», а не «: Российские».
+        customer = customer[0].lower() + customer[1:]
     first_topic = subtopics(kind)[ORDER[0]][0]
     if kind == INVESTORS and customer:
         question = f"В анкете ваш клиент: {customer}. Расскажите про одного такого человека: что он делал до вас?"
@@ -596,7 +605,9 @@ def _move(turn, closed):
                 "Новую тему не начинай.")
     else:
         if turn.topic:
-            ask = f"спроси про «{turn.topic}»"
+            subtopic = next((item for items in AUDIENCE_SUBTOPICS.values() for item in items.get(turn.speaker, ())
+                             if item.name == turn.topic), None)
+            ask = f"спроси про «{turn.topic}»" + (f" ({subtopic.hint})" if subtopic and subtopic.hint else "")
         else:
             ask = ("найди в ответах основателя самое слабое или противоречивое место в твоей области и спроси о "
                    "нём, с цифрой или примером")
@@ -746,6 +757,12 @@ VAGUE_RE = re.compile(
     r"|какие\s+у\s+вас\s+планы|расскажите\s+подробнее|что\s+вы\s+думаете\s+о|как\s+вы\s+оцениваете",
     re.IGNORECASE,
 )
+COUNT_ROOT = r"(?:оплат|клиент|заяв|пользовател)"
+ASKED_COUNT_RE = re.compile(rf"сколько[^?]*{COUNT_ROOT}", re.IGNORECASE)
+NOW_RE = re.compile(r"(?<![а-яё])(?:сейчас|уже|у\s+вас)(?![а-яё])", re.IGNORECASE)
+FUTURE_RE = re.compile(r"придут|придёт|будет|будут|планир|ждёте|получите|привед[её]т|к\s+(?:декабр|январ|лет|сентябр|концу)",
+                       re.IGNORECASE)
+SPECIFIC_QUESTION_RE = re.compile(r"сколько|когда|кто|где|почему|зачем|чем|как\w*|котор\w*|\d", re.IGNORECASE)
 # Число с единицей: акула не должна называть суммы, проценты и количества, которых нет в источниках.
 QUANTITY_RE = re.compile(
     r"(\d[\d  ]*(?:[.,]\d+)?)\s*(тыс\w*|млн|млрд|к(?!\w))?\s*(₽|руб\w*|р\.|%|процент\w*|клиент\w*|пользовател\w*"
@@ -818,6 +835,16 @@ def reply_problem(text, sources="", founder_text=""):
     if vague and vague.group(0).lower() not in said:
         return (f"вопрос слишком общий («{vague.group(0)}»), на него не ответить одной строкой; спроси про "
                 "одну конкретную вещь")
+    question = re.findall(r"[^.!?]*\?", text)[-1].strip()
+    if (ASKED_COUNT_RE.search(question) and NOW_RE.search(question) and not FUTURE_RE.search(question)
+            and re.search(rf"\d[\d\s ]*\s+(?:\w+\s+)?{COUNT_ROOT}", founder_text, re.IGNORECASE)):
+        # «Сколько у вас сейчас оплаченных клиентов?» строкой ниже «было 31 заявка и 21 оплата».
+        return ("основатель уже назвал, сколько у него клиентов и оплат; не переспрашивай, спроси о том, чего он "
+                "ещё не говорил")
+    if len(re.findall(r"\w+", question)) <= 3 and not SPECIFIC_QUESTION_RE.search(question):
+        # «А дальше что?» — основатель не понимает, о чём именно спрашивают.
+        return (f"вопрос «{question}» слишком короткий и общий; спроси про одну конкретную вещь из своей "
+                "области с единицей или сроком")
     invented = invented_numbers(text, sources)
     if invented:
         return (f"в ней числа, которых основатель не называл и нет в расчёте ({', '.join(invented[:3])}); "
@@ -851,6 +878,10 @@ SHARE_RE = re.compile(r"(?<!\w)(?:половин\w*|треть(?:ю)?(?!\w)|тр
                       re.IGNORECASE)
 
 
+NEIGHBOUR_ACK_RE = re.compile(r"^\s*(?:Хорошо|Понятно|Ясно|Отлично|Спасибо|Принято|Ок)(?![а-яё])[^.!?]*[.!]\s+(?=\S)",
+                              re.IGNORECASE)
+
+
 def checked_reply(session, turn, generate, attempts=2):
     """Реплика акулы целиком, после проверки. generate(turn) отдаёт фрагменты ответа модели.
 
@@ -865,6 +896,9 @@ def checked_reply(session, turn, generate, attempts=2):
     current = turn
     for _ in range(attempts):
         text = "".join(own_reply(generate(current), turn.speaker)).strip()
+        if turn.number == 1 and not turn.follow_up:
+            # «Хорошо, теперь понятно про удобство и возврат.» — Вадим оценивал ответ, данный Тимуру.
+            text = NEIGHBOUR_ACK_RE.sub("", text, count=1)
         problem = reply_problem(text, getattr(session, "panel_sources", "") or founder_text, founder_text)
         if not problem:
             yield text
@@ -965,7 +999,8 @@ def vote_prompt(key, audience=None, mature=False):
         f"строго по твоей области, например: {shark['condition']}. Это проверяемый результат за 2–4 недели, который "
         "основатель добудет сам: коротко что за условие, что сделать и по какому наблюдаемому результату понять, "
         "что условие выполнено. condition_done_when обязательно с числом: сколько клиентов, оплат, встреч, "
-        "недель или рублей, а не «получены данные».\n"
+        "недель или рублей, а не «получены данные». Результат — поступок клиента (оплатил, продлил, записался, "
+        "пришёл), а не слова: «подтвердили намерение», «выразили интерес», «согласились» не годятся.\n"
         + ("У проекта уже есть платящие клиенты и выручка: не проси снова доказать спрос или повторные оплаты. "
            "Условие — следующий шаг роста по твоей области: новый город или канал, рост числа клиентов, снижение "
            "затрат, сумма и доля сделки.\n" if mature else "")
@@ -1053,6 +1088,17 @@ def normalise_vote(raw, key, user_messages, allowed_numbers=frozenset(), *, stri
     if strict and not COUNT_RE.search(vote["condition"]["success_criterion"]):
         # «Получены данные о каналах» не проверишь: условию нужен наблюдаемый результат в числах.
         raise ValueError("Условие без числа")
+    from founder.services.ideas import weakness
+
+    # «80% опрошенных выразят желание продолжить» — обещание, а не поступок.
+    if weakness("test", vote["condition"]["success_criterion"]):
+        if strict:
+            raise ValueError("Условие на словах, а не на поступке")
+        # Последняя попытка: вместо обещания — условие акулы по умолчанию, оно всегда про поступок.
+        default = shark_info(key).get("condition", "")
+        vote["condition"]["success_criterion"] = (default[:1].upper() + default[1:] + ".") if default else ""
+        if not vote["condition"]["success_criterion"]:
+            raise ValueError("Условие на словах, а не на поступке")
     try:
         vote["quote"] = _source_quote(raw.get("quote"), user_messages)
     except ValueError:
@@ -1134,10 +1180,12 @@ def _vote_payload(session, user_messages):
                 saved[key] = normalise_vote(raw, key, user_messages, allowed, strict=attempt < VOTE_ATTEMPTS - 1)
                 cache.set(_vote_cache_key(session), saved, VOTE_CACHE_SECONDS)
                 break
-            except (ValueError, AIResponseFormatError):
-                prompt = vote_prompt(key, audience, mature) + ("\nПрошлый ответ не прошёл проверку: нужен один JSON со всеми "
-                                             "полями, decision только invest или pass, суммы только из слов "
-                                             "основателя, в condition_done_when — число.")
+            except (ValueError, AIResponseFormatError) as exc:
+                # Причина в подсказке: без неё GigaChat трижды писал одно и то же условие-опрос.
+                prompt = vote_prompt(key, audience, mature) + (
+                    f"\nПрошлый ответ не прошёл проверку ({str(exc)[:120]}): нужен один JSON со всеми полями, decision "
+                    "только invest или pass, суммы только из слов основателя, в condition_done_when — число и "
+                    "поступок клиента (оплатили, продлили, записались), а не опрос или желание.")
         else:
             missing.append(SHARKS[key]["name"])
     if missing:

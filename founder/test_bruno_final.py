@@ -47,6 +47,7 @@ class BehaviourNotesTests(TestCase):
         self.assertTrue(looks_like_evidence("Неявки упали с 18% до 9% за два месяца, это по их журналу"))
         self.assertFalse(looks_like_evidence("Хотим брать 4900 в месяц за клинику"))
         self.assertFalse(looks_like_evidence("Команда из двух человек"))
+        self.assertFalse(looks_like_evidence("Достаточно 20 заявок с оплатой. Но первокурсники уже купили холодильники."))
         messages = user_turns("Пятеро из 30 владельцев согласились на пилот")
         self.assertIn("Записать в дневник", conversation_notes(messages))
         messages.insert(0, {"role": "assistant", "content": "Нажми «Записать в дневник»."})

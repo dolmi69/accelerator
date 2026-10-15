@@ -87,6 +87,29 @@ class ParsingTests(TestCase):
         self.assertEqual(data["directions"][1]["what"], "Старосты собирают заказы этажа.")
         self.assertEqual(data["pick"], 2)
 
+    def test_before_after_substitute_goes_to_critic_and_no_rivals_claim_is_fixed(self):
+        self.assertEqual(ideas.weak_fields({"title": "Акт передачи вещей", "test": "Успех — трое оплатили.",
+                                            "insight": "Студенты боятся обмана [2].",
+                                            "substitute": "Теперь просто дают слово, теперь получают акт."}),
+                         ["substitute"])
+        self.assertEqual(ideas.weakness("substitute", "Сейчас выбрасывают или продают за копейки."), "")
+        self.assertTrue(ideas.weakness("test", "Успех — пять студентов откликнулись и согласились оплатить аренду заранее."))
+        self.assertTrue(ideas.weakness("test", "Успех — трое откликнулись на пост."))
+        self.assertEqual(ideas.polish("Направление 'Хранитель-студент' проще."), "Направление «Хранитель-студент» проще.")
+        advice = ("Выбор «Мебели напрокат» открывает перспективную нишу, свободную от конкурентов в России. "
+                  "Однако стоит учесть риск низкого спроса. Начните с объявления в общежитии.")
+        self.assertEqual(ideas.drop_fluff(advice), ("Стоит учесть риск низкого спроса. Начните с объявления в общежитии.",
+                                                    True))
+        self.assertEqual(ideas.drop_fluff("Начните с объявления."), ("Начните с объявления.", False))
+        self.assertEqual(ideas.weakness("test", "Успех — пятеро откликнулись и внесли предоплату 300 ₽."), "")
+        data = {"directions": [{"rivals": "Похожих сервисов нет, конкуренция отсутствует.", "sources": [1, 2]},
+                               {"rivals": "Прямых конкурентов нет.", "sources": [2]}]}
+        ideas.fix_rivals(data, SOURCES)
+        self.assertIn("toogoodtogo.com", data["directions"][0]["rivals"])
+        self.assertNotIn("нет", data["directions"][0]["rivals"])
+        # Источник с жалобами — не конкурент: фразу не трогаем.
+        self.assertEqual(data["directions"][1]["rivals"], "Прямых конкурентов нет.")
+
     def test_repeated_or_empty_directions_are_rejected(self):
         allowed = ideas.allowed_numbers(SOURCES, [])
         repeated = analysis(dir2_title="Ужин вскладчину по пятницам этажа", dir3_what="")
@@ -274,7 +297,7 @@ class CreateFromIdeaTests(TestCase):
         self.assertContains(response, "Развить идею с Бруно")
         self.assertContains(response, "Создать и поговорить с Бруно")
         response = self.client.get(reverse("startup_create") + "?way=idea")
-        self.assertContains(response, "Начните с зерна")
+        self.assertContains(response, "С чего начать")
         self.assertContains(response, reverse("idea_new_generate"))
         self.assertNotContains(response, "Создать и поговорить с Бруно")
 

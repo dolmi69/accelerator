@@ -56,6 +56,21 @@ class ReviewFlowTests(TestCase):
         self.assertEqual(call.call_count, 2)
         self.assertEqual(review.data["focus"], "Получить 20 оплат подписки за месяц")
 
+    @override_settings(AI_PROVIDER="gigachat")
+    def test_survey_steps_are_rewritten_once_and_first_review_kept_if_retry_breaks(self):
+        survey = {"week": 1, "axis": "market", "title": "Провести опрос арендаторов",
+                  "action": "Позвонить 21 клиенту и узнать, планируют ли они продлить.", "done_when": "Собрано 15 ответов."}
+        steps = json.loads(model_review())["steps"]
+        weak = model_review(steps=[survey, *steps[1:]])
+        with patch("founder.services.review.complete_text", side_effect=[weak, model_review()]) as call:
+            review = create_review(self.startup)
+        self.assertEqual(call.call_count, 2)
+        self.assertIn("Провести опрос арендаторов", call.call_args.args[0])
+        self.assertNotIn("Провести опрос арендаторов", [step["title"] for step in review.data["steps"]])
+        with patch("founder.services.review.complete_text", side_effect=[weak, "не json"]):
+            review = create_review(self.startup)
+        self.assertIn("Провести опрос арендаторов", [step["title"] for step in review.data["steps"]])
+
     @override_settings(AI_PROVIDER="demo")
     def test_page_generate_and_step_to_task(self):
         page = self.client.get(reverse("review", args=[self.startup.pk]))

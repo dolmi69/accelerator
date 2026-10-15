@@ -5,10 +5,10 @@
 {% if is_edit %}
 <div class="page-heading narrow"><span class="eyebrow">ПРОФИЛЬ СТАРТАПА</span><h1>Уточним описание</h1><p>Здесь можно поправить описание. Бруно учтёт изменения в следующем ответе. Таблица по пяти направлениям редактируется в профиле.</p></div>
 {% else %}
-<div class="page-heading narrow"><span class="eyebrow">НОВЫЙ ПРОЕКТ</span><h1>Как создадим проект?</h1><p>Если идея уже есть, заполните короткую анкету. Если есть только зерно идеи, развейте его вместе с Бруно: он составит карточку проекта, а вы её одобрите.</p></div>
+<div class="page-heading narrow"><span class="eyebrow">НОВЫЙ ПРОЕКТ</span><h1>Как создадим проект?</h1><p>Если идея уже есть, заполните короткую анкету. Если есть только тема, развейте её вместе с Бруно: он составит карточку проекта, а вы её одобрите.</p></div>
 <nav class="create-ways" aria-label="Способ создания проекта">
   <a class="card create-way" href="{% url 'startup_create' %}?way=form" {% if way == 'form' %}aria-current="page"{% endif %}><span class="eyebrow">СПОСОБ 1</span><strong>Заполнить анкету</strong><span>Знаете, что делаете: достаточно названия и пары строк, остальное Бруно спросит в разговоре.</span></a>
-  <a class="card create-way" href="{% url 'startup_create' %}?way=idea" {% if way == 'idea' %}aria-current="page"{% endif %}><span class="eyebrow">СПОСОБ 2</span><strong>Развить идею с Бруно</strong><span>Есть только зерно: слово, жалоба или «как X, только для Y». Бруно найдёт источники, предложит направления, обсудит их с вами и составит карточку проекта.</span></a>
+  <a class="card create-way" href="{% url 'startup_create' %}?way=idea" {% if way == 'idea' %}aria-current="page"{% endif %}><span class="eyebrow">СПОСОБ 2</span><strong>Развить идею с Бруно</strong><span>Есть только тема или чья-то жалоба? Бруно предложит три идеи и составит карточку по той, что вы выберете.</span></a>
 </nav>
 {% endif %}
 {% if way == 'idea' %}

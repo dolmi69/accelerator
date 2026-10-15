@@ -834,4 +834,25 @@ mark.chat-search-hit.is-current { background:#f5b544; }
 /* Экономика на странице рынка */
 .economics-form { display:grid; gap:14px; margin-top:12px; }
 .economics-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:14px; align-items:start; }
-.economics-form .button { justify-self:start; }
+.economics-form > .button { justify-self:start; }
+.economics-block { min-width:0; margin:0; padding:0; border:0; display:grid; gap:10px; }
+.economics-block legend { margin-bottom:8px; padding:0; color:var(--ink); font-size:13px; font-weight:700; }
+.expense-rows { display:grid; gap:8px; max-width:560px; }
+.expense-row { display:grid; grid-template-columns:minmax(0,1fr) 150px; gap:8px; }
+.expense-row input { width:100%; border:1px solid #d6dfdf; border-radius:10px; background:#fff; color:var(--ink); padding:10px 12px; font:inherit; font-size:14px; outline:none; }
+.expense-row input:focus { border-color:var(--teal); box-shadow:0 0 0 3px rgba(22,135,125,.11); }
+.expense-foot { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.expense-foot .button { padding:7px 12px; font-size:13px; }
+.economics-pricing { display:flex; flex-wrap:wrap; gap:6px; }
+.economics-pricing label { position:relative; }
+.economics-pricing input { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
+.economics-pricing span { display:block; padding:7px 13px; border:1px solid #d8dfdd; border-radius:999px; background:#fff; font-size:13px; font-weight:600; }
+.economics-pricing input:checked + span { color:#fff; background:var(--navy); border-color:var(--navy); }
+.economics-pricing input:focus-visible + span { outline:3px solid var(--teal); outline-offset:2px; }
+.economics-form .cost-month { display:none; }
+@supports selector(:has(*)) {
+  .economics-form:not(:has(input[name="pricing"][value="commission"]:checked)) .economics-commission { display:none; }
+  .economics-form:has(input[name="pricing"][value="month"]:checked) .cost-sale { display:none; }
+  .economics-form:has(input[name="pricing"][value="month"]:checked) .cost-month { display:inline; }
+}
+@media (max-width:560px) { .expense-row { grid-template-columns:minmax(0,1fr) 110px; } }

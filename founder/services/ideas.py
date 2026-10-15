@@ -154,8 +154,9 @@ ANALYZE_PROMPT = (
     "«практика эффективнее теории», «повышает доверие», «создаёт ценность», «люди готовы платить за удобство».\n"
     "6. Конкуренты (rivals): кто из найденных источников уже делает похожее (название и номер [N]) и что они "
     "упускают, а направление делает. Конкуренты — не повод бросать идею, а знак, что задача настоящая; плохо, "
-    "когда нечего сказать о том, что они упускают. Если похожего в источниках нет, так и напиши. Не выдумывай "
-    "компаний.\n"
+    "когда нечего сказать о том, что они упускают. Если похожего в источниках нет, так и напиши. Если в "
+    "источниках, на которые опирается направление, есть похожие проекты, не пиши, что конкурентов нет. Не "
+    "выдумывай компаний.\n"
     "7. Проверка (test): успех — поступок клиента, который ему чего-то стоит: предоплата, запись на дату с "
     "оплатой, пришёл, оставил телефон, отдал вещь, привёл друга. Опрос, интерес, «заплатили бы», «согласились "
     "попробовать», «понравилось» успехом не считаются. Пример манеры из чужой сферы, не факт: плохо — «спросить "
@@ -178,7 +179,8 @@ ANALYZE_PROMPT = (
     "dirN_customer — конкретный клиент, которого можно найти завтра: что он пытается сделать (по делу, перед "
     "другими людьми или для своего спокойствия), что ему мешает и что он хочет получить, до 240 знаков.\n"
     "dirN_payer — кто платит, за что и как часто, до 200 знаков.\n"
-    "dirN_substitute — чем клиент обходится сейчас и почему перейдёт, до 220 знаков.\n"
+    "dirN_substitute — что клиент делает сейчас, пока вашего направления нет, и почему перейдёт, до 220 "
+    "знаков. Не пиши «было → стало» и не описывай жизнь клиента с вашим направлением.\n"
     "dirN_insight — неочевидная мысль по правилу 5, до 280 знаков. Это главное поле: здесь видно, что ты "
     "думаешь, а не пересказываешь.\n"
     "dirN_rivals — кто уже делает похожее по правилу 6, до 250 знаков.\n"
@@ -232,13 +234,22 @@ WEAK_TEST_RE = re.compile(
     r"|(?<![а-яё])готов(?:ы|а|о)?\s+(?:\w+\s+)?(?:за|о)?плат\w*|(?<![а-яё])готов(?:ы|а|о)?\s+(?:купить|участвовать|попробовать|запустить|сотрудничать)"
     r"|реакци|оцени\w*\s+готовност"
     r"|соглас\w*\s+(?:попробовать|участвовать)|соглас\w*\s+на\s+(?:пробн|бесплатн)"
+    # «Согласились оплатить аренду заранее» — обещание: корень «оплат» прятал его от проверки ниже.
+    r"|соглас\w*\s+(?:\w+\s+)?(?:о|за)?плат\w*|пообеща\w*|(?<![а-яё])намерен"
     r"|протестировать\s+(?:его\s+)?бесплатно",
     re.IGNORECASE,
 )
+# «Теперь просто дают слово, теперь получают акт»: приём «до и после» протекает в поле «Как обходятся сейчас».
+FUTURE_SUBSTITUTE_RE = re.compile(r"(?<![а-яё])теперь(?![а-яё])", re.IGNORECASE)
+# «Похожих сервисов нет, конкуренция отсутствует» рядом со ссылками на похожие проекты.
+NO_RIVALS_RE = re.compile(
+    r"(?:сервис\w*|конкурент\w*|аналог\w*|проект\w*)\s+нет|конкуренц\w*\s+(?:нет|отсутств)"
+    r"|нет\s+(?:прямых\s+|явных\s+)?(?:конкурент|аналог|похож)|не\s+(?:нашлось|найдено|обнаружено)",
+    re.IGNORECASE)
 REJECTED_TEST_RE = re.compile(r"не\s+подходит|не\s+применим|невозможно\s+(?:проверить|запустить)"
                               r"|требует\s+(?:больших\s+)?вложений", re.IGNORECASE)
 # «Успех — трое согласились» без денег и записи — это тоже слова, а не поступок.
-AGREED_RE = re.compile(r"(?<![а-яё])соглас", re.IGNORECASE)
+AGREED_RE = re.compile(r"(?<![а-яё])(?:соглас|откликнул)", re.IGNORECASE)
 COMMITMENT_RE = re.compile(r"оплат|внес|внёс|заплат|залог|запис|пришл|пришёл|пришли|привел|привёл|заказ|купил|подписал",
                            re.IGNORECASE)
 EMPTY_INSIGHT_RE = re.compile(
@@ -261,6 +272,8 @@ REPAIR_PROMPT = (
     "почему новое для него заметно лучше. До 280 знаков.\n"
     "title — название-образ на русском до 90 знаков, понятное без пояснений; латиницей нельзя, иностранный "
     "бренд пиши по-русски или опиши словами.\n"
+    "substitute — что клиент делает сейчас, пока направления нет, и почему перейдёт. Слово «теперь» и схема "
+    "«было → стало» запрещены. До 220 знаков.\n"
     "Числа бери только из источников и слов основателя (кроме числа людей и цели в проверке). Всё на «вы». "
     "Верни только JSON-объект с полями из задания."
 )
@@ -422,6 +435,8 @@ def polish(text):
     from founder.services.bruno import to_formal
 
     text = PRAISE_RE.sub("", text or "").strip()
+    # «Направление 'Хранитель-студент'…»: прямые кавычки в русском тексте → ёлочки.
+    text = re.sub(r"(?<!\w)['\"]([^'\"\n]{2,90}?)['\"](?!\w)", r"«\1»", text)
     return to_formal(text) if text else ""
 
 
@@ -610,7 +625,7 @@ def analyze(head, raw_ideas, sources, allowed, previous):
     raise AIResponseFormatError("Бруно не смог собрать направления. Попробуйте ещё раз.")
 
 
-WEAK_PATTERNS = {"title": None, "test": WEAK_TEST_RE, "insight": EMPTY_INSIGHT_RE}
+WEAK_PATTERNS = {"title": None, "test": WEAK_TEST_RE, "insight": EMPTY_INSIGHT_RE, "substitute": FUTURE_SUBSTITUTE_RE}
 
 
 def weakness(key, text, sources=True):
@@ -650,8 +665,9 @@ def critique(head, data, sources, allowed):
         return data
     keys = [f"dir{number}_{key}" for number, fields in weak.items() for key in fields]
     schema = schema_of({key: f"Новый текст поля {key.split('_', 1)[1]} направления {key[3]}" for key in keys})
-    lines = [f"Направление {number}: {item['title']}. {item['what']} Клиент: {item['customer']} Мысль: "
-             f"{item['insight']} Проверка: {item['test']}" for number, item in enumerate(data["directions"], 1)]
+    lines = [f"Направление {number}: {item['title']}. {item['what']} Клиент: {item['customer']} Сейчас: "
+             f"{item['substitute']} Мысль: {item['insight']} Проверка: {item['test']}"
+             for number, item in enumerate(data["directions"], 1)]
     diagnosis = "; ".join(f"dir{number}_{key} — слабое место {weakness(key, data['directions'][number - 1][key], bool(sources))}"
                           for number, fields in weak.items() for key in fields)
     content = (head + "\n\n" + "\n".join(lines) + "\n\nЗадание: перепиши поля " + ", ".join(keys) + ". " + diagnosis + "."
@@ -667,12 +683,23 @@ def critique(head, data, sources, allowed):
         direction = data["directions"][number - 1]
         for key in fields:
             value = _text(fixed.get(f"dir{number}_{key}"), FIELD_LIMITS[key])
-            if key == "insight":
+            if key in GROUNDED_FIELDS:
                 value = _grounded(value, allowed, FIELD_LIMITS[key])
             value = polish(value)
             if value and not weakness(key, value, bool(sources)):
                 direction[key] = value
                 data["critic"] += 1
+    return data
+
+
+def fix_rivals(data, sources):
+    """«Конкурентов нет» при найденных похожих проектах: GigaChat так пишет, даже опираясь на эти источники."""
+    for direction in data["directions"]:
+        similar = [sources[number - 1] for number in direction.get("sources", [])
+                   if 0 < number <= len(sources) and sources[number - 1].get("kind") in COMPETITOR_KINDS]
+        if similar and NO_RIVALS_RE.search(direction.get("rivals", "")):
+            names = ", ".join(dict.fromkeys(source["domain"] for source in similar))
+            direction["rivals"] = f"Похожие проекты есть: {names}. Откройте их сайты и найдите, чего они не делают."
     return data
 
 
@@ -750,6 +777,7 @@ def create_round(startup, seed="", wish="", parent=None, parent_index=None, owne
                                         parent_direction.get("what", "") if parent_direction else ""])
     data, sources = analyze(head_seen, raw_ideas, sources, allowed, previous)
     data = critique(head_seen, data, sources, allowed)
+    data = fix_rivals(data, sources)
     data = check_traps(head_seen, data, sources, allowed)
     data.update(understanding=understanding, core=core, raw_ideas=raw_ideas)
     return IdeaRound.objects.create(**fields, data=data, sources=sources, queries=list(queries.values()),
@@ -791,6 +819,9 @@ ADVICE_PROMPT = (
     "Задача: честно оцени выбранное направление и скажи, что советуешь. Сравни его со своим прежним советом: что в "
     "нём сильнее, где главный риск, с чего его начать. Если после анализа выбранное направление лучше прежнего "
     "совета, поменяй совет на него; если нет, скажи, почему прежний совет сильнее. Мнение прямое, без «зависит».\n"
+    "Не называй нишу перспективной, не ссылайся на тренды и не пиши, что конкурентов нет, если в данных есть "
+    "похожие проекты. «С чего начать» — конкретное действие на эту неделю с людьми, которых основатель найдёт сам, "
+    "а не «протестируйте спрос».\n"
     "Формат ответа: advice — 2–3 предложения до 450 знаков, на «вы», без похвалы, без номеров источников и без "
     "чисел, которых нет в данных; направления называй так, как их видит основатель: «идея 1», «идея 2», «идея 3». "
     "recommend — номер направления, которое ты советуешь теперь: прежний или "
@@ -800,6 +831,21 @@ ADVICE_SCHEMA = schema_of({
     "advice": "Совет Бруно по выбранному направлению, 2–3 предложения",
     "recommend": "Номер направления, которое Бруно советует теперь (прежний или выбранный)",
 }, types={"recommend": {"type": "integer"}})
+
+
+# «Выбор открывает перспективную нишу, свободную от конкурентов»: на такой похвале GigaChat и менял свой совет.
+ADVICE_FLUFF_RE = re.compile(r"перспективн|тренд|многообещающ|огромн\w*\s+потенциал", re.IGNORECASE)
+
+
+def drop_fluff(text, rivals_known=False):
+    """Совет без предложений-похвалы (и без «конкурентов нет», если похожие проекты нашлись). (текст, было ли)."""
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    kept = [s for s in sentences if not (ADVICE_FLUFF_RE.search(s) or (rivals_known and NO_RIVALS_RE.search(s))
+                                         or re.search(r"свободн\w*\s+от\s+конкурент", s, re.IGNORECASE))]
+    if not kept or len(kept) == len(sentences):
+        return text, False
+    kept[0] = re.sub(r"^(?:Однако|Но|Тем\s+не\s+менее),?\s+", "", kept[0])
+    return " ".join(kept)[:1].upper() + " ".join(kept)[1:], True
 
 
 def advice_for(idea_round, index):
@@ -847,8 +893,10 @@ def advise(idea_round, index):
         raise AIServiceError("Бруно не успел разобрать эту идею. Попробуйте выбрать её ещё раз.")
     if not advice:
         raise AIServiceError("Бруно не успел разобрать эту идею. Попробуйте выбрать её ещё раз.")
+    advice, fluffy = drop_fluff(advice, rivals_known=bool(sources))
     stored = data.setdefault("advice", {})
-    if recommend == index + 1 and recommend != pick:
+    # Совет, построенный на похвале нише, прежнюю рекомендацию не меняет.
+    if recommend == index + 1 and recommend != pick and not fluffy:
         # Бруно передумал: прежний совет остаётся пояснением у прежнего направления.
         stored[str(pick - 1)] = data.get("pick_why", "")
         data["pick"], data["pick_why"] = index + 1, advice

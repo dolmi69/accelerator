@@ -71,7 +71,10 @@ REVIEW_PROMPT = (
     "steps — 3–6 шагов по неделям (week 1–4), от самого рискованного допущения. "
     "Каждый шаг: конкретное действие с числами (сколько людей, какой бюджет, "
     "какой срок) и проверяемый критерий done_when, при котором шаг закончен, даже "
-    "если результат отрицательный. Шаги должны быть по силам текущей команде.\n\n"
+    "если результат отрицательный. Шаги должны быть по силам текущей команде. Спрос, "
+    "продления и повторные покупки проверяй поступком: предложите продлить или купить с "
+    "предоплатой и посчитайте оплаты. Опрос и «узнать, планируют ли» — не шаг: люди из "
+    "вежливости говорят «да».\n\n"
     "Опирайся только на данные ниже. Не выдумывай клиентов, выручку, конкурентов и "
     "исследования; если чего-то не хватает, скажи об этом в рисках или шагах. "
     "Названия конкурентов упоминай, только если их назвал основатель или они есть в анализе "
@@ -237,18 +240,42 @@ def demo_review(startup):
     }
 
 
+PLANS_QUESTION_RE = re.compile(r"планиру\w*\s+ли|собира\w*\s+ли|узна\w*,?\s+(?:будут|станут|хотят)", re.IGNORECASE)
+
+
+def weak_steps(data):
+    """Шаги-опросы: «Провести опрос… узнать, планируют ли продлить; собрано 15 ответов»."""
+    from founder.services.ideas import weakness
+
+    return [step["title"] for step in data["steps"]
+            if weakness("test", f"{step['title']}. {step['action']}. {step['done_when']}")
+            or PLANS_QUESTION_RE.search(step["action"])]
+
+
 def create_review(startup):
     if settings.AI_PROVIDER == "demo":
         data = demo_review(startup)
     else:
         context = _review_context(startup)
-        prompt = REVIEW_PROMPT
+        prompt, data = REVIEW_PROMPT, None
         for attempt in range(2):
             try:
-                data = parse_review(complete_text(prompt, context, json_schema=REVIEW_SCHEMA))
+                draft = parse_review(complete_text(prompt, context, json_schema=REVIEW_SCHEMA))
+                weak = weak_steps(draft) if attempt == 0 else []
+                data = draft
+                if weak:
+                    # Один повтор: GigaChat по привычке ставил первым шагом опрос о планах клиентов.
+                    logger.warning("Review steps rejected as surveys: %d", len(weak))
+                    prompt = REVIEW_PROMPT + (
+                        "\nВ прошлом ответе шаги были опросами, а не проверкой поступком: «" + "», «".join(weak)
+                        + "». Замени их: предложение с предоплатой, оплата, продление, запись на дату, и в "
+                        "done_when — число оплат или записей.")
+                    continue
                 break
             except AIResponseFormatError:
                 logger.warning("Review format rejected: provider=%s attempt=%d", settings.AI_PROVIDER, attempt + 1)
+                if attempt == 1 and data:
+                    break  # повтор из-за шагов-опросов не удался: оставляем первый полный разбор
                 if attempt == 1:
                     raise
                 prompt = REVIEW_PROMPT + (

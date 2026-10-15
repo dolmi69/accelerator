@@ -24,7 +24,7 @@
 {% endfor %}
 </div>
 
-<details class="card project-card-fold bounty-section" id="bounty" {% if bounties %}open{% endif %}><summary>Награда тестировщикам <small>{{ bounties|length }} активных</small></summary><div class="project-fold-body">
+<details class="card project-card-fold bounty-section" id="bounty" {% if bounties %}open{% endif %}><summary>Награда тестировщикам <small>{{ bounties|length|plural:"активная,активные,активных" }}</small></summary><div class="project-fold-body">
   <p>Отложите монеты из своего кошелька: внешний тестировщик получит награду за тест прототипа с отзывом от {{ bounty_min_feedback }} символов, один раз на проект. Прототип с наградой попадает в блок «Нужны тестировщики». Остаток можно вернуть в любой момент.</p>
   {% for bounty in bounties %}
   <div class="team-row">

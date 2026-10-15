@@ -137,9 +137,12 @@ MARKET_PROMPT = (
     "risks: 1–4 главных рыночных риска, без повторов.\n"
     "checks: 1–3 проверки на неделю без больших затрат: что сделать, с кем, сколько человек; done_when — "
     "критерий в цифрах; axis — product, market, finance, team или pitch. Проверяй поступками, а не мнениями: "
-    "предзаказ, оплата, заявка, оставленный контакт, договорённость о встрече. Опрос «пользовались бы вы» и "
-    "«положительные отзывы» не годятся: люди из вежливости говорят «да».\n"
-    "verdict: 2–3 предложения итога: стоит ли идти в эту нишу с этой идеей и что проверить первым.\n"
+    "предзаказ, оплата, залог, заявка с оплатой, запись на дату. Оставленный контакт и «согласились» слабее: "
+    "бери их, только если платить пока не за что. Бесплатный первый месяц не проверяет, заплатят ли. Если "
+    "основатель сам назвал критерий успеха (например, «20 заявок с оплатой»), бери его. Опрос «пользовались бы "
+    "вы» и «положительные отзывы» не годятся: люди из вежливости говорят «да».\n"
+    "verdict: 2–3 предложения итога: стоит ли идти в эту нишу с этой идеей и что проверить первым. Без "
+    "похвалы и общих слов: «перспективна», «растущий рынок», «тренд» не пиши.\n"
     "Верни ровно один JSON без Markdown, ключи латиницей: "
     '{"relevance": "high|medium|low|unclear", "relevance_reason": "...", '
     '"demand_signals": [{"text": "...", "source": 1}], '
@@ -159,11 +162,11 @@ def founder_words(startup, limit=12):
 
 def project_brief(startup):
     from founder.services.mentor import picture_context
-    from founder.services.onboarding import startup_profile_context
+    from founder.services.onboarding import startup_profile_text
 
     words = "\n".join(f"- {text[:600]}" for text in founder_words(startup))
     picture = picture_context(startup)
-    return (startup_profile_context(startup) + ("\n" + picture if picture else "")
+    return (startup_profile_text(startup) + ("\n" + picture if picture else "")
             + ("\nЧто основатель рассказывал в чате:\n" + words if words else ""))[:7000]
 
 
@@ -352,12 +355,15 @@ def parse_market(raw, sources, allowed_texts=()):
         risks = [" ".join(str(item).split())[:300] for item in payload.get("risks") or []
                  if isinstance(item, str) and item.strip()]
         checks = [check for check in map(_check, payload.get("checks") or []) if check]
-        verdict = _grounded(payload.get("verdict"), allowed, 600)
+        from founder.services.ideas import drop_fluff
+
+        # «Идея перспективна благодаря растущему рынку шеринга» — похвала вместо вывода, её не показываем.
+        verdict = drop_fluff(_grounded(payload.get("verdict"), allowed, 600))[0]
         if not verdict or not checks:
             raise ValueError("Нет вывода или проверок")
         data = {
             "relevance": relevance,
-            "relevance_reason": _grounded(payload.get("relevance_reason"), allowed, 600),
+            "relevance_reason": drop_fluff(_grounded(payload.get("relevance_reason"), allowed, 600))[0],
             "demand_signals": signals[:4],
             "competitors": competitors[:6],
             "substitutes": _grounded(payload.get("substitutes"), allowed, 500),
@@ -429,10 +435,15 @@ def create_market_report(startup):
             # GigaChat отказывается читать какую-то из найденных страниц (finish_reason blacklist).
             # Какую именно, не сказано: показываем меньше источников и короче.
             logger.warning("Market report blocked: sources=%d attempt=%d", len(sources), attempt + 1)
-            if attempt == REPORT_ATTEMPTS - 1 or len(sources) <= 3:
+            with_pages = any(source.get("page") for source in sources)
+            if attempt == REPORT_ATTEMPTS - 1 or (len(sources) <= 3 and not with_pages):
                 raise AIServiceError("GigaChat отказался разбирать найденные страницы. Попробуйте ещё раз: "
                                      "поиск может найти другие источники.") from exc
-            sources = [{**source, "snippet": source["snippet"][:300]} for source in sources[:len(sources) // 2]]
+            if with_pages:
+                # Чаще всего фильтр срабатывает на дочитанной странице целиком: сначала убираем только их.
+                sources = [{key: value for key, value in source.items() if key != "page"} for source in sources]
+            else:
+                sources = [{**source, "snippet": source["snippet"][:300]} for source in sources[:len(sources) // 2]]
         except AIResponseFormatError:
             logger.warning("Market report rejected: provider=%s attempt=%d", settings.AI_PROVIDER, attempt + 1)
             if format_retried or attempt == REPORT_ATTEMPTS - 1:

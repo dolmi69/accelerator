@@ -67,6 +67,7 @@ TEMPLATES = [
                 "founder.context_processors.community",
                 "founder.context_processors.bruno_job",
             ],
+            "builtins": ["founder.templatetags.ru"],
         },
     },
 ]

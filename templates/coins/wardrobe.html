@@ -12,7 +12,7 @@
   </section>
   <div class="wardrobe-shelves">
     {% for group in groups %}
-    <details class="card project-card-fold project-wardrobe-group" {% if forloop.first %}open{% endif %}><summary>{{ group.title }} <small>{{ group.items|length }} аксессуаров</small></summary><div class="project-fold-body">
+    <details class="card project-card-fold project-wardrobe-group" {% if forloop.first %}open{% endif %}><summary>{{ group.title }} <small>{{ group.items|length|plural:"аксессуар,аксессуара,аксессуаров" }}</small></summary><div class="project-fold-body">
       {% for entry in group.items %}
       <div class="team-row wardrobe-item {% if entry.worn %}is-worn{% endif %}">
         <div><strong>{{ entry.item.title }}</strong><p class="muted small">{{ entry.item.description }}</p></div>

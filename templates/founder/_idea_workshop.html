@@ -2,10 +2,10 @@
 {% if is_demo %}<p class="work-notice">Деморежим: AI и поиск выключены, направления будут демонстрационными.</p>{% elif not search_enabled %}<p class="work-notice">Поиск в интернете выключен в настройках сервера (MARKET_SEARCH): Бруно будет думать без источников.</p>{% endif %}
 {% if can_edit %}
 <section class="card work-card idea-seed-card"><form method="post" action="{{ generate_url }}" data-busy-form>{% csrf_token %}
-<label class="field"><span>Зерно идеи</span><textarea name="seed" rows="3" maxlength="600" placeholder="{% if default_seed %}{{ default_seed }}{% else %}Хоть одно слово: «кофе», «как Авито, только для общежития», «студентам трудно найти соседа по квартире»{% endif %}"></textarea><span class="field-help">{% if default_seed %}Оставьте пустым, и Бруно возьмёт описание проекта из анкеты.{% else %}Можно одно слово, сравнение «как X, только для Y» или жалобу, которую вы слышали.{% endif %}</span></label>
+<label class="field"><span>Тема или набросок идеи</span><textarea name="seed" rows="3" maxlength="600" placeholder="{% if default_seed %}{{ default_seed }}{% else %}Например: кофе. Или: студентам трудно найти соседа по квартире{% endif %}"></textarea><span class="field-help">{% if default_seed %}Оставьте пустым, и Бруно возьмёт описание проекта из анкеты.{% else %}Хватит одного слова или жалобы, которую вы слышали.{% endif %}</span></label>
 <label class="field"><span>Пожелание <small class="field-help">необязательно</small></span><input name="wish" maxlength="300" placeholder="Например: чтобы можно было начать без денег, для родителей, чтобы приносило деньги"></label>
 <div class="idea-seed-actions"><button class="button primary" data-busy-label="Бруно ищет источники и думает… около минуты">Развить идею</button><span class="muted small" role="status"></span></div>
-<p class="muted small">Бруно поищет похожие проекты в мире и в России, жалобы людей и тренды, придумает десяток вариантов разными приёмами и отберёт три самых сильных. Займёт около минуты. В поиск уходят только короткие запросы о сфере, без вашего имени.</p>
+<p class="muted small">Около минуты. В поиск уходят короткие запросы о сфере, без вашего имени.</p>
 </form></section>
 {% endif %}
 {% if round %}
@@ -49,5 +49,5 @@
 {% endif %}
 </section>
 {% else %}
-<div class="card work-card work-empty"><h2>Начните с зерна</h2><p>Напишите, что хочется сделать, хоть одним словом. Бруно не оценивает зерно, а растит из него варианты: меняет клиента, плательщика, переносит модели из других отраслей и стран, ищет идеи в жалобах людей. {% if creating %}Выберите понравившуюся идею, и Бруно составит из неё карточку проекта.{% else %}Понравившуюся идею можно выбрать или поменять.{% endif %}</p></div>
+<div class="card work-card work-empty"><h2>С чего начать</h2><p>Напишите тему, хоть одним словом. Бруно поищет похожие проекты и жалобы людей и предложит три идеи. {% if creating %}Выберите одну, и он составит карточку проекта.{% else %}Понравившуюся можно выбрать или поменять.{% endif %}</p></div>
 {% endif %}

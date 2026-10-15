@@ -78,7 +78,7 @@ class TurnTests(PanelSetup):
         opening = session.messages.get()
         self.assertEqual(opening.speaker, "timur")
         self.assertIn("Вадим про рост и команду и Маргарита про деньги", opening.content)
-        self.assertIn("Частные стоматологии", opening.content)
+        self.assertIn("ваш клиент: частные стоматологии", opening.content)
         self.assertEqual(panel.current_speaker(session), "timur")
 
     def test_each_shark_asks_its_block_then_hands_over(self):
@@ -440,6 +440,18 @@ class SharkFocusTests(PanelSetup):
         self.assertEqual(panel.normalise_vote(raw, "vadim", ANSWERS, strict=False)["condition"]["success_criterion"],
                          "Получены данные о каналах.")
 
+    def test_vote_condition_must_be_an_action_not_an_intention(self):
+        raw = json.loads(model_vote("vadim", condition_done_when="Не менее 30 человек подтвердят намерение "
+                                                                      "воспользоваться услугой повторно."))
+        with self.assertRaises(ValueError):
+            panel.normalise_vote(raw, "vadim", ANSWERS)
+        soft = panel.normalise_vote(raw, "vadim", ANSWERS, strict=False)
+        self.assertEqual(soft["condition"]["success_criterion"],
+                         "Один канал без знакомых за четыре недели приводит десять заявок.")
+        raw = json.loads(model_vote("vadim", condition_done_when="30 клиентов оплатили второй семестр."))
+        self.assertEqual(panel.normalise_vote(raw, "vadim", ANSWERS)["condition"]["success_criterion"],
+                         "30 клиентов оплатили второй семестр.")
+
 
 class FundingDetectionTests(TestCase):
     def test_money_from_an_institution_or_company_is_found(self):
@@ -574,6 +586,11 @@ class ReplyCheckTests(PanelSetup):
         self.assertIn("CAC", self.problem("Какой у вас CAC?"))
         self.assertIn("юнит-экономика", self.problem("Как выглядит ваша юнит-экономика по урокам?"))
         self.assertIn("слишком общий", self.problem("Какова ваша стратегия монетизации?"))
+        self.assertIn("слишком короткий", self.problem("Чаты и объявления работают. А дальше что?"))
+        said = "В чате было 31 заявка и 21 оплата. Цель: 60 оплат к декабрю."
+        self.assertIn("уже назвал", self.problem("Цель понятна. Сколько у вас сейчас оплаченных клиентов?", founder=said))
+        self.assertEqual(self.problem("Сколько клиентов придёт из чата №1 за месяц?", founder="Цель: 60 оплат"), "")
+        self.assertEqual(self.problem("Цена понятна. Сколько именно?"), "")
         self.assertIn("нет вопроса", self.problem("Цена 1500 ₽ понятна."))
         self.assertIn("4 500 ₽", self.problem("Значит, с трёх уроков у вас 4 500 ₽. Сколько стоит привлечь ученика?"))
         self.assertIn("35%", self.problem("Маржа выходит 35%. Сколько стоит привлечь ученика?"))
@@ -602,6 +619,22 @@ class ReplyCheckTests(PanelSetup):
         attempts.clear()
         reply = "".join(panel.checked_reply(session, follow_up, generate(["Какой CAC?", "Какой CAC?"])))
         self.assertTrue(reply.startswith("Точных данных может и не быть"), reply)
+
+    def test_new_shark_does_not_rate_the_answer_given_to_a_neighbour(self):
+        session = panel.create_panel(self.startup)
+        first = panel.Turn("vadim", "откуда придут следующие клиенты", 1)
+        reply = "".join(panel.checked_reply(session, first, lambda turn: iter(
+            ["Хорошо, теперь понятно про удобство и возврат. Откуда придут следующие десять клиентов?"])))
+        self.assertEqual(reply, "Откуда придут следующие десять клиентов?")
+        second = panel.Turn("vadim", "кто в команде что делает", 2)
+        reply = "".join(panel.checked_reply(session, second, lambda turn: iter(["Понятно. Кто в команде продаёт?"])))
+        self.assertEqual(reply, "Понятно. Кто в команде продаёт?")
+
+    def test_topic_hint_explains_what_to_ask_and_dorm_chats_count_as_channel(self):
+        move = panel._move(panel.Turn("margarita", "стоимость привлечения", 1), [])
+        self.assertIn("не про закупку товара", move)
+        closed, _ = panel.subtopic_status("vadim", ["Дальше чаты общежитий №1 и №5 и объявления у комендантов"])
+        self.assertIn("откуда придут следующие клиенты", closed)
 
     def test_closing_line_is_not_checked(self):
         session = panel.create_panel(self.startup)
