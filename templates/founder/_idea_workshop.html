@@ -1,0 +1,53 @@
+{% comment %}Мастерская идей. В проекте «Выбрать эту идею» берёт проверку в задания. На странице создания проекта (creating) — Бруно составит карточку, проект создаётся после одобрения. Идеи переключаются без перезагрузки (idea-picker.js), совет Бруно по выбранной идее приходит с сервера.{% endcomment %}
+{% if is_demo %}<p class="work-notice">Деморежим: AI и поиск выключены, направления будут демонстрационными.</p>{% elif not search_enabled %}<p class="work-notice">Поиск в интернете выключен в настройках сервера (MARKET_SEARCH): Бруно будет думать без источников.</p>{% endif %}
+{% if can_edit %}
+<section class="card work-card idea-seed-card"><form method="post" action="{{ generate_url }}" data-busy-form>{% csrf_token %}
+<label class="field"><span>Зерно идеи</span><textarea name="seed" rows="3" maxlength="600" placeholder="{% if default_seed %}{{ default_seed }}{% else %}Хоть одно слово: «кофе», «как Авито, только для общежития», «студентам трудно найти соседа по квартире»{% endif %}"></textarea><span class="field-help">{% if default_seed %}Оставьте пустым, и Бруно возьмёт описание проекта из анкеты.{% else %}Можно одно слово, сравнение «как X, только для Y» или жалобу, которую вы слышали.{% endif %}</span></label>
+<label class="field"><span>Пожелание <small class="field-help">необязательно</small></span><input name="wish" maxlength="300" placeholder="Например: чтобы можно было начать без денег, для родителей, чтобы приносило деньги"></label>
+<div class="idea-seed-actions"><button class="button primary" data-busy-label="Бруно ищет источники и думает… около минуты">Развить идею</button><span class="muted small" role="status"></span></div>
+<p class="muted small">Бруно поищет похожие проекты в мире и в России, жалобы людей и тренды, придумает десяток вариантов разными приёмами и отберёт три самых сильных. Займёт около минуты. В поиск уходят только короткие запросы о сфере, без вашего имени.</p>
+</form></section>
+{% endif %}
+{% if round %}
+<section class="card work-card review-summary"><span class="eyebrow">{% if parent_title %}РАЗВИТИЕ НАПРАВЛЕНИЯ «{{ parent_title|upper }}»{% else %}КАК БРУНО ПОНЯЛ ИДЕЮ{% endif %}</span>
+<h2>{{ understanding|default:round.seed }}</h2>
+{% if core %}<p><strong>Что за этим стоит:</strong> {{ core }}</p>{% endif %}</section>
+<section class="idea-picker" data-idea-picker data-pick="{{ pick }}">
+<div class="idea-tabs" role="tablist" aria-label="Идеи Бруно">
+{% for direction in directions %}<button type="button" class="idea-tab{% if direction.number == pick %} is-active{% endif %}" role="tab" id="idea-tab-{{ direction.index }}" aria-controls="idea-panel-{{ direction.index }}" aria-selected="{% if direction.number == pick %}true{% else %}false{% endif %}" data-index="{{ direction.index }}" data-advice-url="{% if creating %}{% url 'idea_new_advice' round.id direction.index %}{% elif startup %}{% url 'ideas_advice' startup.id round.id direction.index %}{% endif %}"><span class="idea-tab-number">Идея {{ direction.number }}</span><strong>{{ direction.title }}</strong><span class="idea-pick" data-pick-badge{% if direction.number != pick %} hidden{% endif %}>Бруно советует</span></button>{% endfor %}
+</div>
+<div class="idea-panels">
+{% for direction in directions %}
+<article class="card work-card idea-panel{% if direction.number == pick %} is-active{% endif %}" role="tabpanel" id="idea-panel-{{ direction.index }}" aria-labelledby="idea-tab-{{ direction.index }}" data-index="{{ direction.index }}" data-advice="{{ direction.advice }}">
+<span class="eyebrow">ИДЕЯ {{ direction.number }}{% if direction.technique_label %} · {{ direction.technique_label|upper }}{% endif %}</span>
+<h2>{{ direction.title }}</h2>
+<p>{{ direction.what }}</p>
+<div class="task-criterion idea-insight"><strong>Мысль Бруно</strong><p>{{ direction.insight }}</p></div>
+<dl class="idea-facts">
+{% if direction.customer %}<div><dt>Клиент</dt><dd>{{ direction.customer }}</dd></div>{% endif %}
+{% if direction.payer %}<div><dt>Кто платит</dt><dd>{{ direction.payer }}</dd></div>{% endif %}
+{% if direction.substitute %}<div><dt>Как обходятся сейчас</dt><dd>{{ direction.substitute }}</dd></div>{% endif %}
+{% if direction.rivals %}<div><dt>Кто уже делает похожее</dt><dd>{{ direction.rivals }}</dd></div>{% endif %}
+{% if direction.risk %}<div><dt>Главный риск</dt><dd>{{ direction.risk }}</dd></div>{% endif %}
+</dl>
+{% if direction.competitors %}<div class="idea-competitors"><span>Похожие проекты и конкуренты</span>{% for source in direction.competitors %}<a class="evidence-link" href="{{ source.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ source.domain }} ↗</a>{% endfor %}</div>{% endif %}
+<div class="task-criterion"><strong>Проверка за неделю · {{ direction.axis_label }}</strong><p>{{ direction.test }}</p></div>
+</article>
+{% endfor %}
+</div>
+<div class="card work-card idea-advice" aria-live="polite"><span class="eyebrow">БРУНО СОВЕТУЕТ</span><p data-advice-text>{% for direction in directions %}{% if direction.number == pick %}{{ direction.advice }}{% endif %}{% endfor %}</p><p class="muted small" data-advice-status hidden></p></div>
+{% if can_edit %}
+{% for direction in directions %}
+<div class="idea-actions idea-panel-actions{% if direction.number == pick %} is-active{% endif %}" data-index="{{ direction.index }}">
+{% if creating %}<form method="post" action="{% url 'idea_new_card' round.id direction.index %}" data-busy-form>{% csrf_token %}<input type="hidden" name="action" value="draft"><button class="button primary" data-busy-label="Бруно составляет карточку…">{% if direction.has_card %}Открыть карточку этой идеи{% else %}Выбрать эту идею{% endif %}</button><span class="muted small" role="status"></span></form>
+{% elif direction.axis_busy %}<p class="muted small">По направлению «{{ direction.axis_label }}» уже есть задание в работе.</p>{% else %}<form method="post" action="{% url 'ideas_direction_task' startup.id round.id direction.index %}">{% csrf_token %}<button class="button primary">Выбрать эту идею</button></form>{% endif %}
+<details class="idea-develop"><summary class="button ghost">Поменять</summary><form method="post" action="{{ generate_url }}" data-busy-form>{% csrf_token %}<input type="hidden" name="parent" value="{{ round.id }}"><input type="hidden" name="index" value="{{ direction.index }}">
+<label class="field"><span>Что поменять в этой идее <small class="field-help">необязательно</small></span><input name="wish" maxlength="300" placeholder="Дешевле в запуске, для другого клиента, чтобы платил бизнес…"></label>
+<button class="button primary" data-busy-label="Бруно меняет идею… около минуты">Новые варианты от этой идеи</button><span class="muted small" role="status"></span></form></details>
+</div>
+{% endfor %}
+{% endif %}
+</section>
+{% else %}
+<div class="card work-card work-empty"><h2>Начните с зерна</h2><p>Напишите, что хочется сделать, хоть одним словом. Бруно не оценивает зерно, а растит из него варианты: меняет клиента, плательщика, переносит модели из других отраслей и стран, ищет идеи в жалобах людей. {% if creating %}Выберите понравившуюся идею, и Бруно составит из неё карточку проекта.{% else %}Понравившуюся идею можно выбрать или поменять.{% endif %}</p></div>
+{% endif %}

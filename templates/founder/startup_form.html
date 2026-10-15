@@ -1,8 +1,20 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}{% if is_edit %}Редактировать стартап{% else %}Новый стартап{% endif %} · Co-Founder.AI{% endblock %}
 {% block content %}
-<div class="page-heading narrow"><span class="eyebrow">ПРОФИЛЬ СТАРТАПА</span><h1>{% if is_edit %}Уточним описание{% else %}Как называется ваш сервис?{% endif %}</h1><p>{% if is_edit %}Здесь можно поправить описание. Бруно учтёт изменения в следующем ответе. Таблица по пяти направлениям редактируется в профиле.{% else %}Достаточно названия. Всё, что заполните ниже, Бруно учтёт в разговоре — повторять анкету в чате не нужно.{% endif %}</p></div>
-<form method="post" class="card startup-form">
+{% if is_edit %}
+<div class="page-heading narrow"><span class="eyebrow">ПРОФИЛЬ СТАРТАПА</span><h1>Уточним описание</h1><p>Здесь можно поправить описание. Бруно учтёт изменения в следующем ответе. Таблица по пяти направлениям редактируется в профиле.</p></div>
+{% else %}
+<div class="page-heading narrow"><span class="eyebrow">НОВЫЙ ПРОЕКТ</span><h1>Как создадим проект?</h1><p>Если идея уже есть, заполните короткую анкету. Если есть только зерно идеи, развейте его вместе с Бруно: он составит карточку проекта, а вы её одобрите.</p></div>
+<nav class="create-ways" aria-label="Способ создания проекта">
+  <a class="card create-way" href="{% url 'startup_create' %}?way=form" {% if way == 'form' %}aria-current="page"{% endif %}><span class="eyebrow">СПОСОБ 1</span><strong>Заполнить анкету</strong><span>Знаете, что делаете: достаточно названия и пары строк, остальное Бруно спросит в разговоре.</span></a>
+  <a class="card create-way" href="{% url 'startup_create' %}?way=idea" {% if way == 'idea' %}aria-current="page"{% endif %}><span class="eyebrow">СПОСОБ 2</span><strong>Развить идею с Бруно</strong><span>Есть только зерно: слово, жалоба или «как X, только для Y». Бруно найдёт источники, предложит направления, обсудит их с вами и составит карточку проекта.</span></a>
+</nav>
+{% endif %}
+{% if way == 'idea' %}
+<div class="create-workshop">{% include 'founder/_idea_workshop.html' %}</div>
+{% else %}
+<form method="post" class="card startup-form"{% if not is_edit %} action="{% url 'startup_create' %}?way=form"{% endif %}>
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
   {% for field in form %}
@@ -10,4 +22,6 @@
   {% endfor %}
   <div class="form-actions"><button type="submit" class="button primary">{% if is_edit %}Сохранить изменения{% else %}Создать и поговорить с Бруно{% endif %} <span aria-hidden="true">→</span></button>{% if is_edit %}<a class="button ghost" href="{% url 'dashboard' startup.id %}">Отмена</a>{% endif %}</div>
 </form>
+{% endif %}
 {% endblock %}
+{% block scripts %}{% if way == 'idea' %}<script src="{% static 'founder/js/workbench.js' %}?v=2" defer></script><script src="{% static 'founder/js/idea-picker.js' %}?v=1" defer></script>{% endif %}{% endblock %}

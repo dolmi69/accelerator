@@ -101,13 +101,13 @@ def _review_context(startup):
         radar = {key: {"score": getattr(latest, key), "reason": latest.assessment_details.get(key, "")}
                  for key, _ in AXES}
         context += "\n\nПоследний радар (оценка подтверждений, 0–100): " + json.dumps(radar, ensure_ascii=False)
-    from founder.services.economics import economics_note, unit_economics
+    from founder.services.economics import economics_note, project_economics
 
     founder_words = list(reversed(ChatMessage.objects.filter(
         session__startup=startup, session__mode=ChatSession.Mode.COFOUNDER, role=ChatMessage.Role.USER,
     ).order_by("-created_at", "-id").values_list("content", flat=True)[:20]))
     texts = [startup.one_line_pitch, startup.solution, startup.target_customer, *founder_words]
-    economics = economics_note(unit_economics([text for text in texts if text], latest_only=False))
+    economics = economics_note(project_economics(startup, [text for text in texts if text], latest_only=False))
     if economics:
         context += "\n\n" + economics
     from founder.services.market import latest_report, report_note

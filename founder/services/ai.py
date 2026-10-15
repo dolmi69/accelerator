@@ -290,9 +290,11 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
 
         if session.mode == ChatSession.Mode.COFOUNDER and settings.AI_PROVIDER != "demo":
             # Точный расчёт нужен и плану: иначе модель «считает» прибыль из воздуха.
-            from founder.services.economics import economics_note, unit_economics
+            from founder.services.economics import economics_note, project_economics
 
-            economics = economics_note(unit_economics([m["content"] for m in messages if m["role"] == "user"]))
+            # Числа из последней реплики, а если их нет — введённые на странице «Рынок и конкуренты».
+            economics = economics_note(project_economics(
+                session.startup, [m["content"] for m in messages if m["role"] == "user"]))
         plan = prepare_turn(session, messages, economics=economics or "")
     if session.mode == ChatSession.Mode.COFOUNDER and settings.AI_PROVIDER != "demo":
         from founder.services.mentor import answer_kind

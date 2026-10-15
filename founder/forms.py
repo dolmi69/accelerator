@@ -34,13 +34,59 @@ class StartupForm(forms.ModelForm):
             "name", "one_line_pitch", "problem", "solution",
             "target_customer", "stage", "website",
         )
-        labels = {"website": "Сайт (необязательно)"}
+        # У полей модели нет русских подписей: без них анкета показывала «Name», «One line pitch».
+        labels = {"name": "Название", "one_line_pitch": "Идея в одном предложении", "problem": "Проблема",
+                  "solution": "Решение", "target_customer": "Для кого", "stage": "Стадия",
+                  "website": "Сайт (необязательно)"}
         widgets = {
             "problem": forms.Textarea(attrs={"rows": 3}),
             "solution": forms.Textarea(attrs={"rows": 3}),
             "target_customer": forms.Textarea(attrs={"rows": 3}),
             "website": forms.URLInput(attrs={"placeholder": "Можно добавить позже"}),
         }
+
+
+class IdeaCardForm(forms.Form):
+    """Карточка проекта, которую Бруно составил из идеи. Основатель правит и одобряет её, потом создаётся проект."""
+
+    name = forms.CharField(label="Название", max_length=60)
+    tagline = forms.CharField(label="Идея в одном предложении", max_length=240, required=False)
+    problem = forms.CharField(label="Проблема", max_length=400, required=False,
+                              widget=forms.Textarea(attrs={"rows": 3}))
+    solution = forms.CharField(label="Решение", max_length=400, required=False,
+                               widget=forms.Textarea(attrs={"rows": 3}))
+    audience = forms.CharField(label="Для кого", max_length=300, required=False,
+                               widget=forms.Textarea(attrs={"rows": 2}))
+    business_model = forms.CharField(label="Как зарабатываем", max_length=300, required=False,
+                                     widget=forms.Textarea(attrs={"rows": 2}))
+    summary = forms.CharField(label="Коротко о проекте", max_length=600, required=False,
+                              widget=forms.Textarea(attrs={"rows": 3}))
+    instruction = forms.CharField(label="Что поправить", max_length=300, required=False,
+                                  widget=forms.TextInput(attrs={"placeholder": "Например: название проще, клиент — первокурсники"}))
+
+
+class EconomicsForm(forms.Form):
+    """Числа экономики прямо на странице рынка. Расчёт делает economics.summarize, без модели."""
+
+    _money = {"min_value": 0, "max_value": 10_000_000_000, "required": False, "decimal_places": 2, "max_digits": 14}
+    price_per_unit = forms.DecimalField(label="Цена одной продажи для клиента, ₽", **_money,
+                                        help_text="Чашка, урок, заказ, аренда вещи")
+    cost_per_unit = forms.DecimalField(label="Ваши затраты на одну продажу, ₽", **_money)
+    customer_payment_month = forms.DecimalField(label="Если подписка: платёж клиента в месяц, ₽", **_money)
+    cost_per_customer_month = forms.DecimalField(label="Если подписка: затраты на клиента в месяц, ₽", **_money)
+    commission_percent = forms.DecimalField(label="Если вы посредник: ваша комиссия с продажи, %", min_value=0,
+                                            max_value=100, required=False, decimal_places=2, max_digits=5)
+    fixed_costs_month = forms.DecimalField(label="Постоянные расходы в месяц, ₽", **_money,
+                                           help_text="Аренда, зарплаты, сервисы")
+    cash_on_hand = forms.DecimalField(label="Деньги на старте, ₽", **_money)
+    customers = forms.IntegerField(label="Сколько платящих клиентов сейчас", min_value=0, max_value=10_000_000,
+                                   required=False)
+
+    def clean(self):
+        values = super().clean()
+        if not any(values.get(name) for name in self.fields):
+            raise forms.ValidationError("Заполните хотя бы одно число.")
+        return values
 
 
 class LabPromptForm(forms.Form):

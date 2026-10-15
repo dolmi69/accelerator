@@ -173,8 +173,17 @@ def _break_even(v, profit, unit_profit, lines):
         lines.append(f"Безубыточность: {_rub(fixed)} постоянных расходов / {_rub(unit_profit)} с продажи = "
                      f"{_count(sales)} продаж в месяц, примерно {_count(math.ceil(sales / 30))} в день.")
     elif profit and profit > 0:
+        need = math.ceil(fixed / profit)
         lines.append(f"Безубыточность: {_rub(fixed)} постоянных расходов / {_rub(profit)} с клиента = "
-                     f"{_count(math.ceil(fixed / profit))} платящих клиентов в месяц.")
+                     f"{_count(need)} платящих клиентов в месяц.")
+        customers = int(v["customers"])
+        if customers:
+            # Без этой строки Бруно говорил «близок к самоокупаемости» при 420 клиентах и безубыточности в 352.
+            result = customers * profit - fixed
+            verdict = ("проект уже в плюсе" if result > 0 else
+                       f"до безубыточности не хватает {_count(need - customers)} клиентов")
+            lines.append(f"Сейчас {_count(customers)} клиентов: {_count(customers)} × {_rub(profit)} − {_rub(fixed)} "
+                         f"= {_rub(result)} в месяц, {verdict}.")
     elif (unit_profit is not None and unit_profit <= 0) or (profit is not None and profit <= 0):
         lines.append(f"Постоянные расходы {_rub(fixed)} в месяц не окупятся ни при каком числе продаж, "
                      "пока с каждой продажи проект теряет деньги.")
@@ -242,3 +251,53 @@ def economics_note(lines):
         return ""
     return ("Расчёт денег проекта (посчитан программой по словам основателя, "
             "числа верные, опирайся на них и не пересчитывай):\n" + "\n".join(lines))
+
+
+INPUT_LABELS = (
+    ("price_per_unit", "цена продажи {}"), ("cost_per_unit", "затраты на продажу {}"),
+    ("customer_payment_month", "подписка {} в месяц"), ("cost_per_customer_month", "затраты на клиента {} в месяц"),
+    ("commission_percent", "комиссия {}"), ("fixed_costs_month", "постоянные расходы {} в месяц"),
+    ("cash_on_hand", "на старте {}"), ("customers", "платящих клиентов {}"),
+)
+
+
+def inputs_text(values):
+    """Числа основателя одной строкой: «цена продажи 500 ₽, затраты на продажу 200 ₽…»."""
+    parts = []
+    for key, template in INPUT_LABELS:
+        value = _number((values or {}).get(key))
+        if value:
+            shown = (f"{value:g}%" if key == "commission_percent" else _count(int(value)) if key == "customers"
+                     else _rub(value))
+            parts.append(template.format(shown))
+    return ", ".join(parts)
+
+
+def remember_inputs(startup, values):
+    """Числа со страницы рынка попадают в картину проекта (тема «Деньги»): их видят Бруно и акулы."""
+    from django.db import transaction
+
+    from founder.models import ProjectPicture
+    from founder.services.mentor import merge_facts
+
+    text = inputs_text(values)
+    if not text:
+        return
+    with transaction.atomic():
+        picture, _ = ProjectPicture.objects.select_for_update().get_or_create(startup=startup)
+        note = {"text": ("Основатель ввёл: " + text)[:300], "status": "guess"}
+        picture.facts = merge_facts(picture.facts, {"money": note})
+        picture.save(update_fields=["facts"])
+
+
+def project_economics(startup, texts, *, latest_only=True):
+    """Расчёт по словам основателя, а если в них чисел нет — по числам, введённым на странице рынка.
+
+    Для отчётов по всему рассказу (latest_only=False) введённые числа главнее: основатель ввёл их сам и точно.
+    """
+    if not latest_only and getattr(startup, "economics", None):
+        return summarize(startup.economics)
+    lines = unit_economics(texts, latest_only=latest_only) if texts else []
+    if not lines and getattr(startup, "economics", None):
+        lines = summarize(startup.economics)
+    return lines

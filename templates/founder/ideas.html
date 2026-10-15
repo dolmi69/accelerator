@@ -4,52 +4,6 @@
 {% block content %}
 {% include 'founder/_workspace_nav.html' %}
 <div class="page-heading work-heading"><div><span class="eyebrow">БРУНО-КРЕАТИВЩИК</span><h1>Мастерская идей</h1><p>{{ startup.name }} · Из маленького зерна — три сильных направления с разбором и источниками.</p></div></div>
-{% if is_demo %}<p class="work-notice">Деморежим: AI и поиск выключены, направления будут демонстрационными.</p>{% elif not search_enabled %}<p class="work-notice">Поиск в интернете выключен в настройках сервера (MARKET_SEARCH): Бруно будет думать без источников.</p>{% endif %}
-{% if startup.user_role != 'viewer' %}
-<section class="card work-card idea-seed-card"><form method="post" action="{% url 'ideas_generate' startup.id %}" data-busy-form>{% csrf_token %}
-<label class="field"><span>Зерно идеи</span><textarea name="seed" rows="3" maxlength="600" placeholder="{% if default_seed %}{{ default_seed }}{% else %}Хоть одно слово: «кофе», «как Авито, только для общежития», «студентам трудно найти соседа по квартире»{% endif %}"></textarea><span class="field-help">{% if default_seed %}Оставьте пустым, и Бруно возьмёт описание проекта из анкеты.{% else %}Можно одно слово, сравнение «как X, только для Y» или жалобу, которую вы слышали.{% endif %}</span></label>
-<label class="field"><span>Пожелание <small class="field-help">необязательно</small></span><input name="wish" maxlength="300" placeholder="Например: чтобы можно было начать без денег, для родителей, чтобы приносило деньги"></label>
-<div class="idea-seed-actions"><button class="button primary" data-busy-label="Бруно ищет источники и думает… около минуты">Развить идею</button><span class="muted small" role="status"></span></div>
-<p class="muted small">Бруно поищет похожие стартапы в мире и в России, жалобы людей, тренды и тех, кто уже пробовал и закрылся. Потом придумает десяток вариантов разными приёмами (перенос модели из другой страны, другой плательщик, «сначала руками», «убрать и создать» и другие), отберёт три самых сильных и честно скажет о ловушках. Займёт около минуты. В поиск уходят только короткие запросы о сфере, без вашего имени.</p>
-</form></section>
-{% endif %}
-{% if round %}
-<section class="card work-card review-summary"><span class="eyebrow">{% if parent_title %}РАЗВИТИЕ НАПРАВЛЕНИЯ «{{ parent_title|upper }}»{% else %}КРУГ ОТ {{ round.created_at|date:'d.m.Y H:i' }}{% endif %}</span>
-<h2>{{ data.understanding|default:round.seed }}</h2>
-{% if data.core %}<p><strong>Что за этим стоит:</strong> {{ data.core }}</p>{% endif %}
-<p class="muted small">Зерно: «{{ round.seed }}»{% if round.wish %} · пожелание: «{{ round.wish }}»{% endif %}</p>
-{% if data.warning %}<div class="task-criterion idea-warning"><strong>Честно о зерне</strong><p>{{ data.warning }}</p></div>{% endif %}</section>
-<div class="idea-directions">
-{% for direction in directions %}
-<article class="card work-card idea-direction{% if direction.is_pick %} is-pick{% endif %}">
-<div class="idea-direction-head"><span class="eyebrow">НАПРАВЛЕНИЕ {{ direction.number }}{% if direction.technique_label %} · {{ direction.technique_label|upper }}{% endif %}</span>{% if direction.is_pick %}<span class="idea-pick">Бруно начал бы с него</span>{% endif %}</div>
-<h2>{{ direction.title }}</h2>
-<p>{{ direction.what }}</p>
-<div class="task-criterion idea-insight"><strong>Мысль Бруно</strong><p>{{ direction.insight }}</p></div>
-<dl class="idea-facts">
-{% if direction.customer %}<div><dt>Клиент</dt><dd>{{ direction.customer }}</dd></div>{% endif %}
-{% if direction.payer %}<div><dt>Кто платит</dt><dd>{{ direction.payer }}</dd></div>{% endif %}
-{% if direction.substitute %}<div><dt>Как обходятся сейчас</dt><dd>{{ direction.substitute }}</dd></div>{% endif %}
-{% if direction.rivals %}<div><dt>Кто уже делает похожее</dt><dd>{{ direction.rivals }}</dd></div>{% endif %}
-{% if direction.risk %}<div><dt>Главный риск</dt><dd>{{ direction.risk }}</dd></div>{% endif %}
-</dl>
-<div class="task-criterion"><strong>Проверка за неделю · {{ direction.axis_label }}</strong><p>{{ direction.test }}</p></div>
-{% if direction.source_items %}<p class="idea-sources">{% for source in direction.source_items %}<a class="evidence-link" href="{{ source.url }}" target="_blank" rel="noopener noreferrer nofollow">[{{ source.number }}] {{ source.domain }} ↗</a> {% endfor %}</p>{% endif %}
-{% if startup.user_role != 'viewer' %}<div class="idea-actions">
-{% if direction.axis_busy %}<p class="muted small">По направлению «{{ direction.axis_label }}» уже есть задание в работе.</p>{% else %}<form method="post" action="{% url 'ideas_direction_task' startup.id round.id direction.index %}">{% csrf_token %}<button class="button ghost">Проверить это</button></form>{% endif %}
-<details class="idea-develop"><summary class="button ghost">Развить дальше</summary><form method="post" action="{% url 'ideas_generate' startup.id %}" data-busy-form>{% csrf_token %}<input type="hidden" name="parent" value="{{ round.id }}"><input type="hidden" name="index" value="{{ direction.index }}">
-<label class="field"><span>Что поменять <small class="field-help">необязательно</small></span><input name="wish" maxlength="300" placeholder="Дешевле в запуске, для другого клиента, чтобы платил бизнес…"></label>
-<button class="button primary" data-busy-label="Бруно развивает направление… около минуты">Новый круг от этого направления</button><span class="muted small" role="status"></span></form></details>
-</div>{% endif %}
-</article>
-{% endfor %}
-</div>
-{% if data.pick_why %}<section class="card work-card"><span class="eyebrow">С ЧЕГО НАЧАТЬ</span><p>{{ data.pick_why }}</p></section>{% endif %}
-{% if data.raw_ideas %}<details class="card project-card-fold"><summary>Как Бруно думал <small>{{ data.raw_ideas|length }} сырых идей</small></summary><div class="project-fold-body"><p class="muted small">Мозговой штурм до отбора: каждая идея своим приёмом. Из них Бруно выбрал и усилил три направления выше.</p><ol class="idea-raw">{% for idea in data.raw_ideas %}<li>{% if idea.technique %}<strong>{{ idea.technique }}.</strong> {% endif %}{{ idea.text }}</li>{% endfor %}</ol>{% if round.queries %}<p class="muted small">Поисковые запросы: {{ round.queries|join:'; ' }}</p>{% endif %}</div></details>{% endif %}
-{% if sources %}<details class="card project-card-fold"><summary>Источники <small>{{ sources|length }}</small></summary><div class="project-fold-body"><ol class="market-sources">{% for source in sources %}<li><a href="{{ source.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ source.title }}</a> <span class="muted small">{{ source.kind_label }} · {{ source.domain }}{% if source.published %} · {{ source.published }}{% endif %}</span></li>{% endfor %}</ol><p class="muted small">Бруно читал только найденные фрагменты страниц. Цифры и факты проверьте по ссылкам.</p></div></details>{% endif %}
-{% else %}
-<div class="card work-card work-empty"><h2>Начните с зерна</h2><p>Напишите, что хочется сделать, хоть одним словом. Бруно не оценивает зерно, а растит из него варианты: меняет клиента, плательщика, переносит модели из других отраслей и стран, ищет идеи в жалобах людей. Каждое направление можно развить дальше или взять в задания на проверку.</p></div>
-{% endif %}
-{% if history|length > 1 %}<details class="card project-card-fold"><summary>Прошлые круги <small>{{ history|length }}</small></summary><div class="project-fold-body">{% for item in history %}<a class="history-row" href="?id={{ item.id }}"><span><strong>{{ item.seed|truncatechars:90 }}</strong><small>{{ item.created_at|date:'d.m.Y H:i' }}{% if item.parent_id %} · развитие направления{% endif %}{% if item.id == round.id %} · открыт сейчас{% endif %}</small></span><span aria-hidden="true">→</span></a>{% endfor %}</div></details>{% endif %}
+{% include 'founder/_idea_workshop.html' %}
 {% endblock %}
-{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}" defer></script>{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}?v=2" defer></script><script src="{% static 'founder/js/idea-picker.js' %}?v=1" defer></script>{% endblock %}

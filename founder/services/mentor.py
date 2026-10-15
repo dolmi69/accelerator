@@ -478,7 +478,13 @@ def merge_facts(old, new):
     merged = {}
     for key, _ in AREAS:
         before, after = (old or {}).get(key) or {}, (new or {}).get(key) or {}
-        if after.get("status") in ("fact", "guess") and after.get("text"):
+        if (after.get("status") in ("fact", "guess") and after.get("text") and before.get("text")
+                and not _stems(after["text"]) & _stems(before["text"]) and len(after["text"]) < len(before["text"])):
+            # Модель заменяла хорошую заметку обрывком по другой теме («Клиент: курьеры доставки» →
+            # «Планируют расширение в другие города»). Короткую заметку без общих слов дописываем, а не меняем.
+            status = "fact" if "fact" in (after.get("status"), before.get("status")) else "guess"
+            merged[key] = {"text": f"{before['text'].rstrip('. ')}; {after['text']}"[:300], "status": status}
+        elif after.get("status") in ("fact", "guess") and after.get("text"):
             merged[key] = after
         elif before.get("text"):
             merged[key] = before

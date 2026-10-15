@@ -792,3 +792,46 @@ mark.chat-search-hit.is-current { background:#f5b544; }
 .idea-develop form { display:grid; gap:12px; }
 .idea-raw { padding-left:20px; line-height:1.6; }
 .idea-raw li { margin-bottom:8px; }
+/* Новый проект: два способа */
+.create-ways { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:16px; max-width:760px; margin:0 0 24px; }
+.create-way { display:grid; gap:8px; padding:22px 24px; border:2px solid transparent; color:var(--ink); }
+.create-way strong { font-family:Manrope,sans-serif; font-size:19px; }
+.create-way span:last-child { color:var(--muted); font-size:14px; line-height:1.55; }
+.create-way:hover { border-color:#cfe3dc; }
+.create-way[aria-current="page"] { border-color:var(--teal); box-shadow:0 0 0 3px rgba(22,135,125,.11); }
+.create-workshop { max-width:1100px; }
+.idea-card-form .idea-card-refine { display:grid; gap:12px; padding-top:18px; margin-top:6px; border-top:1px solid var(--line); }
+.idea-card-form .idea-card-refine .button { justify-self:start; }
+/* Мастерская идей: переключатель идей */
+.idea-picker { display:grid; gap:16px; margin-bottom:20px; }
+.idea-tabs { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:12px; }
+.idea-tab { display:grid; gap:6px; align-content:start; text-align:left; padding:16px 18px; border:2px solid var(--line); border-radius:18px; background:var(--white); color:var(--ink); transition:border-color .25s ease, box-shadow .25s ease, transform .25s ease; }
+.idea-tab:hover { border-color:#cfe3dc; transform:translateY(-1px); }
+.idea-tab strong { font-family:Manrope,sans-serif; font-size:16px; line-height:1.35; }
+.idea-tab-number { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+.idea-tab .idea-pick { justify-self:start; }
+.idea-tab.is-active, .idea-picker .idea-panel.is-active { border:2px solid var(--teal); box-shadow:0 0 0 3px rgba(22,135,125,.11); }
+.idea-tab:focus-visible { outline:3px solid rgba(22,135,125,.35); outline-offset:2px; }
+.idea-picker .idea-panel { margin-bottom:0; }
+.idea-picker.is-enhanced .idea-panel, .idea-picker.is-enhanced .idea-panel-actions { display:none; }
+.idea-picker.is-enhanced .idea-panel.is-active { display:block; animation:idea-in .35s ease both; }
+.idea-picker.is-enhanced .idea-panel-actions.is-active { display:flex; animation:idea-in .35s ease both; }
+.idea-advice { margin-bottom:0; background:#f0f6f2; }
+.idea-advice p { margin:8px 0 0; }
+.idea-advice.is-updating { animation:idea-fade .35s ease both; }
+.idea-competitors { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin:4px 0 12px; font-size:13px; }
+.idea-competitors > span { font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
+.idea-competitors .evidence-link { margin-top:0; }
+@keyframes idea-in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+@keyframes idea-fade { from { opacity:.25; } to { opacity:1; } }
+@media (prefers-reduced-motion: reduce) { .idea-tab, .idea-picker.is-enhanced .idea-panel.is-active, .idea-picker.is-enhanced .idea-panel-actions.is-active, .idea-advice.is-updating { animation:none; transition:none; } }
+/* «Бруно сейчас работает» */
+.bruno-job { display:flex; align-items:center; gap:12px; margin:0 0 20px; padding:14px 18px; border-radius:16px; background:#e8f3ef; border:1px solid #cfe3dc; color:var(--teal-dark); font-size:14px; font-weight:600; }
+.bruno-job-wait { display:flex; align-items:center; gap:10px; }
+.bruno-job-dot { flex:none; width:10px; height:10px; border-radius:50%; background:var(--teal); animation:bruno-pulse 1.4s ease-in-out infinite; }
+@keyframes bruno-pulse { 0%,100% { opacity:.35; transform:scale(.85); } 50% { opacity:1; transform:scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { .bruno-job-dot { animation:none; } }
+/* Экономика на странице рынка */
+.economics-form { display:grid; gap:14px; margin-top:12px; }
+.economics-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:14px; align-items:start; }
+.economics-form .button { justify-self:start; }

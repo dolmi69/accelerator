@@ -65,6 +65,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "founder.context_processors.bruno_pet",
                 "founder.context_processors.community",
+                "founder.context_processors.bruno_job",
             ],
         },
     },
@@ -203,3 +204,5 @@ BRUNO_MENTOR_PLAN = os.getenv("BRUNO_MENTOR_PLAN", "1") == "1" and sys.argv[1:2]
 # Поиск в открытых источниках для анализа рынка: exa (без ключа через MCP, с EXA_API_KEY через API,
 # DuckDuckGo запасной), duckduckgo или off. В юнит-тестах выключен: они не ходят в сеть.
 MARKET_SEARCH = "off" if sys.argv[1:2] == ["test"] else os.getenv("MARKET_SEARCH", "exa").lower()
+# Дочитывать страницы конкурентов целиком (agent-reach). В тестах сеть не трогаем, даже если поиск включён.
+MARKET_READ_PAGES = sys.argv[1:2] != ["test"] and os.getenv("MARKET_READ_PAGES", "1") == "1"

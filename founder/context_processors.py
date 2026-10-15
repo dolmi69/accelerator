@@ -54,3 +54,15 @@ def community(request):
     from founder.services.messaging import unread_count
     return {'direct_unread': unread_count(request.user.pk),
             'project_invites_count': pending_invites(request.user).count() + join_requests_for(request.user).count()}
+
+
+def bruno_job(request):
+    """Долгий AI-запрос основателя ещё идёт: страница покажет «Бруно сейчас …» и обновится, когда он закончит."""
+    from django.db import DatabaseError
+
+    from founder.services.bruno_jobs import current_job
+
+    try:
+        return {"bruno_job": current_job(getattr(request, "user", None))}
+    except DatabaseError:
+        return {"bruno_job": None}

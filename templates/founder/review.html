@@ -24,4 +24,4 @@
 {% if history|length > 1 %}<details class="card project-card-fold"><summary>Прошлые разборы <small>{{ history|length }}</small></summary><div class="project-fold-body">{% for item in history %}<a class="history-row" href="?id={{ item.id }}"><span><strong>{{ item.data.focus|truncatechars:90 }}</strong><small>{{ item.created_at|date:'d.m.Y H:i' }}{% if item.id == review.id %} · открыт сейчас{% endif %}</small></span><span aria-hidden="true">→</span></a>{% endfor %}</div></details>{% endif %}
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}" defer></script>{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}?v=2" defer></script>{% endblock %}

@@ -12,9 +12,10 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from founder.forms import EvidenceForm
+from founder.forms import EconomicsForm, EvidenceForm
 from founder.models import BrunoTask, BusinessAxis, ChatMessage, ChatSession, CoinTransaction, EvidenceEntry, StartupProfile
 from founder.services import ideas as ideas_service
+from founder.services import economics as economics_service
 from founder.services import market as market_service
 from founder.services.ai import AIServiceError
 from founder.services.funding import INVESTORS, KIND_LABELS, KINDS, founder_funding
@@ -234,7 +235,7 @@ def review_step_task(request, startup_id, review_id, index):
 
 
 @login_required
-def market(request, startup_id):
+def market(request, startup_id, economics_form=None):
     startup = owned_startup(request, startup_id, edit=False)
     reports = startup.market_reports.all()
     current = reports.first()
@@ -247,6 +248,11 @@ def market(request, startup_id):
     sources = current.sources if current else []
     open_axes = set(startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list('axis', flat=True))
     axis_labels = dict(BusinessAxis.choices)
+    # Номера источников [1], [2] основателю мешают читать: ссылки остаются только у конкурентов.
+    strip = ideas_service.strip_refs
+    data = {**data, **{key: strip(data.get(key, '')) for key in (
+        'verdict', 'relevance_reason', 'substitutes', 'price_benchmark', 'opportunity', 'money_view')},
+        'risks': [strip(risk) for risk in data.get('risks', [])]}
 
     def source(index):
         return sources[index - 1] if isinstance(index, int) and 0 < index <= len(sources) else None
@@ -254,11 +260,16 @@ def market(request, startup_id):
     return render(request, 'founder/market.html', {
         'startup': startup, 'workspace_tab': 'market', 'report': current, 'data': data,
         'relevance_label': market_service.RELEVANCE.get(data.get('relevance'), ''),
-        'signals': [{**item, 'source_info': source(item.get('source'))} for item in data.get('demand_signals', [])],
-        'competitors': [{**item, 'source_info': source(item.get('source'))} for item in data.get('competitors', [])],
+        'signals': [{**item, 'text': strip(item.get('text', ''))} for item in data.get('demand_signals', [])],
+        'competitors': [{**item, 'what': strip(item.get('what', '')), 'weakness': strip(item.get('weakness', '')),
+                         'source_info': source(item.get('source'))} for item in data.get('competitors', [])],
         'checks': [{**check, 'index': index, 'axis_label': axis_labels.get(check['axis'], ''),
                     'axis_busy': check['axis'] in open_axes} for index, check in enumerate(data.get('checks', []))],
-        'sources': [{**item, 'number': number} for number, item in enumerate(sources, 1)],
+        'economics_lines': (economics_service.summarize(startup.economics) if startup.economics
+                            else data.get('economics', [])),
+        # «490», а не «490,0»: целые числа в форме показываем без дробной части.
+        'economics_form': economics_form or EconomicsForm(initial={
+            key: int(value) if float(value).is_integer() else value for key, value in startup.economics.items()}),
         'history': reports[:8], 'is_demo': settings.AI_PROVIDER == 'demo',
         'search_enabled': market_service.search_enabled() or settings.AI_PROVIDER == 'demo',
         'has_story': (any((startup.one_line_pitch, startup.problem, startup.solution, startup.target_customer))
@@ -280,6 +291,25 @@ def market_generate(request, startup_id):
 
 @login_required
 @require_POST
+def market_economics(request, startup_id):
+    """Основатель вводит числа экономики прямо на странице рынка: расчёт видят и страница, и Бруно в чате."""
+    startup = owned_startup(request, startup_id)
+    form = EconomicsForm(request.POST)
+    if not form.is_valid():
+        response = market(request, startup_id, economics_form=form)
+        response.status_code = 400
+        return response
+    values = {key: float(value) for key, value in form.cleaned_data.items() if value}
+    startup.economics = values
+    startup.save(update_fields=['economics', 'updated_at'])
+    economics_service.remember_inputs(startup, values)
+    activity.log(startup, request.user, activity.Kind.CARD, 'Обновлены числа экономики проекта')
+    messages.success(request, 'Бруно посчитал экономику по вашим числам. Он учтёт их и в разговоре.')
+    return redirect(reverse('market', args=[startup.pk]) + '#economics')
+
+
+@login_required
+@require_POST
 def market_check_task(request, startup_id, report_id, index):
     startup = owned_startup(request, startup_id)
     current = get_object_or_404(startup.market_reports, pk=report_id)
@@ -294,10 +324,12 @@ def market_check_task(request, startup_id, report_id, index):
     return redirect('tasks', startup_id=startup.pk)
 
 
-@login_required
-def ideas(request, startup_id):
-    startup = owned_startup(request, startup_id, edit=False)
-    rounds = startup.idea_rounds.select_related('parent')
+def idea_context(request, rounds, startup=None):
+    """Мастерская идей: выбранный круг и его направления. Общая для проекта и страницы создания проекта.
+
+    Тексты показываются без номеров источников, а ссылки — только на похожие проекты и конкурентов.
+    """
+    rounds = rounds.select_related('parent')
     current = rounds.first()
     if request.GET.get('id'):
         try:
@@ -305,32 +337,41 @@ def ideas(request, startup_id):
         except (ValueError, TypeError) as exc:
             raise Http404('Круг не найден') from exc
     data = current.data if current else {}
-    sources = current.sources if current else []
-    open_axes = set(startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list('axis', flat=True))
+    open_axes = (set(startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list('axis', flat=True))
+                 if startup else set())
     axis_labels = dict(BusinessAxis.choices)
-    kinds = {kind: label for kind, (label, _) in ideas_service.SOURCE_KINDS.items()}
-
-    def source(number):
-        item = sources[number - 1]
-        return {**item, 'number': number, 'kind_label': kinds.get(item.get('kind'), '')}
-
-    directions = [{
-        **direction, 'index': index, 'number': index + 1, 'is_pick': data.get('pick') == index + 1,
-        'technique_label': ideas_service.TECHNIQUES.get(direction.get('technique'), ('',))[0],
-        'axis_label': axis_labels.get(direction.get('axis'), ''), 'axis_busy': direction.get('axis') in open_axes,
-        'source_items': [source(number) for number in direction.get('sources', []) if 0 < number <= len(sources)],
-    } for index, direction in enumerate(data.get('directions', []))]
+    cards = data.get('cards') or {}
+    pick = data.get('pick') or 1
+    directions = []
+    for index, direction in enumerate(data.get('directions', [])):
+        directions.append({
+            **direction, **{key: ideas_service.strip_refs(direction.get(key, '')) for key in ideas_service.SHOWN_FIELDS},
+            'index': index, 'number': index + 1, 'is_pick': pick == index + 1,
+            'technique_label': ideas_service.TECHNIQUES.get(direction.get('technique'), ('',))[0],
+            'axis_label': axis_labels.get(direction.get('axis'), ''), 'axis_busy': direction.get('axis') in open_axes,
+            'competitors': ideas_service.competitor_sources(current, direction),
+            'advice': ideas_service.advice_for(current, index), 'has_card': str(index) in cards,
+        })
     parent_title = ''
     if current and current.parent and current.parent_index is not None:
         parent_directions = current.parent.data.get('directions', [])
         if current.parent_index < len(parent_directions):
             parent_title = parent_directions[current.parent_index].get('title', '')
-    return render(request, 'founder/ideas.html', {
-        'startup': startup, 'workspace_tab': 'ideas', 'round': current, 'data': data, 'directions': directions,
-        'parent_title': parent_title, 'default_seed': ideas_service.default_seed(startup),
-        'sources': [source(number) for number in range(1, len(sources) + 1)],
-        'history': rounds[:10], 'is_demo': settings.AI_PROVIDER == 'demo',
+    return {
+        'round': current, 'directions': directions, 'parent_title': parent_title, 'pick': pick,
+        'understanding': ideas_service.strip_refs(data.get('understanding', '')),
+        'core': ideas_service.strip_refs(data.get('core', '')),
+        'default_seed': ideas_service.default_seed(startup), 'is_demo': settings.AI_PROVIDER == 'demo',
         'search_enabled': market_service.search_enabled(),
+    }
+
+
+@login_required
+def ideas(request, startup_id):
+    startup = owned_startup(request, startup_id, edit=False)
+    return render(request, 'founder/ideas.html', {
+        'startup': startup, 'workspace_tab': 'ideas', **idea_context(request, startup.idea_rounds.all(), startup),
+        'generate_url': reverse('ideas_generate', args=[startup.pk]), 'can_edit': startup.user_role != 'viewer',
     })
 
 
@@ -356,6 +397,16 @@ def ideas_generate(request, startup_id):
     activity.log(startup, request.user, activity.Kind.IDEAS, f"Мастерская идей: {item.seed[:80]}")
     messages.success(request, 'Бруно развил идею: три направления ниже.')
     return redirect(f"{reverse('ideas', args=[startup.pk])}?id={item.pk}")
+
+
+@login_required
+@require_POST
+def ideas_advice(request, startup_id, round_id, index):
+    """Совет Бруно по выбранной идее в Мастерской проекта (JSON для переключателя идей)."""
+    from founder.views import _idea_advice
+
+    startup = owned_startup(request, startup_id)
+    return _idea_advice(get_object_or_404(startup.idea_rounds, pk=round_id), index)
 
 
 @login_required

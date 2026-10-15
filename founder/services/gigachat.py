@@ -24,8 +24,9 @@ FALLBACK_MODEL = os.getenv("GIGACHAT_FALLBACK_MODEL", "GigaChat-2-Max")
 # Сколько не стучаться в недоступный основной адрес, чтобы не ждать каждый раз.
 PRIMARY_PAUSE_SECONDS = 300
 ALLOWED_SCOPES = {"GIGACHAT_API_PERS", "GIGACHAT_API_B2B", "GIGACHAT_API_CORP"}
-# Живой диалог: чуть меньше случайности, штраф за повторы фраз.
-CHAT_SAMPLING = {"temperature": 0.7, "top_p": 0.9, "repetition_penalty": 1.1}
+# Живой диалог: чуть меньше случайности, штраф за повторы фраз. top_p не задаём: документация GigaChat
+# не советует использовать его вместе с temperature (docs/gigachat_prompting.md).
+CHAT_SAMPLING = {"temperature": 0.7, "repetition_penalty": 1.1}
 RATE_LIMIT_RETRIES = 2
 UNREACHABLE = "Не удалось связаться с GigaChat. Проверьте сеть и сертификат Минцифры."
 _token_lock = threading.Lock()

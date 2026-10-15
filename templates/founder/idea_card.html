@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Карточка проекта от Бруно · Co-Founder.AI{% endblock %}
+{% block content %}
+<div class="page-heading narrow"><span class="eyebrow">НОВЫЙ ПРОЕКТ · КАРТОЧКА ОТ БРУНО</span><h1>{{ form.name.value|default:direction.title }}</h1><p>Бруно составил карточку проекта по обсуждению направления «{{ direction.title }}». Проверьте её: поправьте поля сами или попросите Бруно. Проект появится, только когда вы её одобрите.</p></div>
+<form method="post" class="card startup-form idea-card-form" data-busy-form>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
+  {% for field in form %}{% if field.name != 'instruction' %}
+    <label class="field"><span>{{ field.label }}</span>{{ field }}{% if field.errors %}<small class="field-error">{{ field.errors|striptags }}</small>{% endif %}</label>
+  {% endif %}{% endfor %}
+  <p class="muted small">Проект создастся со стадией «Идея», и Бруно сразу оценит его по радару. Карточка сохранится черновиком в разделе «Карточка проекта»: в сообществе её увидят, только если вы сами её опубликуете.</p>
+  <div class="form-actions"><button type="submit" name="action" value="create" class="button primary" data-busy-label="Бруно создаёт проект и оценивает его по радару… до минуты">Одобрить и создать проект <span aria-hidden="true">→</span></button><a class="button ghost" href="{% url 'startup_create' %}?way=idea&id={{ round.id }}">← Вернуться к обсуждению</a></div>
+  <div class="idea-card-refine">
+    <label class="field"><span>{{ form.instruction.label }} <small class="field-help">Бруно перепишет карточку с учётом ваших правок выше</small></span>{{ form.instruction }}{% if form.instruction.errors %}<small class="field-error">{{ form.instruction.errors|striptags }}</small>{% endif %}</label>
+    <button type="submit" name="action" value="refine" class="button ghost" data-busy-label="Бруно правит карточку…">Попросить Бруно поправить</button><span class="muted small" role="status"></span>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}?v=2" defer></script>{% endblock %}

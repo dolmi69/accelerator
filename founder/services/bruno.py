@@ -465,7 +465,9 @@ OPENER_RE = re.compile(
     r"|^\s*(?:Это\s+)?(?:крут|классн|отличн|хорош|интересн)\w*\s+идея,\s*особенно[^.!?\n]*[.!]\s*"
     r"|^\s*(?:Это\s+)?(?:отличн|хорош|прекрасн|замечательн|классн)\w*\s+новост\w*\s*(?:[!.:]\s*|,\s*)"
     # «Это отличная находка: личный опыт…», «Хороший ход!» — похвала вместо реакции на деталь.
-    r"|^\s*(?:Это\s+)?(?:отличн|хорош|прекрасн|замечательн|классн|крут|сильн)\w*\s+(?:находка|ход|решение|наблюдение)"
+    r"|^\s*(?:Это\s+)?(?:отличн|хорош|прекрасн|замечательн|классн|крут|сильн|серь[её]зн|впечатляющ)\w*\s+"
+    # «Это серьёзное достижение: 420 подписчиков…», «Отличное разделение обязанностей.» (сценарий mature).
+    r"(?:находка|ход|решение|наблюдение|достижени\w*|результат\w*|показател\w*|разделени\w*(?:\s+\w+)?)"
     r"\s*(?:[!.:]\s*|,\s*но\s+)",
     re.IGNORECASE,
 )
@@ -945,7 +947,7 @@ def _first_question(sentence):
 
 
 # «Как думаешь, сколько…?» спрашивает мнение. Вопрос о фактах честнее: «Сколько…?».
-THINK_PREFIX_RE = re.compile(r"(?<!\w)(?:А\s+)?(?:[тв]ы\s+)?[Кк]ак\s+(?:[тв]ы\s+)?думае(?:шь|те),\s*(\w)")
+THINK_PREFIX_RE = re.compile(r"(?<!\w)(?:А\s+)?(?:[тв]ы\s+)?[Кк]ак\s+(?:[тв]ы\s+)?(?:думае(?:шь|те)|счита(?:ешь|ете)),\s*(\w)")
 DASH_RE = re.compile(r"\s[—–]\s")
 LIST_DASH_RE = re.compile(r"(^|\n)[ \t]*[—–-][ \t]+")
 
@@ -1033,6 +1035,13 @@ def _limit_dashes(sentence, dashes_seen):
     return sentence, dashes_seen + found
 
 
+# Короткое предложение, которое только хвалит: «Отличное разделение обязанностей.», «Это серьёзное достижение!».
+# Длинные предложения с мыслью после оценки не трогаем: их начало режет OPENER_RE только в начале ответа.
+PRAISE_SENTENCE_RE = re.compile(
+    r"\s*(?:Это\s+)?(?:Отличн|Прекрасн|Замечательн|Великолепн|Серь[её]зн|Впечатляющ)\w*\s+(?:[\w-]+\s+){0,2}[\w-]+\s*[!.]\s*$",
+    re.IGNORECASE)
+
+
 def polish_stream(chunks, *, single_question=True, gender=None, self_male=True, formal=True, asked=(),
                   keep_first=False):
     """Правка по предложениям без отказа от потоковой выдачи.
@@ -1051,6 +1060,9 @@ def polish_stream(chunks, *, single_question=True, gender=None, self_male=True, 
 
     def process(sentence):
         nonlocal held, trail, dashes
+        if PRAISE_SENTENCE_RE.match(sentence):
+            # «Отличное разделение обязанностей.» в середине ответа — оценка без мысли, её не показываем.
+            return ""
         sentence = to_formal(sentence) if formal else sentence
         sentence, dashes = _limit_dashes(_fit_gender(_fix_phrases(sentence, self_male), gender), dashes)
         is_question = sentence.rstrip().rstrip("»\")").endswith("?")

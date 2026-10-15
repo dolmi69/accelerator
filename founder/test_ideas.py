@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from founder.models import BrunoTask, IdeaRound, ProjectActivity, StartupProfile, User
+from founder.models import BrunoTask, ChatSession, IdeaRound, ProjectActivity, ProjectCard, StartupProfile, User
 from founder.services import ideas
 from founder.services.ai import AIResponseFormatError, AIServiceError
 from founder.services.web_search import SearchResult
@@ -107,6 +107,10 @@ class RoundTests(TestCase):
     def setUp(self):
         user = User.objects.create_user("ideas", email="ideas@example.test", password="x")
         self.startup = StartupProfile.objects.create(owner=user, name="Пока без названия")
+        # Широкий поиск (Exa + DuckDuckGo) в тестах ведёт себя как подменённый в тесте search: сети нет.
+        wide = patch("founder.services.ideas.search_wide", side_effect=lambda *args, **kwargs: ideas.search(*args, **kwargs))
+        wide.start()
+        self.addCleanup(wide.stop)
 
     def found(self, query, limit, objective=None):
         return {"food sharing students startup": [SearchResult("Too Good To Go", "https://toogoodtogo.com/",
@@ -206,14 +210,21 @@ class PageTests(TestCase):
         self.startup = StartupProfile.objects.create(owner=self.user, name="Кофе у кампуса")
         self.client.force_login(self.user)
 
-    def test_page_is_in_the_project_menu_and_demo_round_is_created(self):
+    def test_workshop_and_tasks_are_not_in_the_project_menu(self):
+        response = self.client.get(reverse("dashboard", args=[self.startup.pk]))
+        self.assertNotContains(response, f'href="{reverse("ideas", args=[self.startup.pk])}"')
+        # Вкладки «Задания Бруно» нет, задания видны на «Радаре», дублируют «Разбор и план».
+        self.assertNotContains(response, 'aria-label="Задания Бруно"')
+        self.assertNotContains(response, 'aria-label="Мастерская идей"')
+        self.assertContains(response, 'aria-label="Разбор и план"')
+
+    def test_project_page_still_works_and_demo_round_is_created(self):
         response = self.client.get(reverse("ideas", args=[self.startup.pk]))
         self.assertContains(response, "Мастерская идей")
-        self.assertContains(response, reverse("ideas", args=[self.startup.pk]))
         response = self.client.post(reverse("ideas_generate", args=[self.startup.pk]), {"seed": "кофе"}, follow=True)
         item = IdeaRound.objects.get(startup=self.startup)
         self.assertContains(response, "Сначала руками для пяти знакомых")
-        self.assertContains(response, "Бруно начал бы с него")
+        self.assertContains(response, "Бруно советует")
         self.assertTrue(ProjectActivity.objects.filter(startup=self.startup, kind="ideas").exists())
         # Развить дальше: новый круг от направления.
         self.client.post(reverse("ideas_generate", args=[self.startup.pk]),
@@ -244,3 +255,167 @@ class PageTests(TestCase):
         with patch("founder.services.ideas.create_round", side_effect=AIServiceError("нет")):
             self.assertEqual(self.client.post(reverse("ideas_generate", args=[self.startup.pk])).status_code, 302)
             self.assertEqual(self.client.post(reverse("ideas_generate", args=[self.startup.pk])).status_code, 429)
+
+
+@override_settings(AI_PROVIDER="demo")
+class CreateFromIdeaTests(TestCase):
+    """Второй способ создать проект: развить идею с Бруно, одобрить карточку, получить проект."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("newidea", email="newidea@example.test", password="x")
+        self.client.force_login(self.user)
+
+    def generate(self, **data):
+        return self.client.post(reverse("idea_new_generate"), {"seed": "кофе", **data})
+
+    def test_create_page_offers_two_ways(self):
+        response = self.client.get(reverse("startup_create"))
+        self.assertContains(response, "Заполнить анкету")
+        self.assertContains(response, "Развить идею с Бруно")
+        self.assertContains(response, "Создать и поговорить с Бруно")
+        response = self.client.get(reverse("startup_create") + "?way=idea")
+        self.assertContains(response, "Начните с зерна")
+        self.assertContains(response, reverse("idea_new_generate"))
+        self.assertNotContains(response, "Создать и поговорить с Бруно")
+
+    def test_round_without_project_belongs_to_its_owner(self):
+        response = self.generate()
+        item = IdeaRound.objects.get()
+        self.assertEqual((item.owner, item.startup), (self.user, None))
+        self.assertRedirects(response, f"{reverse('startup_create')}?way=idea&id={item.pk}")
+        page = self.client.get(f"{reverse('startup_create')}?way=idea&id={item.pk}")
+        self.assertContains(page, "Выбрать эту идею")
+        self.assertContains(page, "Бруно советует")
+        self.assertContains(page, reverse("idea_new_advice", args=[item.pk, 1]))
+        # Развить дальше на странице создания: новый круг, тоже без проекта.
+        self.generate(seed="", parent=str(item.pk), index="0", wish="для родителей")
+        child = IdeaRound.objects.exclude(pk=item.pk).get()
+        self.assertEqual((child.parent, child.owner, child.startup), (item, self.user, None))
+        # Чужой основатель не видит круг и не может составить по нему карточку.
+        other = User.objects.create_user("stranger", email="stranger@example.test", password="x")
+        self.client.force_login(other)
+        self.assertNotContains(self.client.get(f"{reverse('startup_create')}?way=idea"), "Сначала руками")
+        card = reverse("idea_new_card", args=[item.pk, 0])
+        self.assertEqual(self.client.post(card, {"action": "draft"}).status_code, 404)
+        self.assertEqual(self.client.post(reverse("idea_new_generate"), {"parent": str(item.pk), "index": "0"}).status_code, 404)
+
+    def test_card_is_drafted_and_project_appears_only_after_approval(self):
+        self.generate()
+        item = IdeaRound.objects.get()
+        card = reverse("idea_new_card", args=[item.pk, 0])
+        self.assertRedirects(self.client.post(card, {"action": "draft"}), card)
+        self.assertEqual(StartupProfile.objects.count(), 0)
+        page = self.client.get(card)
+        self.assertContains(page, "Одобрить и создать проект")
+        self.assertContains(page, "Сначала руками для пяти знакомых")
+        values = {"name": "Кофе руками", "tagline": "Кофе для пяти знакомых", "problem": "Нет времени",
+                  "solution": "Варю сам", "audience": "Соседи по этажу", "business_model": "Платят за чашку",
+                  "summary": "Проверяем руками", "instruction": ""}
+        response = self.client.post(card, {**values, "action": "create"})
+        startup = StartupProfile.objects.get(owner=self.user)
+        self.assertTrue(ChatSession.objects.filter(startup=startup).exists())
+        # После одобрения Бруно сразу оценивает проект по радару и открывает радар.
+        self.assertRedirects(response, reverse("dashboard", args=[startup.pk]), fetch_redirect_response=False)
+        picture = startup.picture.facts
+        self.assertEqual(picture["money"], {"text": "Платят за чашку", "status": "guess"})
+        self.assertEqual((startup.name, startup.one_line_pitch, startup.target_customer, startup.stage),
+                         ("Кофе руками", "Кофе для пяти знакомых", "Соседи по этажу", "idea"))
+        project_card = ProjectCard.objects.get(startup=startup)
+        self.assertEqual(project_card.business_model, "Платят за чашку")
+        self.assertIsNone(project_card.published_at)
+        item.refresh_from_db()
+        self.assertEqual(item.startup, startup)
+        self.assertTrue(ProjectActivity.objects.filter(startup=startup, kind="ideas").exists())
+        # Круг уже в проекте: на странице создания его нет, повторно создать проект из него нельзя.
+        self.assertEqual(self.client.post(card, {**values, "action": "create"}).status_code, 404)
+
+    def test_card_without_name_is_not_approved(self):
+        self.generate()
+        item = IdeaRound.objects.get()
+        card = reverse("idea_new_card", args=[item.pk, 0])
+        response = self.client.post(card, {"name": "", "action": "create"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(StartupProfile.objects.count(), 0)
+
+    @override_settings(AI_PROVIDER="gigachat")
+    def test_bruno_refines_the_card_on_request_and_keeps_russian_name(self):
+        item = IdeaRound.objects.create(owner=self.user, seed="кофе", data=ideas.demo_round("кофе"))
+        card = reverse("idea_new_card", args=[item.pk, 0])
+        answer = json.dumps({"name": "CoffeeHands", "tagline": "Кофе для соседей по этажу", "problem": "Утром нет кофе",
+                             "solution": "Варим на этаже", "audience": "Первокурсники", "business_model": "Чашка 300 ₽",
+                             "summary": "Кофе на этаже"}, ensure_ascii=False)
+        values = {**ideas.card_from_direction(item.data["directions"][0]), "name": "Кофе на этаже"}
+        with patch("founder.services.ideas.complete_text", return_value=answer) as model:
+            self.client.post(card, {**values, "instruction": "клиент — первокурсники", "action": "refine"})
+        self.assertIn("Основатель просит поправить карточку: клиент — первокурсники", model.call_args.args[1])
+        stored = ideas.stored_card(IdeaRound.objects.get(pk=item.pk), 0)
+        # Английское название не берём, остаётся то, что было в карточке; выдуманная цена вырезана,
+        # и поле сохраняет прежний текст.
+        self.assertEqual(stored["name"], "Кофе на этаже")
+        self.assertEqual(stored["audience"], "Первокурсники")
+        self.assertEqual(stored["business_model"], values["business_model"])
+        self.assertEqual(StartupProfile.objects.count(), 0)
+
+    @override_settings(AI_REQUESTS_PER_MINUTE=1)
+    def test_workshop_without_project_counts_against_ai_limits(self):
+        with patch("founder.services.ideas.create_round", side_effect=AIServiceError("нет")):
+            self.assertEqual(self.generate().status_code, 302)
+            self.assertEqual(self.generate().status_code, 429)
+
+
+class DisplayTests(TestCase):
+    def test_source_numbers_are_removed_from_text(self):
+        self.assertEqual(ideas.strip_refs("Источник [3]: студенты жалуются на кухню."), "Студенты жалуются на кухню.")
+        self.assertEqual(ideas.strip_refs("[1], [6]: аналоги работают."), "Аналоги работают.")
+        self.assertEqual(ideas.strip_refs("Живём.ру [2], Flatmate [12] и Homeet (источник [7])."),
+                         "Живём.ру, Flatmate и Homeet.")
+        self.assertEqual(ideas.strip_refs("Цена 350 рублей [2][5]."), "Цена 350 рублей.")
+
+    def test_only_competitor_sources_are_shown(self):
+        item = IdeaRound(seed="еда", sources=SOURCES, data={"directions": [{"sources": [1, 2]}]})
+        self.assertEqual([source["domain"] for source in ideas.competitor_sources(item, item.data["directions"][0])],
+                         ["toogoodtogo.com"])
+
+
+@override_settings(AI_PROVIDER="gigachat")
+class AdviceTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("advice", email="advice@example.test", password="x")
+        data = ideas.parse_analysis(analysis(), SOURCES, ideas.allowed_numbers(SOURCES, []))
+        self.item = IdeaRound.objects.create(owner=self.user, seed="еда в общаге", data=data, sources=SOURCES)
+        self.client.force_login(self.user)
+
+    def test_recommended_idea_is_explained_without_asking_the_model(self):
+        with patch("founder.services.ideas.complete_text") as model:
+            result = ideas.advise(self.item, 1)
+        model.assert_not_called()
+        self.assertEqual(result, {"advice": "Её проще проверить за неделю.", "pick": 2})
+
+    def test_bruno_analyses_another_idea_and_may_change_his_advice(self):
+        keep = json.dumps({"advice": "Ты получишь соседей, но я бы начал со второй [2]: её проще проверить.",
+                           "recommend": 2}, ensure_ascii=False)
+        with patch("founder.services.ideas.complete_text", return_value=keep):
+            response = self.client.post(reverse("idea_new_advice", args=[self.item.pk, 0]))
+        self.assertEqual(response.json(), {"advice": "Вы получите соседей, но я бы начал со второй: её проще проверить.",
+                                           "pick": 2})
+        switch = json.dumps({"advice": "Эта сильнее: старосты уже собирают деньги этажа.", "recommend": 3},
+                            ensure_ascii=False)
+        with patch("founder.services.ideas.complete_text", return_value=switch):
+            result = self.client.post(reverse("idea_new_advice", args=[self.item.pk, 2])).json()
+        self.assertEqual(result["pick"], 3)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.data["pick"], 3)
+        # Прежний совет остаётся пояснением у прежней идеи, повторный выбор модель не спрашивает.
+        self.assertEqual(ideas.advice_for(self.item, 1), "Её проще проверить за неделю.")
+        with patch("founder.services.ideas.complete_text") as model:
+            self.assertEqual(self.client.post(reverse("idea_new_advice", args=[self.item.pk, 0])).json()["pick"], 3)
+        model.assert_not_called()
+
+    def test_failed_advice_is_reported_and_other_founder_gets_404(self):
+        with patch("founder.services.ideas.complete_text", side_effect=AIServiceError("нет")):
+            response = self.client.post(reverse("idea_new_advice", args=[self.item.pk, 0]))
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("error", response.json())
+        other = User.objects.create_user("advice2", email="advice2@example.test", password="x")
+        self.client.force_login(other)
+        self.assertEqual(self.client.post(reverse("idea_new_advice", args=[self.item.pk, 0])).status_code, 404)

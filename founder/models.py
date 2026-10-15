@@ -90,6 +90,8 @@ class StartupProfile(models.Model):
     target_customer = models.TextField(blank=True)
     stage = models.CharField(max_length=20, choices=Stage.choices, default=Stage.IDEA)
     website = models.URLField(blank=True)
+    # Числа экономики, которые основатель ввёл сам на странице «Рынок и конкуренты» (ключи economics.FIELDS).
+    economics = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -688,9 +690,14 @@ class IdeaRound(models.Model):
     """Круг Мастерской идей: из зерна идеи Бруно делает три направления с разбором и источниками.
 
     «Развить дальше» начинает новый круг от направления прошлого (parent + parent_index).
+    Круги на странице создания проекта ещё без проекта (startup пуст): их видит только owner,
+    а после одобрения карточки они переходят в созданный проект.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='idea_rounds')
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE,
+                              related_name='idea_rounds')
+    startup = models.ForeignKey(StartupProfile, null=True, blank=True, on_delete=models.CASCADE,
+                                related_name='idea_rounds')
     parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='children')
     parent_index = models.PositiveSmallIntegerField(null=True, blank=True)
     seed = models.CharField(max_length=600)
@@ -897,3 +904,7 @@ class AIRequestLease(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     token = models.UUIDField(default=uuid.uuid4)
     expires_at = models.DateTimeField()
+    # Чем Бруно занят: страницы показывают «Бруно работает над …», даже если основатель ушёл и вернулся.
+    route = models.CharField(max_length=60, blank=True, default='')
+    startup_id = models.UUIDField(null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
