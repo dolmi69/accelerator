@@ -659,6 +659,23 @@ class ProjectPicture(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
+class ValueCanvas(models.Model):
+    """«Клиент и ценность»: сегменты ABCDX → брейншторм по сегменту A (JTBD) → ценностное предложение.
+
+    Варианты предлагает Бруно, решения (буквы сегментов, выбранные ситуации, итоговая
+    формулировка) принимает основатель.
+    """
+
+    startup = models.OneToOneField(StartupProfile, on_delete=models.CASCADE, related_name='value_canvas')
+    segments = models.JSONField(default=list, blank=True)
+    situations = models.JSONField(default=list, blank=True)
+    jobs = models.JSONField(default=list, blank=True)
+    options = models.JSONField(default=dict, blank=True)
+    value = models.CharField(max_length=400, blank=True)
+    value_source = models.CharField(max_length=10, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class MentorIdea(models.Model):
     """Идея из «давай подумаем»: её можно одной кнопкой взять в задания."""
 

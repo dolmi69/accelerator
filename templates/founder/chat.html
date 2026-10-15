@@ -225,6 +225,7 @@
                                 <p>{{ picture.gap }}</p>
                             </div>
                         {% endif %}
+                        {% include 'founder/_picture_value.html' %}
                         {% if can_edit %}
                             <details class="picture-edit">
                                 <summary>Поправить картину</summary>
@@ -248,6 +249,7 @@
                         <p class="muted small">
                             Бруно соберёт её по ходу разговора: клиент, проблема, деньги, каналы, конкуренты и что из этого уже проверено.
                         </p>
+                        {% include 'founder/_picture_value.html' %}
                     {% endif %}
                 </div>
             </details>
