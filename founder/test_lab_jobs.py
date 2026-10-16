@@ -116,7 +116,7 @@ class LabJobTests(TransactionTestCase):
         LabGenerationJob.objects.filter(pk=job_id).update(status='running', pid=os.getpid(), heartbeat_at=timezone.now()-timedelta(minutes=5))
         job = LabGenerationJob.objects.get(pk=job_id)
         self.assertEqual(refresh(job).status, 'running')
-        with patch('founder.services.lab_jobs.os.kill', side_effect=ProcessLookupError):
+        with patch('founder.services.lab_jobs.process_is_alive', return_value=False):
             self.assertEqual(refresh(job).status, 'failed')
         self.assertIn('Автоматического платного повтора нет', job.error)
 
@@ -136,6 +136,6 @@ class LabJobTests(TransactionTestCase):
         token = acquire_ai_lease(self.user.pk)
         LabGenerationJob.objects.filter(pk=job_id).update(status='running', pid=999999,
             heartbeat_at=timezone.now()-timedelta(minutes=5), lease_token=token)
-        with patch('founder.services.lab_jobs.os.kill', side_effect=ProcessLookupError):
+        with patch('founder.services.lab_jobs.process_is_alive', return_value=False):
             refresh(LabGenerationJob.objects.get(pk=job_id))
         self.assertLessEqual(AIRequestLease.objects.get(user=self.user).expires_at, timezone.now())

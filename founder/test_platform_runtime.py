@@ -55,6 +55,21 @@ class PlatformAdapterTests(SimpleTestCase):
         kernel.CloseHandle.assert_called_once_with(123)
         kill.assert_not_called()
 
+    def test_windows_liveness_probe_never_sends_a_signal_or_terminates(self):
+        for state, alive in [(258, True), (0, False)]:
+            with self.subTest(state=state):
+                kernel = MagicMock()
+                kernel.OpenProcess.return_value = 123
+                kernel.WaitForSingleObject.return_value = state
+                with patch('ctypes.WinDLL', return_value=kernel, create=True), \
+                     patch.object(runtime, 'is_windows', return_value=True), \
+                     patch.object(os, 'kill') as kill:
+                    self.assertEqual(runtime.process_is_alive(20000), alive)
+                kernel.OpenProcess.assert_called_once_with(0x00100000, False, 20000)
+                kernel.CloseHandle.assert_called_once_with(123)
+                kernel.TerminateProcess.assert_not_called()
+                kill.assert_not_called()
+
 
 class NativeLabRuntimeTests(TestCase):
     def test_real_launch_stop_restart_with_cyrillic_and_spaces(self):

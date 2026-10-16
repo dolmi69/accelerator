@@ -12,6 +12,7 @@ import sys
 import threading
 from datetime import timedelta
 from urllib.parse import urlsplit
+from runtime_support import process_is_alive
 
 from django.conf import settings
 from django.contrib.messages.storage.fallback import FallbackStorage
@@ -50,8 +51,8 @@ def refresh(job):
     if job and job.status == 'running' and job.heartbeat_at and job.heartbeat_at < timezone.now() - timedelta(seconds=90):
         if job.pid:
             try:
-                os.kill(job.pid, 0)
-                return job  # A sleeping computer must not cancel a live worker.
+                if process_is_alive(job.pid):
+                    return job  # A sleeping computer must not cancel a live worker.
             except ProcessLookupError:
                 pass
             except PermissionError:

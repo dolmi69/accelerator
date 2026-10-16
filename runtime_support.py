@@ -105,3 +105,42 @@ def stop_windows_process(pid, *, timeout=4):
             raise ctypes.WinError(ctypes.get_last_error())
     finally:
         kernel.CloseHandle(handle)
+
+
+def process_is_alive(pid):
+    """Read process state without sending a signal on Windows."""
+    if not is_windows():
+        try:
+            os.kill(pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+    import ctypes
+    from ctypes import wintypes
+
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    kernel.WaitForSingleObject.restype = wintypes.DWORD
+    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel.CloseHandle.restype = wintypes.BOOL
+    handle = kernel.OpenProcess(0x00100000, False, pid)  # synchronize, no termination rights
+    if not handle:
+        error = ctypes.get_last_error()
+        if error == 87:  # invalid PID: process no longer exists
+            return False
+        if error == 5:  # access denied is not proof that the worker died
+            return True
+        raise ctypes.WinError(error)
+    try:
+        state = kernel.WaitForSingleObject(handle, 0)
+        if state == 258:  # WAIT_TIMEOUT: still running
+            return True
+        if state == 0:  # WAIT_OBJECT_0: exited
+            return False
+        raise ctypes.WinError(ctypes.get_last_error())
+    finally:
+        kernel.CloseHandle(handle)
