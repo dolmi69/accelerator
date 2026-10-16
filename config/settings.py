@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "founder",
+    "payments",
 ]
 
 MIDDLEWARE = [
@@ -65,6 +66,8 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "founder.context_processors.bruno_pet",
                 "founder.context_processors.community",
+                "founder.context_processors.plan",
+                "payments.context_processors.wallet",
             ],
         },
     },
@@ -227,3 +230,19 @@ LAB_BACKEND_STAGED_GENERATION = os.getenv("LAB_BACKEND_STAGED_GENERATION", "1").
 
 # Temporarily paused until surveys can be run inside the community.
 KANO_SURVEYS_ENABLED = False
+# --- Приём крипты (USDT TRC-20) напрямую на собственный кошелёк ---
+# Сервер держит только публичный ключ (xpub) и не может распоряжаться деньгами.
+PAYMENTS_ENABLED = os.getenv("PAYMENTS_ENABLED", "1" if DEBUG else "0") == "1"
+PAYMENTS_XPUB = os.getenv("PAYMENTS_XPUB", "")
+PAYMENTS_NETWORK = os.getenv("PAYMENTS_NETWORK", "tron")
+PAYMENTS_TRONGRID_API_KEY = os.environ.get("PAYMENTS_TRONGRID_API_KEY", "")
+PAYMENTS_USDT_CONTRACT = os.getenv("PAYMENTS_USDT_CONTRACT", "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
+PAYMENTS_REQUIRED_CONFIRMATIONS = int(os.getenv("PAYMENTS_REQUIRED_CONFIRMATIONS", "19"))
+PAYMENTS_INVOICE_TTL_MINUTES = int(os.getenv("PAYMENTS_INVOICE_TTL_MINUTES", "30"))
+PAYMENTS_MAX_INVOICE_AMOUNT = os.getenv("PAYMENTS_MAX_INVOICE_AMOUNT", "1000")
+PAYMENTS_RECEIVE_INDEX = int(os.getenv("PAYMENTS_RECEIVE_INDEX", "0"))
+
+# --- Тарифы: цена Pro для страницы тарифов ---
+# Ориентир: python manage.py lab_usage --ai-budget <руб.> --margin-percent <%>
+PRO_PRICE_RUB = os.getenv("PRO_PRICE_RUB", "149")
+PRO_DAYS = int(os.getenv("PRO_DAYS", "30"))

@@ -7,4 +7,5 @@ urlpatterns = [
     path("", include("founder.profile_urls")),
     path("", include("founder.community_urls")),
     path("", include("founder.urls")),
+    path("pay/", include("payments.urls")),
 ]

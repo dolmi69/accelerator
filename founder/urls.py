@@ -3,7 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.urls import reverse_lazy
 
-from founder import views, workbench_views, lab_views, lab_testing_views, team_views, coin_views, feature_views
+from founder import views, workbench_views, lab_views, lab_testing_views, team_views, coin_views, feature_views, plans_views
 
 
 urlpatterns = [
@@ -105,4 +105,7 @@ urlpatterns = [
     path("startups/<uuid:startup_id>/chat/<uuid:session_id>/ideas/<int:idea_id>/task/",
          views.idea_task, name="idea_task"),
     path("startups/<uuid:startup_id>/chat/<uuid:session_id>/picture/", views.picture_edit, name="picture_edit"),
+    path("tariffs/", plans_views.tariffs, name="tariffs"),
+    path("tariffs/pro/test-pay/", plans_views.pro_test_pay, name="pro_test_pay"),
+    path("tariffs/pro/test-pay/confirm/", plans_views.pro_test_pay_confirm, name="pro_test_pay_confirm"),
 ]

@@ -54,3 +54,11 @@ def community(request):
     from founder.services.messaging import unread_count
     return {'direct_unread': unread_count(request.user.pk),
             'project_invites_count': pending_invites(request.user).count() + join_requests_for(request.user).count()}
+
+
+def plan(request):
+    """Тариф Pro для шапки: бейдж."""
+    if not request.user.is_authenticated:
+        return {}
+    from founder.services import plans
+    return {'is_pro': plans.is_pro(request.user), 'pro_until': request.user.pro_until}

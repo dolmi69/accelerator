@@ -242,3 +242,25 @@ def economics_note(lines):
         return ""
     return ("Расчёт денег проекта (посчитан программой по словам основателя, "
             "числа верные, опирайся на них и не пересчитывай):\n" + "\n".join(lines))
+
+
+def som_forecast(contacts_per_week, conversion_percent, check_rub, months=6):
+    """SOM: сколько команда возьмёт за N месяцев: контакты в неделю × недели × конверсия × чек.
+
+    Считает Python — это арифметика, а не суждение. Конверсия — процент контактов,
+    становящихся платящими. Пустой нулевой вход даёт нули, а не ошибку.
+    """
+    weeks = months * 52 / 12
+    contacts = contacts_per_week * weeks
+    customers = contacts * conversion_percent / 100
+    revenue = customers * check_rub
+    return {
+        "months": months,
+        "weeks": round(weeks, 1),
+        "contacts_per_week": contacts_per_week,
+        "conversion_percent": conversion_percent,
+        "check": check_rub,
+        "contacts": round(contacts),
+        "customers": round(customers),
+        "revenue": round(revenue),
+    }
