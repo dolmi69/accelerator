@@ -61,7 +61,7 @@
              id="bounty"
              {% if bounties %}open{% endif %}>
         <summary>
-            Награда тестировщикам <small>{{ bounties|length }} активных</small>
+            Награда тестировщикам <small>{{ bounties|length|plural:"активная,активные,активных" }}</small>
         </summary>
         <div class="project-fold-body">
             <p>

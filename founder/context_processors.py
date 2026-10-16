@@ -62,3 +62,14 @@ def plan(request):
         return {}
     from founder.services import plans
     return {'is_pro': plans.is_pro(request.user), 'pro_until': request.user.pro_until}
+
+def bruno_job(request):
+    """Долгий AI-запрос основателя ещё идёт: страница покажет «Бруно сейчас …» и обновится, когда он закончит."""
+    from django.db import DatabaseError
+
+    from founder.services.bruno_jobs import current_job
+
+    try:
+        return {"bruno_job": current_job(getattr(request, "user", None))}
+    except DatabaseError:
+        return {"bruno_job": None}

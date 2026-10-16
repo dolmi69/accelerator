@@ -101,6 +101,8 @@ class StartupProfile(models.Model):
     stage = models.CharField(max_length=20, choices=Stage.choices, default=Stage.IDEA)
     work_focus = models.CharField('Текущий фокус', max_length=12, choices=WorkFocus.choices, default=WorkFocus.AUTO)
     website = models.URLField(blank=True)
+    # Числа экономики, которые основатель ввёл сам на странице «Рынок и конкуренты» (ключи economics.FIELDS).
+    economics = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -236,6 +238,7 @@ class ProjectActivity(models.Model):
         LAB = "lab", "Лаборатория"
         TEAM = "team", "Команда"
         COINS = "coins", "Монеты"
+        IDEAS = "ideas", "Идеи"
 
     startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name="activities")
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
@@ -483,6 +486,8 @@ class ChatSession(models.Model):
     ])
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     completed_at = models.DateTimeField(null=True, blank=True)
+    # Панель акул: кто решает (инвесторы, вуз или фонд, компания), название организации и откуда Бруно это знает.
+    panel_audience = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -734,6 +739,33 @@ class MarketReport(models.Model):
         ordering = ['-created_at', '-id']
 
 
+class IdeaRound(models.Model):
+    """Круг Мастерской идей: из зерна идеи Бруно делает три направления с разбором и источниками.
+
+    «Развить дальше» начинает новый круг от направления прошлого (parent + parent_index).
+    Круги на странице создания проекта ещё без проекта (startup пуст): их видит только owner,
+    а после одобрения карточки они переходят в созданный проект.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE,
+                              related_name='idea_rounds')
+    startup = models.ForeignKey(StartupProfile, null=True, blank=True, on_delete=models.CASCADE,
+                                related_name='idea_rounds')
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='children')
+    parent_index = models.PositiveSmallIntegerField(null=True, blank=True)
+    seed = models.CharField(max_length=600)
+    wish = models.CharField(max_length=300, blank=True)
+    data = models.JSONField(default=dict)
+    # [{title, url, snippet, published, domain, kind}] — то, что видела модель, под номерами [1], [2]…
+    sources = models.JSONField(default=list, blank=True)
+    queries = models.JSONField(default=list, blank=True)
+    ai_model = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+
 class MessageFeedback(models.Model):
     """Оценка ответа Бруно основателем. Неудачные ответы становятся новыми
     сценариями проверки (`manage.py bruno_feedback`)."""
@@ -942,6 +974,10 @@ class AIRequestLease(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     token = models.UUIDField(default=uuid.uuid4)
     expires_at = models.DateTimeField()
+    # Чем Бруно занят: страницы показывают «Бруно работает над …», даже если основатель ушёл и вернулся.
+    route = models.CharField(max_length=60, blank=True, default='')
+    startup_id = models.UUIDField(null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
 
 
 class FeatureCandidate(models.Model):

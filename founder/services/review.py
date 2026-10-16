@@ -94,7 +94,10 @@ REVIEW_PROMPT = (
     "steps — 3–6 шагов по неделям (week 1–4), от самого рискованного допущения. "
     "Каждый шаг: конкретное действие с числами (сколько людей, какой бюджет, "
     "какой срок) и проверяемый критерий done_when, при котором шаг закончен, даже "
-    "если результат отрицательный. Шаги должны быть по силам текущей команде.\n\n"
+    "если результат отрицательный. Шаги должны быть по силам текущей команде. Спрос, "
+    "продления и повторные покупки проверяй поступком: предложите продлить или купить с "
+    "предоплатой и посчитайте оплаты. Опрос и «узнать, планируют ли» — не шаг: люди из "
+    "вежливости говорят «да».\n\n"
     "Опирайся только на данные ниже. Не выдумывай клиентов, выручку, конкурентов и "
     "исследования; если чего-то не хватает, скажи об этом в рисках или шагах. "
     "Названия конкурентов упоминай, только если их назвал основатель или они есть в анализе "
@@ -124,14 +127,14 @@ def _review_context(startup, *, extract_economics=True):
         radar = {key: {"score": getattr(latest, key), "reason": latest.assessment_details.get(key, "")}
                  for key, _ in AXES}
         context += "\n\nПоследний радар (оценка подтверждений, 0–100): " + json.dumps(radar, ensure_ascii=False)
-    from founder.services.economics import economics_note, unit_economics
+    from founder.services.economics import economics_note, project_economics
 
     if extract_economics:
         founder_words = list(reversed(ChatMessage.objects.filter(
             session__startup=startup, session__mode=ChatSession.Mode.COFOUNDER, role=ChatMessage.Role.USER,
         ).order_by("-created_at", "-id").values_list("content", flat=True)[:20]))
         texts = [startup.one_line_pitch, startup.solution, startup.target_customer, *founder_words]
-        economics = economics_note(unit_economics([text for text in texts if text], latest_only=False))
+        economics = economics_note(project_economics(startup, [text for text in texts if text], latest_only=False))
         if economics:
             context += "\n\n" + economics
     from founder.services.market import latest_report, report_note
@@ -300,6 +303,18 @@ def demo_review(startup):
     }
 
 
+PLANS_QUESTION_RE = re.compile(r"планиру\w*\s+ли|собира\w*\s+ли|узна\w*,?\s+(?:будут|станут|хотят)", re.IGNORECASE)
+
+
+def weak_steps(data):
+    """Шаги-опросы: «Провести опрос… узнать, планируют ли продлить; собрано 15 ответов»."""
+    from founder.services.ideas import weakness
+
+    return [step["title"] for step in data["steps"]
+            if weakness("test", f"{step['title']}. {step['action']}. {step['done_when']}")
+            or PLANS_QUESTION_RE.search(step["action"])]
+
+
 def context_digest(startup):
     """Detect changes since the saved analysis; never refresh it on a GET."""
     profile = {key: getattr(startup, key) for key in (
@@ -388,6 +403,9 @@ def create_review(startup, method="rice"):
             prompt += "\nОпросы Кано временно отключены. Не предлагай такие опросы и не составляй для них вопросы."
         data = parse_review(complete_text(prompt, context, json_schema=schema,
                                          max_tokens=6000 + len(targets) * 180), require_estimates=True)
+        weak = weak_steps(data)
+        if weak:
+            raise AIResponseFormatError('Бруно предложил опрос вместо проверки спроса действием. Предыдущий план сохранён.')
         parsed = parse_existing(data['estimates'], targets)
     allowed = {str(pk) for pk in startup.feature_candidates.values_list('pk', flat=True)}
     if any(step.get('feature_id') and step['feature_id'] not in allowed for step in data['steps']):

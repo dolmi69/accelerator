@@ -57,6 +57,12 @@ class SummarizeTests(SimpleTestCase):
         self.assertNotIn("220", text)
         self.assertIn("−710 ₽", text)
 
+    def test_price_without_costs_still_gives_break_even_with_caveat(self):
+        text = "\n".join(summarize({"customer_payment_month": 700, "fixed_costs_month": 8500, "cash_on_hand": 30000}))
+        self.assertIn("8 500 ₽ / 700 ₽ с клиента = 13 платящих клиентов", text)
+        self.assertIn("если на самого клиента вы ничего не тратите", text)
+        self.assertIn("= 17 продаж в месяц", "\n".join(summarize({"price_per_unit": 500, "fixed_costs_month": 8500})))
+
     def test_not_enough_numbers_or_garbage_gives_nothing(self):
         self.assertEqual(summarize({"cac": 3000}), [])
         self.assertEqual(summarize({"customer_payment_month": "много", "cost_per_unit": True}), [])

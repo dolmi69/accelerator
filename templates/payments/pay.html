@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load l10n %}
-{% block title %}Счёт {{ invoice.order_id }} · Co-Founder.AI{% endblock %}
+{% block title %}Счёт {{ invoice.order_id }} · BrunoLab{% endblock %}
 {% block content %}
 <section class="pay-card-wrap">
   <div class="pay-card" id="invoice-card" data-status-url="{% url 'invoice_status' invoice.id %}"

@@ -23,7 +23,7 @@ jobs:
       - name: Миграции соответствуют моделям
         run: python manage.py makemigrations --check --dry-run
       - name: Тесты Django
-        run: python manage.py test founder
+        run: python manage.py test founder payments
       - name: Тесты экспортируемого сайта
         run: python manage.py test_blueprint
 

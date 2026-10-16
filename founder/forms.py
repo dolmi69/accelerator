@@ -52,13 +52,137 @@ class StartupForm(forms.ModelForm):
             "name", "one_line_pitch", "problem", "solution",
             "target_customer", "stage", "website",
         )
-        labels = {"website": "Сайт (необязательно)"}
+        # У полей модели нет русских подписей: без них анкета показывала «Name», «One line pitch».
+        labels = {"name": "Название", "one_line_pitch": "Идея в одном предложении", "problem": "Проблема",
+                  "solution": "Решение", "target_customer": "Для кого", "stage": "Стадия",
+                  "website": "Сайт (необязательно)"}
         widgets = {
             "problem": forms.Textarea(attrs={"rows": 3}),
             "solution": forms.Textarea(attrs={"rows": 3}),
             "target_customer": forms.Textarea(attrs={"rows": 3}),
             "website": forms.URLInput(attrs={"placeholder": "Можно добавить позже"}),
         }
+
+
+class IdeaCardForm(forms.Form):
+    """Карточка проекта, которую Бруно составил из идеи. Основатель правит и одобряет её, потом создаётся проект."""
+
+    name = forms.CharField(label="Название", max_length=60)
+    tagline = forms.CharField(label="Идея в одном предложении", max_length=240, required=False)
+    problem = forms.CharField(label="Проблема", max_length=400, required=False,
+                              widget=forms.Textarea(attrs={"rows": 3}))
+    solution = forms.CharField(label="Решение", max_length=400, required=False,
+                               widget=forms.Textarea(attrs={"rows": 3}))
+    audience = forms.CharField(label="Для кого", max_length=300, required=False,
+                               widget=forms.Textarea(attrs={"rows": 2}))
+    business_model = forms.CharField(label="Как зарабатываем", max_length=300, required=False,
+                                     widget=forms.Textarea(attrs={"rows": 2}))
+    summary = forms.CharField(label="Коротко о проекте", max_length=600, required=False,
+                              widget=forms.Textarea(attrs={"rows": 3}))
+    instruction = forms.CharField(label="Что поправить", max_length=300, required=False,
+                                  widget=forms.TextInput(attrs={"placeholder": "Например: название проще, клиент — первокурсники"}))
+
+
+class EconomicsForm(forms.Form):
+    """Числа экономики прямо на странице рынка. Расчёт делает economics.summarize, без модели.
+
+    Восемь полей подряд путали основателя на стадии идеи, поэтому форма короче: план расходов
+    списком (сумма = постоянные расходы), одна цена с выбором «за покупку / в месяц / комиссия»
+    и деньги на старте. В StartupProfile.economics лежат прежние ключи, их читают Бруно и акулы.
+    """
+
+    PRICING = (("sale", "за покупку"), ("month", "подписка в месяц"), ("commission", "комиссия со сделки"))
+    MAX_EXPENSES = 12
+    _money = {"min_value": 0, "max_value": 10_000_000_000, "required": False, "decimal_places": 2, "max_digits": 14}
+    pricing = forms.ChoiceField(label="Как платит клиент", choices=PRICING, required=False, widget=forms.RadioSelect)
+    price = forms.DecimalField(label="Цена для клиента, ₽", **_money)
+    # Подпись в шаблоне меняется с выбором цены: «на одну продажу» или «на клиента в месяц».
+    cost = forms.DecimalField(label="Ваши затраты на одну продажу, ₽", **_money,
+                              help_text="Продукты, упаковка, доставка")
+    commission_percent = forms.DecimalField(label="Ваша комиссия, %", min_value=0, max_value=100, required=False,
+                                            decimal_places=2, max_digits=5)
+    cash_on_hand = forms.DecimalField(label="Деньги на старте, ₽", **_money)
+    customers = forms.IntegerField(label="Платящих клиентов сейчас", min_value=0, max_value=10_000_000,
+                                   required=False)
+
+    def __init__(self, *args, show_customers=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not show_customers:
+            del self.fields["customers"]
+        self.expense_rows = self._bound_rows() if self.is_bound else list(self.initial.get("expenses") or [])
+        self.expense_rows.append({"name": "", "amount": ""})
+        self.expense_error = ""
+
+    @classmethod
+    def initial_from(cls, values):
+        """Сохранённые числа → поля формы. Старые данные без списка расходов становятся одной строкой."""
+        def shown(value):
+            value = float(value or 0)
+            return int(value) if value.is_integer() else value
+
+        values = values or {}
+        if values.get("customer_payment_month"):
+            pricing, price, cost = "month", values["customer_payment_month"], values.get("cost_per_customer_month")
+        else:
+            pricing = "commission" if values.get("commission_percent") else "sale"
+            price, cost = values.get("price_per_unit"), values.get("cost_per_unit")
+        expenses = [{"name": item.get("name", ""), "amount": shown(item.get("amount"))}
+                    for item in values.get("expenses") or [] if isinstance(item, dict)]
+        if not expenses and values.get("fixed_costs_month"):
+            expenses = [{"name": "Постоянные расходы", "amount": shown(values["fixed_costs_month"])}]
+        initial = {"pricing": pricing, "expenses": expenses}
+        for key, value in (("price", price), ("cost", cost), ("commission_percent", values.get("commission_percent")),
+                           ("cash_on_hand", values.get("cash_on_hand")), ("customers", values.get("customers"))):
+            if value:
+                initial[key] = shown(value)
+        return initial
+
+    def _bound_rows(self):
+        names, amounts = self.data.getlist("expense_name"), self.data.getlist("expense_amount")
+        rows = [{"name": name.strip()[:60], "amount": amount.strip().replace(" ", "").replace(",", ".")}
+                for name, amount in zip(names, amounts) if name.strip() or amount.strip()]
+        return rows[:self.MAX_EXPENSES]
+
+    def clean(self):
+        values = super().clean()
+        expenses = []
+        for row in self.expense_rows:
+            if not row["amount"]:
+                continue
+            try:
+                amount = float(row["amount"])
+            except ValueError:
+                amount = -1
+            if not 0 <= amount <= 10_000_000_000:
+                self.expense_error = "Сумма расхода — число в рублях, например 5000."
+                raise forms.ValidationError(self.expense_error)
+            if amount:
+                expenses.append({"name": row["name"] or "Расходы", "amount": amount})
+        if any(row["name"] and not row["amount"] for row in self.expense_rows):
+            self.expense_error = "У каждой статьи расходов укажите сумму в месяц."
+            raise forms.ValidationError(self.expense_error)
+        values["expenses"] = expenses
+        numbers = ("price", "cost", "commission_percent", "cash_on_hand", "customers")
+        if not expenses and not any(values.get(name) for name in numbers):
+            raise forms.ValidationError("Заполните хотя бы одно число.")
+        if values.get("pricing") == "commission" and values.get("price") and not values.get("commission_percent"):
+            self.add_error("commission_percent", "Укажите, какой процент сделки получаете вы.")
+        return values
+
+    def economics(self):
+        """Ключи economics.FIELDS (их читают расчёт, Бруно и акулы) + список расходов для формы."""
+        data = self.cleaned_data
+        pricing = data.get("pricing") or "sale"
+        price_key, cost_key = (("customer_payment_month", "cost_per_customer_month") if pricing == "month"
+                               else ("price_per_unit", "cost_per_unit"))
+        values = {price_key: data.get("price"), cost_key: data.get("cost"),
+                  "commission_percent": data.get("commission_percent") if pricing == "commission" else None,
+                  "fixed_costs_month": sum(item["amount"] for item in data["expenses"]),
+                  "cash_on_hand": data.get("cash_on_hand"), "customers": data.get("customers")}
+        values = {key: float(value) for key, value in values.items() if value}
+        if data["expenses"]:
+            values["expenses"] = data["expenses"]
+        return values
 
 
 class LabPromptForm(forms.Form):

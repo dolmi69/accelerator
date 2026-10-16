@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Мастерская идей · {{ startup.name }}{% endblock %}
+{% block content %}
+{% include 'founder/_workspace_nav.html' %}
+<div class="page-heading work-heading"><div><span class="eyebrow">БРУНО-КРЕАТИВЩИК</span><h1>Мастерская идей</h1><p>{{ startup.name }} · Из маленького зерна — три сильных направления с разбором и источниками.</p></div></div>
+{% include 'founder/_idea_workshop.html' %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}?v=2" defer></script><script src="{% static 'founder/js/idea-picker.js' %}?v=1" defer></script>{% endblock %}

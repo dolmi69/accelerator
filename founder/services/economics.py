@@ -173,14 +173,32 @@ def _break_even(v, profit, unit_profit, lines):
         lines.append(f"Безубыточность: {_rub(fixed)} постоянных расходов / {_rub(unit_profit)} с продажи = "
                      f"{_count(sales)} продаж в месяц, примерно {_count(math.ceil(sales / 30))} в день.")
     elif profit and profit > 0:
+        need = math.ceil(fixed / profit)
         lines.append(f"Безубыточность: {_rub(fixed)} постоянных расходов / {_rub(profit)} с клиента = "
-                     f"{_count(math.ceil(fixed / profit))} платящих клиентов в месяц.")
+                     f"{_count(need)} платящих клиентов в месяц.")
+        customers = int(v["customers"])
+        if customers:
+            # Без этой строки Бруно говорил «близок к самоокупаемости» при 420 клиентах и безубыточности в 352.
+            result = customers * profit - fixed
+            verdict = ("проект уже в плюсе" if result > 0 else
+                       f"до безубыточности не хватает {_count(need - customers)} клиентов")
+            lines.append(f"Сейчас {_count(customers)} клиентов: {_count(customers)} × {_rub(profit)} − {_rub(fixed)} "
+                         f"= {_rub(result)} в месяц, {verdict}.")
     elif (unit_profit is not None and unit_profit <= 0) or (profit is not None and profit <= 0):
         lines.append(f"Постоянные расходы {_rub(fixed)} в месяц не окупятся ни при каком числе продаж, "
                      "пока с каждой продажи проект теряет деньги.")
     elif v["margin_percent"]:
         lines.append(f"Безубыточность: {_rub(fixed)} / {v['margin_percent']:g}% маржи = выручка "
                      f"{_rub(fixed / v['margin_percent'] * 100)} в месяц.")
+    elif v["customer_payment_month"] and not v["cost_per_customer_month"] and not v["cost_per_unit"]:
+        # Подписка без затрат на клиента: раньше расчёт молчал и просил «остаток с одной продажи».
+        need = math.ceil(fixed / v["customer_payment_month"])
+        lines.append(f"Безубыточность: {_rub(fixed)} / {_rub(v['customer_payment_month'])} с клиента = "
+                     f"{_count(need)} платящих клиентов в месяц, если на самого клиента вы ничего не тратите.")
+    elif v["price_per_unit"] and not v["commission_percent"] and not v["cost_per_unit"]:
+        sales = math.ceil(fixed / v["price_per_unit"])
+        lines.append(f"Безубыточность: {_rub(fixed)} / {_rub(v['price_per_unit'])} = {_count(sales)} продаж в месяц, "
+                     "если на саму продажу вы ничего не тратите. Впишите затраты на продажу, и расчёт станет точнее.")
     else:
         lines.append(f"Постоянные расходы {_rub(fixed)} в месяц: чтобы посчитать безубыточность, нужно знать, "
                      "сколько проекту остаётся с одной продажи.")
@@ -264,3 +282,58 @@ def som_forecast(contacts_per_week, conversion_percent, check_rub, months=6):
         "customers": round(customers),
         "revenue": round(revenue),
     }
+
+INPUT_LABELS = (
+    ("price_per_unit", "цена продажи {}"), ("cost_per_unit", "затраты на продажу {}"),
+    ("customer_payment_month", "подписка {} в месяц"), ("cost_per_customer_month", "затраты на клиента {} в месяц"),
+    ("commission_percent", "комиссия {}"), ("fixed_costs_month", "постоянные расходы {} в месяц"),
+    ("cash_on_hand", "на старте {}"), ("customers", "платящих клиентов {}"),
+)
+
+
+def inputs_text(values):
+    """Числа основателя одной строкой: «цена продажи 500 ₽, затраты на продажу 200 ₽…»."""
+    parts = []
+    expenses = [item for item in (values or {}).get("expenses") or [] if isinstance(item, dict)]
+    for key, template in INPUT_LABELS:
+        value = _number((values or {}).get(key))
+        if value:
+            shown = (f"{value:g}%" if key == "commission_percent" else _count(int(value)) if key == "customers"
+                     else _rub(value))
+            part = template.format(shown)
+            if key == "fixed_costs_month" and expenses:
+                # Статьи расходов нужны Бруно и Маргарите: «на что уйдут деньги» — их частый вопрос.
+                part += " (" + ", ".join(f"{item.get('name', '')} {_rub(_number(item.get('amount')))}"
+                                         for item in expenses[:8]) + ")"
+            parts.append(part)
+    return ", ".join(parts)
+
+
+def remember_inputs(startup, values):
+    """Числа со страницы рынка попадают в картину проекта (тема «Деньги»): их видят Бруно и акулы."""
+    from django.db import transaction
+
+    from founder.models import ProjectPicture
+    from founder.services.mentor import merge_facts
+
+    text = inputs_text(values)
+    if not text:
+        return
+    with transaction.atomic():
+        picture, _ = ProjectPicture.objects.select_for_update().get_or_create(startup=startup)
+        note = {"text": ("Основатель ввёл: " + text)[:300], "status": "guess"}
+        picture.facts = merge_facts(picture.facts, {"money": note})
+        picture.save(update_fields=["facts"])
+
+
+def project_economics(startup, texts, *, latest_only=True):
+    """Расчёт по словам основателя, а если в них чисел нет — по числам, введённым на странице рынка.
+
+    Для отчётов по всему рассказу (latest_only=False) введённые числа главнее: основатель ввёл их сам и точно.
+    """
+    if not latest_only and getattr(startup, "economics", None):
+        return summarize(startup.economics)
+    lines = unit_economics(texts, latest_only=latest_only) if texts else []
+    if not lines and getattr(startup, "economics", None):
+        lines = summarize(startup.economics)
+    return lines

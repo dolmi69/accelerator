@@ -4,7 +4,7 @@
             <span class="eyebrow">КАК МЕНЯЛАСЬ КАРТИНА</span>
             <h2>История радара</h2>
         </div>
-        <span class="muted small">{{ history_page.paginator.count }} версий</span>
+        <span class="muted small">{{ history_page.paginator.count|plural:"версия,версии,версий" }}</span>
     </div>
     {% if history_selected %}
         <nav class="snapshot-list" aria-label="Сохранённые оценки">

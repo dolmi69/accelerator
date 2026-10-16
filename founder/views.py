@@ -1,5 +1,4 @@
 import json
-from datetime import timedelta
 from uuid import UUID
 from pathlib import Path
 from asgiref.sync import sync_to_async
@@ -18,12 +17,12 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from founder.forms import ChatSendForm, EvidenceForm, MetricsForm, RegisterForm, StartupForm
+from founder.forms import ChatSendForm, EvidenceForm, IdeaCardForm, MetricsForm, RegisterForm, StartupForm
 from founder.models import (
-    BrunoTask, BusinessAxis, ChatAttachment, ChatMessage, ChatSession, EvidenceConversation, MascotState, MentorIdea, MessageFeedback,
+    BrunoTask, BusinessAxis, ChatAttachment, ChatMessage, ChatSession, EvidenceConversation, IdeaRound, MascotState, MentorIdea, MessageFeedback,
     PanelVerdict, PitchReport, ProjectPicture, StartupProfile, CoinTransaction,
 )
-from founder.services import mentor
+from founder.services import ideas as idea_service, mentor
 from founder.services.access import get_startup, has_team, join_requests_for, pending_invites
 from founder.services.ai import AIServiceError, provider_label, stream_reply
 from founder.services.bruno import looks_like_evidence
@@ -32,7 +31,7 @@ from founder.services.mascot import update_mascot
 from founder.services.memory import conversation_context, remember_user_message
 from founder.services.onboarding import cofounder_opening, has_founder_conversation, has_profile_description
 from founder.services.metrics import AXES, radar_grid, radar_points
-from founder.services import panel
+from founder.services import funding, panel
 from founder.services.pitch import finish_pitch
 from founder.services.radar_assessment import assess_startup
 from founder.services import activity
@@ -73,6 +72,7 @@ def home(request):
 
 @login_required
 def startup_create(request):
+    """Два способа создать проект: анкета или развитие идеи с Бруно (Мастерская идей без проекта)."""
     form = StartupForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
@@ -82,7 +82,121 @@ def startup_create(request):
             update_mascot(startup)
             session = _create_cofounder_session(startup)
         return redirect("chat_detail", startup_id=startup.id, session_id=session.id)
-    return render(request, "founder/startup_form.html", {"form": form, "is_edit": False})
+    way = "idea" if request.method == "GET" and request.GET.get("way") == "idea" else "form"
+    context = {"form": form, "is_edit": False, "way": way}
+    if way == "idea":
+        from founder.workbench_views import idea_context
+
+        context.update(idea_context(request, idea_service.rounds_of(None, request.user)), creating=True,
+                       can_edit=True, generate_url=reverse("idea_new_generate"))
+    return render(request, "founder/startup_form.html", context)
+
+
+@login_required
+@require_GET
+def bruno_job(request):
+    """Чем сейчас занят Бруно: страницы опрашивают, чтобы обновиться, когда долгий запрос закончится."""
+    from founder.services.bruno_jobs import current_job
+
+    job = current_job(request.user)
+    response = JsonResponse({"busy": bool(job), "label": job["label"] if job else "",
+                             "seconds": job["seconds"] if job else 0})
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+def _new_idea_round(request, round_id):
+    """Круг Мастерской со страницы создания проекта: только свой и ещё без проекта."""
+    return get_object_or_404(IdeaRound, pk=round_id, owner=request.user, startup__isnull=True)
+
+
+@login_required
+@require_POST
+def idea_new_generate(request):
+    parent, index = None, None
+    if request.POST.get("parent"):
+        try:
+            parent = _new_idea_round(request, UUID(request.POST["parent"]))
+            index = int(request.POST.get("index", ""))
+        except (ValueError, TypeError) as exc:
+            raise Http404("Направление не найдено") from exc
+    try:
+        item = idea_service.create_round(None, request.POST.get("seed", ""), request.POST.get("wish", ""),
+                                  parent=parent, parent_index=index, owner=request.user)
+    except ValueError as exc:
+        raise Http404(str(exc)) from exc
+    except AIServiceError as exc:
+        messages.error(request, str(exc))
+        return redirect(f"{reverse('startup_create')}?way=idea")
+    messages.success(request, "Бруно развил идею: три направления ниже.")
+    return redirect(f"{reverse('startup_create')}?way=idea&id={item.pk}")
+
+
+@login_required
+@require_POST
+def idea_new_advice(request, round_id, index):
+    """Совет Бруно по выбранной идее на странице создания проекта (JSON для переключателя идей)."""
+    return _idea_advice(_new_idea_round(request, round_id), index)
+
+
+def _idea_advice(item, index):
+    try:
+        result = idea_service.advise(item, index)
+    except ValueError as exc:
+        raise Http404(str(exc)) from exc
+    except AIServiceError as exc:
+        return JsonResponse({"error": str(exc)}, status=503)
+    return JsonResponse(result)
+
+
+@login_required
+def idea_new_card(request, round_id, index):
+    """Карточка проекта от Бруно по выбранному направлению; проект создаётся после одобрения основателем."""
+    item = _new_idea_round(request, round_id)
+    try:
+        direction = idea_service.direction_of(item, index)
+    except ValueError as exc:
+        raise Http404(str(exc)) from exc
+    page = reverse("idea_new_card", args=[item.pk, index])
+    action = request.POST.get("action") if request.method == "POST" else ""
+    if action == "draft":
+        # Повторное нажатие открывает уже составленную карточку, а не тратит новый запрос к модели.
+        if idea_service.stored_card(item, index) is None:
+            idea_service.draft_card(item, index)
+        return redirect(page)
+    if action in ("refine", "create"):
+        form = IdeaCardForm(request.POST)
+        if form.is_valid():
+            values = {key: value for key, value in form.cleaned_data.items() if key != "instruction"}
+            if action == "refine":
+                idea_service.draft_card(item, index, form.cleaned_data["instruction"], current=values)
+                messages.success(request, "Бруно поправил карточку. Проверьте её ещё раз.")
+                return redirect(page)
+            with transaction.atomic():
+                startup = idea_service.create_project(request.user, item, index, values)
+                update_mascot(startup)
+                _create_cofounder_session(startup)
+            activity.log(startup, request.user, activity.Kind.IDEAS,
+                         f"Проект создан из идеи «{direction['title'][:120]}»")
+            card_note = ("Карточка проекта сохранена черновиком: опубликовать её в сообществе можно в разделе "
+                         "«Карточка проекта».")
+            # Бруно сразу оценивает новый проект по радару: основатель видит, где сильные и слабые места.
+            try:
+                assess_startup(startup)
+                latest = startup.metric_snapshots.first()
+                activity.log(startup, request.user, activity.Kind.RADAR,
+                             f"Радар обновлён с Бруно: {latest.overall_score}/100" if latest else "Радар обновлён с Бруно")
+                messages.success(request, "Проект создан, и Бруно сразу оценил его по радару. " + card_note)
+            except AIServiceError as exc:
+                messages.warning(request, f"Проект создан, но радар Бруно не составил: {exc} " + card_note)
+            return redirect("dashboard", startup_id=startup.id)
+    elif request.method == "POST":
+        return redirect(page)
+    else:
+        draft = idea_service.stored_card(item, index) or idea_service.card_from_direction(direction)
+        form = IdeaCardForm(initial=draft)
+    return render(request, "founder/idea_card.html", {"form": form, "round": item, "direction": direction},
+                  status=400 if form.errors else 200)
 
 
 @login_required
@@ -338,7 +452,13 @@ def pitch_create(request, startup_id):
 @require_POST
 def panel_create(request, startup_id):
     startup = get_startup(request, startup_id, edit=True)
-    session = panel.create_panel(startup)
+    # Кто решает: основатель выбирает перед панелью, по умолчанию — то, что он говорил Бруно.
+    heard = funding.founder_funding(startup) or {}
+    kind = request.POST.get("audience") or heard.get("kind") or funding.INVESTORS
+    name = request.POST.get("funder_name", heard.get("name", "") if kind == heard.get("kind") else "")
+    source = "bruno" if heard and kind == heard.get("kind") else "manual"
+    audience = funding.audience(kind, name, heard.get("quote", "") if source == "bruno" else "", source)
+    session = panel.create_panel(startup, audience)
     return redirect("chat_detail", startup_id=startup.id, session_id=session.id)
 
 
@@ -371,6 +491,7 @@ def chat_detail(request, startup_id, session_id):
     for idea in MentorIdea.objects.filter(message__session=session):
         ideas.setdefault(idea.message_id, []).append(idea)
     previous_user_text = ""
+    panel_kind = panel.audience_of(session)["kind"]
     for message in chat_messages:
         # Под ответом на вопрос о рынке — ссылка на полный анализ: модель о нём часто забывает.
         message.market_link = (session.mode == ChatSession.Mode.COFOUNDER and message.role == ChatMessage.Role.ASSISTANT
@@ -384,7 +505,15 @@ def chat_detail(request, startup_id, session_id):
                                       and looks_like_evidence(message.content))
         message.rateable = message.role == ChatMessage.Role.ASSISTANT and message.provider != "system"
         message.user_feedback = feedback.get(message.id)
-        message.shark = panel.shark_info(message.speaker)
+        message.shark = panel.shark_info(message.speaker, panel_kind)
+    if session.mode == ChatSession.Mode.COFOUNDER:
+        # Бруно передаёт акулам, откуда основатель ждёт деньги: отметка под последней такой репликой.
+        for message in reversed(chat_messages):
+            if message.role == ChatMessage.Role.USER:
+                heard = funding.detect([message.content])
+                if heard:
+                    message.funding_note = {**heard, "label": funding.KIND_LABELS[heard["kind"]]}
+                    break
     is_panel = session.mode == ChatSession.Mode.PANEL
     return render(request, "founder/chat.html", {
         "startup": session.startup,
@@ -395,6 +524,8 @@ def chat_detail(request, startup_id, session_id):
         "report": report,
         "is_pitch": session.mode == ChatSession.Mode.PITCH,
         "is_panel": is_panel,
+        # Бруно в панели не участвует, и плавающий медведь закрывал реплики акул на телефоне.
+        "hide_bruno_pet": is_panel,
         "is_training": session.is_training,
         "panel": _panel_context(session) if is_panel else None,
         "picture": mentor.picture_view(session.startup) if session.mode == ChatSession.Mode.COFOUNDER else None,
@@ -445,32 +576,17 @@ def picture_edit(request, startup_id, session_id):
     return redirect("chat_detail", startup_id=startup_id, session_id=session_id)
 
 
-def _answers_left_label(left):
-    word = "ответ" if left % 10 == 1 and left % 100 != 11 else (
-        "ответа" if left % 10 in (2, 3, 4) and left % 100 not in (12, 13, 14) else "ответов")
-    return f"Ещё {left} {word} до голосования"
-
-
 def _panel_context(session):
-    answers = panel.answer_count(session)
     verdict = PanelVerdict.objects.filter(session=session).first()
     open_axes = set(session.startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).values_list("axis", flat=True))
     axis_labels = dict(BusinessAxis.choices)
     votes = []
+    kind = panel.audience_of(session)["kind"]
     for index, vote in enumerate(verdict.votes if verdict else []):
-        shark = panel.shark_info(vote["shark"])
+        shark = panel.shark_info(vote["shark"], kind)
         votes.append({**vote, "index": index, "shark_info": shark, "axis_label": axis_labels[shark["axis"]],
                       "axis_busy": not vote.get("task_id") and shark["axis"] in open_axes})
-    left = max(0, panel.MIN_ANSWERS - answers)
-    return {
-        "answers": answers, "min_answers": panel.MIN_ANSWERS, "max_answers": panel.MAX_ANSWERS,
-        "left_label": _answers_left_label(left), "can_vote": answers >= panel.MIN_ANSWERS,
-        "full": answers >= panel.MAX_ANSWERS,
-        "progress": min(100, answers * 100 // panel.MIN_ANSWERS),
-        "speaker": panel.shark_info(panel.current_speaker(session)),
-        "sharks": [panel.shark_info(key) for key in panel.ORDER],
-        "verdict": verdict, "votes": votes,
-    }
+    return {**panel.progress(session), "verdict": verdict, "votes": votes}
 
 
 @login_required
@@ -478,11 +594,12 @@ def _panel_context(session):
 def chat_search(request, startup_id, session_id):
     session = _owned_session(request, startup_id, session_id)
     rows = session.messages.order_by("-created_at", "-id").values_list(
-        "id", "content", "role", "created_at").iterator(chunk_size=500)
+        "id", "content", "role", "created_at", "speaker").iterator(chunk_size=500)
 
     def describe(row):
         own = row[2] == ChatMessage.Role.USER
-        return {"id": str(row[0]), "own": own, "author": "Вы" if own else "Бруно",
+        # В панели отвечают акулы, а не Бруно.
+        return {"id": str(row[0]), "own": own, "author": "Вы" if own else panel.speaker_name(row[4]) or "Бруно",
                 "created_at": row[3].isoformat()}
 
     return search_response(request, rows, describe)
@@ -517,8 +634,8 @@ def chat_send(request, startup_id, session_id):
     if session.completed_at:
         return JsonResponse({"error": "Эта сессия уже завершена."}, status=409)
     is_panel = session.mode == ChatSession.Mode.PANEL
-    if is_panel and panel.answer_count(session) >= panel.MAX_ANSWERS:
-        return JsonResponse({"error": "Акулы услышали достаточно. Нажмите «Голосование»."}, status=409)
+    if is_panel and panel.is_finished(session):
+        return JsonResponse({"error": "Акулы задали все вопросы. Нажмите «Голосование»."}, status=409)
     form = ChatSendForm(request.POST, request.FILES)
     if not form.is_valid():
         return JsonResponse({"error": form.errors.get_json_data()}, status=400)
@@ -551,32 +668,26 @@ def chat_send(request, startup_id, session_id):
     provider, model_name = provider_label()
     turn = panel.next_turn(session) if is_panel else None
 
-    def speaker_event(key):
-        shark = panel.SHARKS[key]
-        return _sse({"type": "speaker", "speaker": key, "name": shark["name"],
-                     "title": shark["title"], "initial": shark["initial"]})
-
     def generate():
-        # Панель: реплика соседа и ответ акулы хода сохраняются отдельными сообщениями.
-        parts = [(turn.speaker if turn else "", [])]
+        chunks = []
         try:
             if turn:
-                yield speaker_event(turn.speaker)
-            if turn:
-                events = panel.split_aside(stream_reply(session, context_messages, memories, turn=turn), turn.speaker)
+                # Панель: сервер называет акулу хода до текста её реплики.
+                shark = panel.shark_info(turn.speaker, panel.audience_of(session)["kind"])
+                yield _sse({"type": "speaker", "speaker": turn.speaker, "name": shark["name"],
+                            "title": shark["area"], "initial": shark["initial"]})
+                # Реплику акулы Python проверяет целиком: вопрос есть, без жаргона и выдуманных цифр.
+                deltas = panel.checked_reply(
+                    session, turn, lambda attempt: stream_reply(session, context_messages, memories, turn=attempt))
             else:
                 if (session.mode == ChatSession.Mode.COFOUNDER and settings.BRUNO_MENTOR_PLAN
                         and settings.AI_PROVIDER != "demo"):
                     searching = mentor.answer_kind(user_message.content) == "market"
                     yield _sse({"type": "status", "text": "Бруно ищет в открытых источниках…" if searching
                                 else "Бруно думает над проектом…"})
-                events = (("text", delta) for delta in stream_reply(session, context_messages, memories))
+                deltas = stream_reply(session, context_messages, memories)
             total_chars = 0
-            for kind, delta in events:
-                if kind == "speaker":
-                    parts.append((delta, []))
-                    yield speaker_event(delta)
-                    continue
+            for delta in deltas:
                 if not isinstance(delta, str):
                     raise AIServiceError("Модель вернула некорректный текст ответа.")
                 # Восстановлено из beta 0.4 (потерялось при мерже): сбойный поток не должен
@@ -584,23 +695,20 @@ def chat_send(request, startup_id, session_id):
                 total_chars += len(delta)
                 if total_chars > CHAT_REPLY_CHAR_LIMIT:
                     raise AIServiceError("Ответ слишком большой. Попросите Бруно ответить короче.")
-                parts[-1][1].append(delta)
+                chunks.append(delta)
                 yield _sse({"type": "delta", "text": delta})
-            answers = [(speaker, "".join(chunks).strip()) for speaker, chunks in parts]
-            answers = [(speaker, text) for speaker, text in answers if text]
-            if not answers:
+            text = "".join(chunks).strip()
+            if not text:
                 raise AIServiceError("Модель не вернула текст ответа.")
-            started = timezone.now()
-            for offset, (speaker, text) in enumerate(answers):
-                assistant_message = ChatMessage.objects.create(
-                    session=session,
-                    role=ChatMessage.Role.ASSISTANT,
-                    content=text,
-                    speaker=speaker,
-                    provider=provider,
-                    model_name=model_name,
-                    created_at=started + timedelta(microseconds=offset),
-                )
+            assistant_message = ChatMessage.objects.create(
+                session=session,
+                role=ChatMessage.Role.ASSISTANT,
+                content=text,
+                speaker=turn.speaker if turn else "",
+                # Заключительную реплику панели пишет Python, оценивать её незачем.
+                provider="system" if turn and turn.final else provider,
+                model_name="" if turn and turn.final else model_name,
+            )
             mentor.save_ideas(getattr(session, "mentor_plan", None), assistant_message)
             done = {"type": "done", "message_id": str(assistant_message.id)}
             # Монеты только за ответ, который Бруно действительно дал, и за осмысленный вопрос.

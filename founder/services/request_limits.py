@@ -34,17 +34,23 @@ def consume_limit(identity, limit, seconds):
                                    (deadline - now).total_seconds())
 
 
-def acquire_ai_lease(user_id, *, ttl_seconds=600):
+class AIBusy(RequestLimitExceeded):
+    """Бруно уже выполняет другой запрос этого аккаунта."""
+
+
+def acquire_ai_lease(user_id, *, ttl_seconds=600, route="", startup_id=None):
+    """route и startup_id — что именно делает Бруно: страницы показывают это основателю (bruno_jobs)."""
     now = timezone.now()
     token = uuid.uuid4()
     expires = now + timedelta(seconds=ttl_seconds)
+    job = {"route": route[:60], "startup_id": startup_id, "started_at": now}
     _, created = AIRequestLease.objects.get_or_create(
-        user_id=user_id, defaults={"token": token, "expires_at": expires},
+        user_id=user_id, defaults={"token": token, "expires_at": expires, **job},
     )
     if not created and not AIRequestLease.objects.filter(user_id=user_id, expires_at__lte=now).update(
-        token=token, expires_at=expires,
+        token=token, expires_at=expires, **job,
     ):
-        raise RequestLimitExceeded("Бруно уже выполняет ваш запрос. Дождитесь ответа и попробуйте снова.", 5)
+        raise AIBusy("Бруно уже выполняет ваш запрос. Дождитесь ответа и попробуйте снова.", 5)
     return token
 
 

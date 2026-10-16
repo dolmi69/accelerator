@@ -186,7 +186,7 @@
          id="radar-history"
          {% if radar_history_open %}open{% endif %}>
     <summary>
-        <span>История оценок</span><span class="muted small">{{ history_page.paginator.count }} версий</span><span class="radar-detail-chevron" aria-hidden="true">⌄</span>
+        <span>История оценок</span><span class="muted small">{{ history_page.paginator.count|plural:"версия,версии,версий" }}</span><span class="radar-detail-chevron" aria-hidden="true">⌄</span>
     </summary>
     {% if history_selected %}
         <nav class="snapshot-list" aria-label="Сохранённые оценки">

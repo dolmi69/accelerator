@@ -11,7 +11,7 @@ from django.utils.deprecation import MiddlewareMixin
 
 from founder.services.access import can_edit
 from founder.services.request_limits import (
-    RequestLimitExceeded, acquire_ai_lease, consume_limit, release_ai_lease,
+    AIBusy, RequestLimitExceeded, acquire_ai_lease, consume_limit, release_ai_lease,
 )
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class RequestProtectionMiddleware(MiddlewareMixin):
     @staticmethod
-    def error_response(request, message, status, *, retry_after=None):
+    def error_response(request, message, status, *, retry_after=None, wait_for_bruno=False):
         # Ordinary forms need a readable page. SSE/fetch clients keep JSON.
         if "text/html" in request.headers.get("Accept", ""):
             back = request.headers.get("Referer", "/")
@@ -28,7 +28,7 @@ class RequestProtectionMiddleware(MiddlewareMixin):
             html = render_to_string("errors/request_blocked.html", {
                 "error_message": message, "back_url": back,
                 "title": "Файл слишком большой" if status == 413 else "Попробуйте чуть позже",
-                "retry_after": retry_after,
+                "retry_after": retry_after, "wait_for_bruno": wait_for_bruno,
             })  # No request/context processors: also safe when the DB is busy.
             response = HttpResponse(html, status=status)
         else:
@@ -73,13 +73,28 @@ class RequestProtectionMiddleware(MiddlewareMixin):
             # review_generate раньше сюда не входил: разбор тратил запросы к модели без лимитов.
             ai_request = route in {"chat_send", "metrics_assess", "pitch_finish", "panel_vote", "tasks_generate",
                                    "card_generate", "review_generate", "market_generate",
-                                   "value_segments", "value_brainstorm", "value_generate"}
+                                   "value_segments", "value_brainstorm", "value_generate",
+                                   "ideas_generate", "ideas_advice"}
             if route == "card_edit":
                 ai_request = request.POST.get("action") in {"generate", "refine"}
-            if ai_request and can_edit(request.user, kwargs.get("startup_id")):
+            # Мастерская на странице создания проекта: проекта ещё нет, лимит считается на самого основателя.
+            personal = route in {"idea_new_generate", "idea_new_advice"} or (
+                route == "idea_new_card" and request.method == "POST"
+                and request.POST.get("action") in {"draft", "refine", "create"})
+            if personal or (ai_request and can_edit(request.user, kwargs.get("startup_id"))):
                 consume_limit(f"ai-minute:{request.user.pk}", settings.AI_REQUESTS_PER_MINUTE, 60)
                 consume_limit(f"ai-day:{request.user.pk}", settings.AI_REQUESTS_PER_DAY, 86400)
-                request.ai_lease = acquire_ai_lease(request.user.pk)
+                from founder.services.bruno_jobs import job_key
+
+                request.ai_lease = acquire_ai_lease(request.user.pk, route=job_key(route, request),
+                                                    startup_id=kwargs.get("startup_id"))
+        except AIBusy as exc:
+            # Говорим, чем Бруно занят, и страница сама вернёт основателя назад, когда он закончит.
+            from founder.services.bruno_jobs import current_job
+
+            job = current_job(request.user)
+            message = f"Бруно сейчас {job['label']}. Дождитесь, пока он закончит." if job else str(exc)
+            return self.error_response(request, message, 429, retry_after=exc.retry_after, wait_for_bruno=True)
         except RequestLimitExceeded as exc:
             return self.error_response(request, str(exc), 429, retry_after=exc.retry_after)
         except OperationalError:

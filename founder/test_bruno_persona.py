@@ -134,6 +134,27 @@ class BrunoV2Tests(TestCase):
                          "Зачем? Чтобы проверить спрос. Кому позвоните первым?")
         long_form = "1. Позвоните клиентам.\n2. Что они скажут? Запишите ответы дословно?\n"
         self.assertEqual("".join(polish_stream([long_form], single_question=False)), long_form)
+        # Связки к списку, которого нет, убираются.
+        self.assertEqual("".join(polish_stream(["Прибыль 2300 ₽. Попробуем оценить эти риски подробнее. ",
+                                                "Начнём с первого пункта: какие каналы используете?"])),
+                         "Прибыль 2300 ₽. Какие каналы используете?")
+        self.assertEqual("".join(polish_stream(["Гипотезу подтвердили отлично: 21 оплаченная заявка — хороший знак. ",
+                                                "На что пойдут 150 000 ₽?"])),
+                         "На что пойдут 150 000 ₽?")
+        self.assertEqual("".join(polish_stream(["Привлечение окупается за полтора месяца, это здорово. ",
+                                                "Это хороший шанс занять свою нишу. Сколько курьеров теряют смену?"])),
+                         "Привлечение окупается за полтора месяца. Сколько курьеров теряют смену?")
+
+    def test_funding_ask_with_sum_gets_a_breakdown_note(self):
+        messages = [{"role": "user", "content": "Хочу попросить у инвесторов 150 000 ₽ на 120 холодильников."}]
+        self.assertIn("разложи, на что пойдёт каждая часть", conversation_notes(messages))
+        messages = [{"role": "user", "content": "Так сколько мне просить у инвесторов: 150 000 ₽ нормально?"}]
+        self.assertIn("разложи, на что пойдёт каждая часть", conversation_notes(messages))
+        self.assertEqual("".join(polish_stream(["Сумму считайте от плана. Вот простая формула:\n\n150 000 ₽ хватит на "
+                                                "закупку. На что уйдёт остальное?"])),
+                         "Сумму считайте от плана. 150 000 ₽ хватит на закупку. На что уйдёт остальное?")
+        messages = [{"role": "user", "content": "Инвесторы нам пока не нужны."}]
+        self.assertNotIn("разложи", conversation_notes(messages))
 
     def test_polish_neutralises_gendered_and_canned_phrases(self):
         # «Готов начать?» становится «Начнём?», а пустая концовка после совета убирается.
@@ -172,6 +193,8 @@ class QuestionFilterTests(TestCase):
         self.assertEqual(self.run_stream("Поговорите с пятью родителями. Попробуем вместе задать им эти вопросы?").strip(),
                          "Поговорите с пятью родителями.")
         self.assertEqual(tidy_reply("Это отличная находка: личный опыт важен."), "Личный опыт важен.")
+        self.assertEqual(tidy_reply("Это отличная зацепка: личный опыт — лучший аргумент."), "Личный опыт — лучший аргумент.")
+        self.assertEqual(tidy_reply("Понятно, идея интересная. Что важнее для родителей?"), "Что важнее для родителей?")
 
     def test_contradiction_keeps_the_first_question_and_praise_is_cut(self):
         text = ("Раньше называли 15, теперь 25. Это рост за какой-то срок или поправка? Надо понять динамику. "

@@ -75,7 +75,7 @@
         <div class="work-grid review-grid">
             <details class="card project-card-fold">
                 <summary>
-                    Спрос <small>{{ signals|length }} сигналов</small>
+                    Спрос <small>{{ signals|length|plural:"сигнал,сигнала,сигналов" }}</small>
                 </summary>
                 <div class="project-fold-body">
                     {% for signal in signals %}
@@ -137,28 +137,6 @@
                 </p>
             {% endfor %}
         </section>
-        <div class="work-grid review-grid">
-            <details class="card project-card-fold">
-                <summary>Экономика и цены</summary>
-                <div class="project-fold-body">
-                    {% if data.money_view %}<p>{{ data.money_view }}</p>{% endif %}
-                    {% if data.price_benchmark %}
-                        <p>
-                            <strong>Цены на рынке:</strong> {{ data.price_benchmark }}
-                        </p>
-                    {% endif %}
-                    {% if data.economics %}
-                        <div class="task-criterion">
-                            <strong>Расчёт по вашим цифрам</strong>
-                            {% for line in data.economics %}<p>{{ line }}</p>{% endfor %}
-                        </div>
-                    {% else %}
-                        <p class="muted small">
-                            Чтобы посчитать прибыль и безубыточность, расскажите Бруно в чате цену для клиента, затраты на одного клиента и расходы в месяц.
-                        </p>
-                    {% endif %}
-                </div>
-            </details>
             <details class="card project-card-fold review-risks">
                 <summary>
                     Рыночные риски <small>{{ data.risks|length }}</small>
@@ -173,7 +151,6 @@
                     {% endfor %}
                 </div>
             </details>
-        </div>
 {% if size.som %}<section class="card work-card"><span class="eyebrow">РАЗМЕР РЫНКА: TAM / SAM / SOM</span><h2>Два способа оценить рынок</h2>
 <div class="work-grid review-grid">
 <details class="card project-card-fold" open><summary>Снизу вверх{% if size.bottom_up.customers %} <small>{{ size.bottom_up.customers }} клиентов</small>{% endif %}</summary><div class="project-fold-body">
@@ -251,7 +228,25 @@
             </details>
         {% endif %}
     {% endif %}
+{% if economics_lines or startup.user_role != 'viewer' %}
+<details class="card project-card-fold economics-fold" id="economics"{% if economics_form.errors or not economics_lines %} open{% endif %}><summary>Экономика и цены{% if economics_lines %} <small>посчитано</small>{% endif %}</summary><div class="project-fold-body">
+{% if data.money_view %}<p>{{ data.money_view }}</p>{% endif %}{% if data.price_benchmark %}<p><strong>Цены на рынке:</strong> {{ data.price_benchmark }}</p>{% endif %}
+{% if economics_lines %}<div class="task-criterion"><strong>Расчёт по вашим цифрам</strong>{% for line in economics_lines %}<p>{{ line }}</p>{% endfor %}</div>{% endif %}
+{% if startup.user_role != 'viewer' %}<form method="post" action="{% url 'market_economics' startup.id %}" class="economics-form" data-economics-form>{% csrf_token %}
+<p class="muted small">Впишите то, что знаете, остальное оставьте пустым. Бруно посчитает, сколько продаж покроют расходы и на сколько месяцев хватит денег, и учтёт это в разговоре.</p>
+{% if economics_form.non_field_errors %}<div class="form-error">{{ economics_form.non_field_errors|striptags }}</div>{% endif %}
+<fieldset class="economics-block"><legend>Расходы в месяц, которые планируете</legend>
+<div class="expense-rows" data-expense-rows>{% for row in economics_form.expense_rows %}<div class="expense-row"><input name="expense_name" maxlength="60" value="{{ row.name }}" placeholder="{% if forloop.first %}Например, хостинг{% else %}На что{% endif %}" aria-label="На что"><input name="expense_amount" inputmode="decimal" value="{{ row.amount }}" placeholder="₽ в месяц" aria-label="Сумма в месяц, ₽"></div>{% endfor %}</div>
+<div class="expense-foot"><button type="button" class="button ghost" data-expense-add hidden>+ Ещё статья</button><span class="muted small" data-expense-total></span></div>
+</fieldset>
+<fieldset class="economics-block"><legend>Цена</legend>
+<div class="economics-pricing">{% for choice in economics_form.pricing %}<label><input type="radio" name="pricing" value="{{ choice.data.value }}"{% if choice.data.selected %} checked{% elif not economics_form.pricing.value and forloop.first %} checked{% endif %}><span>{{ choice.choice_label }}</span></label>{% endfor %}</div>
+<div class="economics-grid">{% for field in economics_form %}{% if field.name in 'price cost commission_percent' %}<label class="field{% if field.name == 'commission_percent' %} economics-commission{% endif %}"><span>{% if field.name == 'cost' %}Ваши затраты <span class="cost-sale">на одну продажу</span><span class="cost-month">на клиента в месяц</span>, ₽{% else %}{{ field.label }}{% endif %}</span>{{ field }}{% if field.help_text %}<small class="field-help">{{ field.help_text }}</small>{% endif %}{% if field.errors %}<small class="field-error">{{ field.errors|striptags }}</small>{% endif %}</label>{% endif %}{% endfor %}</div>
+</fieldset>
+<div class="economics-grid">{% for field in economics_form %}{% if field.name == 'cash_on_hand' or field.name == 'customers' %}<label class="field"><span>{{ field.label }}</span>{{ field }}{% if field.errors %}<small class="field-error">{{ field.errors|striptags }}</small>{% endif %}</label>{% endif %}{% endfor %}</div>
+<button class="button primary">Посчитать</button></form>{% endif %}
+</div></details>
+{% endif %}
 {% endblock %}
-{% block scripts %}
-    <script src="{% static 'founder/js/workbench.js' %}" defer></script>
-{% endblock %}
+
+{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}?v=merged-06" defer></script><script src="{% static 'founder/js/economics-form.js' %}?v=1" defer></script>{% endblock %}

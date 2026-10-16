@@ -24,8 +24,9 @@ FALLBACK_MODEL = os.getenv("GIGACHAT_FALLBACK_MODEL", "GigaChat-2-Max")
 # Сколько не стучаться в недоступный основной адрес, чтобы не ждать каждый раз.
 PRIMARY_PAUSE_SECONDS = 300
 ALLOWED_SCOPES = {"GIGACHAT_API_PERS", "GIGACHAT_API_B2B", "GIGACHAT_API_CORP"}
-# Живой диалог: чуть меньше случайности, штраф за повторы фраз.
-CHAT_SAMPLING = {"temperature": 0.7, "top_p": 0.9, "repetition_penalty": 1.1}
+# Живой диалог: чуть меньше случайности, штраф за повторы фраз. top_p не задаём: документация GigaChat
+# не советует использовать его вместе с temperature (docs/gigachat_prompting.md).
+CHAT_SAMPLING = {"temperature": 0.7, "repetition_penalty": 1.1}
 RATE_LIMIT_RETRIES = 2
 UNREACHABLE = "Не удалось связаться с GigaChat. Проверьте сеть и сертификат Минцифры."
 _token_lock = threading.Lock()
@@ -264,7 +265,7 @@ def _post_chat(payload):
     raise GigaChatError(UNREACHABLE) from last_error
 
 
-def complete_chat(system_prompt, content, *, json_schema=None, max_tokens=None):
+def complete_chat(system_prompt, content, *, json_schema=None, max_tokens=None, temperature=None):
     """Полный ответ, при необходимости ограниченный обязательной JSON-схемой.
 
     Схема GigaChat v1 задаётся в response_format.schema (не json_schema).
@@ -283,6 +284,8 @@ def complete_chat(system_prompt, content, *, json_schema=None, max_tokens=None):
         payload["response_format"] = {
             "type": "json_schema", "schema": json_schema, "strict": True,
         }
+    if temperature is not None:
+        payload["temperature"] = temperature
     response = _post_chat(payload)
     try:
         _raise_for_status(response)

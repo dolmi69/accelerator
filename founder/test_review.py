@@ -81,6 +81,18 @@ class ReviewFlowTests(TestCase):
         self.assertEqual(call.call_count, 1)
         self.assertEqual(ProjectReview.objects.count(), 1)
 
+    @override_settings(AI_PROVIDER="gigachat")
+    def test_survey_steps_are_rejected_without_hidden_paid_retry(self):
+        survey = {"week": 1, "axis": "market", "title": "Провести опрос арендаторов",
+                  "action": "Позвонить 21 клиенту и узнать, планируют ли они продлить.", "done_when": "Собрано 15 ответов."}
+        steps = json.loads(model_review())["steps"]
+        weak = model_review(steps=[survey, *steps[1:]])
+        with patch("founder.services.review.complete_text", return_value=weak) as call:
+            with self.assertRaises(AIResponseFormatError):
+                create_review(self.startup)
+        call.assert_called_once()
+        self.assertFalse(ProjectReview.objects.filter(startup=self.startup).exists())
+
     @override_settings(AI_PROVIDER="demo")
     def test_page_generate_and_step_to_task(self):
         page = self.client.get(reverse("review", args=[self.startup.pk]))

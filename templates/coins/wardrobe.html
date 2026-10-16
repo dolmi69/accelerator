@@ -40,7 +40,7 @@
                 <details class="card project-card-fold project-wardrobe-group"
                          {% if forloop.first %}open{% endif %}>
                     <summary>
-                        {{ group.title }} <small>{{ group.items|length }} аксессуаров</small>
+                        {{ group.title }} <small>{{ group.items|length|plural:"аксессуар,аксессуара,аксессуаров" }}</small>
                     </summary>
                     <div class="project-fold-body">
                         {% for entry in group.items %}
