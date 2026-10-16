@@ -5,7 +5,6 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest import mock
 
-from bip_utils import Bip39SeedGenerator, Bip44, Bip44Changes, Bip44Coins
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
@@ -13,27 +12,36 @@ from founder.models import User
 from payments.models import Balance, Invoice
 from payments.services import checker, hd
 
-TEST_MNEMONIC = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-_CHANGE = (
-    Bip44.FromSeed(Bip39SeedGenerator(TEST_MNEMONIC).Generate(), Bip44Coins.TRON)
-    .Purpose()
-    .Coin()
-    .Account(0)
-    .Change(Bip44Changes.CHAIN_EXT)
-)
-TEST_XPUB = _CHANGE.PublicKey().ToExtended()
-TEST_ADDRESS = _CHANGE.AddressIndex(0).PublicKey().ToAddress()
+# Эталон: тестовый мнемоник «abandon…about», путь m/44'/195'/0'/0.
+# Значения один раз посчитаны bip-utils и зафиксированы — тесты не требуют крипто-библиотек.
+TEST_XPUB = ("xpub6EuK4CZWW5urEHdwAVDdDw327danAtccFcrXYvgf1DHrPXRwErt36xStQ2PNhn4hpwzPbzJ8p"
+             "JVpewgChRnSs59q5Ay61GCfQZKUe71gbLq")
+TEST_ADDRESSES = ["TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH", "TSeJkUh4Qv67VNFwY8LaAxERygNdy6NQZK",
+                  "TYJPRrdB5APNeRs4R7fYZSwW3TcrTKw2gx"]
+TEST_ADDRESS = TEST_ADDRESSES[0]
 
 
 @override_settings(PAYMENTS_XPUB=TEST_XPUB, PAYMENTS_RECEIVE_INDEX=0)
 class DerivationTests(TestCase):
-    def test_xpub_derivation_matches_bip44(self):
-        for index in range(3):
-            expected = _CHANGE.AddressIndex(index).PublicKey().ToAddress()
+    def test_keccak256_matches_the_known_vector(self):
+        self.assertEqual(
+            hd.keccak256(b"").hex(),
+            "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+        )
+
+    def test_xpub_derivation_matches_known_addresses(self):
+        for index, expected in enumerate(TEST_ADDRESSES):
             self.assertEqual(hd.derive_tron_address(index), expected)
 
     def test_receiving_address_is_index_0(self):
         self.assertEqual(hd.receiving_address(), TEST_ADDRESS)
+
+    @override_settings(PAYMENTS_XPUB="")
+    def test_missing_xpub_is_a_clear_error(self):
+        from django.core.exceptions import ImproperlyConfigured
+
+        with self.assertRaises(ImproperlyConfigured):
+            hd.receiving_address()
 
 
 class FormatTests(TestCase):
