@@ -98,10 +98,16 @@ class LabJobTests(TransactionTestCase):
 
     def test_discussion_is_durable_without_creating_site(self):
         job_id = self.submit(prompt='бро', message_mode='discuss').json()['job']['id']
-        run(job_id)
+        reply = {'answer': 'Здравствуйте! Какой сайт вы хотите создать?', 'suggestion': '', 'local': False}
+        result = CodeResult('', 'test-model', 10, 20)
+        with patch('founder.lab_views.discussion_reply', return_value=(reply, result)) as ai:
+            run(job_id)
+            run(job_id)  # Repeated delivery cannot bill or save the answer twice.
+        ai.assert_called_once()
         job = LabGenerationJob.objects.get(pk=job_id)
         self.assertEqual(job.status, 'succeeded', job.error)
         self.assertIsNotNone(job.turn_id)
+        self.assertEqual(job.turn.reply['answer'], reply['answer'])
         self.assertEqual(LabConversationTurn.objects.count(), 1)
         self.assertEqual(LabSiteVersion.objects.count(), 0)
 
