@@ -3,7 +3,7 @@
 {% block title %}Радар · {{ startup.name }}{% endblock %}
 {% block extra_css %}
     <link rel="stylesheet"
-          href="{% static 'founder/css/radar.css' %}?v=workspace-9">
+          href="{% static 'founder/css/radar.css' %}?v=workspace-21">
 {% endblock %}
 {% block content %}
     <div class="radar-home">
@@ -16,40 +16,11 @@
             </div>
             <a class="button ghost" href="{% url 'lab' startup.id %}">Открыть лабораторию <span aria-hidden="true">↗</span></a>
         </header>
-        <nav class="radar-section-nav" aria-label="Разделы главной проекта">
-            <a href="#startup-radar" aria-current="location">Обзор</a><a href="#project-plan">План</a><a href="#project-market">Рынок</a><a href="#project-tasks">Задания <span>{{ overview_task_count }}</span></a><a href="#project-team">Команда <span>{{ overview_member_count }}</span></a><a href="#project-history">История</a>
-        </nav>
         <section class="dashboard-grid radar-dashboard">
             {% include 'founder/_radar.html' %}
             <aside class="radar-sidebar">
                 <section class="card radar-bruno-panel" id="bruno-conversations">
-                    <div class="radar-bruno-intro">
-                        {% include 'founder/_bruno.html' with investor=False instance_id='radar-home' %}
-                        <div>
-                            <span class="eyebrow">ВАШ ПОМОЩНИК</span>
-                            <h2>Бруно рядом</h2>
-                            <span class="muted small">{{ mascot.get_mood_display }}</span>
-                        </div>
-                    </div>
-                    <div class="bruno-conversation-actions">
-                        {% if recent_sessions %}
-                            <a class="button primary"
-                               href="{% url 'chat_detail' startup.id recent_sessions.0.id %}">Продолжить разговор →</a>
-                        {% endif %}
-                        {% if startup.user_role != 'viewer' %}
-                            <form method="post" action="{% url 'chat_create' startup.id %}">
-                                {% csrf_token %}
-                                <button class="button {% if recent_sessions %}ghost{% else %}primary{% endif %}">
-                                    {% if recent_sessions %}
-                                        Новый разговор
-                                    {% else %}
-                                        Поговорить с Бруно
-                                    {% endif %}
-                                </button>
-                            </form>
-                        {% endif %}
-                    </div>
-                    {% include 'founder/_radar_tasks.html' %}
+                    {% include 'founder/_bruno_hub.html' %}
                     <details class="bruno-recent-conversations">
                         <summary>
                             <span>Недавние беседы</span><span class="muted small">{{ recent_sessions|length }}</span><span aria-hidden="true">⌄</span>
@@ -62,65 +33,23 @@
                             {% endfor %}
                         </div>
                     </details>
+                    {% include 'founder/_radar_tasks.html' %}
+                    {% include 'founder/_hub_achievements.html' %}
                 </section>
             </aside>
             <div class="radar-main-workspace">
                 <div class="radar-workspace-heading">
                     <div>
                         <span class="eyebrow">ОТ ОЦЕНКИ К ДЕЙСТВИЯМ</span>
-                        <h2>Работа над проектом</h2>
+                        <h2>Сегодня в проекте</h2>
                     </div>
-                    <p class="muted">Планируйте и проверяйте.</p>
+                    <p class="muted">Один день — несколько понятных шагов.</p>
                 </div>
                 {% include 'founder/_radar_workspace.html' %}
             </div>
         </section>
-        <div class="radar-secondary">
-            <details class="card radar-fold" id="project-history">
-                <summary>
-                    <span>История проекта</span><span class="muted small">Выполнено заданий: {{ overview_completed_count }}</span><span aria-hidden="true">⌄</span>
-                </summary>
-                <div class="project-history-progress">
-                    <div>
-                        <strong>{{ overview_completed_count }}</strong><span>заданий выполнено · в работе {{ overview_task_count }}</span>
-                    </div>
-                    <div class="metric-bar">
-                        <i style="width:{{ overview_task_progress }}%"></i>
-                    </div>
-                    <a class="evidence-link" href="{% url 'evidence_list' startup.id %}">Дневник доказательств →</a>
-                </div>
-                <div class="radar-fold-body project-history-layout">
-                    <section>
-                        <h3>Что нового</h3>
-                        {% include 'founder/_activity.html' with items=activities %}
-                        <a class="evidence-link" href="{% url 'team' startup.id %}">Вся лента →</a>
-                    </section>
-                    <section>
-                        <h3>Достижения</h3>
-                        <ul class="history-achievements">
-                            {% for badge in achievements %}
-                                <li class="{% if badge.earned_at %}earned{% endif %}">
-                                    <span class="history-achievement-icon" aria-hidden="true">{{ badge.icon }}</span>
-                                    <div>
-                                        <strong>{{ badge.title }}</strong>
-                                        <p>{{ badge.description }}</p>
-                                        <small>
-                                            {% if badge.earned_at %}
-                                                Получено {{ badge.earned_at|date:"d.m.Y" }}
-                                            {% else %}
-                                                Впереди
-                                            {% endif %}
-                                        </small>
-                                    </div>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    </section>
-                </div>
-            </details>
-        </div>
     </div>
 {% endblock %}
 {% block scripts %}
-    <script src="{% static 'founder/js/dashboard.js' %}?v=radar-8" defer></script><script src="{% static 'founder/js/workbench.js' %}" defer></script>
+    <script src="{% static 'founder/js/dashboard.js' %}?v=radar-13" defer></script><script src="{% static 'founder/js/workbench.js' %}" defer></script>
 {% endblock %}

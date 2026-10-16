@@ -1,18 +1,12 @@
-// These links navigate sections of one page, rather than separate tabs.
-const sectionLinks = Array.from(document.querySelectorAll('.radar-section-nav a'));
-function selectWorkspaceSection() {
+// Existing deep links still reveal their section without a duplicate navigation bar.
+function revealWorkspaceSection() {
   if (['#project-history', '#project-tasks'].includes(location.hash)) {
     const section = document.getElementById(location.hash.slice(1));
     if (section) section.open = true;
   }
-  const selected = sectionLinks.find(link => link.hash === location.hash) || sectionLinks[0];
-  sectionLinks.forEach(link => {
-    if (link === selected) link.setAttribute('aria-current', 'location');
-    else link.removeAttribute('aria-current');
-  });
 }
-selectWorkspaceSection();
-window.addEventListener('hashchange', selectWorkspaceSection);
+revealWorkspaceSection();
+window.addEventListener('hashchange', revealWorkspaceSection);
 
 document.querySelectorAll('[data-task-checkbox]').forEach(checkbox => {
   const dialog = document.getElementById(checkbox.dataset.taskDialog);

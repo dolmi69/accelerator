@@ -4,21 +4,27 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="icon" type="image/png" href="{% static 'founder/img/branding/bruno-logo.png' %}?v=1">
         <title>
-            {% block title %}Co-Founder.AI{% endblock %}
+            {% block title %}BrunoLab{% endblock %}
         </title>
         <meta name="description"
               content="Расскажите Бруно о своём сервисе и соберите понятную таблицу по пяти направлениям.">
         {% if request.telegram_miniapp %}<script src="https://telegram.org/js/telegram-web-app.js?63"></script>{% endif %}
         <link rel="stylesheet" href="{% static 'founder/css/tailwind.css' %}?v=1">
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=team-merge-1">
-        <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=5">
+              href="{% static 'founder/css/app.css' %}?v=bruno-logo-1">
+        <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=6">
         <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=2">
         <link rel="stylesheet" href="{% static 'founder/css/coins.css' %}?v=5">
         <link rel="stylesheet"
-              href="{% static 'founder/css/project-workspace.css' %}?v=9">
+              href="{% static 'founder/css/project-workspace.css' %}?v=10">
+        {% if startup %}
+            <link rel="stylesheet"
+                  href="{% static 'founder/css/project-work.css' %}?v=7">
+        {% endif %}
         {% block extra_css %}{% endblock %}
+        <link rel="stylesheet" href="{% static 'founder/css/custom-select.css' %}?v=1">
     </head>
     <body class="{% if startup and request.user.is_authenticated %}project-shell {% endif %}{% if workspace_tab == 'lab' %}lab-shell {% endif %}{% if startup.user_role == 'viewer' %}is-viewer{% endif %}">
         <div class="app-shell">
@@ -34,8 +40,12 @@
                     {% endif %}
                     <a class="brand"
                        href="{% url 'home' %}"
-                       aria-label="Co-Founder.AI — главная">
-                        <span class="brand-mark">✦</span><span>Co-Founder<span class="brand-dot">.AI</span></span>
+                       aria-label="BrunoLab — главная">
+                        <img class="brand-mark"
+                             src="{% static 'founder/img/branding/bruno-logo.png' %}"
+                             width="35"
+                             height="35"
+                             alt=""><span>Bruno<span class="brand-dot">Lab</span></span>
                     </a>
                     {% if request.user.is_authenticated and startup %}
                         <details class="project-switcher">
@@ -59,7 +69,7 @@
                 </div>
                 <nav class="topnav" aria-label="Основная навигация">
                     <a href="{% url 'about' %}"
-                       {% if request.resolver_match.url_name == 'about' %}aria-current="page"{% endif %}>О сервисе</a>
+                       {% if request.resolver_match.url_name == 'about' %}aria-current="page"{% endif %}>О проекте</a>
                     {% if request.user.is_authenticated %}
                         <a href="{% url 'home' %}">Мои проекты
                             {% if project_invites_count %}
@@ -101,7 +111,7 @@
             </main>
 
             <footer class="site-footer">
-                <span>Co-Founder.AI · MVP</span><span>Меньше тревоги. Больше проверенных решений.</span>
+                <span>Bruno<span class="brand-dot">Lab</span> · MVP</span><span>Меньше тревоги. Больше проверенных решений.</span>
             </footer>
         </div>
         {% if workspace_tab != 'lab' %}
@@ -125,6 +135,7 @@
             <script src="{% static 'founder/js/lab-workspace.js' %}?v=1" defer></script>
         {% endif %}
         <script src="{% static 'founder/js/project-workspace.js' %}?v=2" defer></script>
+        <script src="{% static 'founder/js/custom-select.js' %}?v=1" defer></script>
         {% block scripts %}{% endblock %}
     </body>
 </html>

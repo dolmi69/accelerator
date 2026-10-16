@@ -2,6 +2,7 @@
 from collections import Counter
 from decimal import Decimal
 
+from founder.services.kano_availability import enabled as kano_enabled
 from django.db import transaction
 from django.utils import timezone
 from founder.models import FeatureCandidate, KanoResponse, BrunoTask, EvidenceEntry, StartupProfile
@@ -51,12 +52,17 @@ def kano_summary(responses):
 
 
 def board(startup,method='rice'):
-    candidates=list(startup.feature_candidates.select_related('task','kano_task','kano_evidence').prefetch_related('kano_responses'))
+    from founder.services.priority_estimates import resolve_estimate
+    queryset = startup.feature_candidates.select_related('task')
+    if kano_enabled():
+        queryset = queryset.select_related('kano_task', 'kano_evidence').prefetch_related('kano_responses')
+    candidates = list(queryset)
     for feature in candidates:
-        feature.rice=rice_score(feature)
-        feature.ice=ice_score(feature)
+        feature.estimate_preview=resolve_estimate(feature)
+        feature.rice=feature.estimate_preview.rice
+        feature.ice=feature.estimate_preview.ice
         feature.score=feature.ice if method=='ice' else feature.rice
-        feature.kano=kano_summary(list(feature.kano_responses.all()))
+        feature.kano=kano_summary(list(feature.kano_responses.all()) if kano_enabled() else [])
     candidates.sort(key=lambda f:(f.score is None,-f.score if f.score is not None else Decimal(0),f.created_at,str(f.pk)))
     rated=[feature for feature in candidates if feature.score is not None]
     for feature in candidates:
@@ -81,6 +87,8 @@ def survey_questions(feature):
 
 
 def create_survey_task(feature):
+    if not kano_enabled():
+        raise ValueError('Опросы временно недоступны.')
     if feature.kano_task_id:
         return feature.kano_task,False
     present,absent=survey_questions(feature)
@@ -136,7 +144,7 @@ def transfer_features(startup,selected,method='rice'):
     for feature in rows:
         if str(feature.pk) not in selected:continue
         if not feature.in_mvp:
-            raise ValueError('В задания переносятся Must и обязательные по Кано. Сначала подтвердите приоритет функции.')
+            raise ValueError('В задания переносятся функции Must. Сначала подтвердите приоритет функции.' if not kano_enabled() else 'В задания переносятся Must и обязательные по Кано. Сначала подтвердите приоритет функции.')
     for feature in rows:
         if str(feature.pk) not in selected or feature.task_id:continue
         task=BrunoTask.objects.create(startup=startup,origin='mvp',axis='product',title=feature.title,

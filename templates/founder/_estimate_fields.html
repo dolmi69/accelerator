@@ -1,0 +1,52 @@
+
+<section>
+    <h2>Оценки приоритета</h2>
+    {% if estimate_preview.preliminary %}
+        <p class="muted small">
+            Недостающие значения предложил Бруно. Проверьте их и сохраните, чтобы использовать как свои оценки.
+        </p>
+        <details class="mvp-help">
+            <summary>Почему Бруно предложил такие оценки</summary>
+            <div>
+                <p>{{ estimate_preview.bruno_basis }}</p>
+                <p>Предложения Бруно хранятся отдельно. После сохранения формы выбранные числа станут вашими оценками.</p>
+                {% include 'founder/_estimate_breakdown.html' %}
+            </div>
+        </details>
+    {% else %}
+        <p class="muted small">
+            Оценки можно уточнить в любой момент. Если данных не хватает, нажмите «Оценить с Бруно» в общем рейтинге или внесите свои числа.
+        </p>
+    {% endif %}
+    <div class="mvp-form-grid">
+        <fieldset>
+            <legend>RICE · охват и затраты</legend>
+            <label class="field">
+                <span>{{ form.reach.label }}</span>{{ form.reach }}{{ form.reach.errors }}
+            </label>
+            <label class="field">
+                <span>{{ form.rice_impact.label }}</span>{{ form.rice_impact }}{{ form.rice_impact.errors }}
+            </label>
+            <label class="field">
+                <span>{{ form.effort.label }}</span>{{ form.effort }}{{ form.effort.errors }}<small>Суммарная работа команды: 2 человека × 2 дня = 4 человеко-дня.</small>
+            </label>
+        </fieldset>
+        <fieldset>
+            <legend>ICE · влияние и простота</legend>
+            <label class="field">
+                <span>{{ form.ice_impact.label }}</span>{{ form.ice_impact }}{{ form.ice_impact.errors }}
+            </label>
+            <label class="field">
+                <span>{{ form.ease.label }}</span>{{ form.ease }}{{ form.ease.errors }}<small>1 — очень сложно, 10 — очень просто. Не трудозатраты в днях.</small>
+            </label>
+        </fieldset>
+    </div>
+    <div class="mvp-form-grid">
+        <label class="field">
+            <span>{{ form.confidence.label }}</span>{{ form.confidence }}{{ form.confidence.errors }}<small>Общая для RICE и ICE: 0–100%. Укажите свою уверенность в исходных оценках.</small>
+        </label>
+        <label class="field">
+            <span>{{ form.estimate_basis.label }}</span>{{ form.estimate_basis }}{{ form.estimate_basis.errors }}
+        </label>
+    </div>
+</section>

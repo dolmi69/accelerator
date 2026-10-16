@@ -1,3 +1,4 @@
+from founder import lab_job_views, history_views
 from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.urls import reverse_lazy
@@ -6,6 +7,14 @@ from founder import views, workbench_views, lab_views, lab_testing_views, team_v
 
 
 urlpatterns = [
+    path('startups/<uuid:startup_id>/daily-plan/', views.daily_plan_generate, name='daily_plan_generate'),
+    path('startups/<uuid:startup_id>/tasks/features/<uuid:feature_id>/result/', workbench_views.feature_result, name='feature_result'),
+    path('startups/<uuid:startup_id>/tasks/features/<uuid:feature_id>/assign/', workbench_views.feature_assign, name='feature_assign'),
+    path('startups/<uuid:startup_id>/evidence/tell/', history_views.tell, name='result_tell'),
+    path('startups/<uuid:startup_id>/evidence/<uuid:entry_id>/verify/', history_views.verify_result, name='result_verify'),
+    path('startups/<uuid:startup_id>/evidence/<uuid:entry_id>/next/', history_views.add_followup, name='result_followup'),
+    path('startups/<uuid:startup_id>/tasks/estimates/generate/', workbench_views.estimates_generate, name='estimates_generate'),
+    path('startups/<uuid:startup_id>/tasks/<uuid:task_id>/estimate/', workbench_views.task_estimate, name='task_estimate'),
     path('startups/<uuid:startup_id>/tasks/features/new/',feature_views.feature_edit,name='feature_create'),
     path('startups/<uuid:startup_id>/tasks/features/suggest/',feature_views.features_suggest,name='features_suggest'),
     path('startups/<uuid:startup_id>/tasks/features/transfer/',feature_views.features_transfer,name='features_transfer'),
@@ -23,15 +32,19 @@ urlpatterns = [
     path('startups/<uuid:startup_id>/lab/backend/stop/', lab_views.lab_stop, name='lab_stop'),
     path('startups/<uuid:startup_id>/lab/backend/activate/', lab_views.lab_activate, name='lab_activate'),
     path('startups/<uuid:startup_id>/lab/<uuid:version_id>/download/', lab_views.lab_download, name='lab_download'),
+    path('startups/<uuid:startup_id>/lab/jobs/', lab_job_views.lab_job_start, name='lab_job_start'),
+    path('startups/<uuid:startup_id>/lab/jobs/status/', lab_job_views.lab_job_status, name='lab_job_status'),
     path('startups/<uuid:startup_id>/lab/<uuid:version_id>/run/', lab_views.lab_run, name='lab_run'),
     path('startups/<uuid:startup_id>/lab/publish/', lab_testing_views.lab_publish, name='lab_publish'),
     path('community/<uuid:startup_id>/lab/', lab_testing_views.lab_trial, name='lab_trial'),
     path('community/<uuid:startup_id>/lab/<uuid:version_id>/preview/', lab_testing_views.lab_public_preview, name='lab_public_preview'),
+    path('community/<uuid:startup_id>/lab/<uuid:version_id>/run/', lab_testing_views.lab_public_backend_start, name='lab_public_backend_start'),
     path('community/<uuid:startup_id>/lab/start/', lab_testing_views.lab_test_start, name='lab_test_start'),
     path('community/<uuid:startup_id>/lab/tests/<uuid:session_id>/preview/', lab_testing_views.lab_test_preview, name='lab_test_preview'),
     path('community/<uuid:startup_id>/lab/tests/<uuid:session_id>/events/', lab_testing_views.lab_test_events, name='lab_test_events'),
     path('community/<uuid:startup_id>/lab/tests/<uuid:session_id>/finish/', lab_testing_views.lab_test_finish, name='lab_test_finish'),
     path('startups/<uuid:startup_id>/lab/<uuid:version_id>/preview/', lab_views.lab_preview, name='lab_preview'),
+    path('startups/<uuid:startup_id>/work/focus/', workbench_views.work_focus, name='work_focus'),
     path('startups/<uuid:startup_id>/tasks/', workbench_views.tasks, name='tasks'),
     path('startups/<uuid:startup_id>/tasks/generate/', workbench_views.tasks_generate, name='tasks_generate'),
     path('startups/<uuid:startup_id>/tasks/<uuid:task_id>/skip/', workbench_views.task_skip, name='task_skip'),

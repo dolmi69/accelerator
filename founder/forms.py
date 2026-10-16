@@ -197,7 +197,9 @@ class EvidenceForm(forms.ModelForm):
     def __init__(self, *args, startup, **kwargs):
         super().__init__(*args, **kwargs)
         self.instance.startup = startup
-        self.fields['task'].queryset = startup.bruno_tasks.all()
+        from founder.services.kano_availability import visible_tasks
+        self.fields['task'].queryset = (startup.bruno_tasks.all() if self.instance.pk and not self.instance._state.adding
+                                        else visible_tasks(startup.bruno_tasks.all()))
         self.fields['task'].label_from_instance = lambda task: task.title
         self.fields['milestone'].choices = [('', 'Обычное наблюдение'), *EvidenceEntry.Milestone.choices]
         if self.instance.pk and not self.instance._state.adding:

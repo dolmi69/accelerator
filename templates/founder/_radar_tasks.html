@@ -2,7 +2,7 @@
          id="project-tasks"
          aria-labelledby="hub-tasks-heading">
     <summary class="hub-section-heading">
-        <h3 id="hub-tasks-heading">Задания Бруно</h3>
+        <h3 id="hub-tasks-heading">Текущие задания</h3>
         <span>{{ overview_task_count }}</span><span class="hub-fold-chevron" aria-hidden="true">⌄</span>
     </summary>
     <div class="hub-tasks-body">
@@ -33,8 +33,7 @@
                             <p class="muted small">Готово, когда: {{ task.success_criterion }}</p>
                             {% if startup.user_role != 'viewer' %}
                                 <a class="evidence-link"
-                                   href="{% url 'evidence_create' startup.id %}?task={{ task.id }}"
-                                   data-task-open="task-result-{{ task.pk }}">Записать результат →</a>
+                                   href="{% url 'result_tell' startup.id %}?task={{ task.id }}">Расскажи Бруно →</a>
                             {% endif %}
                         </div>
                     </details>
@@ -93,18 +92,6 @@
             {% endfor %}
         </div>
         <div class="hub-task-actions">
-            {% if startup.user_role != 'viewer' and not overview_task_count %}
-                <form method="post"
-                      action="{% url 'tasks_generate' startup.id %}"
-                      data-busy-form>
-                    {% csrf_token %}
-                    <input type="hidden" name="return_to" value="radar">
-                    <button class="button ghost"
-                            data-busy-label="Бруно готовит задания…"
-                            {% if not overview_has_story %}disabled{% endif %}>Получить задания</button>
-                    <span class="muted small" role="status" aria-live="polite"></span>
-                </form>
-            {% endif %}
             <a class="evidence-link" href="{% url 'tasks' startup.id %}">Все задания →</a>
         </div>
     </div>

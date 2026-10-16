@@ -1,6 +1,7 @@
 """Tasks and observations shared by the radar, chat and investor trainer."""
 import json
 
+from founder.services.kano_availability import visible_tasks
 from django.conf import settings
 from django.db import transaction
 
@@ -82,6 +83,7 @@ def evidence_context(startup, limit=12):
     remaining = 9000
     for entry in startup.evidence_entries.all()[:limit]:
         text = (f'{entry.get_axis_display()}. Проверяли: {entry.claim}. '
+                f'Происхождение: {entry.get_origin_display()}; статус проверки: {entry.progress.get("verification", "со слов участника")}. '
                 f'Наблюдение: {entry.observation[:1800]}. Итог: {entry.get_outcome_display()}. '
                 f'Источник: {entry.source or "не указан"}. Ссылка: {entry.source_url or "нет"}. '
                 f'Открытый вопрос: {entry.next_question or "нет"}.')
@@ -126,7 +128,7 @@ def _valid_tasks(items, available):
 
 
 def generate_tasks(startup):
-    active = set(startup.bruno_tasks.filter(origin='bruno',status=BrunoTask.Status.TODO).values_list('axis', flat=True))
+    active = set(visible_tasks(startup.bruno_tasks).filter(origin='bruno',status=BrunoTask.Status.TODO).values_list('axis', flat=True))
     if len(active) >= 3:
         return []
     available = [axis for axis in BusinessAxis.values if axis not in active]
@@ -140,7 +142,7 @@ def generate_tasks(startup):
         context += '\nДоступные направления, от слабого к сильному: ' + ', '.join(available)
         if latest:
             context += '\nПоследний радар: ' + json.dumps({axis: {'score': getattr(latest, axis), 'reason': latest.assessment_details.get(axis, '')} for axis in available}, ensure_ascii=False)
-        previous = list(startup.bruno_tasks.values('axis', 'title', 'status')[:15])
+        previous = list(visible_tasks(startup.bruno_tasks).values('axis', 'title', 'status')[:15])
         context += '\nПредыдущие задания: ' + json.dumps(previous, ensure_ascii=False)
         items = []
         for attempt in range(2):
@@ -160,7 +162,7 @@ def generate_tasks(startup):
     # Recheck after the API call: a parallel request may already have added tasks.
     with transaction.atomic():
         StartupProfile.objects.select_for_update().get(pk=startup.pk)
-        active = set(startup.bruno_tasks.filter(origin='bruno',status=BrunoTask.Status.TODO).values_list('axis', flat=True))
+        active = set(visible_tasks(startup.bruno_tasks).filter(origin='bruno',status=BrunoTask.Status.TODO).values_list('axis', flat=True))
         created = []
         for item in items:
             if len(active) >= 3:

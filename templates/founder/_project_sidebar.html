@@ -2,7 +2,7 @@
        id="project-sidebar"
        aria-label="Разделы проекта">
     <div class="project-sidebar-heading">
-        <span>Работа над проектом</span>
+        <span>Ваш проект</span>
         <button type="button"
                 data-sidebar-collapse
                 aria-label="Свернуть боковое меню"
@@ -40,37 +40,10 @@
                 </svg>
             </span><span class="project-nav-label">Карточка проекта</span></a>
         {% endif %}
-        <a href="{% url 'review' startup.id %}"
-           aria-label="Разбор и план"
-           title="Разбор и план"
-           {% if workspace_tab == 'review' %}aria-current="page"{% endif %}><span class="project-nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"
-                 fill="none"
-                 stroke="currentColor"
-                 stroke-width="1.7"
-                 stroke-linecap="round"
-                 stroke-linejoin="round">
-                <path d="M9 6h11M9 12h11M9 18h11M3 6h1M3 12h1M3 18h1" />
-            </svg>
-        </span><span class="project-nav-label">Разбор и план</span></a>
-        <a href="{% url 'market' startup.id %}"
-           aria-label="Рынок и конкуренты"
-           title="Рынок и конкуренты"
-           {% if workspace_tab == 'market' %}aria-current="page"{% endif %}><span class="project-nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"
-                 fill="none"
-                 stroke="currentColor"
-                 stroke-width="1.7"
-                 stroke-linecap="round"
-                 stroke-linejoin="round">
-                <path d="M4 19V9M10 19V5M16 19v-7M3 21h17" />
-                <path d="m18 5 3-3m0 0v4m0-4h-4" />
-            </svg>
-        </span><span class="project-nav-label">Рынок и конкуренты</span></a>
         <a href="{% url 'tasks' startup.id %}"
-           aria-label="Задания Бруно"
-           title="Задания Бруно"
-           {% if workspace_tab == 'tasks' %}aria-current="page"{% endif %}><span class="project-nav-icon" aria-hidden="true">
+           aria-label="Работа над проектом"
+           title="Работа над проектом"
+           {% if workspace_tab == 'tasks' or workspace_tab == 'review' or workspace_tab == 'market' or workspace_tab == 'evidence' or workspace_tab == 'investor' %}aria-current="page"{% endif %}><span class="project-nav-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"
                  fill="none"
                  stroke="currentColor"
@@ -80,34 +53,7 @@
                 <rect x="4" y="4" width="16" height="16" rx="3" />
                 <path d="m8 12 3 3 5-6" />
             </svg>
-        </span><span class="project-nav-label">Задания Бруно</span></a>
-        <a href="{% url 'evidence_list' startup.id %}"
-           aria-label="Дневник доказательств"
-           title="Дневник доказательств"
-           {% if workspace_tab == 'evidence' %}aria-current="page"{% endif %}><span class="project-nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"
-                 fill="none"
-                 stroke="currentColor"
-                 stroke-width="1.7"
-                 stroke-linecap="round"
-                 stroke-linejoin="round">
-                <path d="M12 5v15M12 5C8 3 5 3 3 4v15c3-1 6-1 9 1 3-2 6-2 9-1V4c-3-1-6-1-9 1Z" />
-            </svg>
-        </span><span class="project-nav-label">Дневник доказательств</span></a>
-        <a href="{% url 'investor' startup.id %}"
-           aria-label="Бруно-инвестор"
-           title="Бруно-инвестор"
-           {% if workspace_tab == 'investor' %}aria-current="page"{% endif %}><span class="project-nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"
-                 fill="none"
-                 stroke="currentColor"
-                 stroke-width="1.7"
-                 stroke-linecap="round"
-                 stroke-linejoin="round">
-                <rect x="3" y="7" width="18" height="14" rx="2" />
-                <path d="M8 7V3h8v4M3 12h18M10 12v3h4v-3" />
-            </svg>
-        </span><span class="project-nav-label">Бруно-инвестор</span></a>
+        </span><span class="project-nav-label">Работа над проектом</span></a>
         <a href="{% url 'lab' startup.id %}"
            aria-label="Лаборатория сайтов"
            title="Лаборатория сайтов"

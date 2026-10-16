@@ -1,0 +1,21 @@
+{% if past_tasks %}
+    <details class="card project-card-fold">
+        <summary>
+            Предыдущие задания <small>{{ past_tasks|length }}</small>
+        </summary>
+        <div class="project-fold-body">
+            {% for task in past_tasks %}
+                <div class="work-history-row">
+                    <div>
+                        <strong>{{ task.title }}</strong>
+                        <p class="muted small">
+                            {{ task.get_axis_display }} · {{ task.get_status_display }} · {{ task.created_at|date:'d.m.Y' }}
+                            {% if task.assignee %}· {{ task.assignee.public_name }}{% endif %}
+                        </p>
+                    </div>
+                    <a href="{% url 'evidence_list' startup.id %}?axis={{ task.axis }}">Смотреть дневник →</a>
+                </div>
+            {% endfor %}
+        </div>
+    </details>
+{% endif %}

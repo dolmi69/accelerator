@@ -1,0 +1,39 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{{ publication.startup.name }}</title>
+        <link rel="stylesheet"
+              href="{% static 'founder/css/lab-public-backend.css' %}?v=2">
+        <script src="{% static 'founder/js/lab-public-backend.js' %}?v=2" defer></script>
+    </head>
+    <body>
+        <main id="backend-launch">
+            {% if runtime_available %}
+                <form id="backend-launch-form"
+                      method="post"
+                      action="{% url 'lab_public_backend_start' publication.startup_id publication.version_id %}">
+                    {% csrf_token %}
+                    <button type="submit" hidden>Попробовать снова</button>
+                    <noscript>Для автоматической загрузки сайта включите JavaScript.</noscript>
+                </form>
+            {% else %}
+                <p>
+                    Сайт сохранён в карточке. Запуск пока доступен на компьютере с локальной лабораторией. Для доступа через интернет нужна отдельная среда запуска на сервере.
+                </p>
+            {% endif %}
+            <p id="backend-launch-status" role="status" aria-live="polite">{% if runtime_available %}Загружаем сайт…{% endif %}</p>
+        </main>
+        <div id="backend-site" hidden>
+            <nav>
+                <a id="backend-open-tab" target="_blank" rel="noopener noreferrer">Открыть в отдельной вкладке ↗</a>
+            </nav>
+            <iframe id="backend-site-frame"
+                    title="{{ publication.startup.name }}"
+                    sandbox="allow-scripts allow-forms allow-same-origin"
+                    referrerpolicy="no-referrer"></iframe>
+        </div>
+    </body>
+</html>

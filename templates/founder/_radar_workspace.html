@@ -1,170 +1,37 @@
 <div class="radar-workspace-grid">
-    <section class="card workspace-module" id="project-plan">
-        <div class="module-heading">
-            <span class="module-icon" aria-hidden="true">01</span>
-            <div>
-                <span class="eyebrow">НАПРАВЛЕНИЕ</span>
-                <h2>Разбор и план</h2>
+    {% include 'founder/_daily_focus.html' %}
+    <div class="radar-workspace-side">
+        <section class="card workspace-module" id="project-team">
+            <div class="module-heading">
+                <span class="module-icon team" aria-hidden="true">03</span>
+                <div>
+                    <span class="eyebrow">ВМЕСТЕ БЫСТРЕЕ</span>
+                    <h2>Команда</h2>
+                </div>
+                <span class="module-status">Участников: {{ overview_member_count }}</span>
             </div>
-            <span class="module-status {% if overview_review %}ready{% endif %}">
-                {% if overview_review %}
-                    Готов
-                {% else %}
-                    Начнём здесь
-                {% endif %}
-            </span>
-        </div>
-        {% if overview_review %}
-            <h3 class="module-focus">{{ overview_review.data.focus|truncatechars:100 }}</h3>
-            <p class="module-description">{{ overview_review.data.summary|truncatewords:24|truncatechars:170 }}</p>
-            <div class="module-meta">{{ overview_steps|length }} шагов · {{ overview_review.created_at|date:'d.m.Y' }}</div>
-            <details class="module-details">
-                <summary>
-                    Подробнее <span aria-hidden="true">⌄</span>
-                </summary>
-                <div class="module-expanded-copy">
-                    <h3>{{ overview_review.data.focus }}</h3>
-                    <p>{{ overview_review.data.summary }}</p>
-                </div>
-                <h3 class="module-detail-heading">Шаги плана</h3>
-                <ol class="plan-preview">
-                    {% for step in overview_steps %}
-                        <li>
-                            <span class="plan-week">Неделя {{ step.week }}</span><strong>{{ step.title }}</strong>
-                            <p>{{ step.action }}</p>
-                            <p class="muted small">Готово, когда: {{ step.done_when }}</p>
-                        </li>
-                    {% empty %}
-                        <li>Шаги пока не сохранены. Откройте полный разбор.</li>
-                    {% endfor %}
-                </ol>
-            </details>
-        {% else %}
-            <p class="module-description">Разберём риски и составим план на месяц по вашему рассказу и радару.</p>
-        {% endif %}
-        <div class="module-actions">
-            {% if startup.user_role != 'viewer' %}
-                <form method="post"
-                      action="{% url 'review_generate' startup.id %}"
-                      data-busy-form>
-                    {% csrf_token %}
-                    <input type="hidden" name="return_to" value="radar">
-                    <button class="button primary"
-                            data-busy-label="Бруно составляет план…"
-                            {% if not overview_has_story %}disabled{% endif %}>
-                        {% if overview_review %}
-                            Обновить план
-                        {% else %}
-                            Составить план с Бруно
-                        {% endif %}
-                    </button>
-                    <span class="muted small" role="status" aria-live="polite"></span>
-                </form>
-            {% endif %}
-            {% if overview_review %}
-                <a class="evidence-link" href="{% url 'review' startup.id %}">Полный разбор →</a>
-            {% endif %}
-        </div>
-        {% if not overview_has_story %}<p class="muted small">Сначала расскажите об идее Бруно в разговоре.</p>{% endif %}
-    </section>
-
-    <section class="card workspace-module" id="project-market">
-        <div class="module-heading">
-            <span class="module-icon market" aria-hidden="true">02</span>
-            <div>
-                <span class="eyebrow">ПРОВЕРКА ИДЕИ</span>
-                <h2>Рынок и конкуренты</h2>
+            <div class="team-preview">
+                <a class="team-preview-member"
+                   href="{{ startup.owner.get_absolute_url }}">
+                    {% include 'profiles/_avatar.html' with member=startup.owner %}
+                    <span><strong>{{ startup.owner.public_name }}</strong><small>Владелец</small></span><span aria-hidden="true">↗</span></a>
+                {% for member in overview_members %}
+                    <a class="team-preview-member" href="{{ member.user.get_absolute_url }}">
+                        {% include 'profiles/_avatar.html' with member=member.user %}
+                        <span><strong>{{ member.user.public_name }}</strong><small>{{ member.get_role_display }}</small></span><span aria-hidden="true">↗</span></a>{% empty %}
+                            <p class="muted small">Пригласите соавтора, чтобы распределить работу.</p>
+                        {% endfor %}
+                    </div>
+                    <div class="module-actions">
+                        <a class="button ghost" href="{% url 'team' startup.id %}">
+                            {% if startup.user_role == 'owner' %}
+                                Пригласить и управлять
+                            {% else %}
+                                Открыть команду
+                            {% endif %}
+                        →</a>
+                    </div>
+                </section>
+                {% include 'founder/_participant_actions.html' %}
             </div>
-            <span class="module-status {% if overview_market %}ready{% endif %}">
-                {% if overview_market %}
-                    Есть анализ
-                {% else %}
-                    Не исследован
-                {% endif %}
-            </span>
-        </div>
-        {% if overview_market %}
-            <p class="module-description">{{ overview_market.data.relevance_reason|truncatewords:24|truncatechars:170 }}</p>
-            <div class="module-meta">
-                {{ overview_competitors|length }} конкурентов · {{ overview_market.sources|length }} источников · {{ overview_market.created_at|date:'d.m.Y' }}
-            </div>
-            <details class="module-details">
-                <summary>
-                    Подробнее <span aria-hidden="true">⌄</span>
-                </summary>
-                <div class="module-expanded-copy">
-                    <p>{{ overview_market.data.relevance_reason }}</p>
-                </div>
-                <h3 class="module-detail-heading">Конкуренты</h3>
-                <div class="competitor-preview">
-                    {% for competitor in overview_competitors %}
-                        <article><strong>{{ competitor.name }}</strong>
-                            <p>{{ competitor.what }}</p>
-                            {% if competitor.price %}<span class="muted small">{{ competitor.price }}</span>{% endif %}
-                        </article>{% empty %}
-                        <p class="muted">
-                            В сохранённом анализе нет подтверждённых конкурентов. Посмотрите источники и альтернативы в полном отчёте.
-                        </p>
-                    {% endfor %}
-                </div>
-            </details>
-        {% else %}
-            <p class="module-description">Найдём конкурентов и сигналы спроса, чтобы понять ваши отличия.</p>
-        {% endif %}
-        <div class="module-actions">
-            {% if startup.user_role != 'viewer' %}
-                <form method="post"
-                      action="{% url 'market_generate' startup.id %}"
-                      data-busy-form>
-                    {% csrf_token %}
-                    <input type="hidden" name="return_to" value="radar">
-                    <button class="button ghost"
-                            data-busy-label="Бруно изучает рынок…"
-                            {% if not overview_has_story %}disabled{% endif %}>
-                        {% if overview_market %}
-                            Обновить исследование
-                        {% else %}
-                            Исследовать рынок
-                        {% endif %}
-                    </button>
-                    <span class="muted small" role="status" aria-live="polite"></span>
-                </form>
-            {% endif %}
-            {% if overview_market %}
-                <a class="evidence-link" href="{% url 'market' startup.id %}">Анализ и источники →</a>
-            {% endif %}
-        </div>
-    </section>
-
-    <section class="card workspace-module" id="project-team">
-        <div class="module-heading">
-            <span class="module-icon team" aria-hidden="true">03</span>
-            <div>
-                <span class="eyebrow">ВМЕСТЕ БЫСТРЕЕ</span>
-                <h2>Команда</h2>
-            </div>
-            <span class="module-status">Участников: {{ overview_member_count }}</span>
-        </div>
-        <div class="team-preview">
-            <a class="team-preview-member"
-               href="{{ startup.owner.get_absolute_url }}">
-                {% include 'profiles/_avatar.html' with member=startup.owner %}
-                <span><strong>{{ startup.owner.public_name }}</strong><small>Владелец</small></span><span aria-hidden="true">↗</span></a>
-            {% for member in overview_members %}
-                <a class="team-preview-member" href="{{ member.user.get_absolute_url }}">
-                    {% include 'profiles/_avatar.html' with member=member.user %}
-                    <span><strong>{{ member.user.public_name }}</strong><small>{{ member.get_role_display }}</small></span><span aria-hidden="true">↗</span></a>{% empty %}
-                        <p class="muted small">Пригласите соавтора, чтобы распределить работу.</p>
-                    {% endfor %}
-                </div>
-                <div class="module-actions">
-                    <a class="button ghost" href="{% url 'team' startup.id %}">
-                        {% if startup.user_role == 'owner' %}
-                            Пригласить и управлять
-                        {% else %}
-                            Открыть команду
-                        {% endif %}
-                    →</a>
-                </div>
-            </section>
         </div>

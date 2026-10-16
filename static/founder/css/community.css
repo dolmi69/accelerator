@@ -71,7 +71,7 @@
 @media(prefers-reduced-motion:reduce) { .messenger.has-active .direct-chat { transition:none; } }
 
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-.hero-bear { width:225px; height:240px; font-size:inherit; transform:rotate(-5deg); }
+.hero-bear { width:225px; height:240px; font-size:inherit; transform:rotate(-5deg); filter:none; mix-blend-mode:multiply; }
 .hero-bear .bruno-art { width:100%; height:100%; margin:0; }
 .page-heading h1 { font-size:clamp(28px,3.5vw,40px); font-weight:700; line-height:1.2; }
 .community-hero h1,.discovery-card h2,.public-project h1 { font-weight:700; }

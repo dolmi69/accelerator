@@ -1,0 +1,17 @@
+<dl class="estimate-breakdown">
+    {% for input in estimate_preview.inputs %}
+        <div>
+            <dt>{{ input.label }}</dt>
+            <dd>
+                <strong>
+                    {% if input.value != None %}
+                        {{ input.value|floatformat:'-2' }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </strong>
+                <span>{{ input.reason }}</span>
+            </dd>
+        </div>
+    {% endfor %}
+</dl>

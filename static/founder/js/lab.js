@@ -23,6 +23,7 @@
       else url.searchParams.delete('section');
       url.hash = '';
       history.pushState(history.state, '', url);
+      document.querySelector(`[data-lab-panel="${section}"]`)?.scrollIntoView({block:'start'});
     }
     document.dispatchEvent(new Event('lab:preview-state'));
   }
@@ -77,12 +78,24 @@
       preview.inert = true;
       preview.setAttribute('aria-hidden', 'true');
     }
-    document.querySelectorAll('.lab-preview-actions, .lab-site-details, #lab-publication, .lab-editor').forEach(node => { node.inert = true; });
+    document.querySelectorAll('.lab-preview-actions, .lab-site-details, #lab-publication').forEach(node => { node.inert = true; });
     document.querySelectorAll('[data-lab-expand]').forEach(node => { node.disabled = true; });
     document.querySelector('.lab-preview-card')?.setAttribute('aria-busy', 'true');
     document.dispatchEvent(new Event('lab:preview-state'));
   }
+  document.addEventListener('lab:job-state', event => {
+    if (event.detail?.active && event.detail.mode === 'edit') { lockPrototype(); return; }
+    generating = false;
+    if (forge) forge.hidden = true;
+    const preview = document.getElementById('lab-site-frame');
+    if (preview) { preview.inert = false; preview.removeAttribute('aria-hidden'); }
+    document.querySelectorAll('.lab-preview-actions, .lab-site-details, #lab-publication').forEach(node => { node.inert = false; });
+    document.querySelectorAll('[data-lab-expand]').forEach(node => { node.disabled = false; });
+    document.querySelector('.lab-preview-card')?.setAttribute('aria-busy', 'false');
+    document.dispatchEvent(new Event('lab:preview-state'));
+  });
   form.addEventListener('submit', event => {
+    if (form.dataset.jobsUrl) return;
     if (event.defaultPrevented) return;
     if (event.submitter?.hasAttribute('formaction')) return;
     if (generating) { event.preventDefault(); return; }

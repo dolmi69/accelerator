@@ -1,16 +1,11 @@
-{% extends 'base.html' %}
+{% extends 'founder/work_base.html' %}
 {% block title %}Бруно-инвестор · {{ startup.name }}{% endblock %}
-{% block content %}
-    {% include 'founder/_workspace_nav.html' %}
-    <div class="page-heading work-heading">
-        <div class="project-investor-heading">
-            {% include 'founder/_bruno.html' with investor=True instance_id='investor-home' %}
-            <div>
-                <h1>Бруно-инвестор</h1>
-                <p>{{ startup.name }} · Подготовьтесь к вопросам о вашем бизнесе.</p>
-            </div>
-        </div>
-    </div>
+{% block work_title %}Бруно-инвестор{% endblock %}
+{% block work_description %}Подготовьтесь к вопросам о вашем бизнесе.{% endblock %}
+{% block work_actions %}
+    {% include 'founder/_bruno.html' with investor=True instance_id='investor-home' %}
+{% endblock %}
+{% block work_content %}
     <div class="project-training-grid">
         <section class="card work-card">
             <div class="project-training-header">

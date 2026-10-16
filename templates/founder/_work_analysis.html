@@ -1,0 +1,150 @@
+<section class="card work-analysis"
+         id="work-analysis-content"
+         aria-labelledby="work-analysis-title">
+    <header class="work-section-heading">
+        <div>
+            <span class="eyebrow">01 · РАЗБОР БРУНО</span>
+            <h2 id="work-analysis-title">
+                {% if review %}
+                    Главное из разбора
+                {% else %}
+                    Начнём с общей картины
+                {% endif %}
+            </h2>
+        </div>
+        {% if review %}
+            <time datetime="{{ review.created_at|date:'c' }}">{{ review.created_at|date:'d.m.Y · H:i' }}</time>
+        {% endif %}
+    </header>
+    {% if review %}
+        {% if review_stale %}
+            <p class="work-stale-note">
+                Данные изменились после этого разбора или его версия не отслеживалась. Обновите его, когда будете готовы пересмотреть план.
+            </p>
+        {% endif %}
+        <p class="work-analysis-summary">{{ data.summary }}</p>
+        <div class="work-analysis-pair">
+            <div>
+                <span class="work-caption">Цель плана</span>
+                <h3>{{ data.focus }}</h3>
+            </div>
+            {% if risks %}
+                <div>
+                    <span class="work-caption">Главная неопределённость</span>
+                    <h3>{{ risks.0.title }}</h3>
+                    <p>{{ risks.0.why }}</p>
+                </div>
+            {% endif %}
+        </div>
+        <details class="project-fold">
+            <summary>Все основания и риски</summary>
+            <div class="project-fold-body">
+                <p>{{ data.stage_reason }}</p>
+                {% for strength in data.strengths %}<p>✓ {{ strength }}</p>{% endfor %}
+                {% for risk in risks %}
+                    <p>
+                        <strong>{{ risk.title }}</strong> · {{ risk.axis_label }}
+                        <br>
+                        {{ risk.why }}
+                    </p>
+                {% endfor %}
+            </div>
+        </details>
+        <h3 class="work-plan-title">Предложенные шаги</h3>
+        <p class="muted small">Текущие задания — выше. Здесь подробности плана и дополнительные шаги.</p>
+        <ol class="work-plan-list">
+            {% for step in steps %}
+                <li>
+                    <span class="work-plan-number">{{ forloop.counter|stringformat:'02d' }}</span>
+                    <div>
+                        <span class="work-caption">Неделя {{ step.week }} · {{ step.axis_label }}</span>
+                        <h3>{{ step.title }}</h3>
+                        <p>{{ step.action }}</p>
+                        <details class="work-done-when">
+                            <summary>Когда шаг закончен</summary>
+                            <p>{{ step.done_when }}</p>
+                        </details>
+                    </div>
+                    <div class="work-plan-action">
+                        {% if step.accepted %}
+                            <span class="work-saved-label">✓ Уже добавлен</span>
+                        {% elif step.axis_busy %}
+                            <a href="#work-tasks" class="muted small">Уже есть задание
+                                <br>
+                            по этому направлению ↓</a>
+                        {% elif startup.user_role != 'viewer' %}
+                            <form method="post"
+                                  action="{% url 'review_step_task' startup.id review.id step.index %}">
+                                {% csrf_token %}
+                                <button class="button ghost">Взять в работу →</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </li>
+            {% endfor %}
+        </ol>
+        {% if feature_proposals %}
+            <details class="work-proposals">
+                <summary>
+                    Функции под этот план <span>{{ feature_proposals|length }} предложения</span>
+                </summary>
+                <div>
+                    {% for item in feature_proposals %}
+                        <article>
+                            <h3>{{ item.title }}</h3>
+                            <p>{{ item.description }}</p>
+                        </article>
+                    {% endfor %}
+                    {% if startup.user_role != 'viewer' %}
+                        <form method="post" action="{% url 'features_suggest' startup.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="review" value="{{ review.id }}">
+                            <button class="button ghost">Добавить предложения в список MVP</button>
+                        </form>
+                    {% endif %}
+                    <p class="muted small">Без нового запроса к AI. Оценки и приоритеты заполняете вы.</p>
+                </div>
+            </details>
+        {% endif %}
+        <p class="work-analysis-footnote">
+            Мнение Бруно по сохранённым данным. Обновление разбора использует AI; выбор готовых шагов и функций — нет.
+        </p>
+    {% else %}
+        <div class="work-analysis-empty">
+            <div class="work-empty-symbol" aria-hidden="true">✦</div>
+            <div>
+                <h3>
+                    {% if has_story %}
+                        У проекта будет один понятный план
+                    {% else %}
+                        Сначала расскажите об идее
+                    {% endif %}
+                </h3>
+                <p>
+                    {% if has_story %}
+                        Нажмите «Получить задачи». Бруно сопоставит описание, разговоры, радар и результаты проверок. В одном ответе появятся выводы, шаги и подходящие функции.
+                    {% else %}
+                        Обсудите с Бруно, для кого ваш проект и какую проблему он решает. Это станет основой плана.
+                    {% endif %}
+                </p>
+                {% if not has_story and startup.user_role != 'viewer' %}
+                    <form method="post" action="{% url 'chat_create' startup.id %}">
+                        {% csrf_token %}
+                        <button class="button ghost">Рассказать Бруно →</button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+    {% if review_history|length > 1 %}
+        <details class="project-fold">
+            <summary>История разборов</summary>
+            <div class="project-fold-body">
+                {% for item in review_history %}
+                    <a class="history-row"
+                       href="{% url 'tasks' startup.id %}?review={{ item.pk }}#work-analysis"><span>{{ item.data.focus|truncatechars:100 }}<small>{{ item.created_at|date:'d.m.Y H:i' }}</small></span><span aria-hidden="true">→</span></a>
+                {% endfor %}
+            </div>
+        </details>
+    {% endif %}
+</section>

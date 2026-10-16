@@ -68,6 +68,24 @@
 для GPT 6 используется `reasoning_effort=low`. Бюджет генерации и её reasoning
 сохраняются отдельно. Счётчики общего AI-лимита и рублёвый бюджет действуют в обоих путях.
 
+## Компоновка лаборатории — 15 октября 2026
+
+Предпросмотр расположен первым, по центру рабочей области (до 1120 px),
+диалог — под ним (до 860 px). Заголовок страницы, подписи предпросмотра,
+дата и декоративная панель браузера убраны; освободившаяся высота отдана
+самому сайту. Навигация обратной связи находится под диалогом. Встроенное окно компактнее; полный экран
+сохраняет прежний размер. Порядок блоков изменён в HTML, включая порядок
+перехода с клавиатуры, а не только визуально.
+
+История диалога раскрывается отдельной строкой. Новый ответ в обсуждении
+открывает историю и прокручивает её к последнему сообщению. После генерации
+свежий ответ или ошибка также раскрываются. Сохранение, доступ к прототипу,
+скачивание и управление версией находятся в раскрывающемся блоке под
+предпросмотром. Действие и тип сайта остаются рядом с кнопкой отправки.
+
+Оформление изолировано в `static/founder/css/lab-studio.css`; серверные
+контракты, генератор и счётчик расходов не менялись.
+
 ## Отложенная задача: состояние Бруно независимо от страницы (14.10.2026)
 
 Запрошено Эльдаром; пока только зафиксировать, без реализации.
@@ -83,3 +101,21 @@
 соответствует реальному запросу. После завершения повторное открытие страницы не
 показывает ложное «Бруно выполняет ваш запрос». Восстановление состояния не запускает
 повторную генерацию и не создаёт дополнительные платные запросы к модели.
+
+## Automatic composer
+
+The lab composer sends `automatic=1`, without manual action/output selectors.
+A durable job makes one bounded intent call through the configured lab code model.
+It receives the selected source, its latest report and up to five discussion turns
+for that source. It returns `discuss`, `clarify` or `edit`, with an interpreted task
+and static/server output choice. Questions and clarifications are saved directly
+as discussion turns; there is no second paid answer call. Edits carry the resolved
+task into generation context. Existing generated/Django backends cannot be
+silently downgraded by this choice. Invalid intent output stops the job without
+editing or retrying. Original legacy clients keep their explicit mode behavior.
+
+Planning and generation use one AI lease and one user request quota. Intent usage
+is accounted separately as `intent`; generation consumes its usual token budget.
+Jobs display an automatic planning phase before discussion/generation is known.
+No model call runs during enqueue or GET, and duplicate job delivery cannot
+repeat a paid call. Removing the browser tab does not cancel the job.

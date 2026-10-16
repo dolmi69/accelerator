@@ -7,7 +7,7 @@ const path = require('node:path');
 
 class Element {
   constructor() {
-    this.children = []; this.listeners = {}; this.disabled = false;
+    this.children = []; this.listeners = {}; this.disabled = false; this.dataset = {};
     this.value = ''; this.textContent = ''; this.files = [];
     this.classList = { add() {} };
   }

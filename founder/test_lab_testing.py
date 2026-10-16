@@ -57,7 +57,7 @@ class LabCommunityTests(TestCase):
         self.assertEqual(self.client.post(self.url('lab_publish'), {'version': str(version.pk)}).status_code, 404)
         with self.assertRaises(ValidationError):
             LabPublication(startup=self.startup, version=version).full_clean()
-        self.assertContains(self.client.get(self.url('card_edit')), 'Добавить в карточку')
+        self.assertContains(self.client.get(self.url('lab')), 'Добавить в карточку')
 
     def test_capture_is_opt_in_and_sandboxed_without_field_values(self):
         page = self.client.get(self.url('lab_trial'))
@@ -180,7 +180,8 @@ class LabCommunityTests(TestCase):
         self.client.force_login(self.owner)
         self.client.post(self.url('card_unpublish'))
         self.client.post(self.url('lab_publish'), {'version': self.draft.pk, 'visibility': 'private'})
-        self.assertContains(self.client.get(self.url('card_edit')), self.url('lab_public_preview', self.draft.pk))
+        self.assertNotContains(self.client.get(self.url('card_edit')), '<iframe')
+        self.assertEqual(self.client.get(self.url('lab_public_preview', self.draft.pk)).status_code, 200)
         self.assertEqual(self.client.get(self.url('lab_trial')).status_code, 200)
         self.assertEqual(self.client.get(self.url('lab_public_preview', self.draft.pk)).status_code, 200)
         response = self.client.post(self.url('lab_publish'), {'version': self.version.pk, 'visibility': 'everyone-with-link'})

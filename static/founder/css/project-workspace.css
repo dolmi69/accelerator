@@ -171,7 +171,6 @@ body:has(.project-workspace-nav) .chat-aside .finish-card { margin-top:0; }
 .project-shell .topbar { position:sticky; top:0; z-index:50; height:64px; min-height:64px; padding:0 24px; gap:20px; flex-wrap:nowrap; }
 .project-shell .brand { font-size:18px; white-space:nowrap; }
 .project-shell .topnav { flex:none; gap:20px; font-size:12px; flex-wrap:nowrap; }
-.project-shell .topnav>a[href="/about/"],.project-shell .topnav>a[href="/"] { display:none; }
 .project-switcher { position:relative; min-width:0; }
 .project-switcher>summary { display:flex; align-items:center; gap:14px; min-height:38px; padding:8px 12px; border:1px solid var(--line); border-radius:10px; background:#f6f8f6; cursor:pointer; list-style:none; font-size:13px; font-weight:600; }
 .project-switcher>summary::-webkit-details-marker { display:none; }
@@ -224,7 +223,7 @@ body:has(.project-workspace-nav) .chat-aside .finish-card { margin-top:0; }
   .project-switcher { flex:1; }
   .project-switcher>summary>span:first-child { max-width:210px; }
   .project-switcher>summary { justify-content:space-between; }
-  .project-shell .topnav { width:100%; justify-content:end; gap:18px; }
+  .project-shell .topnav { width:100%; justify-content:end; flex-wrap:wrap; gap:10px 14px; }
   .project-shell .topnav .account-profile-link { margin-left:0; }
   .project-shell .main-content { margin:0 14px; padding-top:16px; }
 }

@@ -1,19 +1,20 @@
 """Saved project work for the radar home page. Viewing it never calls AI."""
+from founder.services.kano_availability import visible_tasks, step_visible
 from founder.models import BrunoTask, ChatSession, ProjectMember
 
 
 def workspace_context(startup):
     review = startup.reviews.first()
     market = startup.market_reports.first()
-    open_tasks = startup.bruno_tasks.filter(status=BrunoTask.Status.TODO).select_related('assignee')
+    open_tasks = visible_tasks(startup.bruno_tasks).filter(status=BrunoTask.Status.TODO).select_related('assignee')
     task_count = open_tasks.count()
-    completed_count = startup.bruno_tasks.filter(status=BrunoTask.Status.DONE).count()
+    completed_count = visible_tasks(startup.bruno_tasks).filter(status=BrunoTask.Status.DONE).count()
     tasks = list(open_tasks[:3])
     members = startup.members.filter(status=ProjectMember.Status.ACTIVE).select_related('user')
     member_count = members.count() + 1
     review_data = review.data if review else {}
     market_data = market.data if market else {}
-    steps = review_data.get('steps', [])
+    steps = [step for step in review_data.get('steps', []) if step_visible(step)]
     competitors = market_data.get('competitors', [])
     return {
         'workspace_tab': 'radar',

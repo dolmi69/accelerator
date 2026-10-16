@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block extra_css %}
+    {% block work_css %}{% endblock %}
+    <link rel="stylesheet"
+          href="{% static 'founder/css/work-layout.css' %}?v=2">
+{% endblock %}
+{% block content %}
+    {% include 'founder/_workspace_nav.html' %}
+    <div class="work-page work-shell {% block work_page_class %}{% endblock %}">
+        <header class="work-shell-heading">
+            <div class="work-shell-heading-copy">
+                <h1>
+                    {% block work_title %}{% endblock %}
+                </h1>
+                <p>
+                    {{ startup.name }} ·
+                    {% block work_description %}{% endblock %}
+                </p>
+            </div>
+            <div class="work-shell-actions">
+                {% block work_actions %}{% endblock %}
+            </div>
+        </header>
+        {% include 'founder/_work_nav.html' %}
+        <div class="work-shell-content">
+            {% block work_content %}{% endblock %}
+        </div>
+    </div>
+{% endblock %}

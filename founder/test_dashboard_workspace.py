@@ -31,7 +31,7 @@ class RadarWorkspaceTests(TestCase):
         ProjectMember.objects.create(startup=self.startup, user=self.viewer, status='active', role='viewer')
         ProjectMember.objects.create(startup=self.startup, user=self.invited, status='invited')
         page = self.client.get(reverse('dashboard', args=[self.startup.pk]))
-        for text in ['Проверить предзаказ', 'Первые интервью', 'Кофейня рядом', 'Опрос студентов', self.viewer.public_name]:
+        for text in ['Свежий взгляд', 'Опрос студентов', self.viewer.public_name]:
             self.assertContains(page, text)
         self.assertNotContains(page, 'Чужая тайная задача')
         self.assertNotContains(page, self.invited.public_name)
@@ -40,7 +40,7 @@ class RadarWorkspaceTests(TestCase):
         self.assertEqual(page.context['overview_member_count'], 2)
         self.assertEqual(page.context['overview_task_progress'], 50)
         self.assertContains(page, 'id="project-plan"', count=1)
-        self.assertContains(page, 'id="project-market"', count=1)
+        self.assertNotContains(page, 'id="project-market"')
         self.assertContains(page, 'id="project-tasks"', count=1)
         self.assertContains(page, 'id="project-team"', count=1)
 
@@ -84,21 +84,22 @@ class RadarWorkspaceTests(TestCase):
         self.assertFalse(self.startup.metric_snapshots.exists())
         page = self.client.get(reverse('dashboard', args=[self.startup.pk]))
         self.assertEqual(page.context['overview_completed_count'], 1)
-        self.assertContains(page, 'Выполнено заданий: 1')
+        self.assertNotContains(page, 'Выполнено заданий:')
+        self.assertContains(page, 'Действия участников')
 
     def test_generators_return_to_the_correct_home_section_including_on_error(self):
         cases = [
             ('review_generate', 'founder.workbench_views.create_review', 'project-plan'),
             ('market_generate', 'founder.workbench_views.market_service.create_market_report', 'project-market'),
-            ('tasks_generate', 'founder.workbench_views.generate_tasks', 'project-tasks'),
+            ('tasks_generate', 'founder.workbench_views.create_review', 'project-plan'),
         ]
         for name, target, section in cases:
-            with self.subTest(name=name), patch(target, return_value=[]):
+            with self.subTest(name=name), patch(target, return_value=[]), patch('founder.workbench_views.populate_tasks', return_value=0):
                 page = self.client.post(reverse(name, args=[self.startup.pk]), {'return_to': 'radar'})
                 self.assertRedirects(page, reverse('dashboard', args=[self.startup.pk]) + '#' + section)
             with self.subTest(error=name), patch(target, side_effect=AIServiceError('Провайдер недоступен')):
                 page = self.client.post(reverse(name, args=[self.startup.pk]), {'return_to': 'radar'}, follow=True)
                 self.assertContains(page, 'Провайдер недоступен')
-        with patch('founder.workbench_views.create_review', return_value=[]):
+        with patch('founder.workbench_views.create_review', return_value=[]), patch('founder.workbench_views.populate_tasks', return_value=0):
             page = self.client.post(reverse('review_generate', args=[self.startup.pk]), {'return_to': 'https://outside.test'})
-            self.assertRedirects(page, reverse('review', args=[self.startup.pk]))
+            self.assertRedirects(page, reverse('tasks', args=[self.startup.pk]))

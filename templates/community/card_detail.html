@@ -1,78 +1,100 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}{{ public.name }} · Сообщество{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet"
+          href="{% static 'founder/css/project-card.css' %}?v=3">
+{% endblock %}
 {% block content %}
     <a class="back-link" href="{% url 'community' %}">← Все проекты</a>
     <div class="public-card-layout">
-        <article class="card public-project">
-            <div class="discovery-top">
-                <div class="discovery-identity">
-                    <span class="project-monogram large">{{ public.name|first|upper }}</span><span class="community-tag">{{ public.stage_label }}</span>
-                </div>
-                {% include 'community/_card_report.html' with name=public.name %}
-            </div>
-            {% if card.is_dangerous %}<p class="danger-label">Опасно!</p>{% endif %}
-            <h1>{{ public.name }}</h1>
-            <p class="public-tagline">{{ public.tagline }}</p>
-            <p class="public-summary">{{ public.summary|linebreaksbr }}</p>
-            <div class="public-sections">
-                <section>
-                    <span class="eyebrow">ПРОБЛЕМА</span>
-                    <p>{{ public.problem|default:'Пока не описана'|linebreaksbr }}</p>
-                </section>
-                <section>
-                    <span class="eyebrow">РЕШЕНИЕ</span>
-                    <p>{{ public.solution|default:'Пока не описано'|linebreaksbr }}</p>
-                </section>
-                <section>
-                    <span class="eyebrow">ДЛЯ КОГО</span>
-                    <p>{{ public.audience|default:'Уточняем аудиторию' }}</p>
-                </section>
-                <section>
-                    <span class="eyebrow">КАК ЗАРАБАТЫВАЕМ</span>
-                    <p>{{ public.business_model|default:'Проверяем гипотезы' }}</p>
-                </section>
-            </div>
-            <section class="public-traction">
-                <span class="eyebrow">ЧТО УЖЕ ПОЛУЧИЛОСЬ</span>
-                <p>{{ public.traction|default:'Автор пока не добавил результаты'|linebreaksbr }}</p>
-            </section>
-            {% if public.looking_for %}
-                <div class="looking-for-box">
-                    <span class="eyebrow">КОГО И ЧТО ИЩЕМ</span>
-                    <p>{{ public.looking_for }}</p>
-                </div>
-            {% endif %}
-            {% if public.website %}
-                <p>
-                    <a class="evidence-link"
-                       href="{{ public.website }}"
-                       target="_blank"
-                       rel="noopener noreferrer nofollow">Посмотреть сайт проекта ↗</a>
-                </p>
-            {% endif %}
-            {% if lab_publication %}
-                <section class="lab-public-prototype">
-                    <span class="eyebrow">ЖИВОЙ ПРОТОТИП</span>
-                    <h2>Попробуйте проект в действии</h2>
-                    <p class="muted">Откройте сайт, пройдите основной сценарий и помогите автору понять, что улучшить.</p>
-                    <div class="lab-browser">
-                        <iframe class="lab-frame lab-card-frame"
-                                loading="lazy"
-                                sandbox="allow-scripts"
-                                referrerpolicy="no-referrer"
-                                title="Прототип {{ public.name }}"
-                                src="{% url 'lab_public_preview' card.startup_id lab_publication.version_id %}"></iframe>
+        <div class="public-main">
+            <article class="card public-project">
+                <div class="discovery-top">
+                    <div class="discovery-identity">
+                        <span class="project-monogram large">{{ public.name|first|upper }}</span><span class="community-tag">{{ public.stage_label }}</span>
                     </div>
-                    <a class="button primary" href="{% url 'lab_trial' card.startup_id %}">Попробовать прототип и оставить отзыв →</a>
-                    <p class="muted small">
-                        В этом предпросмотре действия не собираются. Тестирование начнётся после нажатия «Начать тест».
-                    </p>
+                    {% include 'community/_card_report.html' with name=public.name %}
+                </div>
+                {% if card.is_dangerous %}<p class="danger-label">Опасно!</p>{% endif %}
+                <h1>{{ public.name }}</h1>
+                <p class="public-tagline">{{ public.tagline }}</p>
+                {% if lab_publication %}
+                    <section class="lab-public-prototype public-prototype-card">
+                        <div class="lab-browser">
+                            <iframe class="lab-frame lab-card-frame"
+                                    loading="lazy"
+                                    sandbox="allow-scripts{% if lab_publication.version.kind == 'generated' %} allow-same-origin allow-forms allow-popups{% endif %}"
+                                    referrerpolicy="no-referrer"
+                                    title="Прототип {{ public.name }}"
+                                    src="{% url 'lab_public_preview' card.startup_id lab_publication.version_id %}"></iframe>
+                        </div>
+                        <a class="button primary" href="{% url 'lab_trial' card.startup_id %}">
+                            {% if lab_publication.version.kind == 'generated' %}
+                                Открыть рабочий сайт →
+                            {% else %}
+                                Попробовать прототип и оставить отзыв →
+                            {% endif %}
+                        </a>
+                        <p class="muted small">
+                            {% if lab_publication.version.kind == 'generated' %}
+                                Отдельная база для посетителей. Сбор действий и AI-анализ пока не подключены.
+                            {% else %}
+                                В этом предпросмотре действия не собираются. Тестирование начнётся после нажатия «Начать тест».
+                            {% endif %}
+                        </p>
+                    </section>
+                {% endif %}
+                <p class="public-summary">{{ public.summary|linebreaksbr }}</p>
+                <div class="public-sections">
+                    <section>
+                        <span class="eyebrow">ПРОБЛЕМА</span>
+                        <p>{{ public.problem|default:'Пока не описана'|linebreaksbr }}</p>
+                    </section>
+                    <section>
+                        <span class="eyebrow">РЕШЕНИЕ</span>
+                        <p>{{ public.solution|default:'Пока не описано'|linebreaksbr }}</p>
+                    </section>
+                    <section>
+                        <span class="eyebrow">ДЛЯ КОГО</span>
+                        <p>{{ public.audience|default:'Уточняем аудиторию' }}</p>
+                    </section>
+                    <section>
+                        <span class="eyebrow">КАК ЗАРАБАТЫВАЕМ</span>
+                        <p>{{ public.business_model|default:'Проверяем гипотезы' }}</p>
+                    </section>
+                </div>
+                <section class="public-traction">
+                    <span class="eyebrow">ЧТО УЖЕ ПОЛУЧИЛОСЬ</span>
+                    <p>{{ public.traction|default:'Автор пока не добавил результаты'|linebreaksbr }}</p>
+                </section>
+                {% if public.looking_for %}
+                    <div class="looking-for-box">
+                        <span class="eyebrow">КОГО И ЧТО ИЩЕМ</span>
+                        <p>{{ public.looking_for }}</p>
+                    </div>
+                {% endif %}
+                <p class="muted small">Обновлено {{ card.published_at|date:'d.m.Y' }} · Сведения со слов автора.</p>
+            </article>
+        </div>
+        <aside class="public-sidebar">
+            {% if public.radar %}
+                <section class="card public-radar">
+                    <span class="eyebrow">СНИМОК РАДАРА</span>
+                    <h2>{{ public.radar.score }}/100</h2>
+                    <div class="metric-list">
+                        {% for axis in public.radar.axes %}
+                            <div class="metric-row">
+                                <span>{{ axis.label }}</span><strong>{{ axis.score }}</strong>
+                                <div class="metric-bar">
+                                    <i style="width:{{ axis.score }}%"></i>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <p class="muted small">{{ public.radar.source }}. Баллы отражают полноту сведений, а не стоимость бизнеса.</p>
                 </section>
             {% endif %}
-            <p class="muted small">Обновлено {{ card.published_at|date:'d.m.Y' }} · Сведения со слов автора.</p>
-        </article>
-        <aside class="public-sidebar">
             <section class="card author-card">
                 <span class="eyebrow">ЗНАКОМЬТЕСЬ, ОСНОВАТЕЛЬ</span><a class="author-profile-link" href="{{ author.get_absolute_url }}">
                     {% include 'profiles/_avatar.html' with member=author avatar_class='avatar-lg' %}
@@ -146,23 +168,6 @@
                     </button>
                 </form>
             </section>
-            {% if public.radar %}
-                <section class="card public-radar">
-                    <span class="eyebrow">СНИМОК РАДАРА</span>
-                    <h2>{{ public.radar.score }}/100</h2>
-                    <div class="metric-list">
-                        {% for axis in public.radar.axes %}
-                            <div class="metric-row">
-                                <span>{{ axis.label }}</span><strong>{{ axis.score }}</strong>
-                                <div class="metric-bar">
-                                    <i style="width:{{ axis.score }}%"></i>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                    <p class="muted small">{{ public.radar.source }}. Баллы отражают полноту сведений, а не стоимость бизнеса.</p>
-                </section>
-            {% endif %}
         </aside>
     </div>
 {% endblock %}

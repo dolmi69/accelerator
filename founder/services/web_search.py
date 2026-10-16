@@ -26,7 +26,7 @@ EXA_MCP_URL = "https://mcp.exa.ai/mcp"
 EXA_API_URL = "https://api.exa.ai/search"
 DDG_URL = "https://html.duckduckgo.com/html/"
 TIMEOUT = httpx.Timeout(15.0, connect=6.0)
-USER_AGENT = "Mozilla/5.0 (compatible; CoFounderAI/1.0; +market-research)"
+USER_AGENT = "Mozilla/5.0 (compatible; BrunoLab/1.0; +market-research)"
 TITLE_LIMIT = 200
 SNIPPET_LIMIT = 900
 # С одного сайта не больше двух страниц: иначе один агрегатор заслонит рынок.

@@ -82,7 +82,7 @@ def configure_bot(client, app_url):
     app_url = validate_app_url(app_url)
     bot = client.call("getMe")
     client.call("setMyCommands", commands=[
-        {"command": "start", "description": "Открыть Co-Founder.AI"},
+        {"command": "start", "description": "Открыть BrunoLab"},
         {"command": "app", "description": "Мои проекты и радары"},
         {"command": "help", "description": "Как пользоваться Бруно"},
     ])
@@ -103,7 +103,7 @@ def handle_update(client, update, app_url):
         return
     welcome = (
         "🐻 Здравствуйте! Я Бруно, ваш AI-напарник.\n\n"
-        "Откройте Co-Founder.AI, расскажите о своей идее и соберите радар по пяти направлениям. "
+        "Откройте BrunoLab, расскажите о своей идее и соберите радар по пяти направлениям. "
         "Можно вести несколько проектов и отслеживать изменения.\n\n"
         "Войдите в существующий аккаунт сайта, чтобы увидеть свои проекты, или создайте новый."
     )
@@ -115,5 +115,5 @@ def handle_update(client, update, app_url):
         )
     client.call("sendMessage", chat_id=message["chat"]["id"], text=welcome,
                 reply_markup={"inline_keyboard": [[{
-                    "text": "🐻 Открыть Co-Founder.AI", "web_app": {"url": app_url},
+                    "text": "🐻 Открыть BrunoLab", "web_app": {"url": app_url},
                 }]]})

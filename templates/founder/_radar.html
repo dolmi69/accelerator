@@ -16,7 +16,7 @@
             </span>
             <a class="radar-readiness-badge"
                href="#project-readiness"
-               aria-label="Готовность проекта {{ readiness.level }} из 9. Посмотреть следующий шаг"><strong>{{ readiness.level }}/9</strong><span>Готовность</span><span aria-hidden="true">↗</span></a>
+               aria-label="Состояние проекта и следующий шаг"><span>Состояние проекта</span><span aria-hidden="true">↗</span></a>
         </div>
     </div>
     <p class="muted small radar-source">
@@ -159,10 +159,7 @@
     </div>
 {% endfor %}
 
-{% include 'founder/_readiness.html' %}
-{% if history_selected.assessment_notes %}
-    <p class="radar-summary">{{ history_selected.assessment_notes }}</p>
-{% endif %}
+{% include 'founder/_readiness_summary.html' %}
 <div class="table-actions radar-actions">
     {% if startup.user_role != 'viewer' %}
         {% if ai_available %}

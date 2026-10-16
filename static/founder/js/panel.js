@@ -75,7 +75,19 @@
 
     context.fillStyle = "#9fe1cb";
     context.font = `700 34px ${font}`;
-    context.fillText("CO-FOUNDER.AI · ПАНЕЛЬ АКУЛ", 540, 220);
+    const heading = [
+      { text: 'Bruno', color: '#ffffff' },
+      { text: 'Lab', color: '#9fe1cb' },
+      { text: ' · ПАНЕЛЬ АКУЛ', color: '#9fe1cb' },
+    ];
+    let headingX = (canvas.width - heading.reduce((width, part) => width + context.measureText(part.text).width, 0)) / 2;
+    context.textAlign = 'left';
+    heading.forEach(part => {
+      context.fillStyle = part.color;
+      context.fillText(part.text, headingX, 220);
+      headingX += context.measureText(part.text).width;
+    });
+    context.textAlign = 'center';
 
     context.fillStyle = "#ffffff";
     context.font = `800 72px ${font}`;

@@ -1,56 +1,31 @@
-<section class="card mvp-board" id="mvp-features" aria-labelledby="mvp-title">
-    <header class="mvp-heading">
+<section class="card priority-board"
+         id="mvp-features"
+         aria-labelledby="mvp-title">
+    <header class="priority-heading">
         <div>
-            <span class="eyebrow">СНАЧАЛА ГЛАВНОЕ</span>
             <h2 id="mvp-title">Функции MVP</h2>
-            <p class="muted">Выберите, что войдёт в первую версию продукта.</p>
+            <p>Что делать сейчас, а что оставить на потом.</p>
         </div>
         {% if startup.user_role != 'viewer' %}
-            <div class="mvp-actions">
-                <a class="button primary"
+            <div class="priority-heading-actions">
+                {% if feature_proposals %}
+                    <a href="#work-analysis" class="priority-text-link">Предложения Бруно <span>{{ feature_proposals|length }}</span></a>
+                {% endif %}
+                <a class="button ghost"
                    href="{% url 'feature_create' startup.id %}?method={{ mvp_method }}">＋ Добавить функцию</a>
-                <form method="post"
-                      action="{% url 'features_suggest' startup.id %}"
-                      data-busy-form>
-                    {% csrf_token %}
-                    <input type="hidden" name="method" value="{{ mvp_method }}">
-                    <button class="button ghost" data-busy-label="Бруно предлагает функции…">Предложить с Бруно</button>
-                    <span class="muted small" role="status"></span>
-                </form>
             </div>
         {% endif %}
     </header>
-    <div class="mvp-toolbar">
-        <nav class="mvp-method" aria-label="Метод оценки функций">
-            <a href="{% url 'tasks' startup.id %}?method=rice#mvp-features"
-               {% if mvp_method == 'rice' %}aria-current="page"{% endif %}>RICE <small>Охват и затраты</small></a><a href="{% url 'tasks' startup.id %}?method=ice#mvp-features"
-   {% if mvp_method == 'ice' %}aria-current="page"{% endif %}>ICE <small>Влияние и простота</small></a>
-        </nav>
-        <div class="mvp-stats">
-            <span><strong>{{ feature_count }}</strong> функций</span><span><strong>{{ rated_count }}</strong> оценено</span><span><strong>{{ mvp_count }}</strong> в составе MVP</span>
-        </div>
-    </div>
-    <details class="mvp-help">
-        <summary>Как оценивать и выбирать функции</summary>
-        <div>
-            <p>
-                <strong>RICE:</strong> охват за 30 дней × влияние × уверенность / 100 ÷ человеко-дни. Влияние: 0,25 / 0,5 / 1 / 2 / 3. Например, 100 × 2 × 80% ÷ 4 = 40.
-            </p>
-            <p>
-                <strong>ICE:</strong> влияние (1–10) × уверенность / 10 × простота (1–10). Например, 8 × 80 / 10 × 6 = 384. Это отдельная шкала, баллы ICE и RICE между собой не сравниваются.
-            </p>
-            <p>
-                Числа вводите вы; Бруно предлагает только функции и вопросы. Пустая оценка не превращается в ноль. Баллы упорядочивают список, а не доказывают спрос.
-            </p>
-            <p>
-                <strong>MoSCoW:</strong> Must — обязательно, Should — желательно, Could — позже, Won’t — не в этой версии. Автогруппы предложены по четвертям рейтинга выбранного метода; одинаковые баллы получают одинаковую группу. Нулевой балл — Won’t. Вы можете изменить группу.
-            </p>
-            <p>
-                <strong>Состав MVP:</strong> Must и обязательные по Кано. Ваш явный Won’t откладывает функцию. Сопоставьте состав со сроками и ресурсами. Опрос Кано — отдельно для каждой функции, ответы вносятся после разговора с реальными людьми.
-            </p>
-        </div>
-    </details>
     {% if features %}
+        <div class="priority-toolbar">
+            <nav class="priority-method" aria-label="Сортировка функций">
+                <a href="?method=rice{% if mine %}&mine=1{% endif %}#mvp-features"
+                   {% if mvp_method == 'rice' %}aria-current="page"{% endif %}>RICE</a>
+                <a href="?method=ice{% if mine %}&mine=1{% endif %}#mvp-features"
+                   {% if mvp_method == 'ice' %}aria-current="page"{% endif %}>ICE</a>
+            </nav>
+            <span class="priority-stats">{{ feature_count }} функций <span>·</span> {{ rated_count }} оценено <span>·</span> <strong>{{ mvp_count }} в MVP</strong></span>
+        </div>
         {% if startup.user_role != 'viewer' %}
             <form id="mvp-transfer"
                   method="post"
@@ -59,91 +34,127 @@
                 <input type="hidden" name="method" value="{{ mvp_method }}">
             </form>
         {% endif %}
-        <div class="mvp-list">
-            {% for feature in features %}
-                <article class="mvp-row {% if feature.in_mvp %}mvp-row-selected{% endif %}"
-                         id="feature-{{ feature.pk }}">
-                    <div class="mvp-feature-main">
-                        <div class="mvp-title-row">
-                            {% if startup.user_role != 'viewer' and feature.in_mvp and not feature.task_id %}
-                                <input class="mvp-checkbox"
-                                       form="mvp-transfer"
-                                       type="checkbox"
-                                       name="features"
-                                       value="{{ feature.pk }}"
-                                       checked
-                                       aria-label="Перенести {{ feature.title }} в задания">
-                            {% endif %}
-                            <h3>{{ feature.title }}</h3>
-                            {% if feature.source == 'bruno' %}<span class="mvp-source">Предложение Бруно</span>{% endif %}
-                        </div>
-                        {% if feature.description %}<p>{{ feature.description }}</p>{% endif %}
-                        <div class="mvp-tags">
-                            <span class="mvp-priority priority-{{ feature.effective_priority }}">{{ feature.priority_label }}
-                                {% if not feature.priority and feature.suggested_priority %}· предложение{% endif %}
-                            </span>
-                            {% if feature.in_mvp %}<span class="mvp-included">В MVP · {{ feature.mvp_reason }}</span>{% endif %}
-                            {% if feature.kano.total %}
-                                <span>Кано: {{ feature.kano.label }} · ответов: {{ feature.kano.total }}
-                                    {% if feature.kano.questionable %}· {{ feature.kano.questionable }} противоречивых{% endif %}
-                                </span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="mvp-score">
-                        <strong>
-                            {% if feature.score != None %}
-                                {{ feature.score|floatformat:2 }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </strong><span>{{ mvp_method|upper }}
-                        {% if feature.score == None %}· нужны оценки{% endif %}
-                    </span>
+        <div class="priority-table">
+            <div class="priority-table-head" aria-hidden="true">
+                <span>№</span><span>Функция</span><span class="{% if mvp_method == 'rice' %}priority-column-active{% endif %}">RICE
+                {% if mvp_method == 'rice' %}↓{% endif %}
+            </span><span class="{% if mvp_method == 'ice' %}priority-column-active{% endif %}">ICE
+            {% if mvp_method == 'ice' %}↓{% endif %}
+            </span><span>Решение</span><span></span>
+        </div>
+        {% for feature in features %}
+            <article class="priority-row {% if feature.in_mvp %}priority-row-included{% endif %}"
+                     id="feature-{{ feature.pk }}">
+                <div class="priority-place">
+                    <span>{{ forloop.counter|stringformat:'02d' }}</span>
+                    {% if startup.user_role != 'viewer' and feature.in_mvp and not feature.task_id %}
+                        <input class="mvp-checkbox"
+                               form="mvp-transfer"
+                               type="checkbox"
+                               name="features"
+                               value="{{ feature.pk }}"
+                               checked
+                               aria-label="Перенести {{ feature.title }} в задания">
+                    {% endif %}
                 </div>
-                <div class="mvp-row-actions">
+                <div class="priority-feature">
+                    <h3>{{ feature.title }}</h3>
+                    {% if feature.description %}<p title="{{ feature.description }}">{{ feature.description }}</p>{% endif %}
+                    <div class="priority-feature-meta">
+                        {% if feature.source == 'bruno' %}<span>От Бруно</span>{% endif %}
+                        {% if feature.estimate_preview.preliminary %}<span>Оценки Бруно</span>{% endif %}
+                        {% if feature.kano.total %}
+                            <a href="{% url 'feature_kano' startup.id feature.pk %}?method={{ mvp_method }}">Кано: {{ feature.kano.label|lower }} · ответов: {{ feature.kano.total }}</a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="priority-number {% if mvp_method == 'rice' %}priority-number-active{% endif %}">
+                    <span class="priority-mobile-label" aria-hidden="true">RICE</span><span class="priority-sr-only">RICE:</span>
+                    {% if feature.rice != None %}
+                        {% if feature.estimate_preview.rice_preliminary %}≈{% endif %}
+                        {{ feature.rice|floatformat:2 }}
+                    {% else %}
+                        <span class="priority-missing">—</span>
+                    {% endif %}
+                </div>
+                <div class="priority-number {% if mvp_method == 'ice' %}priority-number-active{% endif %}">
+                    <span class="priority-mobile-label" aria-hidden="true">ICE</span><span class="priority-sr-only">ICE:</span>
+                    {% if feature.ice != None %}
+                        {% if feature.estimate_preview.ice_preliminary %}≈{% endif %}
+                        {{ feature.ice|floatformat:2 }}
+                    {% else %}
+                        <span class="priority-missing">—</span>
+                    {% endif %}
+                </div>
+                <div class="priority-decision">
+                    {% if feature.in_mvp %}
+                        <span class="priority-pill priority-pill-now">В MVP</span>
+                    {% elif feature.effective_priority == 'should' %}
+                        <span class="priority-pill priority-pill-next">Следом</span>
+                    {% elif feature.effective_priority == 'could' or feature.effective_priority == 'wont' %}
+                        <span class="priority-pill priority-pill-later">Позже</span>
+                    {% else %}
+                        <span class="priority-pill priority-pill-unrated">Оценить</span>
+                    {% endif %}
+                    <small>{{ feature.priority_label }}
+                        {% if feature.suggested_priority and not feature.priority %}· совет{% endif %}
+                    </small>
+                </div>
+                <div class="priority-row-actions">
                     {% if startup.user_role != 'viewer' %}
-                        <a class="button ghost"
-                           href="{% url 'feature_edit' startup.id feature.pk %}?method={{ mvp_method }}">
+                        <a href="{% url 'feature_edit' startup.id feature.pk %}?method={{ mvp_method }}"
+                           class="priority-edit">
                             {% if feature.score == None %}
                                 Оценить
                             {% else %}
                                 Изменить
                             {% endif %}
-                        </a>
+                            <span aria-hidden="true">↗</span></a>
                     {% endif %}
-                    <a class="mvp-link"
-                       href="{% url 'feature_kano' startup.id feature.pk %}?method={{ mvp_method }}">Опрос Кано →</a>
+                    {% if kano_enabled %}<a href="{% url 'feature_kano' startup.id feature.pk %}?method={{ mvp_method }}">Опрос Кано</a>{% endif %}
                     {% if feature.task_id %}
-                        <a class="mvp-link"
-                           href="{% if feature.task.status == 'todo' %}{% url 'tasks' startup.id %}?method={{ mvp_method }}#task-{{ feature.task_id }}{% else %}{% url 'evidence_list' startup.id %}?axis=product{% endif %}">{{ feature.task.get_status_display }} →</a>
+                        <a href="{% if feature.task.status == 'todo' %}?method={{ mvp_method }}#task-{{ feature.task_id }}{% else %}{% url 'evidence_list' startup.id %}?axis=product{% endif %}">{{ feature.task.get_status_display }} →</a>
                     {% endif %}
                 </div>
             </article>
         {% endfor %}
     </div>
-    <footer class="mvp-footer">
-        <p class="muted small">
-            Сумма известных трудозатрат MVP: <strong>{{ mvp_effort|floatformat:1 }} человеко-дней</strong>
-            {% if mvp_effort_incomplete %}. Часть функций ещё не оценена.{% endif %}
-        </p>
-        {% if startup.user_role != 'viewer' %}
-            {% if transferable_count %}
-                <button class="button primary" type="submit" form="mvp-transfer">Перенести выбранные в задания →</button>
-            {% elif mvp_count %}
-                <span class="muted small">Функции MVP уже связаны с заданиями</span>
-            {% else %}
-                <span class="muted small">Назначьте Must или проведите опрос, чтобы выбрать состав MVP</span>
-            {% endif %}
+    <footer class="priority-conclusion">
+        <div class="priority-conclusion-copy">
+            <span class="priority-conclusion-label">Итоговое решение</span>
+            {% if mvp_first %}
+                <p>
+                    <strong>В первую версию: {{ mvp_first.title }}
+                        {% if mvp_count > 1 %}и ещё {{ mvp_count|add:'-1' }}{% endif %}
+                    </strong> <span>Известные трудозатраты: {{ mvp_effort|floatformat:1 }} чел.-дн.
+                    {% if mvp_effort_incomplete %}Есть функции без оценки.{% endif %}
+                    {% if mvp_effort_bruno %}Включены предположения Бруно.{% endif %}
+                </span>
+            </p>
+        {% else %}
+            <p>Состав MVP ещё не выбран. Уточните оценки или назначьте Must нужным функциям.</p>
         {% endif %}
-    </footer>
-{% else %}
-    <div class="mvp-empty">
-        <span aria-hidden="true">✦</span>
-        <h3>Начните с одного пользовательского действия</h3>
+    </div>
+    {% if startup.user_role != 'viewer' and transferable_count %}
+        <button class="button primary" type="submit" form="mvp-transfer">Взять выбранные в работу →</button>
+    {% endif %}
+</footer>
+<details class="priority-help">
+    <summary>Как считаются оценки и решение</summary>
+    <div>
         <p>
-            Например, «Забронировать время» или «Сохранить расчёт». Добавьте функцию сами или попросите Бруно предложить варианты по картине проекта.
+            <strong>RICE:</strong> охват за 30 дней × влияние × уверенность / 100 ÷ человеко-дни. <strong>ICE:</strong> влияние (1–10) × уверенность / 10 × простота (1–10). Числа вводите вы, баллы считает программа. Прочерк означает, что данных не хватает.
+        </p>
+        <p>
+            Список отсортирован по выбранному методу. Баллы RICE и ICE имеют разные шкалы. В MVP попадают Must{% if kano_enabled %} и обязательные по Кано{% endif %}; ваш Won’t откладывает функцию. Автогруппы MoSCoW предложены по четвертям рейтинга. Вы можете изменить их. Оценки помогают сравнить функции, вы можете уточнить предложенные Бруно оценки.
         </p>
     </div>
+</details>
+{% else %}
+<div class="priority-empty">
+    <p>
+        Добавьте функции или получите предложения вместе с задачами Бруно. Здесь появятся их оценки и порядок реализации.
+    </p>
+</div>
 {% endif %}
 </section>

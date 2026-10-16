@@ -1,0 +1,17 @@
+/* Keep the live product first, with supporting information in a compact sidebar. */
+.public-card-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+    gap: 24px;
+}
+.public-main { display: grid; gap: 24px; min-width: 0; }
+.public-sidebar { display: grid; gap: 20px; min-width: 0; }
+.public-sidebar .public-radar { margin-top: 0; }
+.public-sidebar .author-card,
+.public-sidebar .public-radar { padding: 24px; }
+.public-main .public-prototype-card { margin: 22px 0 28px; padding: 0; border: 0; }
+.public-prototype-card .lab-card-frame { height: 480px !important; }
+.public-prototype-card > .small { margin-bottom: 0; }
+@media (max-width: 900px) {
+    .public-card-layout { grid-template-columns: minmax(0, 1fr); }
+    .public-prototype-card .lab-card-frame { height: 420px !important; }
+}

@@ -1,0 +1,10 @@
+<nav class="work-subnav" aria-label="Работа над проектом: разделы">
+    <a href="{% url 'tasks' startup.id %}"
+       {% if work_section == 'plan' or workspace_tab == 'tasks' %}aria-current="page"{% endif %}>План и действия</a>
+    <a href="{% url 'market' startup.id %}"
+       {% if workspace_tab == 'market' %}aria-current="page"{% endif %}>Исследование рынка</a>
+    <a href="{% url 'evidence_list' startup.id %}"
+       {% if workspace_tab == 'evidence' %}aria-current="page"{% endif %}>Результаты и доказательства</a>
+    <a href="{% url 'investor' startup.id %}"
+       {% if workspace_tab == 'investor' %}aria-current="page"{% endif %}>Тренировка питча</a>
+</nav>

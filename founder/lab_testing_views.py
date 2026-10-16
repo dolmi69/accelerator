@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from founder.models import CoinTransaction, LabPublication, LabTestEvent, LabTestSession, StartupProfile
-from founder.lab_views import _owned_startup, _version, preview_response
+from founder.lab_views import _owned_startup, _version, preview_response, _local_runtime
 from founder.services import activity
 from founder.services.access import member_filter, team_user_ids
 from founder.services.coins import BOUNTY_MIN_FEEDBACK, award, balance, next_bounty, pay_bounty
@@ -44,12 +44,12 @@ def lab_publish(request, startup_id):
     version = None
     with transaction.atomic():
         StartupProfile.objects.select_for_update().get(pk=startup.pk)
+        previous = LabPublication.objects.select_related('version').filter(startup=startup).first()
         if request.POST.get('action') == 'hide':
             LabPublication.objects.filter(startup=startup).delete()
             messages.success(request, 'Прототип убран из карточки. Результаты тестов сохранены.')
         else:
             version = _version(startup, request.POST.get('version'))
-            previous = LabPublication.objects.filter(startup=startup).first()
             visibility = visibility or (previous.visibility if previous else LabPublication.Visibility.PUBLIC)
             LabPublication.objects.update_or_create(startup=startup, defaults={
                 'version': version, 'published_at': timezone.now(), 'visibility': visibility})
@@ -57,6 +57,12 @@ def lab_publish(request, startup_id):
             messages.success(request, 'Прототип добавлен в карточку. ' + (
                 'Он доступен только вам.' if visibility == LabPublication.Visibility.PRIVATE else
                 'Посетители опубликованной карточки смогут его попробовать.'))
+        if previous and previous.version.kind == 'generated' and (
+                version is None or version.pk != previous.version_id or visibility != previous.visibility):
+            from founder.services.django_builder import _runtime_lock
+            from founder.services.generated_runtime import stop_unlocked
+            with _runtime_lock():
+                stop_unlocked(f'public-{startup.pk}')
     url = reverse('lab', args=[startup.pk])
     if version:
         url += f'?version={version.pk}'
@@ -67,6 +73,8 @@ def lab_publish(request, startup_id):
 @require_GET
 def lab_trial(request, startup_id):
     publication = _published(request, startup_id)
+    if publication.version.kind == 'generated':
+        return redirect('lab_public_preview', startup_id=startup_id, version_id=publication.version_id)
     card = getattr(publication.startup, 'project_card', None)
     public = (card.published_data if card and card.published_at else None) or {
         'name': publication.startup.name, 'tagline': publication.startup.one_line_pitch,
@@ -85,13 +93,47 @@ def lab_public_preview(request, startup_id, version_id):
     publication = _published(request, startup_id)
     if publication.version_id != version_id:
         raise Http404('Эта версия не опубликована')
+    if publication.version.kind == 'generated':
+        response = render(request, 'founder/lab_public_backend.html', {'publication': publication,
+            'runtime_available': _local_runtime(request)})
+        response['Cache-Control'] = 'no-store'
+        response['Content-Security-Policy'] = "default-src 'self'; frame-src http://*.localhost:*; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'"
+        return response
     return preview_response(publication.version.html)
+
+
+@login_required
+@require_POST
+def lab_public_backend_start(request, startup_id, version_id):
+    publication = _published(request, startup_id)
+    if publication.version_id != version_id or publication.version.kind != 'generated':
+        raise Http404('Эта серверная версия не опубликована')
+    if not _local_runtime(request):
+        return JsonResponse({'error': 'Запуск этого сайта пока доступен только на компьютере с локальной лабораторией. На сервере нужно настроить отдельную среду запуска.'}, status=503)
+    from founder.services.generated_runtime import start
+    from founder.services.django_builder import BuilderError
+    try:
+        # Serialize against publication changes; never start an unpublished version.
+        with transaction.atomic():
+            StartupProfile.objects.select_for_update().get(pk=startup_id)
+            current = _published(request, startup_id)
+            if current.version_id != version_id:
+                return JsonResponse({'error': 'Автор обновил сайт. Обновите карточку.'}, status=409)
+            url = start(current.version, publication=True,
+                launcher_origin=request.build_absolute_uri('/').rstrip('/'))
+        response = JsonResponse({'url': url})
+        response['Cache-Control'] = 'no-store'
+        return response
+    except BuilderError as exc:
+        return JsonResponse({'error': str(exc)}, status=503)
 
 
 @login_required
 @require_POST
 def lab_test_start(request, startup_id):
     publication = _published(request, startup_id)
+    if publication.version.kind == 'generated':
+        return JsonResponse({'error': 'Сбор действий для серверных сайтов пока не подключён.'}, status=409)
     # A stale tab must not silently test a different version.
     if request.POST.get('version') != str(publication.version_id):
         return JsonResponse({'error': 'Автор обновил прототип. Перезагрузите страницу.'}, status=409)

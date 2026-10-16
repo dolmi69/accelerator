@@ -1,4 +1,5 @@
 from decimal import Decimal
+from founder.services.kano_availability import enabled as kano_enabled
 from django import forms
 from django.utils import timezone
 from founder.models import FeatureCandidate,KanoResponse
@@ -29,7 +30,10 @@ class FeatureForm(forms.ModelForm):
         self.fields['priority'].choices=[('','Предложить по рейтингу'),*FeatureCandidate.Priority.choices]
         for field in self.fields.values():
             field.widget.attrs['aria-label']=field.label
-        if self.instance.pk and self.instance.kano_responses.exists():
+        if not kano_enabled():
+            for name in ('question_present', 'question_absent'):
+                self.fields.pop(name)
+        if kano_enabled() and self.instance.pk and self.instance.kano_responses.exists():
             for name in ('question_present','question_absent'):
                 self.fields[name].disabled=True
                 self.fields[name].help_text='После начала опроса формулировка сохраняется, чтобы ответы оставались сравнимыми.'
@@ -64,3 +68,21 @@ class KanoForm(forms.ModelForm):
         if self.feature.kano_responses.exclude(pk=self.instance.pk).filter(respondent__iexact=value).exists():
             raise forms.ValidationError('Ответ этого человека уже сохранён. Используйте «Исправить» у существующего ответа.')
         return value
+
+
+class TaskEstimateForm(forms.ModelForm):
+    rice_impact = RiceImpactField(label='Влияние RICE', required=False, coerce=Decimal, empty_value=None,
+        choices=FeatureForm.base_fields['rice_impact'].choices)
+
+    class Meta:
+        from founder.models import TaskEstimate
+        model = TaskEstimate
+        fields = ['reach','rice_impact','confidence','effort','ice_impact','ease','estimate_basis','priority']
+        labels = {**FeatureForm.Meta.labels, 'reach': 'Охват результата за 30 дней, человек',
+                  'effort': 'Трудозатраты на задание, человеко-дни', 'ease': 'Простота выполнения, 1–10'}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['priority'].choices = [('', 'Предложить по рейтингу'), *FeatureCandidate.Priority.choices]
+        for field in self.fields.values():
+            field.widget.attrs['aria-label'] = field.label

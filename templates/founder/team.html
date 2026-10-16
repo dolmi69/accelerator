@@ -1,5 +1,9 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Команда · {{ startup.name }}{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'founder/css/team-work.css' %}?v=1">
+{% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
     <div class="page-heading work-heading">
@@ -10,20 +14,38 @@
         </div>
     </div>
 
+    <section class="team-work-overview" aria-label="Распределение заданий">
+        <div>
+            <span class="eyebrow">РАБОТА КОМАНДЫ</span>
+            <h2>У каждого шага есть ответственный</h2>
+            <p>Назначайте исполнителей в списке задач. Здесь видно, кто за что отвечает.</p>
+        </div>
+        <div class="team-work-totals">
+            <a href="{{ unassigned_url }}"><strong>{{ unassigned_count }}</strong><span>без исполнителя</span></a><a href="{% url 'tasks' startup.id %}"><strong>{{ assigned_count }}</strong><span>распределено</span></a>
+        </div>
+        <a class="button primary"
+           href="{% url 'tasks' startup.id %}#task-priorities">К распределению задач →</a>
+    </section>
     <div class="team-layout">
         <section class="card work-card">
             <h2>Участники</h2>
             <div class="team-row">
-                <a class="member-inline" href="{{ startup.owner.get_absolute_url }}">
-                    {% include 'profiles/_avatar.html' with member=startup.owner %}
-                    <span><strong>{{ startup.owner.public_name }}</strong> <span class="muted small">@{{ startup.owner.handle }}</span></span></a>
+                <div class="team-person-work">
+                    <a class="member-inline" href="{{ startup.owner.get_absolute_url }}">
+                        {% include 'profiles/_avatar.html' with member=startup.owner %}
+                        <span><strong>{{ startup.owner.public_name }}</strong> <span class="muted small">@{{ startup.owner.handle }}</span></span></a>
+                    {% include 'founder/_team_workload.html' with workload=owner_workload %}
+                </div>
                 <span class="community-tag">Владелец</span>
             </div>
             {% for member in active_members %}
                 <div class="team-row">
-                    <a class="member-inline" href="{{ member.user.get_absolute_url }}">
-                        {% include 'profiles/_avatar.html' with member=member.user %}
-                        <span><strong>{{ member.user.public_name }}</strong> <span class="muted small">@{{ member.user.handle }}</span></span></a>
+                    <div class="team-person-work">
+                        <a class="member-inline" href="{{ member.user.get_absolute_url }}">
+                            {% include 'profiles/_avatar.html' with member=member.user %}
+                            <span><strong>{{ member.user.public_name }}</strong> <span class="muted small">@{{ member.user.handle }}</span></span></a>
+                        {% include 'founder/_team_workload.html' with workload=member.workload %}
+                    </div>
                     {% if is_project_owner %}
                         <div class="project-member-controls">
                             <span class="community-tag">{{ member.get_role_display }}</span>

@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
@@ -7,6 +8,18 @@ from django.urls import reverse
 from founder.models import BrunoTask, ProjectReview, StartupProfile, User
 from founder.services.ai import AIResponseFormatError
 from founder.services.review import create_review, parse_review, step_to_task
+
+
+def model_estimate(**overrides):
+    return {'reach': 30, 'rice_impact': 2, 'confidence': 45, 'effort': 2,
+            'ice_impact': 7, 'ease': 6, 'estimate_basis': 'Предположение по контексту: объём и охват нужно проверить.',
+            **overrides}
+
+
+def model_estimates_for(startup):
+    from founder.services.bruno_estimates import collect_targets
+    return [{'kind': t['kind'], 'id': t['id'], 'estimate': model_estimate()}
+            for t in collect_targets(startup, refresh=True)]
 
 
 def model_review(**overrides):
@@ -23,7 +36,14 @@ def model_review(**overrides):
             {"week": 3, "axis": "product", "title": "Ручной сервис", "action": "Выдавать кофе по QR из бота.", "done_when": "Десять человек получили кофе."},
         ],
     }
-    data.update(overrides)
+    data.update(deepcopy(overrides))
+    data.setdefault('estimates', [])
+    for step in data.get('steps', []):
+        if isinstance(step, dict):
+            step.setdefault('estimate', model_estimate())
+    for feature in data.get('features', []):
+        if isinstance(feature, dict):
+            feature.setdefault('estimate', model_estimate())
     return json.dumps(data, ensure_ascii=False)
 
 
@@ -50,28 +70,34 @@ class ReviewFlowTests(TestCase):
         self.client.force_login(self.user)
 
     @override_settings(AI_PROVIDER="gigachat")
-    def test_review_retries_format_error_once_and_saves(self):
-        with patch("founder.services.review.complete_text", side_effect=["{}", model_review()]) as call:
+    def test_one_request_produces_common_analysis_without_hidden_retry(self):
+        with patch("founder.services.review.complete_text", return_value=model_review()) as call:
             review = create_review(self.startup)
-        self.assertEqual(call.call_count, 2)
+        self.assertEqual(call.call_count, 1)
         self.assertEqual(review.data["focus"], "Получить 20 оплат подписки за месяц")
+        with patch("founder.services.review.complete_text", return_value="{}") as call:
+            with self.assertRaises(AIResponseFormatError):
+                create_review(self.startup)
+        self.assertEqual(call.call_count, 1)
+        self.assertEqual(ProjectReview.objects.count(), 1)
 
     @override_settings(AI_PROVIDER="demo")
     def test_page_generate_and_step_to_task(self):
         page = self.client.get(reverse("review", args=[self.startup.pk]))
-        self.assertContains(page, "Получить разбор")
+        self.assertContains(page, "Получить задачи")
         response = self.client.post(reverse("review_generate", args=[self.startup.pk]))
-        self.assertRedirects(response, reverse("review", args=[self.startup.pk]))
+        self.assertRedirects(response, reverse("tasks", args=[self.startup.pk]))
         review = ProjectReview.objects.get()
         page = self.client.get(reverse("review", args=[self.startup.pk]))
         self.assertContains(page, review.data["steps"][0]["title"])
         url = reverse("review_step_task", args=[self.startup.pk, review.pk, 0])
-        self.assertRedirects(self.client.post(url), reverse("tasks", args=[self.startup.pk]))
-        task = BrunoTask.objects.get()
+        self.client.post(url)
+        count = BrunoTask.objects.count()
+        task = BrunoTask.objects.get(title=review.data["steps"][0]["title"])
         self.assertEqual(task.title, review.data["steps"][0]["title"])
         # Второе задание по тому же направлению не создаётся.
         self.client.post(url)
-        self.assertEqual(BrunoTask.objects.count(), 1)
+        self.assertEqual(BrunoTask.objects.count(), count)
         self.assertIsNone(step_to_task(review, 0))
 
     @override_settings(AI_PROVIDER="demo")

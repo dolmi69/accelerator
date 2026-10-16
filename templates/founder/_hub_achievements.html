@@ -1,0 +1,27 @@
+<details class="bruno-hub-achievements"
+         aria-labelledby="hub-achievements-heading">
+    <summary class="hub-section-heading">
+        <h3 id="hub-achievements-heading">Достижения</h3>
+        <span>{{ achievements|length }}</span><span class="hub-fold-chevron" aria-hidden="true">⌄</span>
+    </summary>
+    <div class="hub-achievements-body">
+        <ul class="history-achievements">
+            {% for badge in achievements %}
+                <li class="{% if badge.earned_at %}earned{% endif %}">
+                    <span class="history-achievement-icon" aria-hidden="true">{{ badge.icon }}</span>
+                    <div>
+                        <strong>{{ badge.title }}</strong>
+                        <p>{{ badge.description }}</p>
+                        <small>
+                            {% if badge.earned_at %}
+                                Получено {{ badge.earned_at|date:"d.m.Y" }}
+                            {% else %}
+                                Впереди
+                            {% endif %}
+                        </small>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</details>

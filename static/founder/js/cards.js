@@ -1,18 +1,31 @@
 (() => {
   const form = document.querySelector('[data-card-editor]');
   if (!form) return;
+  const resizeFields = () => {
+    form.querySelectorAll('.card-edit-document textarea').forEach(field => {
+      field.style.height = 'auto'; field.style.height = `${field.scrollHeight + 2}px`;
+    });
+  };
+  window.addEventListener('resize', resizeFields);
   const preview = () => {
+    resizeFields();
     document.querySelectorAll('[data-preview]').forEach(node => {
       const value = form.elements[node.dataset.preview]?.value.trim();
       node.textContent = value || (node.dataset.preview === 'name' ? 'Ваш проект' : '');
     });
-    document.querySelector('[data-preview-monogram]').textContent = (form.elements.name.value || 'П').slice(0, 1).toUpperCase();
-    document.querySelector('[data-preview-stage]').textContent = form.elements.stage.selectedOptions[0].textContent;
+    const monogram = document.querySelector('[data-preview-monogram]');
+    if (monogram) monogram.textContent = (form.elements.name.value || 'П').slice(0, 1).toUpperCase();
   };
   form.addEventListener('input', preview);
   preview();
   let dirty = form.dataset.generated === '1', busy = false;
-  form.addEventListener('input', () => { dirty = true; });
+  const markDirty = () => {
+    dirty = true;
+    const state = document.querySelector('[data-card-publish-state]');
+    if (state) state.textContent = 'Есть несохранённые изменения';
+  };
+  form.addEventListener('input', markDirty);
+  form.addEventListener('change', markDirty);
   window.addEventListener('beforeunload', event => { if (dirty && !busy) { event.preventDefault(); event.returnValue = ''; } });
   form.addEventListener('submit', event => {
     if (busy) { event.preventDefault(); return; }

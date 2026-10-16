@@ -196,4 +196,8 @@
       if (finishButton) finishButton.disabled = false;
     }
   });
+  if (form.dataset.hubSend && input.value.trim()) {
+    delete form.dataset.hubSend;
+    form.requestSubmit(button);
+  }
 })();

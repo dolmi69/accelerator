@@ -3,33 +3,19 @@
 {% block title %}Лаборатория сайтов · {{ startup.name }}{% endblock %}
 {% block extra_css %}
     <link rel="stylesheet"
-          href="{% static 'founder/css/bruno-forge.css' %}?v=1">
+          href="{% static 'founder/css/bruno-forge.css' %}?v=2">
+    <link rel="stylesheet" href="{% static 'founder/css/lab-studio.css' %}?v=8">
 {% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
-
-    <div class="page-heading work-heading lab-heading">
-        <div>
-            <h1>Лаборатория сайтов</h1>
-            <p>{{ startup.name }}</p>
-        </div>
-        <nav class="lab-section-tabs"
-             id="lab-section-tabs"
-             aria-label="Разделы лаборатории">
-            <a href="{% url 'lab' startup.id %}{% if selected %}?version={{ selected.pk }}{% endif %}"
-               data-lab-section="development"
-               {% if lab_section == 'development' %}aria-current="page"{% endif %}>Разработка</a>
-            <a href="{% url 'lab' startup.id %}?section=globalization{% if selected %}&amp;version={{ selected.pk }}{% endif %}"
-               data-lab-section="globalization"
-               {% if lab_section == 'globalization' %}aria-current="page"{% endif %}>Обратная связь</a>
-        </nav>
-    </div>
 
     <div class="lab-section-panel"
          data-lab-panel="development"
          {% if lab_section != 'development' %}hidden{% endif %}>
         <div class="lab-layout lab-compact-layout lab-workspace-layout">
-            <section class="card lab-editor" aria-labelledby="lab-editor-title">
+            <section class="card lab-editor"
+                     id="lab-chat-pane"
+                     aria-labelledby="lab-editor-title">
                 <div class="lab-conversation-heading">
                     <div class="lab-conversation-avatar" aria-hidden="true">
                         {% include 'founder/_bruno.html' with mascot=lab_reply_mascot pet=True instance_id='lab-composer' only %}
@@ -45,94 +31,96 @@
                         </p>
                     </div>
                 </div>
-                <div class="lab-thread"
-                     id="lab-thread"
-                     tabindex="0"
-                     aria-label="История работы с Бруно">
-                    {% for turn in lab_timeline %}
-                        {% if turn.version %}
-                            {% with version=turn.version %}
-                                <details class="lab-turn{% if selected.pk == version.pk %} lab-turn-current{% endif %}"
-                                         {% if selected.pk == version.pk %}open{% endif %}>
-                                    <summary>
-                                        <span>
-                                            {% if selected.pk == version.pk %}
-                                                Запрос и ответ
-                                            {% else %}
-                                                {{ version.prompt|truncatechars:65 }}
-                                            {% endif %}
-                                        </span><small>{{ version.created_at|date:'d.m · H:i' }}
-                                        {% if selected.pk == version.pk %}· Открыта{% endif %}
-                                    </small>
-                                </summary>
-                                <div class="lab-user-message">
-                                    <small>Вы</small>
-                                    <p>{{ version.prompt }}</p>
-                                </div>
-                                <div class="lab-bruno-message{% if version.history_reply.failed %} lab-bruno-message-error{% endif %}">
-                                    <small>Бруно · {{ version.model_label }}</small>
-                                    <p>
-                                        <strong>{{ version.history_reply.title }}</strong>
-                                    </p>
-                                    <ul>
-                                        {% for item in version.history_reply.items %}<li>{{ item }}</li>{% endfor %}
-                                    </ul>
-                                    {% if version.history_reply.more %}
-                                        <details class="lab-message-more">
-                                            <summary>Подробности</summary>
-                                            <ul>
-                                                {% for item in version.history_reply.more %}<li>{{ item }}</li>{% endfor %}
-                                            </ul>
-                                        </details>
-                                    {% endif %}
-                                    {% if version.history_reply.usage %}
-                                        <small class="lab-message-usage">{{ version.history_reply.usage }}</small>
-                                    {% endif %}
-                                    {% if selected.pk != version.pk %}
-                                        <a class="lab-message-version"
-                                           href="{% url 'lab' startup.id %}?version={{ version.pk }}"
-                                           data-lab-version>Открыть эту версию ↗</a>
-                                    {% endif %}
-                                </div>
-                            </details>
-                        {% endwith %}
-                    {% else %}
-                        {% with discussion=turn.discussion %}
-                            <article class="lab-discussion" data-lab-message-id="{{ discussion.pk }}">
-                                <div class="lab-user-message">
-                                    <small>Вы · {{ discussion.created_at|date:'d.m · H:i' }}</small>
-                                    <p>{{ discussion.prompt }}</p>
-                                </div>
-                                <div class="lab-bruno-message">
-                                    <small>Бруно · Обсуждение</small>
-                                    <p class="lab-answer-text">{{ discussion.reply.answer }}</p>
-                                    {% if discussion.reply.suggestion %}
-                                        <button class="lab-suggestion"
-                                                type="button"
-                                                data-lab-suggestion="{{ discussion.reply.suggestion }}">
-                                            Подготовить эту правку ↗
-                                        </button>
-                                    {% endif %}
-                                    <small class="lab-message-usage">{{ discussion.reply.usage }}</small>
-                                </div>
-                            </article>
-                        {% endwith %}
+                <div class="lab-chat-history">
+                    <div class="lab-thread"
+                         id="lab-thread"
+                         tabindex="0"
+                         aria-label="История работы с Бруно">
+                        {% for turn in lab_timeline %}
+                            {% if turn.version %}
+                                {% with version=turn.version %}
+                                    <details class="lab-turn{% if selected.pk == version.pk %} lab-turn-current{% endif %}"
+                                             {% if selected.pk == version.pk %}open{% endif %}>
+                                        <summary>
+                                            <span>
+                                                {% if selected.pk == version.pk %}
+                                                    Запрос и ответ
+                                                {% else %}
+                                                    {{ version.prompt|truncatechars:65 }}
+                                                {% endif %}
+                                            </span><small>{{ version.created_at|date:'d.m · H:i' }}
+                                            {% if selected.pk == version.pk %}· Открыта{% endif %}
+                                        </small>
+                                    </summary>
+                                    <div class="lab-user-message">
+                                        <small>Вы</small>
+                                        <p>{{ version.prompt }}</p>
+                                    </div>
+                                    <div class="lab-bruno-message{% if version.history_reply.failed %} lab-bruno-message-error{% endif %}">
+                                        <small>Бруно · {{ version.model_label }}</small>
+                                        <p>
+                                            <strong>{{ version.history_reply.title }}</strong>
+                                        </p>
+                                        <ul>
+                                            {% for item in version.history_reply.items %}<li>{{ item }}</li>{% endfor %}
+                                        </ul>
+                                        {% if version.history_reply.more %}
+                                            <details class="lab-message-more">
+                                                <summary>Подробности</summary>
+                                                <ul>
+                                                    {% for item in version.history_reply.more %}<li>{{ item }}</li>{% endfor %}
+                                                </ul>
+                                            </details>
+                                        {% endif %}
+                                        {% if version.history_reply.usage %}
+                                            <small class="lab-message-usage">{{ version.history_reply.usage }}</small>
+                                        {% endif %}
+                                        {% if selected.pk != version.pk %}
+                                            <a class="lab-message-version"
+                                               href="{% url 'lab' startup.id %}?version={{ version.pk }}"
+                                               data-lab-version>Открыть эту версию ↗</a>
+                                        {% endif %}
+                                    </div>
+                                </details>
+                            {% endwith %}
+                        {% else %}
+                            {% with discussion=turn.discussion %}
+                                <article class="lab-discussion" data-lab-message-id="{{ discussion.pk }}">
+                                    <div class="lab-user-message">
+                                        <small>Вы · {{ discussion.created_at|date:'d.m · H:i' }}</small>
+                                        <p>{{ discussion.prompt }}</p>
+                                    </div>
+                                    <div class="lab-bruno-message">
+                                        <small>Бруно · Обсуждение</small>
+                                        <p class="lab-answer-text">{{ discussion.reply.answer }}</p>
+                                        {% if discussion.reply.suggestion %}
+                                            <button class="lab-suggestion"
+                                                    type="button"
+                                                    data-lab-suggestion="{{ discussion.reply.suggestion }}">
+                                                Подготовить эту правку ↗
+                                            </button>
+                                        {% endif %}
+                                        <small class="lab-message-usage">{{ discussion.reply.usage }}</small>
+                                    </div>
+                                </article>
+                            {% endwith %}
+                        {% endif %}
+                    {% empty %}
+                        <div class="lab-thread-greeting">
+                            <p>Здравствуйте! Здесь мы можем обсудить идею и собрать ваш сайт.</p>
+                            <p>Задайте вопрос или опишите первую страницу. Вопросы сохраняются в диалоге, изменения — в версиях сайта.</p>
+                        </div>
+                    {% endfor %}
+                    {% if lab_reply.fresh or lab_reply.failed %}
+                        <div class="lab-thread-notice" id="lab-reply" role="status">
+                            <strong>{{ lab_reply.title }}</strong>
+                            <ul>
+                                {% for item in lab_reply.items %}<li>{{ item }}</li>{% endfor %}
+                            </ul>
+                            {% if lab_reply.usage %}<small>{{ lab_reply.usage }}</small>{% endif %}
+                        </div>
                     {% endif %}
-                {% empty %}
-                    <div class="lab-thread-greeting">
-                        <p>Здравствуйте! Здесь мы можем обсудить идею и собрать ваш сайт.</p>
-                        <p>Задайте вопрос или опишите первую страницу. Вопросы сохраняются в диалоге, изменения — в версиях сайта.</p>
-                    </div>
-                {% endfor %}
-                {% if lab_reply.fresh or lab_reply.failed %}
-                    <div class="lab-thread-notice" id="lab-reply" role="status">
-                        <strong>{{ lab_reply.title }}</strong>
-                        <ul>
-                            {% for item in lab_reply.items %}<li>{{ item }}</li>{% endfor %}
-                        </ul>
-                        {% if lab_reply.usage %}<small>{{ lab_reply.usage }}</small>{% endif %}
-                    </div>
-                {% endif %}
+                </div>
             </div>
             <div class="lab-quick-questions" aria-label="Быстрые вопросы">
                 <button type="button" data-lab-question="Что изменилось?">Что изменилось?</button>
@@ -140,61 +128,46 @@
                 <button type="button" data-lab-question="Как мне управлять содержимым сайта?">Как управлять сайтом?</button>
             </div>
             <div class="lab-composer">
+                {% if lab_history_entry %}
+                    <p class="lab-task-context">
+                        <a href="{% url 'evidence_list' startup.id %}#entry-{{ lab_history_entry.pk }}">Результат сохранён в истории проекта →</a>
+                        {% if lab_history_entry.progress.verification == 'needs_check' %}
+                            <small>Нужна проверка основного сценария.</small>
+                        {% endif %}
+                    </p>
+                {% endif %}
+                {% if lab_handoff %}
+                    <aside id="lab-task-context"
+                           class="lab-task-context"
+                           aria-label="Задание из плана">
+                        <strong>{{ lab_handoff.title }}</strong>
+                        <p>Промпт готов. Проверьте текст и нажмите «Отправить».</p>
+                        <a href="{{ lab_handoff.return_url }}">← Вернуться к заданию</a>
+                        <p>Результат и версия сайта автоматически сохранятся в истории проекта.</p>
+                    </aside>
+                {% endif %}
                 <form method="post"
                       action="{% url 'lab_generate' startup.id %}"
                       id="lab-form"
+                      data-jobs-url="{% url 'lab_job_start' startup.id %}"
+                      data-job-status-url="{% url 'lab_job_status' startup.id %}"
                       data-route-url="{% url 'lab_route' startup.id %}"
                       data-discuss-url="{% url 'lab_discuss' startup.id %}">
                     {% csrf_token %}
+                    {% if lab_handoff.task %}
+                        <input type="hidden" name="task_context" value="{{ lab_handoff.task.pk }}">
+                    {% elif lab_handoff.feature %}
+                        <input type="hidden"
+                               name="feature_context"
+                               value="{{ lab_handoff.feature.pk }}">
+                    {% endif %}
                     {% if selected %}<input type="hidden" name="source_version" value="{{ selected.pk }}">{% endif %}
                     {% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
-                    <p class="lab-composer-model">
-                        Запрос получит <strong>{{ lab_model_label }}</strong> · {{ lab_provider_label }}
-                    </p>
                     <label class="field lab-field" for="{{ form.prompt.id_for_label }}">
                         <span>Сообщение Бруно</span>{{ form.prompt }}
                         {% if form.prompt.errors %}<small class="field-error">{{ form.prompt.errors|striptags }}</small>{% endif %}
                     </label>
-                    <div class="lab-composer-options">
-                        <label for="lab-message-mode">Действие</label>
-                        <select name="message_mode" id="lab-message-mode">
-                            <option value="auto"
-                                    {% if form.message_mode.value != 'discuss' and form.message_mode.value != 'edit' %}selected{% endif %}>
-                                Автоматически
-                            </option>
-                            <option value="discuss"
-                                    {% if form.message_mode.value == 'discuss' %}selected{% endif %}>
-                                Только обсудить
-                            </option>
-                            <option value="edit"
-                                    {% if form.message_mode.value == 'edit' %}selected{% endif %}>
-                                Изменить сайт
-                            </option>
-                        </select>
-                    </div>
-                    {% if raw_ai_test %}
-                        <div class="lab-composer-options">
-                            <label for="lab-site-kind">Результат</label>
-                            <select name="kind" id="lab-site-kind">
-                                <option value="generated"
-                                        {% if form.kind.value == 'generated' %}selected{% endif %}>
-                                    Сайт с бэкендом
-                                </option>
-                                <option value="static"
-                                        {% if form.kind.value != 'generated' %}selected{% endif %}>
-                                    Статический макет
-                                </option>
-                            </select>
-                        </div>
-                        <p class="lab-composer-note">
-                            Интерфейс и сервер пишет модель.
-                            {% if backend_staged %}
-                                Бэкенд собирается в 2 этапа: сервер, затем интерфейс. Завершённый сервер сохраняется при сбое второго этапа. Каждый новый этап расходует токены.
-                            {% else %}
-                                Готовые инструменты отключены.
-                            {% endif %}
-                        </p>
-                    {% endif %}
+                    <input type="hidden" name="automatic" value="1">
                     <div class="lab-message-actions">
                         {% if not raw_ai_test %}
                             <button type="button"
@@ -208,7 +181,6 @@
                             Отправить <span aria-hidden="true">↗</span>
                         </button>
                     </div>
-                    <p class="lab-composer-note">Вопрос — ответ в диалоге. Просьба изменить — новая версия сайта.</p>
                 </form>
             </div>
 
@@ -268,15 +240,24 @@
                     <summary>Как работает доработка и расход</summary>
                     <div class="project-fold-body">
                         {% if raw_ai_test %}
-                            <p class="muted small">
-                                Каждое создание или изменение получает модель: интерфейс и, в режиме «Сайт с бэкендом», серверный код. Без готовых блоков, бесплатных правок и кеша. Обсуждение тоже использует модель.
+                            <p class="lab-composer-note">
+                                Интерфейс и нужную серверную часть пишет модель.
+                                Определение задачи — отдельный короткий AI-запрос; при правке затем запускается генерация.
+                                {% if backend_staged %}
+                                    Бэкенд собирается в 2 этапа: сервер, затем интерфейс. Завершённый сервер сохраняется при сбое второго этапа. Каждый новый этап расходует токены.
+                                {% else %}
+                                    Готовые инструменты отключены.
+                                {% endif %}
                             </p>
                             <p class="muted small">
-                                В режиме с бэкендом данные сохраняются в отдельной SQLite-базе. Автозапуск кода модели пока доступен на macOS; исходники можно скачать. Внешние платежи и API не подключаются автоматически.
+                                Бруно определяет задачу по сообщению и текущему сайту. Если нужны регистрация, заказы или сохранение данных, он добавляет серверную часть. Неясный запрос сначала уточняет.
+                            </p>
+                            <p class="muted small">
+                                Данные серверного сайта сохраняются в отдельной SQLite-базе. Автозапуск кода модели пока доступен на macOS; исходники можно скачать. Внешние платежи и API не подключаются автоматически.
                             </p>
                         {% else %}
                             <p class="muted small">
-                                Простые команды и готовые модули выполняются без AI. Распознавание свободного запроса и создание дизайна расходуют токены. Оплачиваются фактически использованные токены.
+                                Бруно сам определяет, нужно ответить, уточнить задачу или изменить сайт. Определение задачи и генерация расходуют токены; готовые инструменты не требуют генерации кода.
                             </p>
                         {% endif %}
                         {% if not selected or design_pending %}
@@ -318,28 +299,24 @@
             </div>
         </section>
 
-        <section class="card lab-preview-card" aria-labelledby="lab-preview-title">
-            <div class="section-top">
-                <h2 id="lab-preview-title">Предпросмотр</h2>
-                {% if selected %}<span class="score-badge">{{ selected.created_at|date:'d.m.Y H:i' }}</span>{% endif %}
-            </div>
-            {% if selected %}<p class="muted small">Модель этой версии: {{ selected.model_label }}</p>{% endif %}
-            {% if raw_ai_test %}
-                <p class="muted small" role="status">
-                    {% if selected.kind == "generated" %}
-                        Модель написала интерфейс и сервер. Данные сохраняются в отдельной базе этой версии. Проверьте нужные сценарии в запущенном сайте.
-                    {% else %}
-                        Без готовых инструментов. Для настоящей базы и серверных действий выберите «Сайт с бэкендом» и опишите нужные функции.
-                    {% endif %}
-                </p>
-            {% endif %}
-            {% if design_pending %}
-                <p class="muted small" role="status">Готовая основа работает. Индивидуальный дизайн ещё не создан.</p>
-            {% endif %}
+        <div class="lab-splitter"
+             id="lab-splitter"
+             role="separator"
+             tabindex="0"
+             aria-label="Ширина чата и сайта"
+             aria-orientation="vertical"
+             aria-controls="lab-chat-pane lab-preview-pane"
+             aria-valuemin="20"
+             aria-valuemax="80"
+             aria-valuenow="28"
+             title="Потяните, чтобы изменить ширину. Двойной щелчок — 28 / 72.">
+            <span aria-hidden="true"></span>
+        </div>
+        <section class="card lab-preview-card"
+                 id="lab-preview-pane"
+                 aria-label="Сайт проекта">
             {% if selected %}
-                <dialog class="lab-viewer"
-                        id="lab-viewer"
-                        aria-labelledby="lab-preview-title">
+                <dialog class="lab-viewer" id="lab-viewer" aria-label="Сайт проекта">
                     <div class="lab-viewer-toolbar">
                         <div>
                             <strong>{{ startup.name }}</strong><span class="lab-viewer-hint">Просмотр сайта · Esc для возврата</span>
@@ -353,9 +330,6 @@
                     </div>
                     <div class="lab-viewer-content lab-browser">
                         {% include 'founder/_bruno_forge.html' %}
-                        <div class="lab-browser-bar" aria-hidden="true">
-                            <span></span><span></span><span></span><strong>Предпросмотр</strong>
-                        </div>
                         <div class="lab-preview-status"
                              id="lab-preview-status"
                              role="status"
@@ -394,16 +368,27 @@
                     {% endif %}
                     <button class="button primary" type="button" data-lab-expand>На весь экран</button>
                 </div>
-                {% if selected.kind == 'generated' %}
-                    <p class="muted small">Сервер работает локально. Публичное размещение этого приложения пока не подключено.</p>
-                {% else %}
-                    {% include 'founder/_lab_publication.html' %}
-                {% endif %}
                 <details class="lab-site-details">
                     <summary>
-                        О версии
+                        Сохранение и настройки версии
                         {% if selected.is_backend %}, скачивание и запуск{% endif %}
                     </summary>
+                    {% if selected %}<p class="muted small">Модель этой версии: {{ selected.model_label }}</p>{% endif %}
+                    {% if raw_ai_test %}
+                        <p class="muted small" role="status">
+                            {% if selected.kind == "generated" %}
+                                Модель написала интерфейс и сервер. Данные сохраняются в отдельной базе этой версии. Проверьте нужные сценарии в запущенном сайте.
+                            {% else %}
+                                Опишите нужные функции в сообщении. Если потребуется база данных или серверная логика, Бруно добавит их автоматически.
+                            {% endif %}
+                        </p>
+                    {% endif %}
+                    {% if design_pending %}
+                        <p class="muted small" role="status">Готовая основа работает. Индивидуальный дизайн ещё не создан.</p>
+                    {% endif %}
+
+                    {% include 'founder/_lab_publication.html' %}
+
                     <p class="muted small">{{ selected.prompt }}</p>
                     {% if selected.kind == 'generated' %}
                         <p class="muted small">
@@ -453,8 +438,21 @@
                 </div>
             {% endif %}
         </section>
+
+
     </div>
 </div>
+
+<nav class="lab-section-tabs lab-bottom-tabs"
+     id="lab-section-tabs"
+     aria-label="Разделы лаборатории">
+    <a href="{% url 'lab' startup.id %}{% if selected %}?version={{ selected.pk }}{% endif %}"
+       data-lab-section="development"
+       {% if lab_section == 'development' %}aria-current="page"{% endif %}>Разработка</a>
+    <a href="{% url 'lab' startup.id %}?section=globalization{% if selected %}&amp;version={{ selected.pk }}{% endif %}"
+       data-lab-section="globalization"
+       {% if lab_section == 'globalization' %}aria-current="page"{% endif %}>Обратная связь</a>
+</nav>
 
 <section class="lab-section-panel lab-globalization"
          data-lab-panel="globalization"
@@ -557,5 +555,8 @@
 
 {% endblock %}
 {% block scripts %}
-    <script src="{% static 'founder/js/lab-chat.js' %}?v=1" defer></script><script src="{% static 'founder/js/lab.js' %}?v=14" defer></script><script src="{% static 'founder/js/lab-reply.js' %}?v=1" defer></script>
+    {{ lab_job_state|json_script:'lab-job-state' }}
+    <script src="{% static 'founder/js/lab-jobs.js' %}?v=2" defer></script>
+    <script src="{% static 'founder/js/lab-split.js' %}?v=4" defer></script>
+    <script src="{% static 'founder/js/lab-chat.js' %}?v=4" defer></script><script src="{% static 'founder/js/lab.js' %}?v=16" defer></script><script src="{% static 'founder/js/lab-reply.js' %}?v=1" defer></script>
 {% endblock %}

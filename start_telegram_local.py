@@ -42,7 +42,7 @@ def check_fresh_dns(url):
                 ["curl", "--silent", "--fail", "--max-time", "10", "--resolve", f"{host}:443:{address}", url + "/login/"],
                 capture_output=True, text=True, timeout=12,
             )
-            if response.returncode == 0 and "Co-Founder" in response.stdout:
+            if response.returncode == 0 and "BrunoLab" in response.stdout:
                 return True
     except (OSError, subprocess.TimeoutExpired):
         pass
@@ -119,7 +119,7 @@ def _run():
             for _ in range(30):
                 try:
                     response = web.get(url + "/login/")
-                    if response.status_code == 200 and "Co-Founder" in response.text:
+                    if response.status_code == 200 and "BrunoLab" in response.text:
                         ready = True
                         break
                 except httpx.HTTPError:

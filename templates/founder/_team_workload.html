@@ -1,0 +1,12 @@
+<div class="team-workload">
+    {% if workload.url %}
+        <a href="{{ workload.url }}"
+           aria-label="Открытые задания: {{ workload.opened }}"><strong>{{ workload.opened }}</strong> открыто</a>
+    {% else %}
+        <span><strong>{{ workload.opened }}</strong> открыто</span>
+    {% endif %}
+    <span><strong>{{ workload.done }}</strong> выполнено</span>
+    {% if workload.url and workload.opened %}
+        <a class="team-workload-link" href="{{ workload.url }}">Посмотреть задания →</a>
+    {% endif %}
+</div>

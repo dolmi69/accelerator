@@ -9,7 +9,7 @@ button { cursor:pointer; }
 .app-shell { min-height:100vh; display:flex; flex-direction:column; }
 .topbar { height:76px; padding:0 clamp(22px,5vw,78px); display:flex; align-items:center; justify-content:space-between; background:var(--white); border-bottom:1px solid var(--line); }
 .brand { display:inline-flex; gap:10px; align-items:center; font-family:Manrope,sans-serif; font-size:20px; font-weight:800; letter-spacing:-.8px; }
-.brand-mark { display:grid; place-items:center; width:35px; height:35px; border-radius:11px; color:white; background:var(--teal); font-size:21px; }
+.brand-mark { display:block; flex-shrink:0; width:35px; height:35px; object-fit:contain; }
 .brand-dot { color:var(--teal); }
 .topnav { display:flex; align-items:center; gap:26px; font-size:14px; font-weight:700; }
 .topnav a:hover,.link-button:hover { color:var(--teal); }

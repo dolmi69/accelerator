@@ -1,0 +1,75 @@
+<section class="card workspace-module daily-focus-card"
+         id="project-plan"
+         aria-labelledby="daily-focus-title">
+    <div class="module-heading">
+        <span class="module-icon" aria-hidden="true">↗</span>
+        <div>
+            <span class="eyebrow">ПЛАН ОТ БРУНО</span>
+            <h2 id="daily-focus-title">Свежий взгляд</h2>
+        </div>
+        {% if daily_focus %}
+            <span class="module-status">
+                {% if daily_focus.today %}
+                    На сегодня
+                {% else %}
+                    План от {{ daily_focus.day }}
+                {% endif %}
+            </span>
+        {% endif %}
+    </div>
+    <div class="daily-focus-content">
+        <div class="daily-focus-plan">
+            {% if daily_focus %}
+                <p class="daily-focus-summary">{{ daily_focus.summary }}</p>
+                <ol class="daily-focus-list">
+                    {% for item in daily_focus.actions %}
+                        <li>
+                            <span class="daily-focus-number">0{{ forloop.counter }}</span>
+                            <div>
+                                <h3>{{ item.title }}</h3>
+                                <p>{{ item.detail }}</p>
+                                {% if item.progress %}<small class="daily-focus-progress">{{ item.progress }}</small>{% endif %}
+                                {% if item.kind == 'idea' %}
+                                    <form method="post" action="{{ item.url }}">
+                                        {% csrf_token %}
+                                        <button class="daily-focus-link" type="submit">{{ item.link }} →</button>
+                                    </form>
+                                {% else %}
+                                    <a class="daily-focus-link" href="{{ item.url }}">{{ item.link }} →</a>
+                                {% endif %}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <h3 class="daily-focus-empty-title">На чём сосредоточимся сегодня?</h3>
+                <p class="daily-focus-summary">
+                    Бруно посмотрит на задачи, команду и последние результаты и предложит до трёх посильных шагов на день.
+                </p>
+                <p class="muted small">План сохраняется. Вернуться к нему можно в любой момент.</p>
+            {% endif %}
+        </div>
+        <div class="daily-focus-mascot" aria-hidden="true" inert>
+            {% include 'founder/_bruno.html' with investor=False instance_id='daily-focus' %}
+        </div>
+    </div>
+    {% if startup.user_role != 'viewer' %}
+        <form class="daily-focus-refresh"
+              method="post"
+              action="{% url 'daily_plan_generate' startup.id %}"
+              data-busy-form>
+            {% csrf_token %}
+            <button class="button {% if daily_focus %}ghost{% else %}primary{% endif %}"
+                    type="submit"
+                    data-busy-label="Бруно составляет план…">
+                {% if daily_focus %}
+                    Обновить план
+                {% else %}
+                    Составить план с Бруно
+                {% endif %}
+                <span aria-hidden="true">✦</span>
+            </button>
+            <span class="sr-only" role="status"></span>
+        </form>
+    {% endif %}
+</section>

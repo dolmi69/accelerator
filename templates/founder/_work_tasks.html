@@ -1,0 +1,61 @@
+<details class="priority-execution-details"
+         id="{% if not item.task %}execute-{% endif %}{{ item.key }}">
+    <summary class="priority-execution-summary">Как выполнить</summary>
+    <div class="priority-execution-body">
+        <h4>Как выполнить</h4>
+        {% if item.lab_url %}
+            <p>
+                Нажмите «Выполнить» — откроется лаборатория с готовым запросом для этой функции.
+                Отправьте его Бруно, чтобы добавить функцию в сайт.
+            </p>
+            <div class="task-criterion">
+                <strong>Что проверить</strong>
+                <p>{% if item.feature %}{{ item.feature.description|linebreaksbr }}{% else %}{{ item.task.instructions|linebreaksbr }}{% endif %}</p>
+                <p class="task-check-hint">
+                    После генерации откройте сайт и пройдите этот сценарий.
+                    Если результат не соответствует описанию или появляется ошибка, расскажите Бруно в чате лаборатории, что нужно исправить.
+                </p>
+            </div>
+        {% elif item.task %}
+            <p>{{ item.task.instructions|linebreaksbr }}</p>
+            <div class="task-criterion">
+                <strong>Когда завершить</strong>
+                <p>{{ item.task.success_criterion }}</p>
+            </div>
+        {% else %}
+            <p>{{ item.feature.description|linebreaksbr }}</p>
+        {% endif %}
+        {% if item.task %}
+            {% with task=item.task %}
+                {% if startup.user_role != 'viewer' %}
+                    <div class="work-actions">
+                        {% if task.origin == 'kano' and task.kano_feature %}
+                            <a class="button ghost"
+                               href="{% url 'feature_kano' startup.id task.kano_feature.pk %}">Внести ответы</a>
+                        {% endif %}
+                        <form method="post" action="{% url 'task_skip' startup.id task.id %}">
+                            {% csrf_token %}
+                            <button class="button ghost">Отложить</button>
+                        </form>
+                    </div>
+                {% endif %}
+            {% endwith %}
+        {% endif %}
+        <details class="priority-estimate-details">
+            <summary>
+                {% if item.preview.preliminary %}
+                    Оценка Бруно · почему такой балл
+                {% else %}
+                    Оценка RICE и ICE
+                {% endif %}
+            </summary>
+            <div>
+                {% if item.preview.preliminary %}<p>{{ item.preview.bruno_basis }}</p>{% endif %}
+                {% include 'founder/_estimate_breakdown.html' with estimate_preview=item.preview %}
+                {% if startup.user_role != 'viewer' %}
+                    <a class="priority-edit" href="{{ item.edit_url }}">Уточнить оценку ↗</a>
+                {% endif %}
+            </div>
+        </details>
+    </div>
+</details>

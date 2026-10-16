@@ -1,0 +1,11 @@
+<details class="card radar-fold participant-actions-card" id="project-history" open>
+    <summary><span>Действия участников</span><span aria-hidden="true">⌄</span></summary>
+    <div class="participant-actions-body">
+        <div class="participant-actions-scroll" tabindex="0" role="region" aria-label="Последние действия участников">
+            {% include 'founder/_activity.html' with items=activities %}
+        </div>
+        <div class="participant-actions-footer">
+            <a class="evidence-link" href="{% url 'team' startup.id %}">Вся лента →</a>
+        </div>
+    </div>
+</details>

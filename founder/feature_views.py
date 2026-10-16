@@ -1,5 +1,8 @@
 """Project-scoped MVP actions; founders/editors write, viewers only read."""
 from contextlib import contextmanager
+from uuid import UUID
+from founder.services.kano_availability import enabled as kano_enabled
+from django.http import Http404
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -27,12 +30,14 @@ def _back(startup,method='rice',anchor='mvp-features'):
 def board_context(startup,request):
     method=_method(request)
     rows=mvp.board(startup,method)
-    return {'features':rows,'mvp_method':method,
+    return {'features':rows,'mvp_method':method,'kano_enabled':kano_enabled(),
         'feature_count':len(rows),'rated_count':sum(row.score is not None for row in rows),
         'mvp_count':sum(row.in_mvp for row in rows),
+        'mvp_first':next((row for row in rows if row.in_mvp),None),
         'transferable_count':sum(row.in_mvp and not row.task_id for row in rows),
-        'mvp_effort':sum((row.effort or 0) for row in rows if row.in_mvp),
-        'mvp_effort_incomplete':any(row.in_mvp and row.effort is None for row in rows)}
+        'mvp_effort':sum((row.estimate_preview.estimate.effort or 0) for row in rows if row.in_mvp),
+        'mvp_effort_incomplete':any(row.in_mvp and row.estimate_preview.estimate.effort is None for row in rows),
+        'mvp_effort_bruno':any(row.in_mvp and 'effort' in row.estimate_preview.bruno_fields for row in rows)}
 
 
 @contextmanager
@@ -51,7 +56,10 @@ def _ai_request(user):
 def feature_edit(request,startup_id,feature_id=None):
     startup=get_startup(request,startup_id,edit=True)
     feature=get_object_or_404(startup.feature_candidates,pk=feature_id) if feature_id else FeatureCandidate(startup=startup,created_by=request.user)
-    form=FeatureForm(request.POST if request.method=='POST' else None,instance=feature,startup=startup)
+    from founder.services.priority_estimates import form_initial, resolve_estimate
+    preview = resolve_estimate(feature) if feature_id else None
+    form=FeatureForm(request.POST if request.method=='POST' else None,instance=feature,startup=startup,
+        initial=form_initial(preview) if preview and request.method=='GET' else None)
     if request.method=='POST' and form.is_valid():
         try:
             with transaction.atomic():
@@ -75,7 +83,8 @@ def feature_edit(request,startup_id,feature_id=None):
         except (IntegrityError,OperationalError):
             form.add_error(None,'Функция уже сохранена или проект занят другим запросом. Обновите список.')
     return render(request,'founder/feature_form.html',{'startup':startup,'workspace_tab':'tasks','form':form,
-        'feature':feature if not feature._state.adding else None,'mvp_method':_method(request)},status=400 if request.method=='POST' else 200)
+        'feature':feature if not feature._state.adding else None,'mvp_method':_method(request),
+        'estimate_preview':preview},status=400 if request.method=='POST' else 200)
 
 
 @login_required
@@ -84,8 +93,22 @@ def features_suggest(request,startup_id):
     startup=get_startup(request,startup_id,edit=True)
     try:
         if startup.feature_candidates.count()>=100:raise ValueError('В проекте уже 100 функций. Сначала уточните существующий список.')
-        with _ai_request(request.user):
-            items=feature_ai.suggest_features(startup)
+        # Accept drafts from the saved shared review. This action makes no AI call.
+        reviews = startup.reviews.all()
+        review_id = request.POST.get('review')
+        try:
+            review = get_object_or_404(reviews, pk=UUID(review_id)) if review_id else reviews.first()
+        except (ValueError, TypeError) as exc:
+            raise Http404('Разбор не найден') from exc
+        if review is None:
+            raise ValueError('Сначала получите единый разбор проекта. В нём Бруно предложит функции.')
+        from founder.services.priority_estimates import parse_estimate
+        items = []
+        for raw in review.data.get('features', []):
+            item = feature_ai.parse_feature_fields({key: value for key, value in raw.items() if key != 'estimate'})
+            if 'estimate' in raw:
+                item['estimate'] = parse_estimate(raw['estimate'])
+            items.append(item)
         with transaction.atomic():
             StartupProfile.objects.select_for_update().get(pk=startup.pk)
             existing={title.casefold() for title in startup.feature_candidates.values_list('title',flat=True)}
@@ -93,10 +116,14 @@ def features_suggest(request,startup_id):
             for item in items:
                 if item['title'].casefold() in existing:continue
                 if len(existing)>=100:break
-                FeatureCandidate.objects.create(startup=startup,created_by=request.user,source='bruno',**item)
+                values = {key: value for key, value in item.items() if key != 'estimate'}
+                feature = FeatureCandidate.objects.create(startup=startup,created_by=request.user,source='bruno',**values)
+                if 'estimate' in item:
+                    from founder.services.bruno_estimates import save_subject_estimate
+                    save_subject_estimate(feature, item['estimate'], review.ai_model)
                 existing.add(item['title'].casefold());created+=1
             activity.log(startup,request.user,activity.Kind.TASK,f'Бруно предложил функций MVP: {created}')
-        messages.success(request,f'Добавлено предложений Бруно: {created}. Оценки не заполнены — внесите свои данные.')
+        messages.success(request,f'Добавлено предложений Бруно: {created}. Проверьте предложенные оценки перед началом работы.')
     except (AIServiceError,QwenError,RequestLimitExceeded,ValueError,IntegrityError,OperationalError) as exc:
         messages.error(request,str(exc) if not isinstance(exc,(IntegrityError,OperationalError)) else 'Проект занят. Обновите список функций.')
     return _back(startup,_method(request))
@@ -120,6 +147,8 @@ def features_transfer(request,startup_id):
 @login_required
 @require_POST
 def feature_survey_prepare(request,startup_id,feature_id):
+    if not kano_enabled():
+        raise Http404('Опросы временно недоступны')
     startup=get_startup(request,startup_id,edit=True)
     feature=get_object_or_404(startup.feature_candidates,pk=feature_id)
     try:
@@ -148,6 +177,8 @@ def feature_survey_prepare(request,startup_id,feature_id):
 @login_required
 @require_http_methods(['GET','POST'])
 def feature_kano(request,startup_id,feature_id,response_id=None):
+    if not kano_enabled():
+        raise Http404('Опросы временно недоступны')
     startup=get_startup(request,startup_id,edit=request.method=='POST' or response_id is not None)
     feature=get_object_or_404(startup.feature_candidates.select_related('kano_task','kano_evidence'),pk=feature_id)
     response=get_object_or_404(feature.kano_responses,pk=response_id) if response_id else KanoResponse(feature=feature,created_by=request.user)

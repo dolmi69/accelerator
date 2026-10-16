@@ -13,7 +13,7 @@ ENV_FILE = BASE_DIR / ".env"
 
 
 def configure():
-    print("\nПодключение GigaChat к Co-Founder.AI")
+    print("\nПодключение GigaChat к BrunoLab")
     print("1 — прямой GigaChat API (ключ авторизации Сбера)")
     print("2 — GigaChat в Cloud.ru (Key Secret сервисного аккаунта)")
     choice = input("Выберите 1 или 2: ").strip()
@@ -52,7 +52,7 @@ def configure():
         set_key(ENV_FILE, "CLOUDRU_API_KEY", key)
         set_key(ENV_FILE, "AI_PROVIDER", "cloudru")
 
-    print("\nГотово. Ключ сохранён локально в .env. Перезапустите сервер Co-Founder.AI.")
+    print("\nГотово. Ключ сохранён локально в .env. Перезапустите сервер BrunoLab.")
     return 0
 
 

@@ -62,6 +62,30 @@ class CommunityTests(TestCase):
         self.assertEqual(self.card.name, 'Clinic')
         self.assertEqual(self.card.published_data['name'], 'Clinic')
 
+    def test_card_stage_and_radar_publish_without_external_website(self):
+        self.card.website = 'https://legacy.example.test/'
+        self.card.save(update_fields=['website'])
+        self.publish()
+        url = reverse('card_edit', args=[self.project.pk])
+        data = {**self.values, 'stage': 'validation', 'share_radar': True,
+                'revision': self.card.revision, 'action': 'save'}
+        self.assertEqual(self.client.post(url, data).status_code, 302)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.stage, 'validation')
+        self.assertTrue(self.card.share_radar)
+        self.assertEqual(self.card.published_data['stage'], 'idea')
+        self.assertEqual(self.card.website, 'https://legacy.example.test/')
+        response = self.client.get(url)
+        self.assertContains(response, '<option value="validation" selected>Проверка</option>', html=True)
+        self.assertNotContains(response, 'name="website"')
+        self.assertNotContains(response, 'card-edit-settings')
+        self.assertContains(response, 'name="share_radar"')
+        data.update(action='publish', revision=self.card.revision, website='https://ignored.example.test/')
+        self.assertEqual(self.client.post(url, data).status_code, 302)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.published_data['stage_label'], 'Проверка')
+        self.assertNotIn('website', self.card.published_data)
+
     def test_unpublish_removes_discovery_detail_and_saved_cards(self):
         self.publish()
         ProjectBookmark.objects.create(card=self.card, user=self.visitor)

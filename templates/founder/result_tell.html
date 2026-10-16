@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Расскажи Бруно · {{ startup.name }}{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet"
+          href="{% static 'founder/css/project-history.css' %}?v=2">
+{% endblock %}
+{% block content %}
+    {% include 'founder/_workspace_nav.html' %}
+    <div class="history-page">
+        <a class="history-back" href="{% url 'evidence_list' startup.id %}">← История проекта</a>
+        <header class="history-heading">
+            <div>
+                <span class="eyebrow">СОХРАНИМ ВАШ СЛЕДУЮЩИЙ ШАГ</span>
+                <h1>
+                    {% if task %}
+                        Записать решение
+                    {% else %}
+                        Расскажи Бруно
+                    {% endif %}
+                </h1>
+                <p>
+                    {% if task %}
+                        {{ task.title }}
+                    {% else %}
+                        Что вы попробовали и что из этого получилось?
+                    {% endif %}
+                </p>
+            </div>
+        </header>
+        <div class="result-layout">
+            <section class="result-chat" aria-label="Разговор о результате">
+                <div class="result-bruno-intro">
+                    <span aria-hidden="true">✦</span>
+                    <div>
+                        <strong>Давайте разберёмся вместе</strong>
+                        <p>
+                            Расскажите своими словами. Я помогу выделить результат, вывод и следующий шаг. Перед сохранением вы всё проверите.
+                        </p>
+                    </div>
+                </div>
+                {% for message in conversation.messages %}
+                    <article class="result-message result-message-{{ message.role }}"><small>
+                        {% if message.role == 'user' %}
+                            Вы
+                        {% else %}
+                            Бруно
+                        {% endif %}
+                    </small>
+                    <p>{{ message.text|linebreaksbr }}</p>
+                    {% if message.question %}
+                        <p>
+                            <strong>{{ message.question }}</strong>
+                        </p>
+                    {% endif %}
+                </article>
+            {% endfor %}
+            {% if conversation.processing %}
+                <p class="result-waiting" role="status">Бруно готовит черновик… Ваш рассказ сохранён.</p>
+                <meta http-equiv="refresh" content="5">
+            {% else %}
+                <form method="post" class="result-composer" data-busy-form>
+                    {% csrf_token %}
+                    {% if conversation %}<input type="hidden" name="draft" value="{{ conversation.pk }}">{% endif %}
+                    {% if task %}<input type="hidden" name="task" value="{{ task.pk }}">{% endif %}
+                    <input type="hidden" name="request_key" value="{{ request_key }}">
+                    <label for="result-message">
+                        {% if conversation.proposal.ready %}
+                            Хотите что-то уточнить?
+                        {% else %}
+                            Что получилось?
+                        {% endif %}
+                    </label>
+                    <textarea id="result-message"
+                              name="message"
+                              rows="4"
+                              maxlength="4000"
+                              placeholder="Что сделали, что произошло и что вас удивило…"
+                              required></textarea>
+                    <div>
+                        <span>Сохранится только после вашего подтверждения</span>
+                        <button class="button primary" data-busy-label="Бруно думает…">
+                            {% if conversation %}
+                                Продолжить разговор
+                            {% else %}
+                                Рассказать Бруно
+                            {% endif %}
+                            ✦
+                        </button>
+                    </div>
+                    <span role="status" aria-live="polite"></span>
+                </form>
+            {% endif %}
+            <a class="result-manual-link"
+               href="{% url 'evidence_create' startup.id %}{% if task %}?task={{ task.pk }}{% endif %}">Записать результат вручную</a>
+        </section>
+        <aside class="result-preview" aria-label="Черновик шага">
+            <span class="history-caption">БУДУЩИЙ ШАГ В ИСТОРИИ</span>
+            {% if conversation.proposal.ready %}
+                <h2>{{ conversation.proposal.claim }}</h2>
+                <span class="history-source history-source-manual">Со слов участника</span>
+                <h3>Что получилось</h3>
+                <p>{{ conversation.proposal.observation|linebreaksbr }}</p>
+                {% if conversation.proposal.learned %}
+                    <h3>Что узнали</h3>
+                    <p>{{ conversation.proposal.learned }}</p>
+                {% endif %}
+                {% if conversation.proposal.next_step %}
+                    <h3>Следующий шаг · предложение Бруно</h3>
+                    <p>{{ conversation.proposal.next_step }}</p>
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="draft" value="{{ conversation.pk }}">
+                    <input type="hidden" name="revision" value="{{ conversation.revision }}">
+                    <input type="hidden" name="action" value="confirm">
+                    <button class="button primary">
+                        {% if task %}
+                            Сохранить и завершить задание
+                        {% else %}
+                            Сохранить шаг в истории
+                        {% endif %}
+                    </button>
+                </form>
+                <small>Проверьте факты и числа. Чтобы исправить черновик, напишите Бруно.</small>
+            {% else %}
+                <div class="result-preview-empty">
+                    <span aria-hidden="true">↗</span>
+                    <h2>Ваш опыт станет результатом</h2>
+                    <p>Здесь появится короткая запись: что сделали, что узнали и что проверить дальше.</p>
+                    <div>
+                        01 <span>Расскажите о работе</span>
+                    </div>
+                    <div>
+                        02 <span>Уточните с Бруно</span>
+                    </div>
+                    <div>
+                        03 <span>Сохраните шаг</span>
+                    </div>
+                </div>
+            {% endif %}
+        </aside>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'founder/js/workbench.js' %}?v=4" defer></script>
+{% endblock %}

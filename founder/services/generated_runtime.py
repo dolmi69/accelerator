@@ -92,7 +92,7 @@ def sandbox_profile(project, interpreter, port):
 '''
 
 
-def start(version, *, launcher_origin=None, return_path=None, selection_token=None):
+def start(version, *, launcher_origin=None, return_path=None, selection_token=None, publication=False):
     from founder.services.django_builder import (BuilderError, RuntimeSelectionChanged,
         _runtime_lock, _active_project, _select_project, _stop, _directory as legacy_directory, _root)
     if not settings.LAB_BACKEND_RUNTIME_ENABLED or not available():
@@ -103,31 +103,35 @@ def start(version, *, launcher_origin=None, return_path=None, selection_token=No
         raise BuilderError('Бэкенд модели запускается только из локальной лаборатории.')
     # Different hosts, not just different ports: cookies of the platform must
     # never be sent to the generated app. The frontend also uses another origin.
-    host = 'localhost' if origin.hostname == '127.0.0.1' else '127.0.0.1'
+    runtime_id = f'public-{version.startup_id}' if publication else version.startup_id
+    host = f'lab-{version.pk}.localhost' if publication else ('localhost' if origin.hostname == '127.0.0.1' else '127.0.0.1')
     with _runtime_lock():
-        if selection_token:
+        if publication:
+            pass  # Public viewing must never switch or stop the owner's editor.
+        elif selection_token:
             selected = _active_project(version.startup.owner_id)
             if not selected or selected['project_id'] != str(version.startup_id) or selected['token'] != selection_token:
                 raise RuntimeSelectionChanged('Предпросмотр закрыт: вы перешли в другой проект.')
         else:
             _select_project(version.startup)
-        old = status(version.startup_id)
+        old = status(runtime_id)
         if old and old['version_id'] == str(version.pk) and old['host'] == host and old.get('parent') == launcher_origin:
             return f"http://{host}:{old['port']}/"
-        stop_unlocked(version.startup_id)
-        _stop(legacy_directory(version.startup_id), version.startup_id)
+        stop_unlocked(runtime_id)
+        if not publication:
+            _stop(legacy_directory(runtime_id), version.startup_id)
         running = sum(bool(status(child.name)) for child in _root().iterdir() if child.is_dir())
         from founder.services.django_builder import runtime_status
         running += sum(bool(runtime_status(child.name)) for child in _root().iterdir() if child.is_dir())
         if running >= settings.LAB_BACKEND_MAX_RUNNING:
             raise BuilderError('Лаборатория занята другими сайтами. Остановите один и повторите запуск.')
-        project = _directory(version.startup_id) / 'generated-projects' / str(version.pk)
+        project = _directory(runtime_id) / 'generated-projects' / str(version.pk)
         project.mkdir(parents=True, exist_ok=True)
         data = project / 'data'
         data.mkdir(exist_ok=True)
         database = data / 'data.sqlite3'
         if not database.exists() and version.source_id and version.source.kind == 'generated':
-            source_db = _directory(version.startup_id) / 'generated-projects' / str(version.source_id) / 'data' / 'data.sqlite3'
+            source_db = _directory(runtime_id) / 'generated-projects' / str(version.source_id) / 'data' / 'data.sqlite3'
             if source_db.is_file():
                 with sqlite3.connect(f'{source_db.as_uri()}?mode=ro', uri=True) as source_connection, sqlite3.connect(database) as target:
                     source_connection.backup(target)
@@ -140,24 +144,24 @@ def start(version, *, launcher_origin=None, return_path=None, selection_token=No
             probe.bind(('127.0.0.1', 0))
             port = probe.getsockname()[1]
         interpreter = str(Path(sys.base_prefix) / 'bin' / f'python{sys.version_info.major}.{sys.version_info.minor}')
-        profile = _directory(version.startup_id) / 'generated.sb'
+        profile = _directory(runtime_id) / 'generated.sb'
         profile.write_text(sandbox_profile(project, interpreter, port))
         env = {'PATH': '/usr/bin:/bin', 'LANG': 'en_US.UTF-8', 'PYTHONDONTWRITEBYTECODE': '1'}
         state = {'port': port, 'host': host, 'parent': launcher_origin, 'version_id': str(version.pk)}
         # A failed import may modify its database; preserve it for recovery.
-        backup = _directory(version.startup_id) / 'generated-start-backup.sqlite3'
+        backup = _directory(runtime_id) / 'generated-start-backup.sqlite3'
         if database.exists():
             with sqlite3.connect(database) as source_connection, sqlite3.connect(backup) as target:
                 source_connection.backup(target)
-        with (_directory(version.startup_id) / 'generated.log').open('wb') as log:
+        with (_directory(runtime_id) / 'generated.log').open('wb') as log:
             process = subprocess.Popen(['/usr/bin/sandbox-exec', '-f', str(profile), interpreter, '-I', '-S',
                 str(project / 'start.py'), '--port', str(port), '--host', host,
-                '--version', str(version.pk), '--project', str(version.startup_id), '--parent', launcher_origin],
+                '--version', str(version.pk), '--project', str(runtime_id), '--parent', launcher_origin],
                 cwd=project, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
         state['pid'] = process.pid
-        (_directory(version.startup_id) / 'generated-state.json').write_text(json.dumps(state))
+        (_directory(runtime_id) / 'generated-state.json').write_text(json.dumps(state))
         for _ in range(50):
-            if _healthy(state, version.startup_id):
+            if _healthy(state, runtime_id):
                 backup.unlink(missing_ok=True)
                 return f'http://{host}:{port}/'
             if process.poll() is not None:
@@ -166,7 +170,7 @@ def start(version, *, launcher_origin=None, return_path=None, selection_token=No
         if process.poll() is None:
             process.kill()
         process.wait(timeout=5)
-        (_directory(version.startup_id) / 'generated-state.json').unlink(missing_ok=True)
+        (_directory(runtime_id) / 'generated-state.json').unlink(missing_ok=True)
         if backup.exists():
             for suffix in ('', '-wal', '-shm', '-journal'):
                 Path(str(database) + suffix).unlink(missing_ok=True)

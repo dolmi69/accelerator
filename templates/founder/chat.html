@@ -8,7 +8,7 @@
     {% else %}
         Чат с Бруно
     {% endif %}
-    · Co-Founder.AI
+    · BrunoLab
 {% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
@@ -125,6 +125,7 @@
             <div class="ended-note">Акулы услышали достаточно. Нажмите «Голосование».</div>
         {% else %}
             <form id="chat-form"
+                  {% if hub_message %}data-hub-send="true"{% endif %}
                   data-draft-key="bruno:{{ request.user.pk }}:{{ session.id }}"
                   method="post"
                   action="{% url 'chat_send' startup.id session.id %}"
@@ -142,7 +143,7 @@
                           id="message-input"
                           rows="3"
                           maxlength="4000"
-                          placeholder="{% if is_panel %}Ваш ответ {{ panel.speaker.dative|default:'акулам' }}…{% elif is_pitch %}Ваш ответ инвестору…{% else %}Напишите Бруно…{% endif %}"></textarea>
+                          placeholder="{% if is_panel %}Ваш ответ {{ panel.speaker.dative|default:'акулам' }}…{% elif is_pitch %}Ваш ответ инвестору…{% else %}Напишите Бруно…{% endif %}">{{ hub_message }}</textarea>
                 <div class="composer-bottom">
                     <label class="file-button">
                         ▣ <span id="file-name">Прикрепить файл</span>
@@ -455,8 +456,8 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
-    <script src="{% static 'founder/js/workbench.js' %}" defer></script><script src="{% static 'founder/js/chat.js' %}?v=team-merge-1"></script><script src="{% static 'founder/js/dashboard.js' %}"></script>
+    <script src="{% static 'founder/js/workbench.js' %}" defer></script><script src="{% static 'founder/js/chat.js' %}?v=hub-1"></script><script src="{% static 'founder/js/dashboard.js' %}"></script>
     {% if panel.verdict %}
-        <script src="{% static 'founder/js/panel.js' %}?v=sharks-1" defer></script>
+        <script src="{% static 'founder/js/panel.js' %}?v=sharks-2" defer></script>
     {% endif %}
 {% endblock %}

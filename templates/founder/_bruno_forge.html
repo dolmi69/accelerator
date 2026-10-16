@@ -1,7 +1,7 @@
 {# Imported from assets/bruno/forge-v3-claude.html; styles are scoped to this component. #}
 <section class="lab-forge lab-forge3-forge"
          id="lab-forge"
-         hidden
+         {% if not lab_job_active %}hidden{% endif %}
          role="status"
          aria-live="polite"
          aria-atomic="true">

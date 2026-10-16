@@ -20,7 +20,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from founder.forms import ChatSendForm, EvidenceForm, MetricsForm, RegisterForm, StartupForm
 from founder.models import (
-    BrunoTask, BusinessAxis, ChatAttachment, ChatMessage, ChatSession, MascotState, MentorIdea, MessageFeedback,
+    BrunoTask, BusinessAxis, ChatAttachment, ChatMessage, ChatSession, EvidenceConversation, MascotState, MentorIdea, MessageFeedback,
     PanelVerdict, PitchReport, ProjectPicture, StartupProfile, CoinTransaction,
 )
 from founder.services import mentor
@@ -171,9 +171,43 @@ def _dashboard_context(startup, metrics_form=None, *, snapshot_id=None, history_
 @login_required
 def dashboard(request, startup_id):
     startup = get_startup(request, startup_id)
-    return render(request, "founder/dashboard.html", _dashboard_context(
+    context = _dashboard_context(
         startup, snapshot_id=request.GET.get("snapshot"), history_page=request.GET.get("history_page", 1),
-    ))
+    )
+    context.update(
+        hub_lab_job=startup.lab_jobs.filter(status__in=['queued', 'running']).first(),
+        hub_result_draft=EvidenceConversation.objects.filter(
+            startup=startup, author=request.user, entry__isnull=True,
+        ).first() if startup.user_role != 'viewer' else None,
+    )
+    from founder.services.daily_plan import display as display_daily_plan
+    context['daily_focus'] = display_daily_plan(startup, can_edit=startup.user_role != 'viewer')
+    return render(request, "founder/dashboard.html", context)
+
+
+@login_required
+@require_POST
+def daily_plan_generate(request, startup_id):
+    from django.db import OperationalError
+    from founder.services.daily_plan import generate
+    from founder.services.request_limits import (RequestLimitExceeded, acquire_ai_lease,
+                                                 consume_limit, release_ai_lease)
+    startup = get_startup(request, startup_id, edit=True)
+    token = None
+    try:
+        token = acquire_ai_lease(request.user.pk, ttl_seconds=600)
+        consume_limit(f'ai-minute:{request.user.pk}', settings.AI_REQUESTS_PER_MINUTE, 60)
+        consume_limit(f'ai-day:{request.user.pk}', settings.AI_REQUESTS_PER_DAY, 86400)
+        generate(startup)
+        messages.success(request, 'Бруно подготовил план на день.')
+    except (AIServiceError, RequestLimitExceeded) as exc:
+        messages.error(request, str(exc))
+    except OperationalError:
+        messages.error(request, 'Проект сейчас занят. Предыдущий план сохранён.')
+    finally:
+        if token is not None:
+            release_ai_lease(request.user.pk, token)
+    return redirect(reverse('dashboard', args=[startup.pk]) + '#project-plan')
 
 
 @login_required
@@ -240,7 +274,14 @@ def _create_cofounder_session(startup):
 @require_POST
 def chat_create(request, startup_id):
     startup = get_startup(request, startup_id, edit=True)
+    content = request.POST.get('content', '').strip()
+    if request.POST.get('from_hub') and (not content or len(content) > 4000):
+        messages.error(request, 'Напишите сообщение Бруно — до 4000 символов.')
+        return redirect('dashboard', startup_id=startup.pk)
     session = _create_cofounder_session(startup)
+    if request.POST.get('from_hub'):
+        # One-time handoff to the existing chat sender: same limits, stream and error handling.
+        request.session[f'bruno_hub_message:{session.pk}'] = content
     activity.log(startup, request.user, activity.Kind.CHAT, "Новый разговор с Бруно")
     return redirect("chat_detail", startup_id=startup.id, session_id=session.id)
 
@@ -362,6 +403,8 @@ def chat_detail(request, startup_id, session_id):
         "show_authors": has_team(session.startup),
         "has_assessment_context": has_profile_description(session.startup) or has_founder_conversation(session.startup),
         "ai_available": settings.AI_PROVIDER != "demo",
+        "hub_message": request.session.pop(f'bruno_hub_message:{session.pk}', '')
+            if session.startup.user_role != 'viewer' else '',
     })
 
 

@@ -9,7 +9,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from founder.community_views import published_cards
 from founder.forms import JoinRequestForm, StartupDeleteForm, TeamInviteForm
-from founder.models import BrunoTask, ProjectMember
+from founder.models import BrunoTask, ProjectMember, StartupProfile
 from founder.services import activity
 from founder.services.access import OWNER, ROLE_LABELS, get_startup
 from founder.services.messaging import blocked_pair
@@ -19,7 +19,12 @@ from founder.services.request_limits import RequestLimitExceeded, consume_limit
 
 def _team_context(startup, form=None):
     members = list(startup.members.select_related("user", "invited_by"))
+    from founder.services.work_assignments import team_workload
+    workload = team_workload(startup)
+    for member in members:
+        member.workload = workload['workload_by_user'].get(member.user_id, {})
     return {
+        **workload, 'owner_workload':workload['workload_by_user'][startup.owner_id],
         "startup": startup, "workspace_tab": "team",
         "is_project_owner": startup.user_role == OWNER, "role_labels": ROLE_LABELS,
         "active_members": [m for m in members if m.status == ProjectMember.Status.ACTIVE],
@@ -98,7 +103,9 @@ def team_invite(request, startup_id):
 
 @login_required
 @require_POST
+@transaction.atomic
 def team_member_update(request, startup_id, member_id):
+    StartupProfile.objects.select_for_update().filter(pk=startup_id).exists()
     startup = _owner_startup(request, startup_id)
     member = get_object_or_404(startup.members.select_related("user"), pk=member_id)
     action = request.POST.get("action")
@@ -125,6 +132,8 @@ def team_member_update(request, startup_id, member_id):
     elif action == "role" and member.status == ProjectMember.Status.ACTIVE and request.POST.get("role") in ProjectMember.Role.values:
         member.role = request.POST["role"]
         member.save(update_fields=["role"])
+        if member.role == ProjectMember.Role.VIEWER:
+            _release_tasks(member)
         activity.log(startup, request.user, activity.Kind.TEAM, f"Роль @{handle}: {member.get_role_display().lower()}")
         messages.success(request, f"Роль @{handle}: {member.get_role_display().lower()}.")
     else:
@@ -134,7 +143,9 @@ def team_member_update(request, startup_id, member_id):
 
 @login_required
 @require_POST
+@transaction.atomic
 def team_leave(request, startup_id):
+    StartupProfile.objects.select_for_update().filter(pk=startup_id).exists()
     member = ProjectMember.objects.filter(startup_id=startup_id, user=request.user,
                                           status=ProjectMember.Status.ACTIVE).select_related("startup").first()
     if member is None:

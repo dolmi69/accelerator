@@ -229,7 +229,7 @@ class AssigneeAndActivityTests(TestCase):
         self.assertIn('Новый разговор с Бруно', texts)
         self.client.force_login(self.owner)
         dashboard = self.client.get(reverse('dashboard', args=[self.startup.pk]))
-        self.assertContains(dashboard, 'История проекта')
+        self.assertContains(dashboard, 'Действия участников')
         self.assertContains(dashboard, 'Задание выполнено')
         self.assertContains(dashboard, 'Олег')
         self.client.force_login(self.stranger)

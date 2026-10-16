@@ -1,0 +1,39 @@
+{% if startup.user_role == 'viewer' %}
+    <p class="priority-assignment-label">Исполнитель: {{ item.task.assignee.public_name|default:'Не назначен' }}</p>
+{% else %}
+    <details class="priority-assignment">
+        <summary>
+            {% if item.task.assignee %}
+                <span class="assignment-initial" aria-hidden="true">{{ item.task.assignee.public_name|first|upper }}</span><span>{{ item.task.assignee.public_name }}</span>
+            {% else %}
+                <span class="assignment-empty-icon" aria-hidden="true">＋</span><span>Назначить исполнителя</span>
+            {% endif %}
+            <span class="assignment-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <form method="post" action="{{ item.assignment_url }}">
+            {% csrf_token %}
+            <input type="hidden" name="method" value="{{ mvp_method }}">
+            <input type="hidden" name="work_filter" value="{{ assignee_filter }}">
+            <label for="assign-{{ item.key }}">Кто возьмёт задачу</label>
+            <div>
+                <select id="assign-{{ item.key }}" name="assignee">
+                    <option value="">Без исполнителя</option>
+                    {% for person in team %}
+                        <option value="{{ person.pk }}"
+                                {% if item.task.assignee_id == person.pk %}selected{% endif %}>
+                            {{ person.public_name }}
+                            {% if person.pk == request.user.pk %}· это вы{% endif %}
+                            · открыто: {{ person.open_task_count }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <button class="button ghost" type="submit">Сохранить</button>
+            </div>
+            {% if team|length == 1 %}
+                <a href="{% url 'team' startup.id %}">Пригласить соавтора →</a>
+            {% else %}
+                <small>Исполнитель может изменять проект и сохранять результат задания.</small>
+            {% endif %}
+        </form>
+    </details>
+{% endif %}

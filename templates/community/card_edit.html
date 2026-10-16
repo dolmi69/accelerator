@@ -1,94 +1,125 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}Карточка · {{ startup.name }}{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet"
+          href="{% static 'founder/css/card-editor.css' %}?v=2">
+{% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
-    <div class="page-heading">
+    <header class="card-edit-heading">
         <div>
-            <span class="eyebrow">ОТ ИДЕИ К ЗНАКОМСТВУ</span>
+            <span class="eyebrow">ВАШ ПРОЕКТ</span>
             <h1>Карточка проекта</h1>
-            <p>Расскажите о себе так, чтобы вас поняли будущие партнёры, клиенты и команда.</p>
         </div>
-        <span class="community-tag">
-            {% if card.published_at %}
-                Есть опубликованная версия
-            {% else %}
-                Личный черновик
-            {% endif %}
-        </span>
-    </div>
-    <div class="card-editor-layout">
-        <section class="card card-editor">
-            <div class="section-top">
-                <div>
-                    <h2>Описание проекта</h2>
+        {% if card.published_at %}
+            <a class="evidence-link" href="{% url 'card_detail' startup.id %}">Посмотреть в сообществе ↗</a>
+        {% endif %}
+    </header>
+    <form method="post"
+          id="project-card-form"
+          class="card-edit-canvas"
+          data-card-editor
+          data-generated="{% if generated %}1{% else %}0{% endif %}">
+        {% csrf_token %}{{ form.revision }}
+        <article class="card card-edit-document">
+            <div class="discovery-top">
+                <div class="discovery-identity">
+                    <span class="project-monogram large" data-preview-monogram>{{ startup.name|first|upper }}</span>
+                    <div class="card-edit-stage">
+                        <label for="{{ form.stage.id_for_label }}" class="sr-only">Стадия проекта</label>
+                        {{ form.stage }}
+                        {% if form.stage.errors %}<small class="field-error">{{ form.stage.errors|striptags }}</small>{% endif %}
+                    </div>
                 </div>
-                <span class="card-bruno-icon" aria-hidden="true">🐻</span>
+                <span class="card-edit-hint">Нажмите на текст, чтобы изменить</span>
             </div>
-            <details class="project-fold project-card-help">
-                <summary>Как Бруно собирает карточку</summary>
-                <p class="muted">
-                    Бруно использует описание, ваши ответы в чате и дневник. Проверьте формулировки: неизвестные сведения останутся пустыми.
-                </p>
-            </details>
+            {% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
             {% if generated %}
-                <p class="work-notice">
-                    Вариант Бруно готов. Он пока находится в полях ниже — сохраните черновик или опубликуйте его.
-                </p>
+                <p class="work-notice">Вариант Бруно готов. Проверьте текст и сохраните черновик или обновите публикацию.</p>
             {% endif %}
-            {% if latest %}
-                <p class="muted small">
-                    Последний радар: {{ latest.overall_score }}/100 · {{ latest.assessed_at|date:'d.m.Y H:i' }} · <a class="evidence-link" href="{% url 'dashboard' startup.id %}">Посмотреть оценку</a>
-                </p>
-            {% endif %}
-            <form method="post"
-                  data-card-editor
-                  data-generated="{% if generated %}1{% else %}0{% endif %}">
-                {% csrf_token %}{{ form.revision }}
-                {% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
-                <div class="bruno-edit-tools">
+            <div class="card-edit-name">{% include 'founder/_project_field.html' with field=form.name %}</div>
+            <div class="card-edit-pitch">{% include 'founder/_project_field.html' with field=form.tagline %}</div>
+            <div class="card-edit-summary">{% include 'founder/_project_field.html' with field=form.summary %}</div>
+            <div class="card-edit-facts">
+                <section>
+                    {% include 'founder/_project_field.html' with field=form.problem %}
+                </section>
+                <section>
+                    {% include 'founder/_project_field.html' with field=form.solution %}
+                </section>
+                <section>
+                    {% include 'founder/_project_field.html' with field=form.audience %}
+                </section>
+                <section>
+                    {% include 'founder/_project_field.html' with field=form.business_model %}
+                </section>
+            </div>
+            <section class="card-edit-traction">
+                {% include 'founder/_project_field.html' with field=form.traction %}
+            </section>
+            <section class="looking-for-box card-edit-looking">
+                {% include 'founder/_project_field.html' with field=form.looking_for %}
+            </section>
+            <p class="muted small card-edit-footnote">Изменения видны в сообществе после публикации.</p>
+        </article>
+        <aside class="card-edit-sidebar">
+            <section class="card card-publish-controls">
+                <span class="eyebrow">ПУБЛИКАЦИЯ</span>
+                <h2>
+                    {% if card.published_at %}
+                        Ваш проект в сообществе
+                    {% else %}
+                        Расскажите о проекте
+                    {% endif %}
+                </h2>
+                <span class="community-tag" data-card-publish-state>
+                    {% if generated %}
+                        Есть несохранённые изменения
+                    {% elif card.published_at %}
+                        Есть опубликованная версия
+                    {% else %}
+                        Личный черновик
+                    {% endif %}
+                </span>
+                <p class="muted small">Сохраните черновик для команды или опубликуйте карточку для будущих партнёров и клиентов.</p>
+                <div class="card-publish-options">{% include 'founder/_project_field.html' with field=form.share_radar %}</div>
+                <div class="card-publish-buttons">
                     <button type="submit"
                             name="action"
-                            value="generate"
-                            class="button primary"
-                            data-busy-label="Бруно оценивает и собирает…">Оценить и собрать с Бруно</button>
-                    <p class="muted small">Обновит радар и предложит карточку по всем вашим ответам.</p>
-                </div>
-                <div class="card-fields">
-                    {% for field in form.visible_fields %}
-                        {% if field.name == 'name' or field.name == 'tagline' or field.name == 'summary' or field.name == 'looking_for' %}
-                            {% include 'founder/_project_field.html' %}
+                            value="publish"
+                            class="button primary wide">
+                        {% if card.published_at %}
+                            Обновить публикацию
+                        {% else %}
+                            Опубликовать
                         {% endif %}
-                    {% endfor %}
+                    </button>
+                    <button type="submit" name="action" value="save" class="button ghost wide">Сохранить черновик</button>
                 </div>
-                <details class="project-fold project-form-section"
-                         {% if form.errors %}open{% endif %}>
-                    <summary>
-                        О продукте и бизнесе <small>Проблема, решение, клиенты</small>
-                    </summary>
-                    <div class="card-fields project-fold-body">
-                        {% for field in form.visible_fields %}
-                            {% if field.name == 'problem' or field.name == 'solution' or field.name == 'audience' or field.name == 'business_model' or field.name == 'traction' %}
-                                {% include 'founder/_project_field.html' %}
-                            {% endif %}
-                        {% endfor %}
+                <p class="muted small" data-card-status role="status">Черновик не меняет опубликованную карточку.</p>
+                {% if card.published_at %}
+                    <button type="submit"
+                            form="card-unpublish-form"
+                            class="link-button danger-link">Снять с публикации</button>
+                {% endif %}
+            </section>
+            <section class="card card-edit-bruno">
+                <div class="card-edit-bruno-heading">
+                    {% include 'founder/_bruno.html' with mascot=card_mascot pet=True instance_id='card-editor' only %}
+                    <div>
+                        <h2>Помощь Бруно</h2>
+                        <p class="muted small">Подберём точные слова</p>
                     </div>
-                </details>
-                <details class="project-fold project-form-section"
-                         {% if form.errors %}open{% endif %}>
-                    <summary>
-                        Настройки публикации <small>Стадия, сайт, радар</small>
-                    </summary>
-                    <div class="card-fields project-fold-body">
-                        {% for field in form.visible_fields %}
-                            {% if field.name == 'stage' or field.name == 'website' or field.name == 'share_radar' %}
-                                {% include 'founder/_project_field.html' %}
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                </details>
+                </div>
+                <button type="submit"
+                        name="action"
+                        value="generate"
+                        class="button ghost wide"
+                        data-busy-label="Бруно оценивает и собирает…">Оценить и собрать с Бруно</button>
+                <p class="muted small">Обновит радар и предложит описание по вашим ответам. Проверьте его перед публикацией.</p>
                 <details class="bruno-refine" {% if refine_form.errors %}open{% endif %}>
-                    <summary>Доработать вместе с Бруно</summary>
+                    <summary>Доработать текст</summary>
                     <label class="field">
                         <span>{{ refine_form.instruction.label }}</span>{{ refine_form.instruction }}
                         {% if refine_form.instruction.errors %}
@@ -98,95 +129,23 @@
                     <button type="submit"
                             name="action"
                             value="refine"
-                            class="button ghost"
+                            class="button ghost wide"
                             data-busy-label="Бруно дорабатывает…">Предложить правки</button>
-                    <p class="muted small">Бруно учтёт текст в полях и вашу просьбу. Результат можно отредактировать перед сохранением.</p>
                 </details>
-                <div class="card-editor-actions">
-                    <button type="submit" name="action" value="save" class="button ghost">Сохранить черновик</button>
-                    <button type="submit" name="action" value="publish" class="button primary">
-                        {% if card.published_at %}
-                            Обновить публикацию
-                        {% else %}
-                            Опубликовать
-                        {% endif %}
-                    </button>
-                </div>
-                <p class="muted small" data-card-status role="status">
-                    Черновик виден только команде. «Опубликовать» обновит карточку в сообществе.
-                </p>
-            </form>
-        </section>
-        <aside class="card-preview-column">
-            <span class="eyebrow">ТАК ВАС УВИДЯТ В ЛЕНТЕ</span>
-            <article class="card discovery-card preview-card">
-                <div class="discovery-top">
-                    <span class="project-monogram" data-preview-monogram>{{ startup.name|first|upper }}</span><span class="community-tag" data-preview-stage>{{ startup.get_stage_display }}</span>
-                </div>
-                <h2 data-preview="name">{{ startup.name }}</h2>
-                <p class="discovery-tagline" data-preview="tagline"></p>
-                <p class="muted" data-preview="summary"></p>
-                <div class="looking-for-box">
-                    <span class="eyebrow">ОТКРЫТЫ К ЗНАКОМСТВУ</span>
-                    <p data-preview="looking_for">Добавьте, кого ищете</p>
-                </div>
-                <div class="discovery-footer">
-                    <span>@{{ request.user.handle }}</span><span class="muted small">Предпросмотр</span>
-                </div>
-            </article>
-            <details class="card publishing-note project-card-fold">
-                <summary>Публикация</summary>
-                <div class="project-fold-body">
-                    <p class="muted">Сохранение черновика не меняет карточку в ленте. Публикуйте обновления, когда они готовы.</p>
-                    {% if card.published_at %}
-                        <a class="button ghost wide" href="{% url 'card_detail' startup.id %}">Открыть опубликованную карточку</a>
-                        <form method="post" action="{% url 'card_unpublish' startup.id %}">
-                            {% csrf_token %}
-                            <button type="submit" class="link-button danger-link">Снять с публикации</button>
-                        </form>
-                    {% else %}
-                        <a class="evidence-link" href="{% url 'community' %}">Посмотреть сообщество →</a>
-                    {% endif %}
-                </div>
-            </details>
-        </aside>
-    </div>
-    <details class="card project-card-fold">
-        <summary>Прототип проекта</summary>
-        <div class="project-fold-body">
-            {% if lab_version %}
-                {% include 'founder/_lab_publication.html' with selected=lab_version publication=lab_publication card_published=card.published_at %}
-            {% endif %}
-            {% if lab_publication %}
-                <details class="lab-history">
-                    <summary>
-                        <span>Прототип в вашей карточке</span><small>{{ lab_publication.get_visibility_display }}</small>
-                    </summary>
-                    <div class="lab-browser">
-                        <iframe class="lab-frame lab-card-frame"
-                                loading="lazy"
-                                sandbox="allow-scripts"
-                                referrerpolicy="no-referrer"
-                                title="Прототип {{ startup.name }}"
-                                src="{% url 'lab_public_preview' startup.id lab_publication.version_id %}"></iframe>
-                    </div>
-                </details>
-            {% endif %}
-            <section class="card lab-card-link">
-                <span class="eyebrow">ЛАБОРАТОРИЯ</span>
-                <h2>Рабочий прототип вашего проекта</h2>
-                <p class="muted">Создайте сайт с Бруно, выберите версию для карточки и соберите первые отзывы.</p>
-                <a class="button ghost" href="{% url 'lab' startup.id %}">
-                    {% if lab_version %}
-                        Открыть лабораторию и результаты
-                    {% else %}
-                        Создать прототип
-                    {% endif %}
-                →</a>
+                {% if latest %}
+                    <a class="evidence-link small" href="{% url 'dashboard' startup.id %}">Радар {{ latest.overall_score }}/100 →</a>
+                {% endif %}
             </section>
-        </div>
-    </details>
+        </aside>
+    </form>
+    {% if card.published_at %}
+        <form method="post"
+              action="{% url 'card_unpublish' startup.id %}"
+              id="card-unpublish-form">
+            {% csrf_token %}
+        </form>
+    {% endif %}
 {% endblock %}
 {% block scripts %}
-    <script src="{% static 'founder/js/cards.js' %}" defer></script>
+    <script src="{% static 'founder/js/cards.js' %}?v=3" defer></script>
 {% endblock %}

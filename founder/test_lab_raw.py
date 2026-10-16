@@ -71,7 +71,7 @@ class RawLabTests(TestCase):
         response = self.client.get(reverse('lab', args=[self.startup.pk]), {'version':str(source.pk)})
         self.assertEqual(response.context['lab_model_label'], 'GPT‑6.1 Sol')
         self.assertEqual(response.context['selected'].model_label, 'GPT‑6 Luna')
-        self.assertContains(response, 'Запрос получит <strong>GPT‑6.1 Sol</strong>')
+        self.assertNotContains(response, 'Запрос получит')
         self.assertContains(response, 'Модель этой версии: GPT‑6 Luna')
 
     def test_failed_model_does_not_create_scaffold_or_delete_previous_version(self):

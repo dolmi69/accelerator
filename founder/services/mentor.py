@@ -9,6 +9,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
+from founder.services.kano_availability import visible_tasks
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -623,7 +624,7 @@ def followup_opening(startup):
     from founder.models import ProjectPicture
 
     picture = ProjectPicture.objects.filter(startup=startup).first()
-    task = startup.bruno_tasks.filter(status="todo").first()
+    task = visible_tasks(startup.bruno_tasks).filter(status="todo").first()
     if not (picture and picture.gap) and not task:
         return ""
     parts = [f"Здравствуйте, я Бруно. Продолжаем «{startup.name}»."]

@@ -2,10 +2,13 @@
   const form = document.getElementById('lab-form');
   if (!form?.dataset.routeUrl) return;
   const input = form.querySelector('[name="prompt"]');
-  const mode = document.getElementById('lab-message-mode');
   const thread = document.getElementById('lab-thread');
   const status = document.getElementById('lab-status');
   const send = form.querySelector('button[type="submit"]');
+  const history = thread?.closest('details.lab-chat-history');
+  history?.addEventListener('toggle', () => {
+    if (history.open) thread.scrollTop = thread.scrollHeight;
+  });
   let pending = false, editApproved = false, retryId = null, retryPrompt = '';
   const node = (tag, className, text) => {
     const element = document.createElement(tag);
@@ -15,7 +18,6 @@
   };
   function suggestion(text) {
     input.value = text;
-    mode.value = 'edit';
     input.focus();
     input.dispatchEvent(new Event('input', {bubbles:true}));
     status.textContent = 'Правка подготовлена. Проверьте текст и отправьте её.';
@@ -26,7 +28,6 @@
     const question = event.target.closest('[data-lab-question]');
     if (question && !pending) {
       input.value = question.dataset.labQuestion;
-      mode.value = 'discuss';
       input.focus();
       input.dispatchEvent(new Event('input', {bubbles:true}));
     }
@@ -58,9 +59,12 @@
       bruno.append(button);
     }
     bruno.append(node('small', 'lab-message-usage', data.reply.usage));
-    article.append(user, bruno); thread.append(article); thread.scrollTop = thread.scrollHeight;
+    article.append(user, bruno); thread.append(article);
+    if (history) history.open = true;
+    thread.scrollTop = thread.scrollHeight;
   }
   form.addEventListener('submit', async event => {
+    if (form.dataset.jobsUrl) return;
     if (event.submitter?.hasAttribute('formaction') || editApproved) return;
     event.preventDefault();
     if (pending || !form.checkValidity()) return;
@@ -70,7 +74,8 @@
     status.textContent = 'Бруно разбирает сообщение…';
     const body = new FormData(form);
     try {
-      const routed = await post(form.dataset.routeUrl, body);
+      const routed = form.querySelector('[name="automatic"]')?.value === '1'
+        ? {route:'edit'} : await post(form.dataset.routeUrl, body);
       if (routed.route === 'edit') {
         // The server rechecks the route on the editor endpoint too.
         status.textContent = 'Бруно дорабатывает сайт…';
@@ -78,7 +83,7 @@
         form.requestSubmit(send);
         return;
       }
-      if (routed.route !== 'discuss') throw new Error('Не удалось определить действие. Выберите «Только обсудить» или «Изменить сайт».');
+      if (routed.route !== 'discuss') throw new Error('Не удалось определить действие. Уточните, что нужно сделать.');
       input.readOnly = false;
       status.textContent = 'Бруно отвечает. Предпросмотр доступен.';
       if (!retryId || retryPrompt !== input.value) { retryId = crypto.randomUUID(); retryPrompt = input.value; }
@@ -87,7 +92,6 @@
       append(answer);
       if (input.value === retryPrompt) {
         input.value = ''; input.dispatchEvent(new Event('input', {bubbles:true}));
-        mode.value = 'auto';
       }
       retryId = null; status.textContent = 'Ответ сохранён в истории. Сайт не изменялся.';
     } catch (error) {

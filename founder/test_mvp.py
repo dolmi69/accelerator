@@ -10,6 +10,7 @@ from founder.services.feature_ai import suggest_features
 from founder.services.workbench import generate_tasks
 from founder.services.ai import AIResponseFormatError
 
+@override_settings(KANO_SURVEYS_ENABLED=True)
 class MVPTests(TestCase):
     def setUp(self):
         self.owner=User.objects.create_user(username='mvp-owner',email='mvp-owner@example.test')
@@ -143,7 +144,9 @@ class MVPTests(TestCase):
     @override_settings(AI_PROVIDER='gigachat')
     def test_bruno_cannot_invent_numeric_estimates_or_respondents(self):
         item={'title':'Каталог','description':'Найти инструмент','question_present':'Как вам наличие каталога?','question_absent':'Как вам отсутствие каталога?'}
-        with patch('founder.services.feature_ai.complete_text',return_value=json.dumps({'features':[item]})):
+        from founder.models import ProjectReview
+        ProjectReview.objects.create(startup=self.startup,data={'features':[item]})
+        with patch('founder.services.feature_ai.complete_text',side_effect=AssertionError('No AI when accepting')):
             response=self.client.post(reverse('features_suggest',args=[self.startup.pk]),{})
         self.assertEqual(response.status_code,302)
         f=self.startup.feature_candidates.get()

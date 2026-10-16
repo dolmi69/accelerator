@@ -1,0 +1,52 @@
+<div class="bruno-hub-intro">
+    {% include 'founder/_bruno.html' with investor=False instance_id='radar-home' %}
+    <div>
+        <span class="eyebrow">ВАШ ПОМОЩНИК</span>
+        <h2>Что сделаем вместе?</h2>
+        <p>
+            {% if hub_lab_job %}
+                Сайт ещё готовится. А пока можем обсудить следующий шаг.
+            {% elif overview_task_count %}
+                В плане есть задачи. Помогу разобраться и начать.
+            {% else %}
+                Расскажите об идее — найдём первый шаг.
+            {% endif %}
+        </p>
+    </div>
+</div>
+{% if startup.user_role != 'viewer' %}
+    <form class="bruno-hub-composer"
+          method="post"
+          action="{% url 'chat_create' startup.id %}"
+          data-busy-form>
+        {% csrf_token %}
+        <input type="hidden" name="from_hub" value="1">
+        <label class="sr-only" for="bruno-hub-message">Сообщение Бруно</label>
+        <textarea id="bruno-hub-message"
+                  name="content"
+                  rows="2"
+                  maxlength="4000"
+                  required
+                  placeholder="Вопрос, идея или нужна помощь…"></textarea>
+        <button class="button primary"
+                type="submit"
+                data-busy-label="Открываем разговор…">
+            Обсудить с Бруно <span aria-hidden="true">↗</span>
+        </button>
+    </form>
+{% endif %}
+
+{% if hub_lab_job or hub_result_draft or recent_sessions %}
+    <section class="bruno-hub-resume" aria-labelledby="hub-resume-title">
+        <h3 id="hub-resume-title">Продолжить начатое</h3>
+        {% if hub_lab_job %}
+            <a href="{% url 'lab' startup.id %}"><span><strong>Бруно работает над сайтом</strong><small>Открыть лабораторию и статус</small></span><span class="hub-running-dot" aria-label="Генерация продолжается"></span></a>
+        {% endif %}
+        {% if hub_result_draft %}
+            <a href="{% url 'result_tell' startup.id %}?draft={{ hub_result_draft.pk }}"><span><strong>{{ hub_result_draft.task.title|default:'Незавершённый рассказ о результате'|truncatechars:55 }}</strong><small>Продолжить рассказ Бруно</small></span><span aria-hidden="true">↗</span></a>
+        {% endif %}
+        {% if recent_sessions %}
+            <a href="{% url 'chat_detail' startup.id recent_sessions.0.id %}"><span><strong>{{ recent_sessions.0.title|default:'Последний разговор'|truncatechars:55 }}</strong><small>Вернуться к беседе · {{ recent_sessions.0.created_at|date:'d.m' }}</small></span><span aria-hidden="true">↗</span></a>
+        {% endif %}
+    </section>
+{% endif %}

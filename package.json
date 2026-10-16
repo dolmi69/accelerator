@@ -2,7 +2,7 @@
   "name": "cofounder-ai-styles",
   "private": true,
   "scripts": {
-    "test": "node --test tests/chat_client.test.cjs tests/drafts.test.cjs tests/lab_reply.test.cjs tests/lab_workspace.test.cjs tests/lab_capabilities.test.cjs",
+    "test": "node --test tests/chat_client.test.cjs tests/drafts.test.cjs tests/lab_reply.test.cjs tests/lab_workspace.test.cjs tests/lab_capabilities.test.cjs tests/lab_split.test.cjs tests/lab_jobs.test.cjs",
     "test:drafts": "node --test tests/drafts.test.cjs",
     "build:css": "tailwindcss -c tailwind.config.cjs -i assets/tailwind.css -o static/founder/css/tailwind.css --minify",
     "test:chat": "node --test tests/chat_client.test.cjs",

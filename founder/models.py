@@ -73,6 +73,12 @@ class User(AbstractUser):
 
 
 class StartupProfile(models.Model):
+    class WorkFocus(models.TextChoices):
+        AUTO = 'auto', 'Выбрать по сохранённым данным'
+        DEMAND = 'demand', 'Проверить потребность'
+        PRODUCT = 'product', 'Проверить продукт'
+        REVENUE = 'revenue', 'Проверить оплаты и возврат'
+
     class Stage(models.TextChoices):
         IDEA = "idea", "Идея"
         VALIDATION = "validation", "Проверка"
@@ -87,11 +93,13 @@ class StartupProfile(models.Model):
     )
     name = models.CharField(max_length=160)
     one_line_pitch = models.CharField(max_length=300, blank=True)
+    daily_plan = models.JSONField(default=dict, blank=True)
     lab_measurement_started_at = models.DateTimeField(null=True, blank=True)
     problem = models.TextField(blank=True)
     solution = models.TextField(blank=True)
     target_customer = models.TextField(blank=True)
     stage = models.CharField(max_length=20, choices=Stage.choices, default=Stage.IDEA)
+    work_focus = models.CharField('Текущий фокус', max_length=12, choices=WorkFocus.choices, default=WorkFocus.AUTO)
     website = models.URLField(blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
@@ -630,7 +638,7 @@ class BrunoTask(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='bruno_tasks')
-    origin = models.CharField(max_length=12, default='bruno', choices=[('bruno','Задание Бруно'),('mvp','Функция MVP'),('kano','Опрос Кано')])
+    origin = models.CharField(max_length=12, default='bruno', choices=[('bruno','Задание Бруно'),('mvp','Функция MVP'),('kano','Опрос Кано'),('progress','Из результата проверки')])
     axis = models.CharField(max_length=12, choices=BusinessAxis.choices)
     title = models.CharField(max_length=160)
     instructions = models.TextField(max_length=1200)
@@ -733,6 +741,7 @@ class EvidenceEntry(models.Model):
         PILOT = 'pilot', 'Пилот с клиентом'
         PAYMENT = 'payment', 'Первая оплата'
         REPEAT_PAYMENTS = 'repeat_payments', 'Повторные оплаты'
+        RETENTION = 'retention', 'Возврат пользователей'
 
     class Outcome(models.TextChoices):
         SUPPORTED = 'supported', 'Гипотеза получила поддержку'
@@ -754,6 +763,12 @@ class EvidenceEntry(models.Model):
     next_question = models.CharField('Что ещё нужно выяснить', max_length=500, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
+
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    origin = models.CharField(max_length=12, default='manual', choices=[('manual', 'Со слов участника'), ('lab', 'Лаборатория')])
+    lab_version = models.OneToOneField(LabSiteVersion, on_delete=models.SET_NULL, null=True, blank=True, related_name='progress_entry')
+    progress = models.JSONField(default=dict, blank=True)
+    followup_task = models.OneToOneField(BrunoTask, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
 
     class Meta:
         ordering = ['-observed_on', '-created_at', '-id']
@@ -913,7 +928,7 @@ class AIRequestLease(models.Model):
 
 
 class FeatureCandidate(models.Model):
-    """A proposed capability; scores are derived only from founder-entered data."""
+    """A capability with founder inputs and separately stored Bruno proposals."""
     class Priority(models.TextChoices):
         MUST = 'must', 'Must — обязательно'
         SHOULD = 'should', 'Should — желательно'
@@ -935,6 +950,7 @@ class FeatureCandidate(models.Model):
     ice_impact = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MinValueValidator(1),MaxValueValidator(10)])
     ease = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MinValueValidator(1),MaxValueValidator(10)])
     estimate_basis = models.CharField(max_length=500, blank=True)
+    bruno_estimate = models.JSONField(default=dict, blank=True)
     priority = models.CharField(max_length=10, choices=Priority.choices, default='', blank=True)
     question_present = models.CharField(max_length=500, blank=True)
     question_absent = models.CharField(max_length=500, blank=True)
@@ -988,3 +1004,90 @@ class KanoResponse(models.Model):
     def category(self):
         from founder.services.mvp import kano_category
         return kano_category(self.present,self.absent)
+
+
+class LabGenerationJob(models.Model):
+    """Durable lab request; execution outlives the browser and web process."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='lab_jobs')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    source = models.ForeignKey(LabSiteVersion, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    version = models.ForeignKey(LabSiteVersion, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    turn = models.ForeignKey(LabConversationTurn, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    mode = models.CharField(max_length=12)
+    status = models.CharField(max_length=16, default='queued', choices=[
+        ('queued', 'Ожидает запуска'), ('running', 'Бруно работает'),
+        ('succeeded', 'Готово'), ('failed', 'Ошибка')])
+    payload = models.JSONField(default=dict)
+    origin = models.CharField(max_length=300)
+    error = models.TextField(blank=True)
+    pid = models.PositiveIntegerField(null=True, blank=True)
+    lease_token = models.UUIDField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    started_at = models.DateTimeField(null=True, blank=True)
+    heartbeat_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user'], condition=Q(status__in=['queued', 'running']), name='lab_job_one_active_user'),
+            models.UniqueConstraint(fields=['startup'], condition=Q(status__in=['queued', 'running']), name='lab_job_one_active_project'),
+        ]
+
+
+class TaskEstimate(models.Model):
+    """Founder inputs and separate Bruno proposals for work beyond product features."""
+    task = models.OneToOneField(BrunoTask, on_delete=models.CASCADE, related_name='estimate')
+    reach = models.PositiveIntegerField(null=True, blank=True, validators=[MaxValueValidator(1_000_000)])
+    rice_impact = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    confidence = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)])
+    effort = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.10')), MaxValueValidator(Decimal('99999.99'))])
+    ice_impact = models.PositiveSmallIntegerField(null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)])
+    ease = models.PositiveSmallIntegerField(null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)])
+    estimate_basis = models.CharField(max_length=500, blank=True)
+    bruno_estimate = models.JSONField(default=dict, blank=True)
+    priority = models.CharField(max_length=10, choices=FeatureCandidate.Priority.choices, blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super().clean()
+        if self.rice_impact is not None and self.rice_impact not in map(Decimal, ('0.25','0.5','1','2','3')):
+            raise ValidationError({'rice_impact': 'Выберите влияние 0,25 / 0,5 / 1 / 2 / 3.'})
+
+
+class EvidenceRevision(models.Model):
+    """Append-only snapshots; edits never erase what was known before."""
+    entry = models.ForeignKey(EvidenceEntry, on_delete=models.CASCADE, related_name='revisions')
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    number = models.PositiveIntegerField()
+    snapshot = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-number']
+        constraints = [models.UniqueConstraint(fields=['entry', 'number'], name='unique_evidence_revision')]
+
+
+class EvidenceConversation(models.Model):
+    """Private, durable result discussion, explicitly confirmed before saving."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='result_conversations')
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='+')
+    task = models.ForeignKey(BrunoTask, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    messages = models.JSONField(default=list, blank=True)
+    proposal = models.JSONField(default=dict, blank=True)
+    revision = models.PositiveIntegerField(default=0)
+    processing = models.BooleanField(default=False)
+    request_key = models.UUIDField(null=True, blank=True)
+    model = models.CharField(max_length=100, blank=True)
+    entry = models.OneToOneField(EvidenceEntry, on_delete=models.SET_NULL, null=True, blank=True, related_name='conversation')
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']

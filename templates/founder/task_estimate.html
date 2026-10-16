@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Оценки задания · {{ startup.name }}{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'founder/css/mvp.css' %}?v=3">
+{% endblock %}
+{% block content %}
+    {% include 'founder/_workspace_nav.html' %}
+    {% include 'founder/_work_nav.html' %}
+    <div class="page-heading">
+        <div>
+            <a class="mvp-link"
+               href="{% url 'tasks' startup.id %}?method={{ mvp_method }}#priority-task-{{ task.pk }}">← Приоритеты</a>
+            <h1>{{ task.title }}</h1>
+            <p class="muted">Уточните пользу и затраты. Баллы и место в списке пересчитаются автоматически.</p>
+        </div>
+    </div>
+    <form method="post" class="card mvp-form">
+        {% csrf_token %}
+        <input type="hidden" name="method" value="{{ mvp_method }}">
+        {{ form.non_field_errors }}
+        <details class="mvp-help">
+            <summary>Что нужно выполнить</summary>
+            <div>
+                <p>{{ task.instructions|linebreaksbr }}</p>
+                <p>
+                    <strong>Готово, когда:</strong> {{ task.success_criterion }}
+                </p>
+            </div>
+        </details>
+        {% include 'founder/_estimate_fields.html' %}
+        <p class="muted small">
+            Охват — число людей, которым поможет результат за 30 дней. Простота: 1 — сложно, 10 — легко. Оценки должны относиться к одному и тому же результату задания.
+        </p>
+        <label class="field">
+            <span>{{ form.priority.label }}</span>{{ form.priority }}{{ form.priority.errors }}<small>Можно оставить рекомендацию рейтинга или задать приоритет вручную.</small>
+        </label>
+        <div class="mvp-actions">
+            <button class="button primary">Сохранить оценки</button>
+            <a class="button ghost"
+               href="{% url 'tasks' startup.id %}?method={{ mvp_method }}#priority-task-{{ task.pk }}">Отмена</a>
+        </div>
+    </form>
+{% endblock %}

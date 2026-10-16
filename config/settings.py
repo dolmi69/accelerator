@@ -224,3 +224,6 @@ MARKET_SEARCH = "off" if sys.argv[1:2] == ["test"] else os.getenv("MARKET_SEARCH
 
 # Separate complete model outputs for server and interface; no template modules.
 LAB_BACKEND_STAGED_GENERATION = os.getenv("LAB_BACKEND_STAGED_GENERATION", "1").strip().lower() in {"1", "true", "yes"}
+
+# Temporarily paused until surveys can be run inside the community.
+KANO_SURVEYS_ENABLED = False

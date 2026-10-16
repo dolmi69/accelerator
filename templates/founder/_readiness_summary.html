@@ -1,0 +1,20 @@
+<section class="radar-work-summary"
+         id="project-readiness"
+         aria-label="Коротко о состоянии проекта">
+    <p>
+        <strong>{{ readiness.title }}.</strong>
+        {% if readiness.manual_focus %}
+            Ваш фокус
+        {% else %}
+            Следующий шаг
+        {% endif %}
+        — {{ readiness.focus_label|lower }}.
+    </p>
+    {% if history_selected.assessment_notes %}
+        <details class="radar-summary-details">
+            <summary>Подробнее</summary>
+            <p>{{ history_selected.assessment_notes }}</p>
+        </details>
+    {% endif %}
+    <a class="evidence-link" href="{% url 'tasks' startup.id %}">Перейти к работе над проектом →</a>
+</section>

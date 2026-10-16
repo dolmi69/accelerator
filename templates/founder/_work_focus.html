@@ -1,0 +1,20 @@
+<div class="work-context-line" id="work-focus">
+    <span><span class="context-dot" aria-hidden="true"></span>Фокус: <strong>{{ readiness.focus_label|lower }}</strong></span>
+    <details class="work-focus-edit">
+        <summary>Изменить</summary>
+        <p class="muted small">{{ readiness.next_description }}</p>
+        {% if startup.user_role != 'viewer' %}
+            <form method="post" action="{% url 'work_focus' startup.id %}">
+                {% csrf_token %}
+                <label for="work-focus-select">На чём сосредоточиться</label>
+                <select id="work-focus-select" name="focus">
+                    {% for value,label in focus_choices %}
+                        <option value="{{ value }}"
+                                {% if startup.work_focus == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button class="button ghost">Сохранить выбор</button>
+            </form>
+        {% endif %}
+    </details>
+</div>

@@ -5,18 +5,8 @@
         <a href="{% url 'card_edit' startup.id %}"
            {% if workspace_tab == 'card' %}aria-current="page"{% endif %}>Карточка проекта</a>
     {% endif %}
-    {% if workspace_tab != 'radar' %}
-        <a href="{% url 'review' startup.id %}"
-           {% if workspace_tab == 'review' %}aria-current="page"{% endif %}>Разбор и план</a>
-        <a href="{% url 'market' startup.id %}"
-           {% if workspace_tab == 'market' %}aria-current="page"{% endif %}>Рынок и конкуренты</a>
-        <a href="{% url 'tasks' startup.id %}"
-           {% if workspace_tab == 'tasks' %}aria-current="page"{% endif %}>Задания Бруно</a>
-    {% endif %}
-    <a href="{% url 'evidence_list' startup.id %}"
-       {% if workspace_tab == 'evidence' %}aria-current="page"{% endif %}>Дневник доказательств</a>
-    <a href="{% url 'investor' startup.id %}"
-       {% if workspace_tab == 'investor' %}aria-current="page"{% endif %}>Бруно-инвестор</a>
+    <a href="{% url 'tasks' startup.id %}"
+       {% if workspace_tab == 'tasks' or workspace_tab == 'review' or workspace_tab == 'market' or workspace_tab == 'evidence' or workspace_tab == 'investor' %}aria-current="page"{% endif %}>Работа над проектом</a>
     <a href="{% url 'lab' startup.id %}"
        {% if workspace_tab == 'lab' %}aria-current="page"{% endif %}>Лаборатория сайтов</a>
     {% if workspace_tab != 'radar' %}
