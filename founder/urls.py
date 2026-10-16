@@ -3,7 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.urls import reverse_lazy
 
-from founder import views, workbench_views, lab_views, lab_testing_views, team_views, coin_views, feature_views, plans_views
+from founder import views, workbench_views, lab_views, lab_testing_views, team_views, coin_views, feature_views, plans_views, value_views
 
 
 urlpatterns = [
@@ -57,6 +57,16 @@ urlpatterns = [
     path('startups/<uuid:startup_id>/review/<uuid:review_id>/steps/<int:index>/task/', workbench_views.review_step_task,
          name='review_step_task'),
     path('startups/<uuid:startup_id>/market/', workbench_views.market, name='market'),
+    path('startups/<uuid:startup_id>/value/', value_views.value_page, name='value'),
+    path('startups/<uuid:startup_id>/value/segments/', value_views.value_segments, name='value_segments'),
+    path('startups/<uuid:startup_id>/value/segments/save/', value_views.value_segments_save, name='value_segments_save'),
+    path('startups/<uuid:startup_id>/value/brainstorm/', value_views.value_brainstorm, name='value_brainstorm'),
+    path('startups/<uuid:startup_id>/value/brainstorm/save/', value_views.value_brainstorm_save, name='value_brainstorm_save'),
+    path('startups/<uuid:startup_id>/value/generate/', value_views.value_generate, name='value_generate'),
+    path('startups/<uuid:startup_id>/value/save/', value_views.value_save, name='value_save'),
+    path('startups/<uuid:startup_id>/value/problem/', value_views.value_problem_adopt, name='value_problem_adopt'),
+    path('startups/<uuid:startup_id>/value/jobs/', value_views.value_jobs_adopt, name='value_jobs_adopt'),
+    path('startups/<uuid:startup_id>/value/answer/', value_views.value_answer, name='value_answer'),
     path('startups/<uuid:startup_id>/market/generate/', workbench_views.market_generate, name='market_generate'),
     path('startups/<uuid:startup_id>/market/<uuid:report_id>/checks/<int:index>/task/',
          workbench_views.market_check_task, name='market_check_task'),

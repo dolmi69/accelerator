@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Клиент и ценность · {{ startup.name }}{% endblock %}
+{% block content %}
+    {% include 'founder/_workspace_nav.html' %}
+    <div class="page-heading work-heading">
+        <div>
+            <span class="eyebrow">СЕГМЕНТЫ, ЗАДАЧИ КЛИЕНТА, ЦЕННОСТЬ</span>
+            <h1>Клиент и ценность</h1>
+            <p>{{ startup.name }} · Три шага: делим клиентов по ABCDX, устраиваем брейншторм по идеальным и формулируем ценностное предложение.</p>
+        </div>
+    </div>
+    {% if canvas.value %}
+        <div class="card value-current">
+            <span class="eyebrow">ВАШЕ ЦЕННОСТНОЕ ПРЕДЛОЖЕНИЕ</span>
+            <p>{{ canvas.value }}</p>
+        </div>
+    {% endif %}
+    <ol class="value-steps">
+        <li class="card work-card value-step" id="abcdx">
+            <header class="value-step-head">
+                <div>
+                    <span class="value-step-number">1</span>
+                    <h2>Сегменты по ABCDX</h2>
+                    <p class="muted">У кого ещё бывает эта проблема? Бруно предложит сегменты и буквы, итоговую букву ставите вы.</p>
+                </div>
+                {% if can_edit %}
+                    <form method="post" action="{% url 'value_segments' startup.id %}" data-busy-form>
+                        {% csrf_token %}
+                        <button class="button {% if segments %}ghost{% else %}primary{% endif %}"
+                                data-busy-label="Бруно ищет сегменты…">
+                            {% if segments %}
+                                Предложить ещё
+                            {% else %}
+                                Предложить сегменты
+                            {% endif %}
+                        </button>
+                        <span class="muted small" role="status"></span>
+                    </form>
+                {% endif %}
+            </header>
+            <details class="mvp-help">
+                <summary>Что значат буквы</summary>
+                <ul class="value-grade-help">
+                    {% for letter, label in grades %}<li><strong class="value-grade grade-{{ letter }}">{{ letter }}</strong> {{ label|slice:"4:" }}</li>{% endfor %}
+                </ul>
+            </details>
+            <form method="post" action="{% url 'value_segments_save' startup.id %}">
+                {% csrf_token %}
+                {% if segments %}
+                    <div class="value-segments">
+                        {% for segment in segments %}
+                            <article class="value-segment grade-row-{{ segment.grade }}">
+                                <div class="value-segment-grade">
+                                    {% if can_edit %}
+                                        <select name="grade_{{ segment.index }}" aria-label="Буква сегмента «{{ segment.title }}»">
+                                            {% for letter, label in grades %}
+                                                <option value="{{ letter }}"{% if letter == segment.grade %} selected{% endif %}>{{ letter }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    {% else %}
+                                        <strong class="value-grade grade-{{ segment.grade }}">{{ segment.grade }}</strong>
+                                    {% endif %}
+                                </div>
+                                <div class="value-segment-body">
+                                    <h3>{{ segment.title }}</h3>
+                                    {% if segment.description %}<p>{{ segment.description }}</p>{% endif %}
+                                    <dl>
+                                        {% if segment.context %}<div><dt>Тип бизнеса / ситуация</dt><dd>{{ segment.context }}</dd></div>{% endif %}
+                                        {% if segment.holder %}<div><dt>Держатель проблемы</dt><dd>{{ segment.holder }}</dd></div>{% endif %}
+                                    </dl>
+                                    {% if segment.reason %}
+                                        <p class="muted small">Бруно предложил {{ segment.suggested }}: {{ segment.reason }}</p>
+                                    {% endif %}
+                                </div>
+                                {% if can_edit %}
+                                    <label class="value-delete"><input type="checkbox" name="delete_{{ segment.index }}" value="1"> Убрать</label>
+                                {% endif %}
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="muted">Сегментов пока нет. Попросите Бруно предложить их или добавьте свой.</p>
+                {% endif %}
+                {% if can_edit %}
+                    <details class="value-add" {% if not segments %}open{% endif %}>
+                        <summary>＋ Добавить свой сегмент</summary>
+                        <div class="value-add-fields">
+                            <label>Название<input name="new_title" maxlength="80" placeholder="Например, студенты-первокурсники в общежитиях"></label>
+                            <label>Кто это и в какой ситуации<textarea name="new_description" rows="2" maxlength="300"></textarea></label>
+                            <label>Держатель проблемы, кто платит<input name="new_holder" maxlength="200"></label>
+                            <label>Буква
+                                <select name="new_grade">
+                                    {% for letter, label in grades %}<option value="{{ letter }}"{% if letter == 'X' %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                                </select>
+                            </label>
+                        </div>
+                    </details>
+                    <button class="button primary" type="submit">Сохранить сегменты</button>
+                {% endif %}
+            </form>
+        </li>
+        <li class="card work-card value-step" id="brainstorm">
+            <header class="value-step-head">
+                <div>
+                    <span class="value-step-number">2</span>
+                    <h2>Брейншторм по сегменту A</h2>
+                    <p class="muted">Ситуации, в которых идеальный клиент захочет перемен, и его задачи по Jobs To Be Done. Отметьте то, что узнаёте.</p>
+                </div>
+                {% if can_edit %}
+                    <form method="post" action="{% url 'value_brainstorm' startup.id %}" data-busy-form>
+                        {% csrf_token %}
+                        <button class="button {% if situations or jobs %}ghost{% else %}primary{% endif %}"
+                                data-busy-label="Бруно думает о клиентах A…"
+                                {% if not has_a %}disabled title="Сначала отметьте сегмент буквой A"{% endif %}>
+                            {% if situations or jobs %}
+                                Провести заново
+                            {% else %}
+                                Начать брейншторм
+                            {% endif %}
+                        </button>
+                        <span class="muted small" role="status"></span>
+                    </form>
+                {% endif %}
+            </header>
+            {% if not has_a %}
+                <p class="muted">Брейншторм откроется, когда хотя бы один сегмент будет отмечен буквой A.</p>
+            {% endif %}
+            {% if situations or jobs %}
+                <form method="post" action="{% url 'value_brainstorm_save' startup.id %}">
+                    {% csrf_token %}
+                    {% if situations %}
+                        <h3 class="value-subtitle">Ситуации перемен</h3>
+                        <div class="value-table" role="table" aria-label="Ситуации перемен">
+                            <div class="value-table-row value-table-head" role="row">
+                                <span role="columnheader"></span><span role="columnheader">Что делает клиент</span><span role="columnheader">Что хочет изменить</span><span role="columnheader">Что обещает продукт</span>
+                            </div>
+                            {% for index, item in situations %}
+                                <label class="value-table-row" role="row">
+                                    <span role="cell"><input type="checkbox" name="situations" value="{{ index }}"{% if item.chosen %} checked{% endif %}{% if not can_edit %} disabled{% endif %} aria-label="Беру ситуацию {{ forloop.counter }}"></span>
+                                    <span role="cell">{{ item.doing }}</span><span role="cell">{{ item.want }}</span><span role="cell">{{ item.promise }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if jobs %}
+                        <h3 class="value-subtitle">Задачи клиента (JTBD)</h3>
+                        <div class="value-table value-table-jobs" role="table" aria-label="Задачи клиента">
+                            <div class="value-table-row value-table-head" role="row">
+                                <span role="columnheader"></span><span role="columnheader">Вид задачи</span><span role="columnheader">О чём думает клиент</span><span role="columnheader">Ценность продукта</span>
+                            </div>
+                            {% for index, item in jobs %}
+                                <label class="value-table-row" role="row">
+                                    <span role="cell"><input type="checkbox" name="jobs" value="{{ index }}"{% if item.chosen %} checked{% endif %}{% if not can_edit %} disabled{% endif %} aria-label="Беру задачу {{ forloop.counter }}"></span>
+                                    <span role="cell"><span class="value-kind kind-{{ item.kind }}">{{ item.kind_label }}</span></span><span role="cell">{{ item.question }}</span><span role="cell">{{ item.value|default:"—" }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if can_edit %}<button class="button primary" type="submit">Сохранить выбор</button>{% endif %}
+                </form>
+            {% elif has_a %}
+                <p class="muted">Нажмите «Начать брейншторм»: Бруно опишет пять ситуаций и задачи клиентов из сегмента A.</p>
+            {% endif %}
+        </li>
+        <li class="card work-card value-step" id="value-step">
+            <header class="value-step-head">
+                <div>
+                    <span class="value-step-number">3</span>
+                    <h2>Ценностное предложение</h2>
+                    <p class="muted">По картине проекта Бруно даст формулу ценности, сравнения «X для Y», проблему по шаблону и задачи клиента по JTBD. Сегменты A и выбранные ситуации тоже учтёт, если они есть.</p>
+                </div>
+                {% if can_edit %}
+                    <form method="post" action="{% url 'value_generate' startup.id %}" data-busy-form>
+                        {% csrf_token %}
+                        <button class="button {% if options %}ghost{% else %}primary{% endif %}"
+                                data-busy-label="Бруно формулирует ценность…">Сформулировать ценность</button>
+                        <span class="muted small" role="status"></span>
+                    </form>
+                {% endif %}
+            </header>
+            {% if question %}
+                <div class="value-question" role="status">
+                    <span class="eyebrow">БРУНО СПРАШИВАЕТ</span>
+                    {% if unknown_labels %}
+                        <p class="muted small">
+                            В картине проекта неизвестно: {{ unknown_labels|join:", "|lower }}. Эти места Бруно не додумывает и пишет «неизвестно».
+                        </p>
+                    {% endif %}
+                    <p class="value-question-text">{{ question }}</p>
+                    {% if can_edit %}
+                        <form method="post" action="{% url 'value_answer' startup.id %}" class="value-answer">
+                            {% csrf_token %}
+                            <label class="sr-only" for="value-answer">Ваш ответ</label>
+                            <textarea id="value-answer" name="answer" rows="2" maxlength="300" placeholder="Ответ попадёт в картину проекта"></textarea>
+                            <button class="button primary" type="submit">Ответить</button>
+                        </form>
+                    {% endif %}
+                </div>
+            {% endif %}
+            {% if problem or offered_jobs %}
+                <div class="value-insights">
+                    {% if problem %}
+                        <section class="value-insight" aria-labelledby="value-problem-title">
+                            <span class="eyebrow" id="value-problem-title">ПРОБЛЕМА</span>
+                            <p class="value-problem">{{ problem.text }}</p>
+                            {% if problem_harms or problem.harm_text %}
+                                <p class="value-harm">
+                                    {% for harm in problem_harms %}<span class="value-harm-tag">{{ harm }}</span>{% endfor %}
+                                    {{ problem.harm_text }}
+                                </p>
+                            {% endif %}
+                            {% if can_edit and problem.complete %}
+                                <form method="post" action="{% url 'value_problem_adopt' startup.id %}">
+                                    {% csrf_token %}
+                                    <button class="button ghost" type="submit">Взять в картину проекта</button>
+                                </form>
+                            {% endif %}
+                        </section>
+                    {% endif %}
+                    {% if offered_jobs %}
+                        <section class="value-insight" aria-labelledby="value-jobs-title">
+                            <span class="eyebrow" id="value-jobs-title">ЗАДАЧИ КЛИЕНТА (JTBD)</span>
+                            <ul class="value-jobs">
+                                {% for kind, label, text in offered_jobs %}
+                                    <li><span class="value-kind kind-{{ kind }}">{{ label }}</span> {{ text }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% if can_edit %}
+                                <form method="post" action="{% url 'value_jobs_adopt' startup.id %}">
+                                    {% csrf_token %}
+                                    <button class="button ghost" type="submit">Сохранить в шаг 2</button>
+                                </form>
+                            {% endif %}
+                        </section>
+                    {% endif %}
+                </div>
+            {% endif %}
+            {% if can_edit %}
+                <form method="post" action="{% url 'value_save' startup.id %}" class="value-choose">
+                    {% csrf_token %}
+                    {% if options %}
+                        <fieldset class="value-options">
+                            <legend class="value-options-title">Ценность: выберите формулировку</legend>
+                            {% for label, text, selectable in options %}
+                                <label class="value-option{% if not selectable %} is-incomplete{% endif %}">
+                                    <input type="radio" name="choice" value="{{ text }}" data-value-choice{% if text == canvas.value %} checked{% endif %}{% if not selectable %} disabled{% endif %}>
+                                    <span><small>{{ label }}{% if not selectable %} · есть пробелы, ответьте на вопрос Бруно{% endif %}</small>{{ text }}</span>
+                                </label>
+                            {% endfor %}
+                        </fieldset>
+                    {% endif %}
+                    <label class="value-final">Итоговая формулировка <span class="muted small">— станет питчем проекта; проблема по шаблону станет проблемой проекта</span>
+                        <textarea name="value" rows="3" maxlength="300" data-value-final placeholder="Наш продукт помогает … справиться с … с помощью … и получить …">{{ canvas.value }}</textarea>
+                    </label>
+                    <button class="button primary" type="submit">Сохранить ценность</button>
+                </form>
+            {% elif not canvas.value %}
+                <p class="muted">Ценностное предложение пока не сформулировано.</p>
+            {% endif %}
+        </li>
+    </ol>
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/value.js' %}" defer></script>{% endblock %}

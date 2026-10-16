@@ -40,6 +40,21 @@
                 </svg>
             </span><span class="project-nav-label">Карточка проекта</span></a>
         {% endif %}
+        <a href="{% url 'value' startup.id %}"
+           aria-label="Клиент и ценность"
+           title="Клиент и ценность"
+           {% if workspace_tab == 'value' %}aria-current="page"{% endif %}><span class="project-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"
+                 fill="none"
+                 stroke="currentColor"
+                 stroke-width="1.7"
+                 stroke-linecap="round"
+                 stroke-linejoin="round">
+                <circle cx="12" cy="12" r="8" />
+                <circle cx="12" cy="12" r="4" />
+                <circle cx="12" cy="12" r="0.6" />
+            </svg>
+        </span><span class="project-nav-label">Клиент и ценность</span></a>
         <a href="{% url 'tasks' startup.id %}"
            aria-label="Работа над проектом"
            title="Работа над проектом"
