@@ -318,6 +318,20 @@ class WebSocketTests(TransactionTestCase):
             await alice.disconnect()
         async_to_sync(run)()
 
+    def test_locked_database_in_frame_limit_retries_then_closes_with_valid_code(self):
+        from django.db import OperationalError
+        locked = OperationalError('database is locked')
+        async def run():
+            alice = await self.connected(self.alice)
+            with patch('founder.consumers.consume_limit', side_effect=[locked, None]), patch('founder.consumers.time.sleep'):
+                await alice.send_json_to({'type': 'ping'})
+                self.assertEqual((await alice.receive_json_from())['type'], 'pong')
+            with patch('founder.consumers.consume_limit', side_effect=locked), patch('founder.consumers.time.sleep'):
+                await alice.send_json_to({'type': 'ping'})
+                self.assertEqual(await alice.receive_output(), {'type': 'websocket.close', 'code': 4013})
+            await alice.disconnect()
+        async_to_sync(run)()
+
     def test_reconnecting_does_not_reset_account_frame_limit(self):
         from founder.services.request_limits import consume_limit
         async def run():

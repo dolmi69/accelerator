@@ -56,13 +56,14 @@ class MessagesConsumer(JsonWebsocketConsumer):
             self.close(code=4400)
             return
         try:
-            consume_limit(f"socket:{self.user_id}", 360, 60)
+            self.consume_frame_limit()
             payload = bounded_json_loads(text_data, max_chars=24000)
         except RequestLimitExceeded:
             self.close(code=4429)
             return
         except OperationalError:
-            self.close(code=1013)
+            # Daphne accepts only 1000 or 3000-4999; 4013 = "try again later", the client reconnects.
+            self.close(code=4013)
             return
         except ValueError:
             self.send_json({'type': 'error', 'message': 'Неверный формат сообщения.'})
@@ -71,6 +72,14 @@ class MessagesConsumer(JsonWebsocketConsumer):
             self.send_json({'type': 'error', 'message': 'Неверный формат сообщения.'})
             return
         self.receive_json(payload)
+
+    def consume_frame_limit(self):
+        # SQLite answers "database is locked" while another writer holds it; one short retry usually passes.
+        try:
+            consume_limit(f"socket:{self.user_id}", 360, 60)
+        except OperationalError:
+            time.sleep(0.2)
+            consume_limit(f"socket:{self.user_id}", 360, 60)
 
     def receive_json(self, data, **kwargs):
         action = data.get('type')
