@@ -5,12 +5,36 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <script>
-            // Плавное появление страницы (app.css, .page-enter) — только при переходе с другой страницы, не при обновлении.
+            // Плавная смена страниц (app.css): уход по клику на ссылку и появление после первой отрисовки.
             (() => {
+                const root = document.documentElement;
                 const nav = performance.getEntriesByType('navigation')[0];
                 let samePage = false;
-                try { samePage = new URL(document.referrer).pathname === location.pathname; } catch (_) {}
-                if (nav?.type !== 'reload' && !samePage) document.documentElement.classList.add('page-enter');
+                try {
+                    const ref = new URL(document.referrer);
+                    samePage = ref.origin === location.origin && ref.pathname + ref.search === location.pathname + location.search;
+                } catch (_) {}
+                if (nav?.type !== 'reload' && !samePage) {
+                    root.classList.add('page-enter');
+                    const reveal = () => root.classList.add('page-entered');
+                    requestAnimationFrame(() => requestAnimationFrame(reveal));
+                    setTimeout(reveal, 1200);
+                }
+                document.addEventListener('click', event => {
+                    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                    const link = event.target.closest?.('a[href]');
+                    if (!link || (link.target && link.target !== '_self') || link.hasAttribute('download')) return;
+                    const url = new URL(link.href, location.href);
+                    if (url.origin !== location.origin || url.pathname + url.search === location.pathname + location.search) return;
+                    if (document.body.classList.contains('lab-shell')) return;
+                    root.classList.remove('page-enter', 'page-entered');
+                    root.classList.add('page-leaving');
+                    setTimeout(() => root.classList.remove('page-leaving'), 1500);
+                });
+                // Возврат кнопкой «Назад» из кеша браузера: страница снова видна.
+                window.addEventListener('pageshow', event => {
+                    if (event.persisted) root.classList.remove('page-leaving');
+                });
             })();
         </script>
         <link rel="icon"
@@ -34,7 +58,7 @@
               crossorigin>
         <link rel="stylesheet" href="{% static 'founder/css/tailwind.css' %}?v=1">
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=frontend-4">
+              href="{% static 'founder/css/app.css' %}?v=frontend-5">
         <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=6">
         <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=2">
         <link rel="stylesheet" href="{% static 'founder/css/coins.css' %}?v=5">

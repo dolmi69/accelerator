@@ -1025,14 +1025,16 @@ mark.chat-search-hit.is-current { background:#f5b544; }
 }
 @media(max-width:680px) and (prefers-reduced-motion:reduce) { .js-topnav .topnav-links { transform:none; transition:none; } }
 
-/* Смена страницы (вкладки и разделы — обычные ссылки): содержимое мягко проявляется и чуть поднимается.
-   Обычная CSS-анимация: переход не ждёт браузер и не мешает кликать. Шапка и меню проекта не анимируются.
-   Класс page-enter ставит скрипт в <head> base.html; при обновлении той же страницы его нет. */
+/* Смена страницы (вкладки, разделы, карточки — обычные ссылки). Шапка и меню проекта остаются на месте.
+   Уход: по клику на ссылку внутри сайта содержимое сразу гаснет, пока грузится новая страница (page-leaving).
+   Появление: новое содержимое проявляется и поднимается уже после того, как страница нарисована (page-enter → page-entered),
+   поэтому анимацию видно целиком. Классы ставит скрипт в <head> base.html; при обновлении той же страницы анимации нет. */
 @media (prefers-reduced-motion:no-preference) {
-  .page-enter body:not(.lab-shell) .main-content { animation:page-in .32s cubic-bezier(.22,1,.36,1) backwards; }
-  .page-enter .member-profile .avatar-xl { animation:avatar-in .42s cubic-bezier(.22,1,.36,1) .06s backwards; }
+  .page-enter body:not(.lab-shell) .main-content { opacity:0; transform:translateY(10px); }
+  .page-enter.page-entered body:not(.lab-shell) .main-content { opacity:1; transform:none; transition:opacity .38s cubic-bezier(.22,1,.36,1),transform .38s cubic-bezier(.22,1,.36,1); }
+  .page-leaving body:not(.lab-shell) .main-content { opacity:0; transform:translateY(-4px); transition:opacity .16s ease-in,transform .16s ease-in; }
+  .page-entered .member-profile .avatar-xl { animation:avatar-in .46s cubic-bezier(.22,1,.36,1) .08s backwards; }
 }
-@keyframes page-in { from { opacity:0; transform:translateY(6px); } }
 @keyframes avatar-in { from { opacity:0; transform:scale(.82); } }
 
 /* Карточки-свёртки (<details>) раскрываются и сворачиваются плавно по высоте, содержимое проявляется.
