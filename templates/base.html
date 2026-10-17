@@ -4,6 +4,15 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script>
+            // Плавное появление страницы (app.css, .page-enter) — только при переходе с другой страницы, не при обновлении.
+            (() => {
+                const nav = performance.getEntriesByType('navigation')[0];
+                let samePage = false;
+                try { samePage = new URL(document.referrer).pathname === location.pathname; } catch (_) {}
+                if (nav?.type !== 'reload' && !samePage) document.documentElement.classList.add('page-enter');
+            })();
+        </script>
         <link rel="icon"
               type="image/png"
               href="{% static 'founder/img/branding/bruno-logo.png' %}?v=1">
@@ -25,7 +34,7 @@
               crossorigin>
         <link rel="stylesheet" href="{% static 'founder/css/tailwind.css' %}?v=1">
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=frontend-2">
+              href="{% static 'founder/css/app.css' %}?v=frontend-3">
         <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=6">
         <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=2">
         <link rel="stylesheet" href="{% static 'founder/css/coins.css' %}?v=5">
@@ -121,24 +130,14 @@
                         <a class="account-profile-link"
                            href="{% url 'my_profile' %}"
                            aria-label="Открыть профиль">
-                            {% if request.resolver_match.url_name == 'user_profile' and is_owner %}
-                                {% include 'profiles/_avatar.html' with member=request.user %}
-                            {% else %}
-                                {% include 'profiles/_avatar.html' with member=request.user vt_name='account-avatar' %}
-                            {% endif %}
+                            {% include 'profiles/_avatar.html' with member=request.user %}
                         </a>
                         <button class="account-menu-toggle"
                                 type="button"
                                 aria-label="Меню"
                                 aria-controls="topnav-links"
                                 aria-expanded="false"
-                                hidden>
-                            {% if request.resolver_match.url_name == 'user_profile' and is_owner %}
-                                {% include 'profiles/_avatar.html' with member=request.user %}
-                            {% else %}
-                                {% include 'profiles/_avatar.html' with member=request.user vt_name='account-avatar' %}
-                            {% endif %}
-                        </button>
+                                hidden>{% include 'profiles/_avatar.html' with member=request.user %}</button>
                     {% else %}
                         <a class="topnav-about"
                            href="{% url 'about' %}"
@@ -195,8 +194,9 @@
             </form>
             <script src="{% static 'founder/js/lab-workspace.js' %}?v=1" defer></script>
         {% endif %}
-        <script src="{% static 'founder/js/project-workspace.js' %}?v=4" defer></script>
+        <script src="{% static 'founder/js/project-workspace.js' %}?v=5" defer></script>
         <script src="{% static 'founder/js/custom-select.js' %}?v=1" defer></script>
-        {% block scripts %}{% endblock %}
+        {% block scripts %}
+        {% endblock %}
     </body>
 </html>

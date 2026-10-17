@@ -93,10 +93,12 @@
 })();
 
 // Карточки-свёртки (<details>): при раскрытии человеком содержимое проявляется (app.css, details.is-opening).
+// Где браузер сам плавно раскрывает свёртку по высоте (::details-content, interpolate-size), класс не нужен.
 document.addEventListener('click', event => {
   const summary = event.target.closest?.('summary');
   const details = summary?.parentElement;
   if (!(details instanceof HTMLDetailsElement) || details.open || details.querySelector(':scope > summary') !== summary) return;
+  if (getComputedStyle(details).interpolateSize === 'allow-keywords') return;
   details.classList.add('is-opening');
 });
 document.addEventListener('animationend', event => {
@@ -105,18 +107,3 @@ document.addEventListener('animationend', event => {
 document.addEventListener('toggle', event => {
   if (event.target instanceof HTMLDetailsElement && !event.target.open) event.target.classList.remove('is-opening');
 }, true);
-
-// Переходы между страницами (View Transitions, app.css). Обновление той же страницы — без анимации,
-// а открытая из сообщества карточка проекта «перетекает» в страницу проекта.
-window.addEventListener('pageswap', event => {
-  const transition = event.viewTransition;
-  const url = event.activation?.entry?.url;
-  if (!transition || !url) return;
-  const target = new URL(url);
-  if (target.pathname === location.pathname) { transition.skipTransition(); return; }
-  const link = Array.from(document.querySelectorAll('.discovery-card a[href]')).find(a => a.pathname === target.pathname);
-  const card = link?.closest('.discovery-card');
-  if (!card) return;
-  card.style.viewTransitionName = 'project-card';
-  transition.finished.finally(() => { card.style.viewTransitionName = ''; });
-});

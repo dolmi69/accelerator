@@ -1024,30 +1024,26 @@ mark.chat-search-hit.is-current { background:#f5b544; }
 }
 @media(max-width:680px) and (prefers-reduced-motion:reduce) { .js-topnav .topnav-links { transform:none; transition:none; } }
 
-/* Переходы между страницами (вкладки и разделы — обычные ссылки): кросс-документные View Transitions.
-   Шапка, меню проекта и плавающий Бруно меняются сразу, содержимое страницы проявляется и чуть поднимается.
-   Браузеры без поддержки переходят мгновенно; при reduced motion переходов нет. */
+/* Смена страницы (вкладки и разделы — обычные ссылки): содержимое мягко проявляется и чуть поднимается.
+   Обычная CSS-анимация: переход не ждёт браузер и не мешает кликать. Шапка и меню проекта не анимируются.
+   Класс page-enter ставит скрипт в <head> base.html; при обновлении той же страницы его нет. */
 @media (prefers-reduced-motion:no-preference) {
-  @view-transition { navigation:auto; }
+  .page-enter body:not(.lab-shell) .main-content { animation:page-in .32s cubic-bezier(.22,1,.36,1) backwards; }
+  .page-enter .member-profile .avatar-xl { animation:avatar-in .42s cubic-bezier(.22,1,.36,1) .06s backwards; }
 }
-.topbar { view-transition-name:topbar; }
-.project-sidebar { view-transition-name:project-sidebar; }
-.bruno-pet { view-transition-name:bruno-pet; }
-.main-content { view-transition-name:page; }
-.lab-shell .main-content { view-transition-name:none; }
-::view-transition-old(topbar),::view-transition-old(project-sidebar),::view-transition-old(bruno-pet) { display:none; }
-::view-transition-new(topbar),::view-transition-new(project-sidebar),::view-transition-new(bruno-pet) { animation:none; }
-::view-transition-group(page) { animation:none; }
-::view-transition-old(page) { animation:page-out .12s ease-in both; }
-::view-transition-new(page) { animation:page-in .24s cubic-bezier(.16,1,.3,1) both; }
-::view-transition-old(root),::view-transition-new(root) { animation-duration:.16s; }
-@keyframes page-out { to { opacity:0; } }
-@keyframes page-in { from { opacity:0; transform:translateY(8px); } }
-/* Общие элементы: аватар из шапки ↔ аватар в своём профиле, карточка в сообществе ↔ страница проекта (project-workspace.js). */
-::view-transition-group(account-avatar),::view-transition-group(project-card) { animation-duration:.3s; animation-timing-function:cubic-bezier(.16,1,.3,1); }
-.public-project { view-transition-name:project-card; }
+@keyframes page-in { from { opacity:0; transform:translateY(6px); } }
+@keyframes avatar-in { from { opacity:0; transform:scale(.82); } }
 
-/* Карточки-свёртки (<details>): содержимое проявляется, когда человек раскрывает карточку (класс ставит project-workspace.js). */
-details.is-opening>:not(summary) { animation:fold-in .22s cubic-bezier(.16,1,.3,1) both; }
+/* Карточки-свёртки (<details>) раскрываются и сворачиваются плавно по высоте, содержимое проявляется.
+   Выпадающие меню на <details> (переключатель проекта, фильтр, назначение) и лаборатория сюда не входят:
+   анимация высоты обрезала бы их списки. Браузеры без ::details-content — проявление содержимого (project-workspace.js). */
+@supports selector(::details-content) {
+  @media (prefers-reduced-motion:no-preference) {
+    :is(.project-card-fold,.project-fold:not(.lab-generation-help),.work-secondary,.priority-help,.mvp-help,.work-proposals,.work-done-when,.history-revisions,.history-direction,.history-details,.readiness-details,.radar-summary-details,.radar-history-switch,.radar-fold,.bruno-recent-conversations,.bruno-hub-tasks,.bruno-hub-achievements,.picture-edit) { interpolate-size:allow-keywords; }
+    :is(.project-card-fold,.project-fold:not(.lab-generation-help),.work-secondary,.priority-help,.mvp-help,.work-proposals,.work-done-when,.history-revisions,.history-direction,.history-details,.readiness-details,.radar-summary-details,.radar-history-switch,.radar-fold,.bruno-recent-conversations,.bruno-hub-tasks,.bruno-hub-achievements,.picture-edit)::details-content { height:0; opacity:0; overflow:clip; overflow-clip-margin:8px; transition:height .3s cubic-bezier(.22,1,.36,1),opacity .22s ease-out,content-visibility .3s; transition-behavior:allow-discrete; }
+    :is(.project-card-fold,.project-fold:not(.lab-generation-help),.work-secondary,.priority-help,.mvp-help,.work-proposals,.work-done-when,.history-revisions,.history-direction,.history-details,.readiness-details,.radar-summary-details,.radar-history-switch,.radar-fold,.bruno-recent-conversations,.bruno-hub-tasks,.bruno-hub-achievements,.picture-edit)[open]::details-content { height:auto; opacity:1; }
+  }
+}
+details.is-opening>:not(summary) { animation:fold-in .24s cubic-bezier(.22,1,.36,1) both; }
 @keyframes fold-in { from { opacity:0; transform:translateY(-4px); } }
 @media (prefers-reduced-motion:reduce) { details.is-opening>:not(summary) { animation-name:fold-fade; } @keyframes fold-fade { from { opacity:0; } } }
