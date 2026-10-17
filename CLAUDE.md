@@ -143,6 +143,7 @@
 founder и payments, экспортируемой основы и JavaScript на Linux и Windows.
 
 ### Фронтенд (ветка `frontend`, 2026-10-17, коммит «Version 1 (AI)»)
+**Новый фронт есть только в ветке `frontend`, в main он не влит.** На другом устройстве: `git fetch`, `git switch frontend`, `git pull`; проверка — `git log -1` показывает последний коммит «Frontend version …», а в коде страницы `app.css?v=frontend-…`. Архив «Download ZIP» с главной страницы GitHub — это main, там старый интерфейс. Собирать ничего не нужно: шрифты, стили и `tailwind.css` лежат в git.
 Правила интерфейса — в `DESIGN.md` (+ `.impeccable/design.json` для Impeccable). Что сделано по аудиту главного сценария (регистрация → проект → чат → радар → разбор → задания):
 - Шрифты Golos Text (текст) и Manrope (заголовки) лежат в `static/founder/fonts/` (OFL), внешний `@import` Google Fonts и DM Sans убраны: у DM Sans не было кириллицы. Знак ₽ — отдельный файл `*-ruble.woff2`.
 - Токены ради контраста AA: `--teal` `#147d73` (было `#16877d`), `--muted` `#5b6c7f` (было `#637487`). Общее кольцо фокуса — правило `:where(...)` в начале `app.css`. На телефоне поля ввода 16 px (иначе iOS увеличивает страницу).
