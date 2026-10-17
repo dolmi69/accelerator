@@ -27,6 +27,8 @@
   scrim?.addEventListener('click', closeSidebar);
   collapse?.addEventListener('click', () => {
     if (mobile.matches) { closeSidebar(); mobileToggle?.focus(); return; }
+    document.body.classList.add('sidebar-animating');
+    setTimeout(() => document.body.classList.remove('sidebar-animating'), 320);
     document.body.classList.toggle('sidebar-collapsed');
     try { localStorage.setItem('project-sidebar', document.body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'expanded'); } catch (_) {}
     syncSidebar();

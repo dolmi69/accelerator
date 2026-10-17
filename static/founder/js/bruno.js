@@ -47,6 +47,8 @@
   toggle.hidden = false;
   toggle.addEventListener('click', () => {
     const collapsed = !pet.classList.contains('is-collapsed');
+    pet.classList.add('is-toggling');
+    setTimeout(() => pet.classList.remove('is-toggling'), 320);
     setCollapsed(collapsed);
     if (pet.style.left) moveTo(parseFloat(pet.style.left), parseFloat(pet.style.top));
   });

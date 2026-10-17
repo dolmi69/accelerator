@@ -117,7 +117,7 @@ p { line-height:1.6; }
 .muted { color:var(--muted); }
 .small { font-size:12px; }
 .card { background:var(--white); border:1px solid var(--line); border-radius:21px; box-shadow:0 12px 38px rgba(21,47,64,.035); }
-.button { display:inline-flex; align-items:center; justify-content:center; gap:17px; min-height:45px; padding:10px 19px; border-radius:10px; border:1px solid transparent; font-size:13px; font-weight:800; transition:transform .18s ease-out; }
+.button { display:inline-flex; align-items:center; justify-content:center; gap:17px; min-height:45px; padding:10px 19px; border-radius:10px; border:1px solid transparent; font-size:13px; font-weight:800; transition:transform .18s ease-out,background-color .18s ease-out,border-color .18s ease-out,color .18s ease-out,box-shadow .18s ease-out; }
 .button:hover { transform:translateY(-2px); }
 .button.primary { color:#fff; background:var(--teal); }
 .button.primary:hover { background:var(--teal-dark); }
@@ -126,7 +126,8 @@ p { line-height:1.6; }
 .button.ghost { color:var(--ink); background:#fff; border-color:#d8dfdd; }
 .button.wide { width:100%; }
 .button:disabled { opacity:.55; cursor:wait; transform:none; }
-@media (prefers-reduced-motion:reduce) { .button,.bruno-greet { transition:none; } .button:hover,.bruno-greeting .bruno-greet { transform:none; } }
+.button:active:not(:disabled) { transform:scale(.98); transition-duration:.06s; }
+@media (prefers-reduced-motion:reduce) { .button,.bruno-greet { transition-property:background-color,border-color,color,box-shadow; } .button:hover,.button:active,.bruno-greeting .bruno-greet { transform:none; } }
 .flash-stack { display:grid; gap:8px; margin-bottom:20px; }
 .flash { padding:12px 17px; border-radius:10px; background:#e0f3eb; color:#1b735c; font-size:13px; font-weight:700; }
 .flash-error { color:#97433e; background:#fff0ec; }
@@ -1047,3 +1048,34 @@ mark.chat-search-hit.is-current { background:#f5b544; }
 details.is-opening>:not(summary) { animation:fold-in .24s cubic-bezier(.22,1,.36,1) both; }
 @keyframes fold-in { from { opacity:0; transform:translateY(-4px); } }
 @media (prefers-reduced-motion:reduce) { details.is-opening>:not(summary) { animation-name:fold-fade; } @keyframes fold-fade { from { opacity:0; } } }
+
+/* Плавные состояния: у ссылок, кнопок, полей, вкладок и карточек цвет, фон, рамка и тень меняются за 180 мс, а не скачком.
+   :where() без специфичности, поэтому собственные переходы компонентов сильнее. Лаборатория не затронута. */
+:where(body:not(.lab-shell)) :where(a,button,summary,label,input,select,textarea,[role="tab"],[role="button"],.card,.unread-badge) {
+  transition-property:color,background-color,border-color,box-shadow,outline-color,opacity,transform;
+  transition-duration:.18s;
+  transition-timing-function:ease-out;
+}
+@media (prefers-reduced-motion:reduce) {
+  :where(body:not(.lab-shell)) :where(a,button,summary,label,input,select,textarea,[role="tab"],[role="button"],.card,.unread-badge) { transition-property:color,background-color,border-color,box-shadow,outline-color,opacity; }
+}
+
+/* Появление элементов, которые показываются и прячутся: уведомления, поиск по чату, выпадающий список, подсказка радара,
+   список акул панели, плавающий Бруно при раскрытии. Анимация запускается каждый раз, когда элемент становится видимым. */
+@media (prefers-reduced-motion:no-preference) {
+  .flash { animation:pop-down .3s cubic-bezier(.22,1,.36,1) backwards; }
+  .chat-search:not([hidden]),.chat-search-results:not([hidden]) { animation:pop-down .22s cubic-bezier(.22,1,.36,1); }
+  .custom-select-menu:not([hidden]) { animation:pop-down .18s cubic-bezier(.22,1,.36,1); }
+  .radar-tooltip:not([hidden]) { animation:fade-in .15s ease-out; }
+  .panel-sharks { animation:fade-up .26s cubic-bezier(.22,1,.36,1); }
+  .bruno-pet.is-toggling:not(.is-collapsed) .pet-body { animation:pet-in .28s cubic-bezier(.22,1,.36,1); transform-origin:bottom right; }
+  .bruno-pet.is-toggling.is-collapsed .pet-toggle { animation:fade-in .2s ease-out; }
+  .coin-chip.is-earning { animation:coin-pulse .5s cubic-bezier(.22,1,.36,1); }
+}
+@keyframes pop-down { from { opacity:0; transform:translateY(-6px); } }
+@keyframes fade-in { from { opacity:0; } }
+@keyframes fade-up { from { opacity:0; transform:translateY(6px); } }
+@keyframes pet-in { from { opacity:0; transform:translateY(8px) scale(.96); } }
+@keyframes coin-pulse { 40% { transform:scale(1.08); } }
+.coin-toast.is-leaving { opacity:0; transform:translate(-50%,-6px); transition:opacity .25s ease-in,transform .25s ease-in; }
+.coin-toast .icon { width:18px; height:18px; margin-right:6px; vertical-align:-.25em; }

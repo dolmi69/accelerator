@@ -34,12 +34,12 @@
               crossorigin>
         <link rel="stylesheet" href="{% static 'founder/css/tailwind.css' %}?v=1">
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=frontend-3">
+              href="{% static 'founder/css/app.css' %}?v=frontend-4">
         <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=6">
         <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=2">
         <link rel="stylesheet" href="{% static 'founder/css/coins.css' %}?v=5">
         <link rel="stylesheet"
-              href="{% static 'founder/css/project-workspace.css' %}?v=11">
+              href="{% static 'founder/css/project-workspace.css' %}?v=12">
         {% if startup %}
             <link rel="stylesheet"
                   href="{% static 'founder/css/project-work.css' %}?v=7">
@@ -180,9 +180,9 @@
         {% if request.telegram_miniapp %}
             <script src="{% static 'founder/js/telegram.js' %}" defer></script>
         {% endif %}
-        <script src="{% static 'founder/js/bruno.js' %}?v=7" defer></script>
+        <script src="{% static 'founder/js/bruno.js' %}?v=8" defer></script>
         {% if request.user.is_authenticated %}
-            <script src="{% static 'founder/js/drafts.js' %}?v=1"></script><script src="{% static 'founder/js/direct-attachments.js' %}?v=1" defer></script><script src="{% static 'founder/js/messages.js' %}?v=6" defer></script><script src="{% static 'founder/js/coins.js' %}?v=1" defer></script><script src="{% static 'founder/js/chat-search.js' %}?v=1" defer></script><script src="{% static 'founder/js/card-reports.js' %}?v=1" defer></script>
+            <script src="{% static 'founder/js/drafts.js' %}?v=1"></script><script src="{% static 'founder/js/direct-attachments.js' %}?v=1" defer></script><script src="{% static 'founder/js/messages.js' %}?v=6" defer></script><script src="{% static 'founder/js/coins.js' %}?v=2" defer></script><script src="{% static 'founder/js/chat-search.js' %}?v=1" defer></script><script src="{% static 'founder/js/card-reports.js' %}?v=1" defer></script>
         {% endif %}
         {% if lab_workspace %}
             <form hidden
@@ -194,7 +194,7 @@
             </form>
             <script src="{% static 'founder/js/lab-workspace.js' %}?v=1" defer></script>
         {% endif %}
-        <script src="{% static 'founder/js/project-workspace.js' %}?v=5" defer></script>
+        <script src="{% static 'founder/js/project-workspace.js' %}?v=6" defer></script>
         <script src="{% static 'founder/js/custom-select.js' %}?v=1" defer></script>
         {% block scripts %}
         {% endblock %}

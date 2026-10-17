@@ -66,6 +66,9 @@
     {% endif %}
 {% endblock %}
 {% block scripts %}
+    {% if not is_edit %}
+        <script src="{% static 'founder/js/create-ways.js' %}?v=1" defer></script>
+    {% endif %}
     {% if way == 'idea' %}
         <script src="{% static 'founder/js/workbench.js' %}?v=2" defer></script><script src="{% static 'founder/js/idea-picker.js' %}?v=1" defer></script>
     {% endif %}

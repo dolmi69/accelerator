@@ -229,6 +229,18 @@ body:has(.project-workspace-nav) .chat-aside .finish-card { margin-top:0; }
   .project-shell .topnav .account-profile-link { margin-left:0; }
   .project-shell .main-content { margin:0 14px; padding-top:16px; }
 }
+/* Меню разделов: на телефоне выезжает слева, на компьютере плавно сворачивается (ширина через @property). */
+@property --project-sidebar-width { syntax:'<length>'; inherits:true; initial-value:216px; }
+.project-shell.sidebar-animating { transition:--project-sidebar-width .26s cubic-bezier(.22,1,.36,1); }
+.project-shell.sidebar-animating .project-sidebar { overflow:hidden; }
+.project-shell.sidebar-animating .project-nav-label { white-space:nowrap; }
+.project-shell.sidebar-animating:not(.sidebar-collapsed) .project-nav-label { animation:fade-in .26s ease-out backwards; }
+@media(max-width:900px) and (prefers-reduced-motion:no-preference) {
+  .js-project-shell .project-sidebar { transition:transform .26s cubic-bezier(.4,0,1,1),visibility 0s linear .26s; }
+  .project-shell.sidebar-open .project-sidebar { transition:transform .3s cubic-bezier(.22,1,.36,1),visibility 0s; }
+  .project-sidebar-scrim:not([hidden]) { animation:fade-in .22s ease-out; }
+}
+@media(prefers-reduced-motion:reduce) { .project-shell.sidebar-animating { transition:none; } }
 /* Телефон с JS: шапка проекта в одну строку — разделы, логотип, проект, монеты, аватар-меню (app.css). */
 @media(max-width:680px) {
   .js-topnav.project-shell .topbar { height:64px; min-height:64px; padding:0 14px; gap:8px; flex-wrap:nowrap; }
