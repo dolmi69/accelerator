@@ -25,7 +25,7 @@
               crossorigin>
         <link rel="stylesheet" href="{% static 'founder/css/tailwind.css' %}?v=1">
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=frontend-1">
+              href="{% static 'founder/css/app.css' %}?v=frontend-2">
         <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=6">
         <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=2">
         <link rel="stylesheet" href="{% static 'founder/css/coins.css' %}?v=5">
@@ -121,14 +121,24 @@
                         <a class="account-profile-link"
                            href="{% url 'my_profile' %}"
                            aria-label="Открыть профиль">
-                            {% include 'profiles/_avatar.html' with member=request.user %}
+                            {% if request.resolver_match.url_name == 'user_profile' and is_owner %}
+                                {% include 'profiles/_avatar.html' with member=request.user %}
+                            {% else %}
+                                {% include 'profiles/_avatar.html' with member=request.user vt_name='account-avatar' %}
+                            {% endif %}
                         </a>
                         <button class="account-menu-toggle"
                                 type="button"
                                 aria-label="Меню"
                                 aria-controls="topnav-links"
                                 aria-expanded="false"
-                                hidden>{% include 'profiles/_avatar.html' with member=request.user %}</button>
+                                hidden>
+                            {% if request.resolver_match.url_name == 'user_profile' and is_owner %}
+                                {% include 'profiles/_avatar.html' with member=request.user %}
+                            {% else %}
+                                {% include 'profiles/_avatar.html' with member=request.user vt_name='account-avatar' %}
+                            {% endif %}
+                        </button>
                     {% else %}
                         <a class="topnav-about"
                            href="{% url 'about' %}"
@@ -185,9 +195,8 @@
             </form>
             <script src="{% static 'founder/js/lab-workspace.js' %}?v=1" defer></script>
         {% endif %}
-        <script src="{% static 'founder/js/project-workspace.js' %}?v=3" defer></script>
+        <script src="{% static 'founder/js/project-workspace.js' %}?v=4" defer></script>
         <script src="{% static 'founder/js/custom-select.js' %}?v=1" defer></script>
-        {% block scripts %}
-        {% endblock %}
+        {% block scripts %}{% endblock %}
     </body>
 </html>

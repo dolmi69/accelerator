@@ -9,7 +9,11 @@
         </div>
         <div class="member-profile-body">
             <div class="member-profile-top">
-                {% include 'profiles/_avatar.html' with member=author avatar_class='avatar-xl' %}
+                {% if is_owner %}
+                    {% include 'profiles/_avatar.html' with member=author avatar_class='avatar-xl' vt_name='account-avatar' %}
+                {% else %}
+                    {% include 'profiles/_avatar.html' with member=author avatar_class='avatar-xl' %}
+                {% endif %}
                 <div class="profile-actions">
                     {% if is_owner %}
                         <a class="button primary" href="{% url 'profile_edit' %}">Редактировать профиль</a>

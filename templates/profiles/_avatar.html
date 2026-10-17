@@ -1,4 +1,6 @@
-<span class="member-avatar {{ avatar_class }}" aria-hidden="true">
+<span class="member-avatar {{ avatar_class }}"
+      {% if vt_name %}style="view-transition-name: {{ vt_name }}"{% endif %}
+      aria-hidden="true">
     {% if member.avatar %}
         <img src="{{ member.avatar_url }}"
              alt=""

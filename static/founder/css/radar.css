@@ -180,6 +180,12 @@ body:has(.radar-home) .bruno-pet { display:none; }
 .radar-popover { position:fixed; inset:auto; margin:0; width:min(420px,calc(100vw - 32px)); max-height:min(620px,calc(100dvh - 32px)); padding:28px; border:1px solid #dce8e0; border-radius:22px; background:#fff; color:var(--ink); box-shadow:0 20px 80px #132d2a40,0 2px 8px #132d2a10; overflow:auto; overscroll-behavior:contain; }
 .radar-popover::backdrop,.radar-task-dialog::backdrop { background:#172b3d12; }
 .radar-popover:popover-open { display:block; }
+/* Карточка направления и окно задания открываются плавно: проявление и лёгкий подъём; закрытие быстрее. */
+.radar-popover,.radar-task-dialog { transition-property:opacity,transform,overlay,display; transition-duration:.14s; transition-timing-function:ease-in; transition-behavior:allow-discrete; }
+.radar-popover:popover-open,.radar-task-dialog[open] { transition-duration:.22s; transition-timing-function:cubic-bezier(.16,1,.3,1); }
+.radar-popover:not(:popover-open),.radar-task-dialog:not([open]) { opacity:0; transform:translateY(8px) scale(.98); }
+@starting-style { .radar-popover:popover-open,.radar-task-dialog[open] { opacity:0; transform:translateY(8px) scale(.98); } }
+@media (prefers-reduced-motion:reduce) { .radar-popover:not(:popover-open),.radar-task-dialog:not([open]) { transform:none; } @starting-style { .radar-popover:popover-open,.radar-task-dialog[open] { transform:none; } } }
 .radar-popover-heading { display:flex; align-items:start; justify-content:space-between; gap:16px; }
 .radar-popover-heading h3 { font-size:22px; font-weight:700; line-height:1.3; margin:6px 0 0; }
 .radar-popover-close { display:grid; place-items:center; flex:0 0 44px; width:44px; height:44px; border:0; border-radius:12px; background:#f0f5f2; color:#526c62; font-size:26px; line-height:1; cursor:pointer; }

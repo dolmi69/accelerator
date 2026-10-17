@@ -91,3 +91,32 @@
   document.addEventListener('click', event => { if (!nav.contains(event.target)) setOpen(false); });
   wide.addEventListener('change', event => { if (event.matches) setOpen(false); });
 })();
+
+// Карточки-свёртки (<details>): при раскрытии человеком содержимое проявляется (app.css, details.is-opening).
+document.addEventListener('click', event => {
+  const summary = event.target.closest?.('summary');
+  const details = summary?.parentElement;
+  if (!(details instanceof HTMLDetailsElement) || details.open || details.querySelector(':scope > summary') !== summary) return;
+  details.classList.add('is-opening');
+});
+document.addEventListener('animationend', event => {
+  if (event.animationName === 'fold-in' || event.animationName === 'fold-fade') event.target.parentElement?.classList.remove('is-opening');
+});
+document.addEventListener('toggle', event => {
+  if (event.target instanceof HTMLDetailsElement && !event.target.open) event.target.classList.remove('is-opening');
+}, true);
+
+// Переходы между страницами (View Transitions, app.css). Обновление той же страницы — без анимации,
+// а открытая из сообщества карточка проекта «перетекает» в страницу проекта.
+window.addEventListener('pageswap', event => {
+  const transition = event.viewTransition;
+  const url = event.activation?.entry?.url;
+  if (!transition || !url) return;
+  const target = new URL(url);
+  if (target.pathname === location.pathname) { transition.skipTransition(); return; }
+  const link = Array.from(document.querySelectorAll('.discovery-card a[href]')).find(a => a.pathname === target.pathname);
+  const card = link?.closest('.discovery-card');
+  if (!card) return;
+  card.style.viewTransitionName = 'project-card';
+  transition.finished.finally(() => { card.style.viewTransitionName = ''; });
+});
