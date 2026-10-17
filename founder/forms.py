@@ -11,13 +11,21 @@ from founder.services.json_utils import bounded_json_loads
 
 
 class RegisterForm(HandleValidationMixin, UserCreationForm):
-    email = forms.EmailField(label="Email")
+    email = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={
+        "autocomplete": "email", "autocapitalize": "none", "spellcheck": "false"}))
     handle = forms.CharField(label="Тег (можно выбрать позже)", max_length=33, required=False,
-                             widget=forms.TextInput(attrs={'placeholder': '@your_name'}))
+                             widget=forms.TextInput(attrs={'placeholder': '@your_name', 'autocomplete': 'off',
+                                                           'autocapitalize': 'none', 'spellcheck': 'false'}))
 
     class Meta(UserCreationForm.Meta):
         model = User
         fields = ("username", "handle", "email", "password1", "password2")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Password managers and phone keyboards recognise the login field by these hints.
+        self.fields["username"].widget.attrs.update(
+            {"autocomplete": "username", "autocapitalize": "none", "spellcheck": "false"})
 
 
 class StartupDeleteForm(forms.Form):

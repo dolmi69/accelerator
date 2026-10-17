@@ -69,3 +69,25 @@
     if (error.textContent.trim()) reveal(error);
   });
 })();
+
+// Телефон: аватар в шапке открывает меню с разделами сайта. На компьютере ссылки стоят в строку, кнопка скрыта стилями.
+(() => {
+  const nav = document.querySelector('.topnav');
+  const toggle = nav?.querySelector('.account-menu-toggle');
+  if (!toggle) return;
+  const wide = window.matchMedia('(min-width:681px)');
+  document.body.classList.add('js-topnav');
+  toggle.hidden = false;
+  const setOpen = open => {
+    nav.classList.toggle('is-open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+  };
+  toggle.addEventListener('click', () => setOpen(!nav.classList.contains('is-open')));
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || !nav.classList.contains('is-open')) return;
+    setOpen(false);
+    toggle.focus();
+  });
+  document.addEventListener('click', event => { if (!nav.contains(event.target)) setOpen(false); });
+  wide.addEventListener('change', event => { if (event.matches) setOpen(false); });
+})();

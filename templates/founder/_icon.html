@@ -1,0 +1,31 @@
+{% comment %}
+    Иконки интерфейса вместо символов и эмодзи: обводка 1.7, скруглённые концы, сетка 24 px.
+    Использование: {% include 'founder/_icon.html' with name='chevron-down' %}
+{% endcomment %}
+<svg class="icon icon-{{ name }}"
+     viewBox="0 0 24 24"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="1.7"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false">
+    {% if name == 'sections' %}
+        <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+        <path d="M9.5 4.5v15M5.8 8.5h1.4M5.8 11.5h1.4" />
+    {% elif name == 'chevron-down' %}
+        <path d="m6 9.5 6 6 6-6" />
+    {% elif name == 'chevron-right' %}
+        <path d="m9.5 6 6 6-6 6" />
+    {% elif name == 'check' %}
+        <path d="m5 12.5 4.5 4.5L19 7.5" />
+    {% elif name == 'arrow-up-right' %}
+        <path d="M7.5 16.5 16.5 7.5M9 7.5h7.5V15" />
+    {% elif name == 'coin' %}
+        <circle cx="12" cy="12" r="8.5" fill="#f6c768" />
+        <circle cx="12" cy="12" r="5" />
+    {% elif name == 'paperclip' %}
+        <path d="m19.5 11.5-7.4 7.4a4.8 4.8 0 0 1-6.8-6.8l8-8a3.2 3.2 0 0 1 4.5 4.5l-8 8a1.6 1.6 0 0 1-2.3-2.3l7.3-7.3" />
+    {% endif %}
+</svg>

@@ -3,7 +3,7 @@
 {% block title %}Работа над проектом · {{ startup.name }}{% endblock %}
 {% block work_css %}
     <link rel="stylesheet" href="{% static 'founder/css/mvp.css' %}?v=3">
-    <link rel="stylesheet" href="{% static 'founder/css/work-plan.css' %}?v=14">
+    <link rel="stylesheet" href="{% static 'founder/css/work-plan.css' %}?v=15">
 {% endblock %}
 {% block work_page_class %}work-classic{% endblock %}
 {% block work_title %}Работа над проектом{% endblock %}
@@ -32,6 +32,13 @@
 {% block work_content %}
     {% if is_demo %}<p class="work-notice">Деморежим: показаны примеры задач, AI не вызывается.</p>{% endif %}
     {% include 'founder/_task_priorities.html' %}
+    {# Разбор и план — главное для подготовки к куратору: сразу под заданиями и раскрыт. #}
+    <details class="work-secondary" id="work-analysis" open>
+        <summary>
+            <span>Почему Бруно предлагает эти задачи</span><small>Разбор, риски и следующие шаги</small>
+        </summary>
+        {% include 'founder/_work_analysis.html' %}
+    </details>
     {% include 'founder/_work_task_history.html' %}
     <details class="work-secondary" id="mvp-details">
         <summary>
@@ -40,14 +47,6 @@
                 </span><small>{{ feature_count }} функций · {{ mvp_count }} в MVP</small>
             </summary>
             {% include 'founder/_mvp_features.html' %}
-        </details>
-        <details class="work-secondary"
-                 id="work-analysis"
-                 {% if not has_story %}open{% endif %}>
-            <summary>
-                <span>Почему Бруно предлагает эти задачи</span><small>Разбор, риски и следующие шаги</small>
-            </summary>
-            {% include 'founder/_work_analysis.html' %}
         </details>
         <details class="work-secondary" id="work-evidence">
             <summary>

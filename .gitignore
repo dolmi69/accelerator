@@ -18,3 +18,6 @@ artifacts/
 .idea/
 
 CLAUDE.local.md
+
+# Снимки и скриншоты Playwright MCP
+.playwright-mcp/

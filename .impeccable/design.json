@@ -1,0 +1,298 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-17T06:00:00+03:00",
+  "title": "Design System: BrunoLab (Co-Founder.AI)",
+  "extensions": {
+    "colorMeta": {
+      "teal": {
+        "role": "primary",
+        "displayName": "Наставническая бирюза",
+        "canonical": "#147d73",
+        "tonalRamp": [
+          "#082f2b",
+          "#0b4a45",
+          "#0b625e",
+          "#147d73",
+          "#3fa197",
+          "#7cc2b9",
+          "#bfe1dc",
+          "#e8f5f2"
+        ]
+      },
+      "teal-dark": {
+        "role": "primary",
+        "displayName": "Глубокая бирюза",
+        "canonical": "#0b625e"
+      },
+      "mint-tint": {
+        "role": "primary",
+        "displayName": "Мятная подложка",
+        "canonical": "#e1efe8"
+      },
+      "apricot": {
+        "role": "secondary",
+        "displayName": "Абрикос Бруно",
+        "canonical": "#eea273",
+        "tonalRamp": [
+          "#4a2410",
+          "#6f3a1d",
+          "#8a5a2c",
+          "#c27a4c",
+          "#eea273",
+          "#f4c09d",
+          "#f9dcc6",
+          "#fdf1e6"
+        ]
+      },
+      "navy": {
+        "role": "tertiary",
+        "displayName": "Ночной синий",
+        "canonical": "#172b3d"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Чернила",
+        "canonical": "#122338"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Карандаш",
+        "canonical": "#5b6c7f"
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Бумага",
+        "canonical": "#f5f4ef",
+        "tonalRamp": [
+          "#2b2a26",
+          "#4a4842",
+          "#6e6b62",
+          "#98948a",
+          "#c3bfb4",
+          "#e2dfd6",
+          "#f5f4ef",
+          "#fbfaf7"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Линейка",
+        "canonical": "#e5e8e7"
+      },
+      "fact-bg": {
+        "role": "neutral",
+        "displayName": "Факт",
+        "canonical": "#e7f5ef"
+      },
+      "guess-bg": {
+        "role": "neutral",
+        "displayName": "Догадка",
+        "canonical": "#fff2d7"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Заголовок страницы, один на экран."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Заголовки карточек и разделов, лёгкий вес."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Заголовки внутри карточек."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Ответы Бруно и длинные тексты, не меньше 16 px."
+      },
+      "body-ui": {
+        "displayName": "Body UI",
+        "purpose": "Пояснения и описания в карточках."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Подписи полей и текст кнопок."
+      },
+      "eyebrow": {
+        "displayName": "Eyebrow",
+        "purpose": "Бирюзовый надзаголовок капсом."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-edge",
+        "value": "0 12px 38px rgba(21,47,64,.035)",
+        "purpose": "Мягкий край всех карточек, не поднимает их."
+      },
+      {
+        "name": "floating",
+        "value": "0 12px 34px #183f2921",
+        "purpose": "Выпадающие меню и списки выбора."
+      },
+      {
+        "name": "field-focus-ring",
+        "value": "0 0 0 3px rgba(20,125,115,.25)",
+        "purpose": "Мягкое кольцо фокуса поля вместе с бирюзовой рамкой."
+      }
+    ],
+    "motion": [
+      {
+        "name": "hover-lift",
+        "value": "transform 180ms ease",
+        "purpose": "Подъём кнопки на 2 px при наведении."
+      },
+      {
+        "name": "allowed-range",
+        "value": "150ms–300ms, только transform и opacity",
+        "purpose": "Правило для всех новых анимаций; отключаются при prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "680px"
+      },
+      {
+        "name": "small-phone",
+        "value": "540px"
+      },
+      {
+        "name": "tablet",
+        "value": "900px"
+      },
+      {
+        "name": "laptop",
+        "value": "1050px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Главное действие экрана, одно на блок.",
+      "html": "<button class=\"ds-btn-primary\">Обсудить с Бруно</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; justify-content:center; min-height:45px; padding:10px 19px; border:1px solid transparent; border-radius:10px; background:#147d73; color:#fff; font:800 13px/1.5 'Golos Text', system-ui, sans-serif; cursor:pointer; transition:transform .18s ease; } .ds-btn-primary:hover { background:#0b625e; transform:translateY(-2px); } .ds-btn-primary:focus-visible { outline:3px solid #147d73; outline-offset:3px; } .ds-btn-primary:disabled { opacity:.55; transform:none; cursor:not-allowed; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Второстепенное действие рядом с главным.",
+      "html": "<button class=\"ds-btn-ghost\">Карточка проекта</button>",
+      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; justify-content:center; min-height:45px; padding:10px 19px; border:1px solid #d8dfdd; border-radius:10px; background:#fff; color:#122338; font:800 13px/1.5 'Golos Text', system-ui, sans-serif; cursor:pointer; transition:transform .18s ease; } .ds-btn-ghost:hover { transform:translateY(-2px); border-color:#147d73; } .ds-btn-ghost:focus-visible { outline:3px solid #147d73; outline-offset:3px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Поле анкеты с подписью сверху.",
+      "html": "<label class=\"ds-field\"><span>Название</span><input placeholder=\"Например, ДентаСлот\"></label>",
+      "css": ".ds-field { display:grid; gap:7px; color:#122338; font:700 13px/1.4 'Golos Text', system-ui, sans-serif; } .ds-field input { width:100%; padding:11px 12px; border:1px solid #d6dfdf; border-radius:10px; background:#fff; color:#122338; font:500 14px/1.5 'Golos Text', system-ui, sans-serif; outline:none; } .ds-field input:focus-visible { border-color:#147d73; box-shadow:0 0 0 3px rgba(22,135,125,.35); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Белый лист на бумаге: рамка и мягкий край.",
+      "html": "<section class=\"ds-card\"><span class=\"ds-eyebrow\">Сигналы бизнеса</span><h3>Startup Radar</h3><p>Пять направлений вашего проекта.</p></section>",
+      "css": ".ds-card { padding:28px; border:1px solid #e5e8e7; border-radius:21px; background:#fff; color:#122338; box-shadow:0 12px 38px rgba(21,47,64,.035); font:400 14px/1.6 'Golos Text', system-ui, sans-serif; } .ds-card h3 { margin:6px 0 8px; font:400 22px/1.5 Manrope, sans-serif; letter-spacing:-.04em; } .ds-card p { margin:0; color:#5b6c7f; } .ds-eyebrow { color:#147d73; font-size:10px; font-weight:800; letter-spacing:2px; text-transform:uppercase; }"
+    },
+    {
+      "name": "Quick Reply Chip",
+      "kind": "chip",
+      "refersTo": "chip-quick-reply",
+      "description": "Готовый ответ под полем чата.",
+      "html": "<button class=\"ds-chip\">Помоги подготовиться к встрече с куратором</button>",
+      "css": ".ds-chip { padding:5px 11px; border:1px solid #d8e5df; border-radius:999px; background:#f4f8f6; color:#155e57; font:600 12px/1.5 'Golos Text', system-ui, sans-serif; cursor:pointer; } .ds-chip:hover, .ds-chip:focus-visible { background:#e1f5ee; border-color:#147d73; } .ds-chip:focus-visible { outline:2px solid #147d73; outline-offset:2px; }"
+    },
+    {
+      "name": "Project Sidebar Nav",
+      "kind": "nav",
+      "refersTo": "nav-tab-current",
+      "description": "Меню проекта с SVG-иконками, текущий пункт на мятной подложке.",
+      "html": "<nav class=\"ds-side\"><a aria-current=\"page\" href=\"#\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"5\"/><path d=\"m12 12 7-7\"/></svg>Радар</a><a href=\"#\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"3\"/><path d=\"m8 12 3 3 5-6\"/></svg>Работа над проектом</a></nav>",
+      "css": ".ds-side { display:grid; gap:4px; width:216px; padding:12px; background:#fafbf8; font:700 12px/1.5 'Golos Text', system-ui, sans-serif; } .ds-side a { display:flex; align-items:center; gap:10px; padding:10px 11px; border-radius:9px; color:#122338; text-decoration:none; } .ds-side a svg { width:18px; height:18px; } .ds-side a:hover { color:#0b625e; } .ds-side a[aria-current=page] { background:#e1efe8; color:#0b625e; } .ds-side a:focus-visible { outline:3px solid #147d73; outline-offset:2px; }"
+    },
+    {
+      "name": "Bruno Message",
+      "kind": "custom",
+      "refersTo": "message-bruno",
+      "description": "Пузырь ответа Бруно, текст не меньше 16 px.",
+      "html": "<div class=\"ds-msg\"><span class=\"ds-msg-avatar\">Б</span><div class=\"ds-msg-body\"><div class=\"ds-msg-meta\">Бруно <span>12:40</span></div><p>Кто сейчас платит за запись к стоматологу: клиника или пациент?</p></div></div>",
+      "css": ".ds-msg { display:flex; gap:11px; max-width:85%; font-family:'Golos Text', system-ui, sans-serif; } .ds-msg-avatar { width:32px; height:32px; flex:none; display:grid; place-items:center; border-radius:10px; background:#ca986e; color:#fff; font-weight:800; font-size:13px; } .ds-msg-body { padding:13px 16px; border-radius:3px 15px 15px 15px; background:#f3f6f4; color:#122338; } .ds-msg-meta { display:flex; justify-content:space-between; gap:25px; margin-bottom:7px; color:#0b625e; font-size:12px; font-weight:800; } .ds-msg-meta span { color:#5b6c7f; font-weight:500; } .ds-msg-body p { margin:0; font-size:16px; line-height:1.6; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Тетрадь наставника",
+    "overview": "Интерфейс похож на тетрадь, которую основатель приносит на встречу с куратором. Тёплая бумага вместо белого экрана, спокойный бирюзовый для главного и тонкие линии вместо теней. Медведь Бруно — единственный яркий персонаж, вокруг него сдержанная «тетрадь». Удобство важнее красоты: путь «рассказать Бруно → увидеть радар → получить задание» короче любого украшения.",
+    "keyCharacteristics": [
+      "Тёплая бумага paper как фон страницы, белые карточки на ней.",
+      "Один акцент: бирюзовый teal для главного действия и текущего раздела.",
+      "Плоские карточки: рамка line и большое скругление вместо заметных теней.",
+      "Заголовки на Manrope, основной текст на Golos Text, оба с кириллицей.",
+      "Бруно и монеты — единственные тёплые абрикосово-коричневые пятна.",
+      "Ширина 375 px — главная: сайт открывается как Telegram Mini App."
+    ],
+    "rules": [
+      {
+        "name": "The One Ink Rule",
+        "body": "Бирюзовый — это «сделай это». Если на экране больше двух бирюзовых кнопок, одна из них лишняя или должна стать ghost-кнопкой.",
+        "section": "colors"
+      },
+      {
+        "name": "The Bear Owns Warmth Rule",
+        "body": "Абрикосовый и коричневый принадлежат Бруно и монетам. Предупреждения, статусы и кнопки этими цветами не красят.",
+        "section": "colors"
+      },
+      {
+        "name": "The Readable Bruno Rule",
+        "body": "Текст ответов Бруно не меньше 16 px на любой ширине (.message-text).",
+        "section": "typography"
+      },
+      {
+        "name": "The Cyrillic-Only Rule",
+        "body": "В проект подключаются только шрифты с полной кириллицей и только из локальных файлов в static.",
+        "section": "typography"
+      },
+      {
+        "name": "The 12px Floor Rule",
+        "body": "Мельче 12 px — только надзаголовок Eyebrow и цифры на графиках.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Notebook Rule",
+        "body": "Карточки плоские в покое. Тень — признак того, что элемент лежит поверх страницы.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No-Zoom Rule",
+        "body": "На телефоне поля ввода 16 px: при меньшем шрифте iOS (и Telegram на iPhone) увеличивает страницу при фокусе.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do подключать шрифты только с кириллицей и только локально из static (Golos Text для текста, Manrope для заголовков).",
+      "Do анимировать только transform и opacity, длительность 150–300 мс. Каждая анимация отключается или упрощается в @media (prefers-reduced-motion: reduce). Исключение — индикатор ожидания («Бруно думает…»): петля 1,2 с только по opacity, при reduced motion выключена.",
+      "Do давать каждой кнопке и ссылке три состояния: hover, focus-visible (видимое кольцо teal) и disabled.",
+      "Do проектировать каждый экран с данными в трёх состояниях: загрузка, пусто (с одним следующим действием) и ошибка (что случилось и что делать).",
+      "Do использовать иконки SVG в стиле меню проекта (обводка 1,7 px, скруглённые концы) вместо эмодзи.",
+      "Do держать текст ответов Бруно не меньше 16 px.",
+      "Do делать зону касания не меньше 44 × 44 px.",
+      "Do проверять каждый экран сначала на 375 px, потом на 1440 px."
+    ],
+    "donts": [
+      "Don't подключать шрифты через @import или CDN и не брать шрифты без кириллицы.",
+      "Don't анимировать width, height, top, left, background и тени, не делать анимаций появления при прокрутке.",
+      "Don't использовать эмодзи как иконки интерфейса (🪙, ☰, ⌄, ✓, ↗ в кнопках и навигации).",
+      "Don't прятать информацию только за наведением: на телефоне и в Telegram наведения нет.",
+      "Don't красить кнопки и статусы абрикосовым и коричневым — это цвета Бруно и монет.",
+      "Don't ставить больше двух бирюзовых кнопок на один экран.",
+      "Don't добавлять тени карточкам ради объёма.",
+      "Don't пускать плавающего Бруно поверх полей ввода и главных кнопок."
+    ]
+  }
+}

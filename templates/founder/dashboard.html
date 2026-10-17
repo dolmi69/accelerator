@@ -3,7 +3,7 @@
 {% block title %}Радар · {{ startup.name }}{% endblock %}
 {% block extra_css %}
     <link rel="stylesheet"
-          href="{% static 'founder/css/radar.css' %}?v=workspace-21">
+          href="{% static 'founder/css/radar.css' %}?v=frontend-1">
 {% endblock %}
 {% block content %}
     <div class="radar-home">
@@ -23,7 +23,7 @@
                     {% include 'founder/_bruno_hub.html' %}
                     <details class="bruno-recent-conversations">
                         <summary>
-                            <span>Недавние беседы</span><span class="muted small">{{ recent_sessions|length }}</span><span aria-hidden="true">⌄</span>
+                            <span>Недавние беседы</span><span class="muted small">{{ recent_sessions|length }}</span><span aria-hidden="true">{% include 'founder/_icon.html' with name='chevron-down' %}</span>
                         </summary>
                         <div>
                             {% for session in recent_sessions %}

@@ -61,7 +61,7 @@
                             нет оценки
                         {% endif %}
                         . Открыть комментарий" aria-controls="radar-detail-{{ row.key }}" aria-expanded="false" aria-haspopup="dialog">
-                        <circle cx="{{ row.x }}" cy="{{ row.y }}" r="12" class="radar-point-hit" />
+                        <circle cx="{{ row.x }}" cy="{{ row.y }}" r="18" class="radar-point-hit" />
                         <circle cx="{{ row.x }}" cy="{{ row.y }}" r="4" class="radar-point-dot" />
                         </g>
                     {% endfor %}
@@ -186,7 +186,9 @@
          id="radar-history"
          {% if radar_history_open %}open{% endif %}>
     <summary>
-        <span>История оценок</span><span class="muted small">{{ history_page.paginator.count|plural:"версия,версии,версий" }}</span><span class="radar-detail-chevron" aria-hidden="true">⌄</span>
+        <span>История оценок</span><span class="muted small">{{ history_page.paginator.count|plural:"версия,версии,версий" }}</span><span class="radar-detail-chevron" aria-hidden="true">
+            {% include 'founder/_icon.html' with name='chevron-down' %}
+        </span>
     </summary>
     {% if history_selected %}
         <nav class="snapshot-list" aria-label="Сохранённые оценки">

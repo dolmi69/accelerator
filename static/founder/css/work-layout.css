@@ -30,6 +30,10 @@
     .work-shell-actions .bruno-art{width:44px;flex-basis:44px}
     .work-shell>.work-subnav{gap:4px;margin-bottom:20px;padding-bottom:10px}
     .work-shell>.work-subnav a{padding:8px 10px;font-size:12px}
+    /* Вкладки раздела — одна строка с прокруткой пальцем. */
+    .work-shell>.work-subnav{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;margin-inline:-14px;padding-inline:14px}
+    .work-shell>.work-subnav::-webkit-scrollbar{display:none}
+    .work-shell>.work-subnav a{flex:none;display:flex;align-items:center;min-height:44px;white-space:nowrap;font-size:13px}
     .work-shell .priority-board>.work-context-line{padding-left:20px;padding-right:20px}
     .work-shell .project-training-grid{gap:20px}
 }

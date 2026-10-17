@@ -2,7 +2,7 @@
 .custom-select>select.custom-select-native { display:none!important; }
 .custom-select-trigger { display:flex; align-items:center; justify-content:space-between; gap:16px; width:100%; min-width:0; min-height:42px; padding:10px 12px; border:1px solid #bed6ca; border-radius:9px; background:#edf5ee; color:#34765f; font:inherit; font-size:13px; font-weight:600; text-align:left; cursor:pointer; transition:background .15s,border-color .15s; }
 .custom-select-trigger:hover,.custom-select-trigger[aria-expanded="true"] { background:#e4f0e8; border-color:#78ad98; }
-.custom-select-trigger:focus-visible { outline:2px solid #15877d; outline-offset:3px; }
+.custom-select-trigger:focus-visible { outline:2px solid var(--teal); outline-offset:3px; }
 .custom-select-value { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .custom-select-chevron { width:7px; height:7px; flex-shrink:0; margin:0 3px 4px 2px; border:solid currentColor; border-width:0 1.5px 1.5px 0; transform:rotate(45deg); transition:transform .15s; }
 .custom-select-trigger[aria-expanded="true"] .custom-select-chevron { transform:translateY(3px) rotate(225deg); }

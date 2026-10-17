@@ -20,7 +20,7 @@ body:has(.project-workspace-nav) .work-card .eyebrow { margin-bottom:10px; font-
 body:has(.project-workspace-nav) .work-notice { background:transparent; padding:0; color:var(--muted); font-size:12px; }
 .project-fold { border-top:1px solid var(--line); margin-top:18px; }
 .project-fold>summary,.project-card-fold>summary { display:flex; align-items:center; gap:12px; list-style:none; cursor:pointer; font-size:14px; font-weight:600; padding:16px 0; color:var(--ink); }
-.project-fold>summary::after,.project-card-fold>summary::after { content:"⌄"; margin-left:auto; color:var(--muted); transition:transform .15s; }
+.project-fold>summary::after,.project-card-fold>summary::after { content:""; flex:none; width:16px; height:16px; margin-left:auto; background:currentColor; color:var(--muted); -webkit-mask:var(--icon-chevron) center/contain no-repeat; mask:var(--icon-chevron) center/contain no-repeat; transition:transform .15s; }
 .project-fold[open]>summary::after,.project-card-fold[open]>summary::after { transform:rotate(180deg); }
 .project-fold>summary::-webkit-details-marker,.project-card-fold>summary::-webkit-details-marker { display:none; }
 .project-fold>summary small,.project-card-fold>summary small { color:var(--muted); font-weight:400; font-size:12px; }
@@ -175,6 +175,7 @@ body:has(.project-workspace-nav) .chat-aside .finish-card { margin-top:0; }
 .project-switcher>summary { display:flex; align-items:center; gap:14px; min-height:38px; padding:8px 12px; border:1px solid var(--line); border-radius:10px; background:#f6f8f6; cursor:pointer; list-style:none; font-size:13px; font-weight:600; }
 .project-switcher>summary::-webkit-details-marker { display:none; }
 .project-switcher>summary>span:first-child { max-width:230px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.project-switcher>summary .icon,.project-switcher-list .icon { width:16px; height:16px; }
 .project-switcher-list { position:absolute; top:calc(100% + 8px); left:0; z-index:60; width:280px; max-width:calc(100vw - 28px); max-height:65dvh; overflow:auto; padding:10px; background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:0 12px 32px #19372e18; }
 .project-switcher-list>small { display:block; padding:6px 10px; color:var(--muted); font-size:11px; }
 .project-switcher-list>a { display:flex; justify-content:space-between; gap:10px; padding:11px 10px; border-radius:8px; font-size:13px; overflow-wrap:anywhere; }
@@ -195,7 +196,8 @@ body:has(.project-workspace-nav) .chat-aside .finish-card { margin-top:0; }
 .sidebar-collapsed .project-sidebar { padding-right:10px; padding-left:10px; }
 .sidebar-collapsed .project-sidebar-heading { justify-content:center; margin-left:0; margin-right:0; }
 .project-shell.sidebar-collapsed .project-workspace-nav>a { justify-content:center; padding:10px 8px; }
-.project-menu-toggle { width:34px; height:34px; flex:none; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); font-size:18px; }
+.project-menu-toggle { width:44px; height:44px; flex:none; place-items:center; padding:0; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); }
+.project-menu-toggle .icon { width:22px; height:22px; }
 .project-shell .project-menu-toggle { display:none; }
 .project-sidebar-scrim[hidden] { display:none; }
 @media(max-width:1100px) { .project-shell .topnav { gap:12px; } .project-header-start { gap:14px; } .project-switcher>summary>span:first-child { max-width:170px; } }
@@ -205,7 +207,7 @@ body:has(.project-workspace-nav) .chat-aside .finish-card { margin-top:0; }
   .project-shell .main-content { margin:0 18px; padding-top:20px; }
   .project-shell .site-footer { margin-left:0; }
   .project-shell .topbar { padding:10px 18px; height:auto; gap:10px; flex-wrap:wrap; }
-  .project-shell .project-menu-toggle:not([hidden]) { display:block; }
+  .project-shell .project-menu-toggle:not([hidden]) { display:grid; }
   .project-header-start { flex:1; }
   .project-sidebar { width:230px; }
   .js-project-shell .project-sidebar { transform:translateX(-100%); visibility:hidden; }
@@ -226,6 +228,13 @@ body:has(.project-workspace-nav) .chat-aside .finish-card { margin-top:0; }
   .project-shell .topnav { width:100%; justify-content:end; flex-wrap:wrap; gap:10px 14px; }
   .project-shell .topnav .account-profile-link { margin-left:0; }
   .project-shell .main-content { margin:0 14px; padding-top:16px; }
+}
+/* Телефон с JS: шапка проекта в одну строку — разделы, логотип, проект, монеты, аватар-меню (app.css). */
+@media(max-width:680px) {
+  .js-topnav.project-shell .topbar { height:64px; min-height:64px; padding:0 14px; gap:8px; flex-wrap:nowrap; }
+  .js-topnav.project-shell .topnav { width:auto; flex:0 0 auto; flex-wrap:nowrap; justify-content:end; gap:6px; }
+  .js-topnav .project-header-start { gap:8px; }
+  .js-topnav .project-switcher>summary { min-height:44px; }
 }
 
 /* Laboratory conversation: saved requests and reports, composer at the bottom. */

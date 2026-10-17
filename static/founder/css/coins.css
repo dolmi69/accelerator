@@ -93,6 +93,6 @@
 .task-assignee select { padding:8px 10px; border:1px solid #d8e5df; border-radius:10px; background:#fff; max-width:100%; }
 .task-filter { display:flex; gap:8px; margin:0 0 16px; }
 .task-filter a { padding:7px 14px; border-radius:20px; border:1px solid #d8e5df; font-size:13px; font-weight:700; color:#32675b; background:#fff; }
-.task-filter a[aria-current="page"] { background:#16877d; border-color:#16877d; color:#fff; }
+.task-filter a[aria-current="page"] { background:var(--teal); border-color:var(--teal); color:#fff; }
 .viewer-only { display:none; }
 .is-viewer .viewer-only { display:block; }

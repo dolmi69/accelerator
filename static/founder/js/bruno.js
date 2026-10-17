@@ -42,8 +42,8 @@
     toggle.setAttribute('aria-label', collapsed ? 'Показать Бруно' : 'Свернуть Бруно');
     toggle.textContent = collapsed ? 'Бруно' : '−';
   };
-  // Every page starts with Bruno visible in the lower-right corner.
-  setCollapsed(false);
+  // On a phone Bruno starts folded into a small button so he never covers the page; on a computer he is visible.
+  setCollapsed(window.matchMedia('(max-width:680px)').matches);
   toggle.hidden = false;
   toggle.addEventListener('click', () => {
     const collapsed = !pet.classList.contains('is-collapsed');
