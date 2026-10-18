@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+.venv
+.runtime
+.tools
+node_modules
+__pycache__
+*.sqlite3
+*.sqlite3-*
+private_uploads
+staticfiles
+artifacts
+sources
