@@ -152,3 +152,12 @@ Telegram `@AISaaSacceleratorbot` запущен отдельным прилож�
 Деплой пока через отдельные репозитории Amvera, GitHub автоматически не обновляет
 сайт. Подробности: `docs/amvera_deployment.md`. Прокси образов Docker Hub у Amvera
 возвращал `unexpected EOF`; официальный Python берётся из public.ecr.aws.
+
+### Регистрация: устаревшая форма CSRF (2026-10-19)
+
+В журнале Amvera обнаружено `CSRF token from POST incorrect` на `/register/`.
+Формы входа/регистрации получают свежий masked token перед обычным POST через
+`/auth/csrf/` (`founder/auth_views.py`, `static/founder/js/auth.js`). Регистрация
+отдаётся с no-store; CSRF-проверки, HttpOnly cookie и проверка Origin сохранены.
+При отказе показывается страница повторной попытки вместо стандартной ошибки
+Django. Тесты: `founder.test_auth_csrf`, `tests/auth.test.cjs` (включены в npm test).
