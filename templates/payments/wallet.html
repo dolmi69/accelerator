@@ -11,7 +11,7 @@
     <a class="pay-button" href="{% url 'topup_page' %}">Пополнить</a>
   </div>
 
-  {% if not enabled %}<div class="flash flash-warning">Приём оплаты выключен (PAYMENTS_ENABLED=0).</div>{% endif %}
+  {% if not enabled %}<div class="flash flash-warning">Пополнение криптовалютой временно недоступно.</div>{% endif %}
 
   <h2 class="pay-subtitle">История пополнений</h2>
   {% if history %}

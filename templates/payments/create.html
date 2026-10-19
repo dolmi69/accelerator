@@ -4,11 +4,14 @@
 <section class="pay-card-wrap">
   <div class="pay-card">
     <h1>Пополнение баланса</h1>
+    {% if enabled %}
     <p class="pay-lead">Введите сумму — получите адрес и QR. Баланс пополнится после подтверждения сети.</p>
+    {% endif %}
 
     {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
-    {% if not enabled %}<div class="flash flash-warning">Приём оплаты выключен (PAYMENTS_ENABLED=0).</div>{% endif %}
+    {% if not enabled %}<div class="flash flash-warning" role="status">Пополнение криптовалютой временно недоступно.</div>{% endif %}
 
+    {% if enabled %}
     <form method="post" action="{% url 'topup_create' %}">
       {% csrf_token %}
       <label>Сумма, USDT
@@ -16,6 +19,7 @@
       </label>
       <button type="submit" class="pay-button">Получить адрес</button>
     </form>
+    {% endif %}
     <p class="pay-order"><a href="{% url 'payments_wallet' %}">← Назад к балансу</a></p>
   </div>
 </section>
