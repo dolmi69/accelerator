@@ -10,7 +10,7 @@ from founder.services import plans
 
 
 @override_settings(
-    PRO_DAYS=30, PRO_PRICE_RUB="149", LAB_REQUESTS_PER_DAY=10, LAB_PRO_REQUESTS_PER_DAY=50
+    PRO_DAYS=30, PRO_PRICE_RUB="0", LAB_REQUESTS_PER_DAY=10, LAB_PRO_REQUESTS_PER_DAY=50
 )
 class TariffViewTests(TestCase):
     def setUp(self):
@@ -26,7 +26,7 @@ class TariffViewTests(TestCase):
     def test_tariffs_page_shows_price(self):
         resp = self.client.get("/tariffs/")
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "149")
+        self.assertContains(resp, '0 ₽<span class="plan-per">/мес</span>', html=True)
 
     def test_test_pay_activates_pro(self):
         resp = self.client.post("/tariffs/pro/test-pay/confirm/")

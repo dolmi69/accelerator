@@ -248,7 +248,7 @@ PAYMENTS_RECEIVE_INDEX = int(os.getenv("PAYMENTS_RECEIVE_INDEX", "0"))
 
 # --- Тарифы: цена Pro для страницы тарифов ---
 # Ориентир: python manage.py lab_usage --ai-budget <руб.> --margin-percent <%>
-PRO_PRICE_RUB = os.getenv("PRO_PRICE_RUB", "149")
+PRO_PRICE_RUB = os.getenv("PRO_PRICE_RUB", "0")
 PRO_DAYS = int(os.getenv("PRO_DAYS", "30"))
 
 # Дочитывать страницы конкурентов целиком (agent-reach). В тестах сеть не трогаем, даже если поиск включён.
