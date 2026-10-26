@@ -231,10 +231,6 @@ body:has(.radar-home) .bruno-pet { display:none; }
 .radar-readiness-badge strong { color:#326a55; font-size:12px; }
 .radar-readiness-badge:hover { background:#e8f1e7; }
 .radar-readiness-badge:focus-visible { outline:2px solid var(--teal); outline-offset:3px; }
-.project-readiness { margin:24px 0 8px; padding:22px; border:1px solid #dce9e1; border-radius:18px; background:linear-gradient(135deg,#f4f9f5,#edf5f1); scroll-margin-top:calc(var(--project-topbar-height,64px) + 20px); }
-.readiness-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
-.readiness-eyebrow { color:#557b6d; font-size:9px; font-weight:800; letter-spacing:1.7px; }
-.readiness-heading h3 { margin:6px 0 0; font-size:20px; line-height:1.3; font-weight:700; letter-spacing:-.5px; }
 .readiness-level { display:flex; align-items:baseline; flex:0 0 auto; gap:2px; color:#1b675c; font-size:40px; line-height:1; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-1.8px; }
 .readiness-level small { font-size:15px; color:#668c7e; font-weight:500; letter-spacing:0; }
 .readiness-track { display:grid; grid-template-columns:repeat(9,minmax(0,1fr)); gap:6px; margin-top:22px; }
@@ -242,18 +238,6 @@ body:has(.radar-home) .bruno-pet { display:none; }
 .readiness-track>span.is-reached { background:#9cc9b5; color:#194d41; }
 .readiness-track>span.is-current { color:#fff; background:#21796a; box-shadow:0 3px 7px #21796a20; }
 .readiness-phase-labels { display:flex; justify-content:space-between; margin-top:7px; font-size:10px; color:#607b6f; }
-.readiness-next { display:flex; align-items:start; gap:12px; margin-top:20px; padding:16px; border:1px solid #e1eae4; border-radius:12px; background:#ffffffc9; }
-.readiness-next-icon { display:grid; place-items:center; width:28px; height:28px; flex:0 0 28px; border-radius:9px; color:#26705f; background:#eaf3ee; font-size:19px; }
-.readiness-next>div { min-width:0; }
-.readiness-next strong { display:block; color:#26473d; font-size:12px; font-weight:700; line-height:1.5; }
-.readiness-next p { margin:5px 0 0; color:#536d62; font-size:12px; line-height:1.6; }
-.readiness-action { display:inline-flex; gap:9px; align-items:center; margin-top:11px; color:#1b675c; font-size:12px; font-weight:700; text-decoration:none; min-height:28px; }
-.readiness-action:hover { text-decoration:underline; }
-.readiness-details>summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; margin:6px 0 -8px; color:#526f61; cursor:pointer; list-style:none; font-size:11px; font-weight:600; }
-.readiness-details>summary::-webkit-details-marker { display:none; }
-.readiness-details>summary>span:last-child { transition:transform .15s; }
-.readiness-details[open]>summary>span:last-child { transform:rotate(180deg); }
-.readiness-details-body { padding-top:14px; border-top:1px solid #dce9e1; }
 .readiness-explanation { margin:0 0 12px; font-size:11px; line-height:1.65; color:#60776b; }
 .readiness-explanation:last-child { margin:14px 0 0; }
 .readiness-gap-note { padding:10px 12px; background:#f8f2e6; border-radius:8px; font-size:11px; line-height:1.6; color:#7f6942; }
@@ -267,18 +251,13 @@ body:has(.radar-home) .bruno-pet { display:none; }
 .readiness-stages p { margin:4px 0; font-size:11px; color:#677c70; line-height:1.6; }
 .readiness-stages a { font-size:11px; color:#1b675c; text-underline-offset:3px; }
 .readiness-stages small { font-size:10px; color:#768578; }
-.project-readiness :focus-visible { outline:2px solid #21796a; outline-offset:4px; border-radius:4px; }
 @media(max-width:680px) {
   .radar-heading-badges { align-items:flex-end; flex-direction:column; gap:7px; }
   .radar-readiness-badge { padding:7px 9px; font-size:9px; }
-  .project-readiness { padding:18px; border-radius:15px; }
-  .readiness-heading h3 { font-size:18px; }
   .readiness-level { font-size:34px; }
   .readiness-track { gap:4px; margin-top:18px; }
-  .readiness-next { padding:12px; gap:9px; }
   .readiness-phase-labels { font-size:9px; }
 }
-@media(prefers-reduced-motion:reduce) { .readiness-details>summary>span:last-child { transition:none; } }
 
 /* Bruno hub: one place to ask, act and resume saved work. */
 .bruno-hub-intro { display:flex; flex:1; flex-direction:column; justify-content:center; align-items:center; gap:12px; padding:20px 0 24px; text-align:center; }

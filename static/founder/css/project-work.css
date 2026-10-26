@@ -113,7 +113,27 @@
 .work-page :is(section, article, #work-focus) { scroll-margin-top: 100px; }
 .work-radar-links { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 20px; }
 .work-radar-links a { font-size: 12px; color: #5a7a68; }
-/* Independent project evidence on the radar, intentionally without a total. */
+/* Shared readiness layout: used on the task page as well as the radar. */
+.project-readiness { margin:24px 0 8px; padding:22px; border:1px solid #dce9e1; border-radius:18px; background:linear-gradient(135deg,#f4f9f5,#edf5f1); scroll-margin-top:calc(var(--project-topbar-height,64px) + 20px); }
+.readiness-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.readiness-eyebrow { color:#557b6d; font-size:9px; font-weight:800; letter-spacing:1.7px; }
+.readiness-heading h3 { margin:6px 0 0; font-size:20px; line-height:1.3; font-weight:700; letter-spacing:-.5px; }
+.readiness-next { display:flex; align-items:start; gap:12px; margin-top:20px; padding:16px; border:1px solid #e1eae4; border-radius:12px; background:#ffffffc9; }
+.readiness-next-icon { display:grid; place-items:center; width:28px; height:28px; flex:0 0 28px; border-radius:9px; color:#26705f; background:#eaf3ee; font-size:19px; }
+.readiness-next>div { min-width:0; }
+.readiness-next strong { display:block; color:#26473d; font-size:12px; font-weight:700; line-height:1.5; }
+.readiness-next p { margin:5px 0 0; color:#536d62; font-size:12px; line-height:1.6; }
+.readiness-action { display:inline-flex; gap:9px; align-items:center; margin-top:11px; color:#1b675c; font-size:12px; font-weight:700; text-decoration:none; min-height:28px; }
+.readiness-action:hover { text-decoration:underline; }
+.readiness-details>summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; margin:6px 0 -8px; color:#526f61; cursor:pointer; list-style:none; font-size:11px; font-weight:600; }
+.readiness-details>summary::-webkit-details-marker { display:none; }
+.readiness-details>summary>span:last-child { transition:transform .15s; }
+.readiness-details[open]>summary>span:last-child { transform:rotate(180deg); }
+.readiness-details-body { padding-top:14px; border-top:1px solid #dce9e1; }
+.project-readiness :focus-visible { outline:2px solid #21796a; outline-offset:4px; border-radius:4px; }
+@media(prefers-reduced-motion:reduce) { .readiness-details>summary>span:last-child { transition:none; } }
+
+/* Independent project evidence, intentionally without a total. */
 .evidence-state.project-readiness { padding-top: 26px; }
 .evidence-state .readiness-heading { gap: 12px; align-items: start; }
 .evidence-state .readiness-heading h3 { font-size: 22px; margin-top: 7px; }
@@ -136,6 +156,12 @@
 .evidence-state .readiness-next strong { display: block; }
 .work-page a:focus-visible, .work-page summary:focus-visible, .work-subnav a:focus-visible,
 .evidence-state summary:focus-visible { outline: 2px solid #498a6c; outline-offset: 4px; }
+@media(max-width:680px) {
+    .project-readiness.evidence-state { padding:18px; border-radius:15px; }
+    .evidence-state .readiness-heading { flex-wrap:wrap; }
+    .evidence-state .readiness-heading h3 { font-size:18px; }
+    .readiness-next { padding:12px; gap:9px; }
+}
 @media (max-width: 1100px) {
     .work-focus-card { flex-wrap: wrap; }
     .work-focus-edit { margin-left: 66px; }
