@@ -17,7 +17,7 @@
             <input type="hidden" name="method" value="{{ mvp_method }}">
             <button class="button primary"
                     data-busy-label="Бруно готовит задачи…"
-                    {% if not has_story %}disabled{% endif %}>
+                    {% if not has_story %}disabled aria-describedby="work-story-help"{% endif %}>
                 {% if review %}
                     Обновить задачи
                 {% else %}
@@ -25,6 +25,12 @@
                 {% endif %}
                 <span aria-hidden="true">✦</span>
             </button>
+            {% if not has_story %}
+                <p class="work-start-hint" id="work-story-help">
+                    Сначала <a href="{% url 'startup_edit' startup.id %}">опишите идею проекта</a>
+                    или расскажите о ней Бруно, чтобы он смог подобрать задачи.
+                </p>
+            {% endif %}
             <span class="muted small" role="status" aria-live="polite"></span>
         </form>
     {% endif %}
