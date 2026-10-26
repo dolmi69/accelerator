@@ -43,9 +43,12 @@ def _workspace_return(request, startup, page, section):
 def tasks(request, startup_id):
     startup = owned_startup(request, startup_id, edit=False)
     open_tasks = visible_tasks(startup.bruno_tasks).filter(status=BrunoTask.Status.TODO).select_related('assignee','kano_feature','estimate')
-    from founder.services.work_assignments import selected_filter, filter_board, filter_query
+    from founder.services.work_assignments import (
+        STATUS_OPTIONS, selected_filter, selected_status, filter_board, filter_history, filter_query,
+    )
     people = assignable_users(startup)
     assignee_filter = selected_filter(request, people)
+    status_filter = selected_status(request)
     mine = assignee_filter == 'mine'
     from founder.feature_views import board_context
     reviews = startup.reviews.all()
@@ -77,7 +80,12 @@ def tasks(request, startup_id):
         'mine': sum(item['task'] is not None and item['task'].assignee_id == request.user.pk for item in entries),
         'unassigned': sum(item['task'] is None or item['task'].assignee_id is None for item in entries),
     }
-    priorities, open_tasks = filter_board(priorities, open_tasks, assignee_filter, request.user)
+    priorities, open_tasks = filter_board(priorities, open_tasks, assignee_filter, request.user, status_filter)
+    history = visible_tasks(startup.bruno_tasks).exclude(status=BrunoTask.Status.TODO).select_related('assignee')
+    history = filter_history(history, assignee_filter, request.user, status_filter)
+    history_page = Paginator(history, 15).get_page(request.GET.get('task_page'))
+    assignee_options = [('all', 'Все исполнители'), ('mine', 'Мои задания'), ('unassigned', 'Без исполнителя'),
+                        *((str(person.pk), person.public_name) for person in people)]
     for item in priorities['priority_entries']:
         item['assignment_url'] = (reverse('task_assign', args=[startup.pk, item['task'].pk]) if item['task'] else
                                   reverse('feature_assign', args=[startup.pk, item['feature'].pk]))
@@ -95,12 +103,17 @@ def tasks(request, startup_id):
         'has_story': (any((startup.one_line_pitch, startup.problem, startup.solution, startup.target_customer))
                       or startup.chat_sessions.filter(messages__role='user').exists()
                       or startup.evidence_entries.exists()),
-        'past_tasks': visible_tasks(startup.bruno_tasks).exclude(status=BrunoTask.Status.TODO).select_related('assignee')[:15],
+        'past_tasks': history_page.object_list, 'task_history_page': history_page,
+        'task_history_open': status_filter in ('done', 'skipped') or history_page.number > 1,
+        'task_filter_query': filter_query(assignee_filter, board['mvp_method'], status_filter),
         'is_demo': settings.AI_PROVIDER == 'demo',
-        'team': people, 'assignee_filter':assignee_filter,
-        'rice_filter_query':filter_query(assignee_filter, 'rice'), 'ice_filter_query':filter_query(assignee_filter, 'ice'),
-        'assignee_options':[('all','Все задания'), ('mine','Мои задания'), ('unassigned','Без исполнителя'),
-                            *((str(person.pk), person.public_name) for person in people)],
+        'team': people, 'assignee_filter':assignee_filter, 'status_filter': status_filter,
+        'status_options': STATUS_OPTIONS, 'status_filter_label': dict(STATUS_OPTIONS)[status_filter],
+        'assignee_filter_label': dict(assignee_options)[assignee_filter],
+        'active_filter_count': int(assignee_filter != 'all') + int(status_filter != 'all'),
+        'rice_filter_query':filter_query(assignee_filter, 'rice', status_filter),
+        'ice_filter_query':filter_query(assignee_filter, 'ice', status_filter),
+        'assignee_options': assignee_options,
         'task_filter_options': [{'value': value, 'label': label, 'count': filter_counts[value]}
                                 for value, label in (('all', 'Все задания'), ('mine', 'Мои задания'),
                                                      ('unassigned', 'Без исполнителя'))],
@@ -132,7 +145,7 @@ def feature_result(request, startup_id, feature_id):
 
 
 def _assign_work(request, startup_id, *, task_id=None, feature_id=None):
-    from founder.services.work_assignments import assignment_person, ensure_feature_task, filter_query
+    from founder.services.work_assignments import STATUS_OPTIONS, assignment_person, ensure_feature_task, filter_query
     with transaction.atomic():
         StartupProfile.objects.select_for_update().filter(pk=startup_id).exists()
         startup = owned_startup(request, startup_id)
@@ -153,9 +166,12 @@ def _assign_work(request, startup_id, *, task_id=None, feature_id=None):
     allowed = {'all', 'mine', 'unassigned', *(str(person.pk) for person in assignable_users(startup))}
     if selected not in allowed:
         selected = 'all'
+    status = request.POST.get('work_status', 'all')
+    if status not in dict(STATUS_OPTIONS):
+        status = 'all'
     messages.success(request, 'Исполнитель: ' + assignee.public_name if assignee else 'Задание теперь без исполнителя.')
     anchor = f'priority-task-{task.pk}' if task else f'priority-feature-{feature_id}'
-    return redirect(reverse('tasks', args=[startup.pk]) + '?' + filter_query(selected, method) + '#' + anchor)
+    return redirect(reverse('tasks', args=[startup.pk]) + '?' + filter_query(selected, method, status) + '#' + anchor)
 
 
 @login_required

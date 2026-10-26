@@ -14,6 +14,7 @@
             {% csrf_token %}
             <input type="hidden" name="method" value="{{ mvp_method }}">
             <input type="hidden" name="work_filter" value="{{ assignee_filter }}">
+            <input type="hidden" name="work_status" value="{{ status_filter }}">
             <label for="assign-{{ item.key }}">Кто возьмёт задачу</label>
             <div>
                 <select id="assign-{{ item.key }}" name="assignee">

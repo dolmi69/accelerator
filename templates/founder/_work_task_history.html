@@ -1,7 +1,8 @@
 {% if past_tasks %}
-    <details class="card project-card-fold">
+    <details class="project-card-fold work-task-history" id="task-history" {% if task_history_open %}open{% endif %}>
         <summary>
-            Предыдущие задания <small>{{ past_tasks|length }}</small>
+            {% if status_filter == 'done' %}Завершённые задания{% elif status_filter == 'skipped' %}Отложенные задания{% else %}Предыдущие задания{% endif %}
+            <small>{{ task_history_page.paginator.count }}</small>
         </summary>
         <div class="project-fold-body">
             {% for task in past_tasks %}
@@ -16,6 +17,17 @@
                     <a href="{% url 'evidence_list' startup.id %}?axis={{ task.axis }}">Смотреть дневник →</a>
                 </div>
             {% endfor %}
+            {% if task_history_page.has_other_pages %}
+                <nav class="work-history-pagination" aria-label="Страницы предыдущих заданий">
+                    {% if task_history_page.has_previous %}
+                        <a href="?{{ task_filter_query }}&amp;task_page={{ task_history_page.previous_page_number }}#task-history">← Назад</a>
+                    {% endif %}
+                    <span>{{ task_history_page.number }} / {{ task_history_page.paginator.num_pages }}</span>
+                    {% if task_history_page.has_next %}
+                        <a href="?{{ task_filter_query }}&amp;task_page={{ task_history_page.next_page_number }}#task-history">Далее →</a>
+                    {% endif %}
+                </nav>
+            {% endif %}
         </div>
     </details>
 {% endif %}

@@ -3,7 +3,7 @@
 {% block title %}Работа над проектом · {{ startup.name }}{% endblock %}
 {% block work_css %}
     <link rel="stylesheet" href="{% static 'founder/css/mvp.css' %}?v=3">
-    <link rel="stylesheet" href="{% static 'founder/css/work-plan.css' %}?v=14">
+    <link rel="stylesheet" href="{% static 'founder/css/work-plan.css' %}?v=16">
 {% endblock %}
 {% block work_page_class %}work-classic{% endblock %}
 {% block work_title %}Работа над проектом{% endblock %}
@@ -32,7 +32,6 @@
 {% block work_content %}
     {% if is_demo %}<p class="work-notice">Деморежим: показаны примеры задач, AI не вызывается.</p>{% endif %}
     {% include 'founder/_task_priorities.html' %}
-    {% include 'founder/_work_task_history.html' %}
     <details class="work-secondary" id="mvp-details">
         <summary>
             <span>Функции MVP
@@ -57,5 +56,5 @@
         </details>
     {% endblock %}
     {% block scripts %}
-        <script src="{% static 'founder/js/workbench.js' %}?v=6" defer></script>
+        <script src="{% static 'founder/js/workbench.js' %}?v=7" defer></script>
     {% endblock %}
