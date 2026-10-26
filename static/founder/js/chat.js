@@ -92,6 +92,8 @@
     let answer = addMessage("assistant", "Бруно думает…");
     // Пока ответа нет, подпись «думает…» мягко пульсирует; поток не зачитывается по кусочкам.
     answer.dataset.state = "thinking";
+    // Бруно рядом с чатом листает книгу, пока думает, и машет, пока пишет ответ (bruno.js).
+    window.Bruno?.state("thinking");
     list.ariaBusy = "true";
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 120000);
@@ -165,7 +167,7 @@
             if (typeof data.text === "string" && !started) answer.textContent = data.text;
           } else if (data.type === "delta") {
             if (typeof data.text !== "string") throw new Error("Неверный формат ответа.");
-            if (!started) { answer.textContent = ""; answer.dataset.state = ""; started = true; }
+            if (!started) { answer.textContent = ""; answer.dataset.state = ""; started = true; window.Bruno?.state("talking"); }
             answer.textContent += data.text;
             scrollToBottom();
           } else if (data.type === "error") {
@@ -180,6 +182,8 @@
       window.location.assign(window.location.pathname);
     } catch (error) {
       const reason = error.name === "AbortError" ? "Истекло время ожидания." : error.message;
+      window.Bruno?.state("idle");
+      window.Bruno?.react("serious", 2200);
       answer.dataset.state = "";
       answer.textContent = `Не удалось получить ответ: ${reason}`;
       if (rejected) sent.closest(".message").remove();

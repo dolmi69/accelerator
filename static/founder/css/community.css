@@ -158,3 +158,6 @@ button.report-button:focus-visible { outline:2px solid #c8372d; outline-offset:2
 .button.report-confirm:disabled { opacity:.6; }
 @media (max-width:720px) { .discovery-card .danger-label { font-size:26px; } .public-project .danger-label { font-size:32px; } }
 @media (prefers-reduced-motion:reduce) { .danger-label.is-new { animation:none; } }
+
+/* Ссылка на карточку и жалоба в правом верхнем углу карточки. */
+.discovery-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; }

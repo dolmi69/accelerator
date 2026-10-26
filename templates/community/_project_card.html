@@ -5,7 +5,16 @@
             {% if card.is_promoted %}<span class="promo-badge">Продвигается</span>{% endif %}
             <span class="community-tag">{{ card.published_data.stage_label }}</span>
         </div>
-        {% include 'community/_card_report.html' with name=card.published_data.name %}
+        <div class="discovery-actions">
+            <button type="button"
+                    class="icon-button"
+                    data-copy-url="{% url 'card_detail' card.startup_id %}"
+                    aria-label="Скопировать ссылку на «{{ card.published_data.name }}»"
+                    title="Скопировать ссылку">
+                {% include 'founder/_icon.html' with name='link' %}
+            </button>
+            {% include 'community/_card_report.html' with name=card.published_data.name %}
+        </div>
     </div>
     {% if card.is_dangerous %}<p class="danger-label">Опасно!</p>{% endif %}
     <h2>

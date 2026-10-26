@@ -62,8 +62,30 @@
                  aria-label="Радары проектов"
                  aria-roledescription="карусель">
             <div class="carousel-toolbar">
-                <span class="muted small">Листайте свайпом или стрелками</span>
-                <div class="carousel-controls">
+                {% if project_cards|length > 1 %}
+                    <search class="project-search">
+                        <label class="sr-only" for="project-search">Найти проект по названию</label>
+                        {% include 'founder/_icon.html' with name='search' %}
+                        <input id="project-search"
+                               type="search"
+                               placeholder="Найти проект"
+                               autocomplete="off"
+                               enterkeyhint="search"
+                               maxlength="160"
+                               data-project-search>
+                        <button type="button"
+                                class="icon-button project-search-clear"
+                                data-project-search-reset
+                                aria-label="Сбросить поиск"
+                                title="Сбросить поиск"
+                                hidden>
+                            {% include 'founder/_icon.html' with name='close' %}
+                        </button>
+                    </search>
+                {% else %}
+                    <span class="muted small">Листайте свайпом или стрелками</span>
+                {% endif %}
+                <div class="carousel-controls" data-carousel-controls>
                     <button type="button"
                             class="button ghost carousel-arrow"
                             data-carousel-prev
@@ -79,12 +101,23 @@
                             {% if project_cards|length < 2 %}disabled{% endif %}>→</button>
                 </div>
             </div>
+            {% if project_cards|length > 1 %}
+                <p class="sr-only" data-project-search-status role="status"></p>
+                <div class="card project-search-empty" data-project-search-empty hidden>
+                    <h2>Ничего не нашлось</h2>
+                    <p class="muted">
+                        Нет проектов, в названии которых есть «<span data-project-search-query></span>». Проверьте написание.
+                    </p>
+                    <button type="button" class="button ghost" data-project-search-reset>Сбросить поиск</button>
+                </div>
+            {% endif %}
             <div class="project-slides"
                  id="project-slides"
                  tabindex="0"
                  aria-label="Проекты; используйте стрелки влево и вправо">
                 {% for card in project_cards %}
                     <article class="card project-slide"
+                             data-project-name="{{ card.startup.name }}"
                              aria-roledescription="слайд"
                              aria-label="{{ forloop.counter }} из {{ project_cards|length }}: {{ card.startup.name }}">
                         <div class="section-top">
@@ -135,6 +168,14 @@
                         {% if card.role != 'viewer' %}
                             <a class="button ghost" href="{% url 'card_edit' card.startup.id %}">Карточка проекта</a>
                         {% endif %}
+                        {% if card.published %}
+                            <button type="button"
+                                    class="button ghost"
+                                    data-copy-url="{% url 'card_detail' card.startup.id %}">
+                                {% include 'founder/_icon.html' with name='link' %}
+                                Скопировать ссылку
+                            </button>
+                        {% endif %}
                     </article>
                 {% endfor %}
             </div>
@@ -142,5 +183,5 @@
     {% endif %}
 {% endblock %}
 {% block scripts %}
-    <script src="{% static 'founder/js/projects.js' %}" defer></script>
+    <script src="{% static 'founder/js/projects.js' %}?v=2" defer></script>
 {% endblock %}

@@ -40,3 +40,21 @@ class BrunoPetTests(TestCase):
         self.assertEqual(ChatSession.objects.count(), 0)
         self.client.logout()
         self.assertNotContains(self.client.get(reverse('login')), 'data-bruno-pet')
+
+    def test_guest_home_is_welcome_screen_with_register_and_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('home'))
+        self.assertTemplateUsed(response, 'founder/welcome.html')
+        self.assertContains(response, 'Здравствуйте. Я Бруно.')
+        self.assertContains(response, f'href="{reverse("register")}"')
+        self.assertContains(response, f'href="{reverse("login")}"')
+        self.assertContains(response, 'data-pose="walk"')
+        self.assertNotContains(response, 'data-bruno-pet')
+
+    def test_login_and_register_show_bruno_watching_the_form(self):
+        self.client.logout()
+        for name in ('login', 'register'):
+            with self.subTest(page=name):
+                page = self.client.get(reverse(name))
+                self.assertContains(page, 'data-bruno-watcher')
+                self.assertContains(page, 'data-bruno-watch>')

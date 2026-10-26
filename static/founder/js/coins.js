@@ -29,6 +29,8 @@
     toast.innerHTML = COIN;
     toast.append(`+${earned} ${plural(earned)}`);
     document.body.append(toast);
+    // Монеты для Бруно — как мёд: он ненадолго достаёт горшочек (bruno.js).
+    window.Bruno?.react('honey', 1800);
     setTimeout(() => toast.classList.add('is-leaving'), 3200);
     setTimeout(() => toast.remove(), 3500);
   };

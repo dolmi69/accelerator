@@ -58,8 +58,10 @@ def about(request):
     return render(request, "founder/about.html")
 
 
-@login_required
 def home(request):
+    # Гость видит заставку с Бруно и выбирает регистрацию или вход.
+    if not request.user.is_authenticated:
+        return render(request, "founder/welcome.html")
     cards = project_cards(request.user)
     invites = list(pending_invites(request.user))
     if not cards and not invites:

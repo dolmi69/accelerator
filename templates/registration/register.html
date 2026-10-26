@@ -3,6 +3,7 @@
 {% block content %}
     <section class="auth-wrap">
         <div class="auth-intro">
+            <div class="auth-bruno" data-bruno-watcher>{% include 'founder/_bruno_guest.html' with instance_id='register' %}</div>
             <span class="eyebrow">НАЧНИТЕ С ИДЕИ</span>
             <h1>
                 У каждого фаундера
@@ -13,7 +14,7 @@
         </div>
         <div class="card auth-card">
             <h2>Создать аккаунт</h2>
-            <form method="post" class="form-stack">
+            <form method="post" class="form-stack" data-bruno-watch>
                 {% csrf_token %}
                 {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
                 {% for field in form %}

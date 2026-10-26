@@ -78,3 +78,5 @@
     .card-publish-buttons { grid-template-columns:1fr; }
 }
 @media(prefers-reduced-motion:reduce) { .card-edit-document input,.card-edit-document textarea { transition:none; } }
+
+.card-edit-links { display:flex; align-items:center; flex-wrap:wrap; gap:8px 16px; }

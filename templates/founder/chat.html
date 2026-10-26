@@ -102,7 +102,18 @@
                                 {% else %}
                                     Бруно
                                 {% endif %}
-                                <span>{{ message.created_at|date:"H:i" }}</span>
+                                <span class="message-meta-end">
+                                    <span>{{ message.created_at|date:"H:i" }}</span>
+                                    {% if message.role == 'assistant' %}
+                                        <button type="button"
+                                                class="icon-button message-copy"
+                                                data-copy-text="#message-{{ message.id }} .message-text"
+                                                aria-label="Скопировать ответ"
+                                                title="Скопировать ответ">
+                                            {% include 'founder/_icon.html' with name='copy' %}
+                                        </button>
+                                    {% endif %}
+                                </span>
                             </div>
                             {# djlint:off #}<div class="message-text">{{ message.content|linebreaksbr }}</div>{# djlint:on #}
                             {% if message.funding_note %}
@@ -395,7 +406,7 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
-    <script src="{% static 'founder/js/workbench.js' %}?v=2" defer></script><script src="{% static 'founder/js/chat.js' %}?v=frontend-1"></script><script src="{% static 'founder/js/dashboard.js' %}"></script>
+    <script src="{% static 'founder/js/workbench.js' %}?v=2" defer></script><script src="{% static 'founder/js/chat.js' %}?v=frontend-2"></script><script src="{% static 'founder/js/dashboard.js' %}"></script>
     {% if panel.verdict %}
         <script src="{% static 'founder/js/panel.js' %}?v=sharks-3" defer></script>
     {% endif %}

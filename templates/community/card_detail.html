@@ -14,7 +14,15 @@
                     <div class="discovery-identity">
                         <span class="project-monogram large">{{ public.name|first|upper }}</span><span class="community-tag">{{ public.stage_label }}</span>
                     </div>
-                    {% include 'community/_card_report.html' with name=public.name %}
+                    <div class="discovery-actions">
+                        <button type="button"
+                                class="button ghost"
+                                data-copy-url="{% url 'card_detail' card.startup_id %}">
+                            {% include 'founder/_icon.html' with name='link' %}
+                            Скопировать ссылку
+                        </button>
+                        {% include 'community/_card_report.html' with name=public.name %}
+                    </div>
                 </div>
                 {% if card.is_dangerous %}<p class="danger-label">Опасно!</p>{% endif %}
                 <h1>{{ public.name }}</h1>

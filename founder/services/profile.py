@@ -8,7 +8,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 
-from founder.models import StartupMetrics
+from founder.models import ProjectCard, StartupMetrics
 from founder.services.access import ROLE_LABELS, accessible_startups, project_role
 from founder.services.metrics import AXES, radar_grid, radar_points
 
@@ -21,6 +21,9 @@ def project_cards(user):
     projects = accessible_startups(user).select_related("owner").prefetch_related(Prefetch(
         "metric_snapshots", queryset=StartupMetrics.objects.all()[:1], to_attr="latest_snapshots",
     ))
+    # Опубликованным карточкам на странице проектов нужна кнопка «Скопировать ссылку».
+    published = set(ProjectCard.objects.filter(startup__in=projects, published_at__isnull=False)
+                    .values_list("startup_id", flat=True))
     cards = []
     for startup in projects:
         latest = startup.latest_snapshots[0] if startup.latest_snapshots else None
@@ -28,6 +31,7 @@ def project_cards(user):
         cards.append({
             "startup": startup, "latest": latest, "points": radar_points(latest) if latest else "",
             "role": role, "role_label": ROLE_LABELS[role] if startup.is_shared else "",
+            "published": startup.id in published,
             "axes": [(label, getattr(latest, key, None)) for key, label in AXES],
         })
     return cards

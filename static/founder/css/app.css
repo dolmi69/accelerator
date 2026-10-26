@@ -1081,3 +1081,99 @@ details.is-opening>:not(summary) { animation:fold-in .24s cubic-bezier(.22,1,.36
 @keyframes coin-pulse { 40% { transform:scale(1.08); } }
 .coin-toast.is-leaving { opacity:0; transform:translate(-50%,-6px); transition:opacity .25s ease-in,transform .25s ease-in; }
 .coin-toast .icon { width:18px; height:18px; margin-right:6px; vertical-align:-.25em; }
+
+/* Круглая кнопка-иконка: копирование ответа Бруно, ссылки на карточку, сброс поиска. */
+.icon-button { display:inline-grid; place-items:center; width:40px; height:40px; padding:0; border:0; border-radius:50%; background:transparent; color:var(--muted); cursor:pointer; flex-shrink:0; transition:background-color .18s ease-out,color .18s ease-out; }
+.icon-button .icon { width:20px; height:20px; }
+.icon-button:hover { background:#e1efe8; color:var(--teal-dark); }
+.icon-button.is-copied { color:var(--teal); }
+.button:has(> .icon) { gap:8px; }
+.button > .icon { width:18px; height:18px; }
+
+/* Ответ Бруно: время и кнопка копирования справа в строке автора. Зона касания 44 px, сам кружок 32 px. */
+.message-meta { align-items:center; }
+.message-meta-end { display:inline-flex; align-items:center; gap:2px; }
+.message-copy { position:relative; width:32px; height:32px; margin:-8px -10px -8px 0; }
+.message-copy::after { content:""; position:absolute; inset:-6px; }
+.message-copy .icon { width:17px; height:17px; }
+.message-assistant .message-copy:hover { background:#e2ece7; }
+
+/* Поиск среди своих проектов в панели карусели. */
+.carousel-toolbar { flex-wrap:wrap; }
+.carousel-controls { margin-left:auto; }
+.carousel-controls[hidden] { display:none; }
+.project-search { position:relative; display:flex; align-items:center; flex:1 1 240px; max-width:380px; }
+.project-search > .icon { position:absolute; left:13px; width:18px; height:18px; color:var(--muted); pointer-events:none; }
+.project-search input { width:100%; min-height:46px; padding:10px 46px 10px 40px; border:1px solid #d6dfdf; border-radius:10px; background:#fff; color:var(--ink); font-size:14px; }
+.project-search input::-webkit-search-cancel-button { appearance:none; }
+.project-search input:focus { outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(20,125,115,.25); }
+.project-search-clear { position:absolute; right:3px; }
+.project-search-clear[hidden] { display:none; }
+.project-slide[hidden],.project-slides[hidden] { display:none; }
+.project-search-empty { padding:30px; text-align:left; }
+.project-search-empty h2 { margin:0 0 8px; font-size:22px; }
+.project-search-empty p { max-width:60ch; margin:0 0 18px; overflow-wrap:anywhere; }
+.project-slide .button { margin:6px 6px 0 0; }
+@media (max-width:680px) {
+  .project-search { flex-basis:100%; max-width:none; }
+  .project-search input { font-size:16px; }
+  .project-search-empty { padding:20px; }
+}
+
+/* Короткое уведомление «Текст скопирован» / «Ссылка скопирована». */
+.toast-region { position:fixed; top:88px; left:50%; z-index:70; transform:translateX(-50%); width:max-content; max-width:calc(100% - 28px); pointer-events:none; }
+.toast { display:flex; align-items:center; gap:8px; padding:11px 16px; border-radius:10px; background:var(--navy); color:#fff; font-size:14px; font-weight:700; line-height:1.4; box-shadow:0 12px 34px rgba(18,35,56,.22); overflow-wrap:anywhere; transition:opacity .2s ease-in,transform .2s ease-in; }
+.toast .icon { width:18px; height:18px; color:#8fd8c8; }
+.toast.is-error { background:#7a2f2a; }
+.toast.is-leaving { opacity:0; transform:translateY(-6px); }
+@media (prefers-reduced-motion:no-preference) { .toast { animation:pop-down .22s cubic-bezier(.22,1,.36,1); } }
+@media (prefers-reduced-motion:reduce) { .toast { animation:fade-in .15s ease-out; } .toast.is-leaving { transform:none; } }
+@media (max-width:680px) { .toast-region { top:76px; } }
+
+/* Бруно оживает (bruno.js): смена позы, моргание, реакции, дремота плавающего Бруно, взгляд на вводе. */
+/* rotate только по запросу: любое значение, кроме none, отделяет слой, и белый фон PNG перестаёт растворяться (multiply). */
+.bruno-art { rotate:var(--bruno-look,none); transform-origin:50% 90%; transition:rotate .3s ease-out; }
+.bruno-stage { transform-origin:50% 95%; transition:opacity .11s ease-in,transform .11s ease-in; }
+.bruno-art.is-swapping .bruno-stage { opacity:0; transform:scale(.94); }
+.bruno-art.is-popping .bruno-stage { animation:bruno-pop .34s cubic-bezier(.2,.9,.3,1.15); }
+.bruno-lid { transform-box:fill-box; transform-origin:50% 0; transform:scaleY(0); }
+.bruno-lash { opacity:0; }
+.bruno-art.is-blinking .bruno-lid { animation:bruno-blink .24s ease-in-out; }
+.bruno-art.is-blinking .bruno-lash { animation:bruno-lash .24s ease-in-out; }
+.bruno-art.eyes-closed .bruno-lid { transform:scaleY(1); transition:transform .16s ease-out; }
+.bruno-art.eyes-closed .bruno-lash { opacity:1; transition:opacity .08s ease-out .1s; }
+.bruno-art[data-pose-temp] .bruno-accessories { opacity:0; }
+.bruno-art.is-thinking .bruno-character { animation:bruno-read 1.8s ease-in-out infinite; }
+.bruno-art.is-talking .bruno-character { animation:bruno-talk .42s ease-in-out infinite alternate; }
+.bruno-art.is-waking .bruno-character { animation:bruno-stretch .8s ease-out; }
+.pet-project:hover .bruno-stage,.bruno-art:has(.bruno-greet:not([hidden])):hover .bruno-stage { animation:bruno-hop .5s cubic-bezier(.3,.7,.4,1); }
+.bruno-greet .icon { width:20px; height:20px; margin:auto; }
+@keyframes bruno-pop { from { opacity:.3; transform:scale(.92,1.05); } 60% { transform:scale(1.02,.98); } }
+@keyframes bruno-blink { 35%,60% { transform:scaleY(1); } }
+@keyframes bruno-lash { 35%,60% { opacity:1; } }
+@keyframes bruno-read { 0%,100% { transform:rotate(-1.2deg); } 50% { transform:translateY(-2px) rotate(1.2deg); } }
+@keyframes bruno-talk { to { transform:translateY(-3px) rotate(.8deg); } }
+@keyframes bruno-stretch { 35% { transform:scale(1.05,.95); } 65% { transform:scale(.98,1.03); } }
+@keyframes bruno-hop { 40% { translate:0 -8px; } 70% { translate:0 1px; } }
+/* Плавающий Бруно качается на «загривке», пока его несут, и успокаивается после броска. */
+.bruno-pet .bruno-art { --swing:0deg; rotate:var(--swing); transform-origin:50% 0; transition:rotate .7s cubic-bezier(.25,1.6,.45,1); }
+.bruno-pet.is-dragging .bruno-art { transition-duration:.12s; }
+.bruno-pet.is-dozing .pet-bubble { opacity:0; }
+.pet-bubble { transition:opacity .3s ease-out; }
+.pet-zzz { position:absolute; top:46px; right:14px; width:30px; height:40px; pointer-events:none; display:none; }
+.bruno-pet.is-dozing .pet-zzz { display:block; }
+.pet-zzz i { position:absolute; left:0; bottom:0; font:800 15px/1 Manrope,sans-serif; font-style:normal; color:var(--teal-dark); opacity:0; animation:bruno-z 2.4s ease-out infinite; }
+.pet-zzz i:nth-child(2) { animation-delay:.8s; }
+.pet-zzz i:nth-child(3) { animation-delay:1.6s; }
+@keyframes bruno-z { 25% { opacity:1; } to { opacity:0; transform:translate(16px,-30px) scale(1.25); } }
+@media (prefers-reduced-motion:reduce) {
+  .bruno-art,.bruno-pet .bruno-art { transition:none; }
+  .pet-zzz i { animation:none; opacity:1; }
+  .pet-zzz i:nth-child(2) { transform:translate(8px,-14px); }
+  .pet-zzz i:nth-child(3) { transform:translate(16px,-28px); }
+}
+.pet-project { position:relative; }
+/* Бруно на входе и регистрации: смотрит на ввод и закрывает глаза на пароле. */
+.auth-bruno { width:150px; margin:0 0 12px -10px; mix-blend-mode:multiply; }
+.auth-bruno .bruno-art { width:100%; margin:0; }
+@media (max-width:950px) { .auth-bruno { width:112px; } }

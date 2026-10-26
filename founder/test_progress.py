@@ -47,6 +47,34 @@ class ProjectProgressTests(TestCase):
         self.assertContains(page, "Без оценки")
         self.assertEqual(len(page.context["project_cards"]), 2)
 
+    def test_projects_page_has_search_and_copy_link_only_for_published_card(self):
+        from django.utils import timezone
+        from founder.models import ProjectCard
+        ProjectCard.objects.create(startup=self.startup, name="Первый проект", published_at=timezone.now(),
+                                   published_data={"name": "Первый проект"})
+        ProjectCard.objects.create(startup=self.second, name="Второй проект")
+        page = self.client.get(reverse("home"))
+        self.assertContains(page, 'id="project-search"')
+        self.assertContains(page, 'data-project-name="Первый проект"')
+        self.assertContains(page, "Ничего не нашлось")
+        self.assertContains(page, "Сбросить поиск")
+        self.assertContains(page, f'data-copy-url="{reverse("card_detail", args=[self.startup.id])}"', count=1)
+        self.assertNotContains(page, f'data-copy-url="{reverse("card_detail", args=[self.second.id])}"')
+
+    def test_single_project_has_no_search(self):
+        solo = User.objects.create_user(username="solo", email="solo@example.com")
+        StartupProfile.objects.create(owner=solo, name="Один проект")
+        self.client.force_login(solo)
+        self.assertNotContains(self.client.get(reverse("home")), "data-project-search")
+
+    def test_chat_offers_copy_only_for_bruno_answers(self):
+        session = ChatSession.objects.create(startup=self.startup, mode="cofounder")
+        ChatMessage.objects.create(session=session, role="user", content="Мой вопрос")
+        answer = ChatMessage.objects.create(session=session, role="assistant", content="Ответ Бруно")
+        page = self.client.get(reverse("chat_detail", args=[self.startup.id, session.id]))
+        self.assertContains(page, f'data-copy-text="#message-{answer.id} .message-text"')
+        self.assertContains(page, "Скопировать ответ", count=2)  # aria-label и title одной кнопки
+
     def test_citations_reject_invented_quotes_assistant_and_other_project_sources(self):
         session = ChatSession.objects.create(startup=self.startup, mode="cofounder")
         question = ChatMessage.objects.create(session=session, role="assistant", content="А может, миллион продаж?")
