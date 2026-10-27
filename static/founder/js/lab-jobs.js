@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const input = form.querySelector('[name="prompt"]');
   const send = form.querySelector('button[type="submit"]');
   const status = document.getElementById('lab-status');
+  const modelRoute = document.getElementById('lab-model-route');
+  const modelHint = modelRoute?.textContent || '';
   const initial = document.getElementById('lab-job-state');
   const thread = document.getElementById('lab-thread');
   const active = job => job && ['queued', 'running'].includes(job.status);
@@ -14,6 +16,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function show(job) {
     current = job;
+    if (modelRoute) {
+      if (job?.model_route) {
+        const route = job.model_route;
+        modelRoute.textContent = `${route.phase === 'analysis' ? 'Разбор' : 'Задача'}: ${route.label} · ${route.reason}`;
+      } else {
+        modelRoute.textContent = submitting || active(job) ? 'Выбираем модель для запроса…' : modelHint;
+      }
+    }
     const busy = submitting || active(job);
     input.readOnly = busy;
     send.disabled = busy;

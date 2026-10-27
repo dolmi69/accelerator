@@ -150,17 +150,20 @@ def generate_code(system_prompt, messages, *, max_tokens=None, temperature=0.3, 
     key = os.getenv(key_name, "").strip()
     if not key:
         raise QwenError(f"Нужен API-ключ {provider_name}: {key_name} в .env.")
-    model = (settings.OFOX_CODE_MODEL if is_ofox else settings.QWEN_CODE_MODEL).strip()
+    from founder.services.lab_models import active_model, override_model, prices as routed_prices
+    model = active_model().strip()
     upstream = settings.OFOX_PROVIDER_TYPE if is_ofox else ''
     if upstream and upstream not in {'openai', 'azure_foundry', 'anthropic', 'aws_bedrock', 'gemini', 'vertex'}:
         raise QwenError('Проверьте OFOX_PROVIDER_TYPE по каталогу провайдеров Ofox.')
     pricing = None
     if is_ofox:
-        if model != settings.OFOX_PRICE_MODEL:
+        routed = override_model() is not None
+        if not routed and model != settings.OFOX_PRICE_MODEL:
             raise QwenError("Для выбранной модели настройте её тариф OFOX_PRICE_MODEL.")
         try:
             rate = Decimal(settings.OFOX_USD_RUB_RATE)
-            prices = [Decimal(settings.OFOX_INPUT_USD_PER_MILLION), Decimal(settings.OFOX_OUTPUT_USD_PER_MILLION)]
+            prices = [Decimal(value) for value in (routed_prices(model) if routed else
+                      (settings.OFOX_INPUT_USD_PER_MILLION, settings.OFOX_OUTPUT_USD_PER_MILLION))]
             if not all(value.is_finite() and value > 0 for value in [rate, *prices]):
                 raise InvalidOperation
             pricing = tuple(price * rate for price in prices)

@@ -138,6 +138,11 @@ LAB_RAW_AI_TEST_MODE = os.getenv("LAB_RAW_AI_TEST_MODE", "0") == "1" and sys.arg
 # Explicit, temporary local experiment; never enabled by .env on production.
 LAB_UNRESTRICTED_TEST_MODE = DEBUG and os.getenv("LAB_UNRESTRICTED_TEST_MODE", "0") == "1" and sys.argv[1:2] != ["test"]
 OFOX_CODE_MODEL = os.getenv("OFOX_CODE_MODEL", "openai/gpt-6.1-sol")
+LAB_MODEL_ROUTING = os.getenv("LAB_MODEL_ROUTING", "1") == "1"
+LAB_SOL_INPUT_USD_PER_MILLION = os.getenv("LAB_SOL_INPUT_USD_PER_MILLION", "2")
+LAB_SOL_OUTPUT_USD_PER_MILLION = os.getenv("LAB_SOL_OUTPUT_USD_PER_MILLION", "10")
+LAB_LUNA_INPUT_USD_PER_MILLION = os.getenv("LAB_LUNA_INPUT_USD_PER_MILLION", "0.10")
+LAB_LUNA_OUTPUT_USD_PER_MILLION = os.getenv("LAB_LUNA_OUTPUT_USD_PER_MILLION", "0.50")
 OFOX_CODE_API = os.getenv("OFOX_CODE_API", "responses").strip().lower()
 OFOX_CODE_STREAM = os.getenv("OFOX_CODE_STREAM", "1").strip().lower() in {"1", "true", "yes"}
 # Pin an upstream channel for reproducible tests; empty uses Ofox routing.

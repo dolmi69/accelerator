@@ -175,7 +175,8 @@ def generate_site(prompt, *, previous_html="", max_tokens=None, backend=False, e
         instruction += '\n' + capability_prompt(capabilities)
     if not raw and (not patching or rebuild):
         instruction += '\n' + DESIGN_GUIDE.read_text(encoding='utf-8')
-    if not raw and settings.LAB_CODE_PROVIDER == 'ofox' and settings.OFOX_CODE_MODEL.startswith('openai/gpt-6'):
+    from founder.services.lab_models import active_model
+    if not raw and settings.LAB_CODE_PROVIDER == 'ofox' and active_model().startswith('openai/gpt-6'):
         instruction += '\n' + LUNA_GUIDE.read_text(encoding='utf-8')
     if not raw:
         instruction += '\n' + component_prompt(prompt, creating=not patching)

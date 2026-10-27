@@ -33,6 +33,7 @@ from founder.services.ai_costs import billing_scope, usage_summary
 from founder.services.site_editor import customize, simple_command, text_command, replace_visible_text
 from founder.services.backend_modules import module_command, normalize_modules, MODULES, OPTIONAL_MODULES, DEFAULT_OPTIONAL, MODULE_GROUPS
 from founder.services.request_limits import RequestLimitExceeded, acquire_ai_lease, consume_limit, release_ai_lease
+from founder.services import lab_models
 
 
 def _owned_startup(request, startup_id, *, edit=True):
@@ -162,6 +163,7 @@ def _lab_page(request, startup, form=None, *, status=200):
         "backend_staged": settings.LAB_BACKEND_STAGED_GENERATION,
         "lab_model_label": _model_label(settings.OFOX_CODE_MODEL if settings.LAB_CODE_PROVIDER == 'ofox' else settings.QWEN_CODE_MODEL),
         "lab_provider_label": 'Ofox' if settings.LAB_CODE_PROVIDER == 'ofox' else 'Cloud.ru',
+        "lab_model_routing": lab_models.enabled(),
         "form": form,
         'backend_form': backend_form,
         'module_groups': [{'title': title, 'fields': [checkboxes[key] for key in keys]} for title, keys in MODULE_GROUPS],
@@ -211,8 +213,8 @@ def lab(request, startup_id):
     return _lab_page(request, _owned_startup(request, startup_id, edit=False))
 
 
-def generation_key(startup, source, prompt, kind, scope="auto", rebuild=False, modules=None, context=None):
-    code_profile = (f"ofox/{settings.OFOX_CODE_MODEL}/{settings.OFOX_CODE_REASONING_EFFORT}/{settings.OFOX_CODE_API}/{settings.OFOX_PROVIDER_TYPE or 'auto'}"
+def generation_key(startup, source, prompt, kind, scope="auto", rebuild=False, modules=None, context=None, code_model=None):
+    code_profile = (f"ofox/{code_model or settings.OFOX_CODE_MODEL}/{settings.OFOX_CODE_REASONING_EFFORT}/{settings.OFOX_CODE_API}/{settings.OFOX_PROVIDER_TYPE or 'auto'}"
                     if settings.LAB_CODE_PROVIDER == "ofox" else settings.QWEN_CODE_MODEL)
     return hashlib.sha256(json.dumps([
         GENERATOR_REVISION, str(startup.pk), str(source.pk) if source else None,
@@ -222,7 +224,7 @@ def generation_key(startup, source, prompt, kind, scope="auto", rebuild=False, m
         settings.LAB_CREATE_MAX_TOKENS, settings.LAB_PATCH_MAX_TOKENS,
         settings.QWEN_CODE_MAX_TOKENS, settings.LAB_CREATE_TEMPERATURE, settings.LAB_PATCH_TEMPERATURE,
         modules if modules is not None else source.backend_modules if source else [],
-        context,
+        context, lab_models.POLICY if code_model else None,
     ], ensure_ascii=False).encode()).hexdigest()
 
 
@@ -257,8 +259,13 @@ def _lab_automatic(request, startup, source, form):
             request.ai_lease = token
             remember_lease(request, token)
             _consume_lab_limits(request.user)
-        with billing_scope(request.user, startup, 'intent'):
-            decision, result = decide(startup, source, protect_prompt)
+        from founder.services.lab_jobs import remember_model_route
+        planning = lab_models.planning_route(source)
+        request.lab_planning_route = planning
+        remember_model_route(request, planning)
+        with lab_models.model_scope(planning['model'] if planning else None):
+            with billing_scope(request.user, startup, 'intent'):
+                decision, result = decide(startup, source, protect_prompt)
         request.lab_automatic_decision = decision
         job_id = getattr(request, 'lab_job_id', None)
         if job_id:
@@ -363,7 +370,9 @@ def _lab_execute(request, startup, source, form):
     if raw:
         context['mode'] = 'generated_backend' if kind == LabSiteVersion.Kind.GENERATED else 'raw_static_experiment'
     # An experiment must invoke the model even for identical prompts.
-    key = None if raw else generation_key(startup, source, prompt, kind, scope, rebuild, chosen, context)
+    model_route = lab_models.generation_route(source, automatic, kind=kind, rebuild=form.cleaned_data['rebuild'])
+    key = None if raw else generation_key(startup, source, prompt, kind, scope, rebuild, chosen, context,
+                                         code_model=model_route['model'] if model_route else None)
     cached = startup.lab_versions.filter(generation_key=key).first() if key else None
     if cached:
         messages.success(request, "Открыли уже сохранённый результат. Новый AI-запрос не понадобился.")
@@ -392,7 +401,10 @@ def _lab_execute(request, startup, source, form):
         if cached:
             return _reply_redirect(request, startup, cached, source, cached=True)
         generating_design = True
-        result = _generate_design(request, startup, source, prompt, kind, scope, rebuild, chosen, context)
+        from founder.services.lab_jobs import remember_model_route
+        remember_model_route(request, model_route)
+        with lab_models.model_scope(model_route['model'] if model_route else None):
+            result = _generate_design(request, startup, source, prompt, kind, scope, rebuild, chosen, context)
         generating_design = False
         intent = result.intent
         if intent:
@@ -440,6 +452,7 @@ def _lab_execute(request, startup, source, form):
         input_tokens=result.input_tokens, output_tokens=result.output_tokens,
         generation_key=key, edit_method=result.edit_method,
         presentation=presentation, backend_modules=chosen, backend_files=result.backend_files, feedback=feedback,
+        routing=model_route,
     )
     if result.request_id or result.request_ids:
         LabAIUsage.objects.filter(pk__in=result.request_ids or (result.request_id,), user=request.user, startup=startup).update(version=version)
@@ -512,8 +525,14 @@ def _lab_discuss(request, startup, source, form):
             existing = LabConversationTurn.objects.filter(pk=turn_id, startup=startup, user=request.user).first()
             if existing:
                 return response(existing)
-        with billing_scope(request.user, startup, 'discuss'):
-            reply, result = getattr(request, 'lab_prepared_answer', None) or discussion_reply(startup, source, prompt)
+        planning = getattr(request, 'lab_planning_route', None) or lab_models.planning_route(source)
+        from founder.services.lab_jobs import remember_model_route
+        remember_model_route(request, planning)
+        with lab_models.model_scope(planning['model'] if planning else None):
+            with billing_scope(request.user, startup, 'discuss'):
+                reply, result = getattr(request, 'lab_prepared_answer', None) or discussion_reply(startup, source, prompt)
+        if planning and result:
+            reply['routing'] = planning
         reply['usage'] = ('Без AI · 0 токенов' if reply.get('local') else
                           f'AI-ответ · {result.input_tokens + result.output_tokens} токенов'
                           if result.input_tokens is not None and result.output_tokens is not None else 'AI-ответ · расход уточняется')
@@ -561,9 +580,11 @@ def _generate_design(request, startup, source, prompt, kind, scope, rebuild, cho
     return result
 
 
-def _create_version(*, report=None, feedback=None, **fields):
+def _create_version(*, report=None, feedback=None, routing=None, **fields):
     version = LabSiteVersion(**fields)
     version.bruno_report = report if report is not None else reviewed_reply(version, feedback) if feedback else version_reply(version)
+    if routing:
+        version.bruno_report = {**version.bruno_report, 'routing': routing}
     version.save(force_insert=True)
     return version
 def _log_version(request, startup, source, version):
