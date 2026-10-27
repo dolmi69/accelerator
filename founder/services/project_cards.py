@@ -98,12 +98,21 @@ def public_snapshot(values, startup):
     return data
 
 
+class CardBlockedError(Exception):
+    """The card was withdrawn for a rule violation and cannot be published again."""
+
+
 def save_card(card, values, revision, *, publish=False):
     """Compare-and-swap prevents a slow AI draft or another tab overwriting newer edits."""
     updates = {key: values[key] for key in CARD_FIELDS}
     updates.update(revision=revision + 1, updated_at=timezone.now())
     with transaction.atomic():
         if publish:
+            # A card withdrawn for a rule violation stays blocked, even after it has been edited.
+            reason = ProjectCard.objects.filter(pk=card.pk, blocked_at__isnull=False) \
+                .values_list('block_reason', flat=True).first()
+            if reason is not None:
+                raise CardBlockedError(f'Публикация заблокирована: {reason}. Карточку нельзя опубликовать снова.')
             updates.update(published_data=public_snapshot(values, card.startup), published_at=timezone.now())
         if not ProjectCard.objects.filter(pk=card.pk, revision=revision).update(**updates):
             raise StaleCardError('Карточку уже изменили в другой вкладке. Скопируйте свои правки и обновите страницу.')

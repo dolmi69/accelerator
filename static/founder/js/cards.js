@@ -1,6 +1,7 @@
 (() => {
   const form = document.querySelector('[data-card-editor]');
   if (!form) return;
+  const leave = window.CardLeave;
   const resizeFields = () => {
     form.querySelectorAll('.card-edit-document textarea').forEach(field => {
       field.style.height = 'auto'; field.style.height = `${field.scrollHeight + 2}px`;
@@ -18,15 +19,40 @@
   };
   form.addEventListener('input', preview);
   preview();
-  let dirty = form.dataset.generated === '1', busy = false;
+
+  // Снимок того, что сохранено: после сохранения страница перезагружается и снимок берётся заново.
+  const generated = form.dataset.generated === '1';
+  const snapshot = leave ? leave.serialize(form.elements) : '';
+  const isDirty = () => Boolean(leave) && leave.isDirty(snapshot, form.elements, generated);
+  let busy = false, leaving = false, pendingHref = '';
   const markDirty = () => {
-    dirty = true;
     const state = document.querySelector('[data-card-publish-state]');
-    if (state) state.textContent = 'Есть несохранённые изменения';
+    if (state && isDirty()) state.textContent = 'Есть несохранённые изменения';
   };
   form.addEventListener('input', markDirty);
   form.addEventListener('change', markDirty);
-  window.addEventListener('beforeunload', event => { if (dirty && !busy) { event.preventDefault(); event.returnValue = ''; } });
+
+  const dialog = document.getElementById('card-leave-dialog');
+  const leaveNow = () => { leaving = true; window.location.href = pendingHref; };
+
+  // Переход в другой раздел внутри приложения: спрашиваем до ухода со страницы.
+  document.addEventListener('click', event => {
+    if (!dialog || !leave || busy || leaving || !isDirty()) return;
+    const anchor = event.target.closest ? event.target.closest('a[href]') : null;
+    if (!leave.shouldInterceptClick(event, anchor, window.location.href)) return;
+    event.preventDefault();
+    pendingHref = anchor.href;
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else if (window.confirm('Изменения не сохранены. Уйти без сохранения?')) leaveNow();
+  }, true);
+  dialog?.querySelector('[data-leave-stay]')?.addEventListener('click', () => dialog.close());
+  dialog?.querySelector('[data-leave-go]')?.addEventListener('click', leaveNow);
+
+  // Закрытие вкладки или обновление страницы.
+  window.addEventListener('beforeunload', event => {
+    if (!busy && !leaving && isDirty()) { event.preventDefault(); event.returnValue = ''; }
+  });
+
   form.addEventListener('submit', event => {
     if (busy) { event.preventDefault(); return; }
     busy = true;

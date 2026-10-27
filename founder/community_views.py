@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db import OperationalError
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
@@ -19,6 +20,7 @@ from founder.models import (CardReport, DirectAttachment, DirectConversation, Di
 from founder.services import activity
 from founder.services.access import can_edit as can_edit_project, get_startup, team_members
 from founder.services.ai import AIServiceError
+from founder.services.card_moderation import find_violation, withdraw
 from founder.services.card_reports import mark_report_state
 from founder.services.chat_search import search_response
 from founder.services.direct_attachments import (ALLOWED_EXTENSIONS, MAX_ATTACHMENTS_PER_MESSAGE,
@@ -26,7 +28,8 @@ from founder.services.direct_attachments import (ALLOWED_EXTENSIONS, MAX_ATTACHM
                                                  serialize_attachment, store_attachment)
 from founder.services.request_limits import RequestLimitExceeded, consume_limit
 from founder.services.messaging import blocked_pair, open_conversation, participant_filter
-from founder.services.project_cards import (StaleCardError, card_values, generate_card, get_card, save_card)
+from founder.services.project_cards import (CardBlockedError, StaleCardError, card_values, generate_card, get_card,
+                                            save_card)
 from founder.services.lab_testing import publication_for
 
 
@@ -95,7 +98,7 @@ def card_edit(request, startup_id):
                 messages.success(request, 'Карточка опубликована в сообществе.' if action == 'publish' else
                                  'Черновик сохранён. Для обновления карточки в ленте нажмите «Опубликовать».')
                 return redirect('card_edit', startup_id=startup.pk)
-        except (AIServiceError, StaleCardError) as exc:
+        except (AIServiceError, StaleCardError, CardBlockedError) as exc:
             form.add_error(None, str(exc))
     return render(request, 'community/card_edit.html', editor_context(startup, card, form, refine_form, generated),
                   status=400 if form.errors or refine_form.errors else 200)
@@ -179,7 +182,9 @@ def card_detail(request, startup_id):
 @login_required
 @require_POST
 def card_report(request, startup_id):
-    """A member flags a published card; it then shows "Опасно!" (see CARD_REPORT_THRESHOLD)."""
+    """A member flags a published card. The published text is checked against the rules first:
+    a violation withdraws the card for good; otherwise the complaint is kept and the card stays up.
+    Complaints also mark the card "Опасно!" (see CARD_REPORT_THRESHOLD)."""
     card = get_object_or_404(published_cards(), startup_id=startup_id)
     wants_json = 'application/json' in request.headers.get('Accept', '')
 
@@ -197,7 +202,20 @@ def card_report(request, startup_id):
         return fail('Слишком много жалоб подряд. Попробуйте позже.', 429)
     except OperationalError:
         return fail('Сервис занят. Повторите через несколько секунд.', 503)
-    CardReport.objects.get_or_create(card=card, reporter=request.user)
+    report, _ = CardReport.objects.get_or_create(card=card, reporter=request.user)
+    rule = find_violation(card.published_data)
+    removed = False
+    if rule:
+        CardReport.objects.filter(pk=report.pk).update(rule=rule.code)
+        removed = withdraw(card, rule)
+    if removed:
+        # The card is gone from the feed, so the old page cannot be the destination any more.
+        if wants_json:
+            return JsonResponse({'reported': True, 'removed': True, 'reason': rule.category,
+                                 'redirect': reverse('community')})
+        messages.success(request, f'Спасибо. Карточка нарушает правила сообщества ({rule.category.lower()}) '
+                                  'и снята с публикации.')
+        return redirect('community')
     if wants_json:
         return JsonResponse({'reported': True})
     messages.success(request, 'Жалоба отправлена. Спасибо, что помогаете сообществу.')
