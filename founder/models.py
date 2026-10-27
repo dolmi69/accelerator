@@ -852,6 +852,10 @@ class ProjectCard(models.Model):
     revision = models.PositiveIntegerField(default=0)
     published_data = models.JSONField(default=dict, blank=True)
     published_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    # Set when a complaint finds a rule violation: the card is withdrawn and can never be published again.
+    blocked_at = models.DateTimeField('Заблокирована', null=True, blank=True)
+    block_rule = models.CharField('Сработавшее правило', max_length=20, blank=True)
+    block_reason = models.CharField('Причина блокировки', max_length=120, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
 
@@ -868,6 +872,7 @@ class CardReport(models.Model):
     """A member's complaint about a published project card (one per member and card)."""
     card = models.ForeignKey(ProjectCard, on_delete=models.CASCADE, related_name='reports')
     reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='card_reports')
+    rule = models.CharField('Сработавшее правило', max_length=20, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:

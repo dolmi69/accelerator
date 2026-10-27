@@ -16,6 +16,13 @@
             <a class="evidence-link" href="{% url 'card_detail' startup.id %}">Посмотреть в сообществе ↗</a>
         {% endif %}
     </header>
+    {% if card.blocked_at %}
+        <div class="form-error card-blocked" role="alert">
+            <strong>Карточка снята с публикации.</strong>
+            Причина: {{ card.block_reason|lower }} (правило {{ card.block_rule }}), {{ card.blocked_at|date:"d.m.Y" }}.
+            Карточку нельзя опубликовать снова. Черновик можно редактировать.
+        </div>
+    {% endif %}
     <form method="post"
           id="project-card-form"
           class="card-edit-canvas"
@@ -88,7 +95,8 @@
                     <button type="submit"
                             name="action"
                             value="publish"
-                            class="button primary wide">
+                            class="button primary wide"
+                            {% if card.blocked_at %}disabled title="Карточку нельзя опубликовать снова"{% endif %}>
                         {% if card.published_at %}
                             Обновить публикацию
                         {% else %}

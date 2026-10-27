@@ -61,6 +61,11 @@
         throw new Error(data.error || (response.status === 403
           ? 'Сессия устарела. Обновите страницу.' : 'Не удалось отправить жалобу. Попробуйте ещё раз.'));
       }
+      if (data.removed) {
+        // The card left the feed; go to the list instead of marking a page that no longer exists.
+        window.location.href = data.redirect || '/community/';
+        return;
+      }
       dialog.close();
       markReported(form);
     } catch (problem) {
@@ -75,7 +80,8 @@
     event.preventDefault();
     current = form;
     text.textContent = `Вы уверены, что хотите пожаловаться на карточку «${form.dataset.cardName}»? `
-      + 'Над её названием появится предупреждение «Опасно!». Отменить жалобу будет нельзя.';
+      + 'Текст карточки проверят на мат и нацистские лозунги. Если нарушение найдено, карточку снимут с публикации '
+      + 'и опубликовать её снова будет нельзя. Отменить жалобу будет нельзя.';
     error.hidden = true;
     dialog.showModal();
   }));
