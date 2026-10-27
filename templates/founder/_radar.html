@@ -1,9 +1,9 @@
 <section class="card radar-card unified-radar"
          id="startup-radar"
          data-interactive-radar>
-    <div class="section-top">
-        <h2>Радар проекта</h2>
-        <div class="radar-heading-badges">
+    <div class="section-top radar-card-top">
+        <div class="radar-title">
+            <h2>Радар проекта</h2>
             <span class="score-badge {% if not history_selected %}radar-unscored{% endif %}"
                   {% if history_first %}data-radar-score data-now="{{ history_selected.overall_score }}" data-first="{{ history_first.overall_score }}"{% endif %}>
                 {% if history_selected %}
@@ -12,10 +12,25 @@
                     Нет оценки
                 {% endif %}
             </span>
-            <a class="radar-readiness-badge"
-               href="#project-readiness"
-               aria-label="Состояние проекта и следующий шаг"><span>Состояние проекта</span></a>
         </div>
+        {% if history_first %}
+            <div class="radar-compare"
+                 role="group"
+                 aria-label="Какую оценку показать на радаре"
+                 data-radar-compare>
+                <button type="button" data-radar-view="first" aria-pressed="false">
+                    Первая оценка, {{ history_first.assessed_at|date:"j E" }}
+                </button>
+                <span class="sr-only" data-radar-status role="status"></span>
+                <button type="button" data-radar-view="now" aria-pressed="true">
+                    {% if radar_is_latest %}
+                        Сейчас
+                    {% else %}
+                        Выбранная
+                    {% endif %}
+                </button>
+            </div>
+        {% endif %}
     </div>
     <p class="muted small radar-source">
         {% if history_selected %}
@@ -29,37 +44,17 @@
             Вы смотрите прошлую оценку. <a href="{% url 'dashboard' startup.id %}#startup-radar">Вернуться к последней</a>
         </div>
     {% endif %}
-    <p class="muted small radar-instruction">Нажмите на направление, чтобы увидеть оценку и комментарий Бруно.</p>
-    {% if history_first %}
-        <div class="radar-compare"
-             role="group"
-             aria-label="Какую оценку показать на радаре"
-             data-radar-compare
-             data-first-label="Первая оценка, {{ history_first.assessed_at|date:'j E' }}">
-            <button type="button" data-radar-view="first" aria-pressed="false">
-                Первая оценка, {{ history_first.assessed_at|date:"j E" }}
-            </button>
-            <span class="sr-only" data-radar-status role="status"></span>
-            <button type="button" data-radar-view="now" aria-pressed="true">
-                {% if radar_is_latest %}
-                    Сейчас
-                {% else %}
-                    Выбранная
-                {% endif %}
-            </button>
-        </div>
-    {% endif %}
 
     <div class="unified-radar-body">
         <div class="radar-chart-column">
             <div class="interactive-radar-chart" data-radar-chart>
-                <svg viewBox="-66 -15 352 240"
+                <svg viewBox="-44 -12 308 216"
                      class="radar-svg"
                      role="group"
                      aria-label="Радар пяти направлений. Точки и названия открывают комментарии.">
                     <polygon points="{{ radar_grid_100 }}" class="radar-grid" /><polygon points="{{ radar_grid_75 }}" class="radar-grid" /><polygon points="{{ radar_grid_50 }}" class="radar-grid" /><polygon points="{{ radar_grid_25 }}" class="radar-grid" />
                     <line x1="110" y1="110" x2="110" y2="28" class="radar-axis" /><line x1="110" y1="110" x2="188" y2="85" class="radar-axis" /><line x1="110" y1="110" x2="158" y2="176" class="radar-axis" /><line x1="110" y1="110" x2="62" y2="176" class="radar-axis" /><line x1="110" y1="110" x2="32" y2="85" class="radar-axis" />
-                    {% if history_previous_points %}<polygon points="{{ history_previous_points }}" class="radar-previous" />{% endif %}
+                    {% if history_first_points %}<polygon points="{{ history_first_points }}" class="radar-previous radar-first" />{% endif %}
                     {% if history_points %}<polygon points="{{ history_points }}" class="radar-value" data-now="{{ history_points }}" data-first="{{ history_first_points }}" />{% endif %}
                     {% for row in radar_rows %}
                         <g class="radar-axis-label" data-radar-axis="{{ row.key }}" data-label="{{ row.label }}" data-score="{{ row.score|default_if_none:'—' }}" role="button" tabindex="0" aria-label="{{ row.label }}:
@@ -69,7 +64,7 @@
                             нет оценки
                         {% endif %}
                         . Открыть комментарий" aria-controls="radar-detail-{{ row.key }}" aria-expanded="false" aria-haspopup="dialog">
-                        <text x="{{ row.label_x }}" y="{{ row.label_y }}" text-anchor="{{ row.label_anchor }}">{{ row.label }}</text>
+                        <text x="{{ row.label_x }}" y="{{ row.label_y }}" text-anchor="{{ row.label_anchor }}">{% for line in row.label_lines %}<tspan x="{{ row.label_x }}" dy="{% if not forloop.first %}1.2em{% elif row.label_lines|length > 1 %}-0.5em{% else %}0{% endif %}">{{ line }}</tspan>{% endfor %}</text>
                         </g>
                         <g class="radar-point" data-radar-axis="{{ row.key }}" data-label="{{ row.label }}" data-score="{{ row.score|default_if_none:'—' }}" role="button" tabindex="0" aria-label="{{ row.label }}:
                         {% if row.score is not None %}
@@ -87,25 +82,45 @@
                     <strong data-radar-tooltip-label></strong><span>Подробнее</span>
                 </div>
             </div>
-            {% if history_selected %}
-                <div class="radar-chart-legend">
-                <span><i class="radar-legend-line"></i><span data-radar-legend>
-                {% if radar_is_latest %}
-                    Последняя оценка
-                {% else %}
-                    Выбранная оценка
-                {% endif %}
-            </span></span>
-            {% if history_previous %}
-                <span data-radar-previous-legend><i class="radar-legend-line previous"></i>Предыдущая, {{ history_previous.assessed_at|date:"d.m.Y" }}</span>
-            {% endif %}
         </div>
+        <ul class="radar-axis-list" aria-label="Направления радара">
+            {% for row in radar_rows %}
+                <li>
+                    <button type="button"
+                            class="radar-axis-row"
+                            data-radar-axis="{{ row.key }}"
+                            data-label="{{ row.label }}"
+                            aria-controls="radar-detail-{{ row.key }}"
+                            aria-expanded="false"
+                            aria-haspopup="dialog">
+                        <span class="radar-axis-text">
+                            <span class="radar-axis-name">{{ row.label }}</span>
+                            <span class="radar-axis-reason">{{ row.reason|default:"Пока не обсуждали это направление." }}</span>
+                        </span>
+                        {% if history_selected %}
+                            <span class="radar-chip radar-chip-{{ row.evidence.status }}">{{ row.evidence.chip }}</span>
+                        {% endif %}
+                        <span class="radar-axis-score">
+                            <span class="radar-axis-value"
+                                  {% if row.first_score is not None %}data-radar-row-score data-now="{{ row.score }}" data-first="{{ row.first_score }}"{% endif %}>{{ row.score|default_if_none:"—" }}</span>
+                            {% if row.growth_label %}
+                                <span class="radar-axis-delta{% if row.growth > 0 %} positive{% elif row.growth < 0 %} negative{% endif %}">{{ row.growth_label }}</span>
+                            {% endif %}
+                        </span>
+                    </button>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% if history_selected %}
+        <p class="muted small radar-note">
+            Баллы показывают, сколько у проекта доказательств, и ничего не говорят о том, хороша ли идея.
+            {% if history_first %}Пунктир показывает первую оценку.{% endif %}
+            Нажмите на направление, чтобы открыть комментарий Бруно и источник.
+        </p>
     {% else %}
         <p class="muted small radar-empty-note">Оценки появятся после первого разговора с Бруно.</p>
     {% endif %}
-</div>
-
-</div>
 
 {% for row in radar_rows %}
     <div class="radar-popover"

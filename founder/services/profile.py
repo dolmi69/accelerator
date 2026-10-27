@@ -58,7 +58,11 @@ def evidence_display(startup, snapshot, key):
         status = "manual"
     labels = {"stated": "Со слов основателя", "assumption": "Предположение",
               "missing": "Нет данных", "unlinked": "Источник не указан", "manual": "Поправлено вручную"}
-    item.update({"status": status, "status_label": labels.get(status, "Источник не указан")})
+    # Короткая метка для списка направлений рядом с радаром; полная остаётся в подробностях.
+    chips = {"stated": "Факт", "assumption": "Догадка", "missing": "Нет данных",
+             "unlinked": "Без источника", "manual": "Вручную"}
+    item.update({"status": status, "status_label": labels.get(status, "Источник не указан"),
+                 "chip": chips.get(status, "Без источника")})
     if item.get("quote"):
         if item.get("kind") == "profile":
             item["url"] = reverse("startup_edit", args=[startup.id])
@@ -88,21 +92,26 @@ def history_context(startup, snapshot_id=None, page_number=1):
             Q(assessed_at__lt=selected.assessed_at)
             | Q(assessed_at=selected.assessed_at, id__lt=selected.id)
         ).first()
-    rows = []
-    if selected:
-        for key, label in AXES:
-            rows.append({
-                "key": key, "label": label, "score": getattr(selected, key),
-                "before": getattr(previous, key) if previous else None,
-                "delta": getattr(selected, key) - getattr(previous, key) if previous else None,
-                "reason": selected.assessment_details.get(key, ""),
-                "old_reason": previous.assessment_details.get(key, "") if previous else "",
-                "evidence": evidence_display(startup, selected, key),
-            })
     # Самая первая оценка проекта: радар умеет показать, как проект вырос с неё до выбранной.
     first = snapshots.order_by("assessed_at", "id").first() if selected else None
     if first == selected:
         first = None
+    rows = []
+    if selected:
+        for key, label in AXES:
+            growth = getattr(selected, key) - getattr(first, key) if first else None
+            rows.append({
+                "key": key, "label": label, "score": getattr(selected, key),
+                "before": getattr(previous, key) if previous else None,
+                "delta": getattr(selected, key) - getattr(previous, key) if previous else None,
+                "first_score": getattr(first, key) if first else None,
+                "growth": growth,
+                "growth_label": None if growth is None else (
+                    f"+{growth}" if growth > 0 else f"−{-growth}" if growth < 0 else "без изменений"),
+                "reason": selected.assessment_details.get(key, ""),
+                "old_reason": previous.assessment_details.get(key, "") if previous else "",
+                "evidence": evidence_display(startup, selected, key),
+            })
     return {
         "history_page": page, "history_selected": selected, "history_previous": previous,
         "history_rows": rows,

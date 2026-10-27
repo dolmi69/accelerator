@@ -40,8 +40,12 @@
                 const nav = performance.getEntriesByType('navigation')[0];
                 const viewTransitions = 'onpagereveal' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
                 // Пришли переходом View Transition: страница уже проявляется им, своё появление отменяем.
+                // Браузер пропускает переход, если вкладка скрыта или страница сменилась слишком быстро; это не ошибка.
+                const quiet = transition => ['ready', 'finished', 'updateCallbackDone'].forEach(name => transition?.[name]?.catch(() => {}));
+                window.addEventListener('pageswap', event => quiet(event.viewTransition));
                 window.addEventListener('pagereveal', event => {
                     if (!event.viewTransition) return;
+                    quiet(event.viewTransition);
                     root.classList.remove('page-enter', 'page-entered');
                     root.dataset.viewTransition = 'on';
                 });

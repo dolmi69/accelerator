@@ -166,6 +166,24 @@ class ProjectProgressTests(TestCase):
         self.assertContains(page, "Первая версия")
         self.assertContains(page, "Вернуться к последней")
 
+    def test_radar_list_shows_source_chip_and_growth_since_first_assessment(self):
+        self.snapshot(score=20)
+        self.snapshot(score=30)
+        self.snapshot(score=45)
+        page = self.client.get(reverse("dashboard", args=[self.startup.id]))
+        product = page.context["radar_rows"][0]
+        self.assertEqual((product["first_score"], product["growth_label"]), (20, "+25"))
+        self.assertEqual(product["evidence"]["chip"], "Факт")
+        self.assertEqual(page.context["radar_rows"][4]["label_lines"], ["Ясность", "идеи"])
+        self.assertContains(page, 'class="radar-axis-row"', count=5)
+        self.assertContains(page, 'class="radar-chip radar-chip-stated">Факт', count=5)
+        self.assertContains(page, "+25", count=5)
+        self.assertContains(page, 'class="radar-previous radar-first"', count=1)
+        self.assertContains(page, "Пунктир показывает первую оценку.")
+        self.snapshot(score=15)
+        fell = self.client.get(reverse("dashboard", args=[self.startup.id]))
+        self.assertEqual(fell.context["radar_rows"][0]["growth_label"], "−5")
+
     def test_unified_radar_distinguishes_zero_scores_from_no_assessment(self):
         url = reverse("dashboard", args=[self.startup.id])
         empty = self.client.get(url)

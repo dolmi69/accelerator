@@ -241,7 +241,9 @@ def _dashboard_context(startup, metrics_form=None, *, snapshot_id=None, history_
             radar_rows, positions, first_positions, label_positions):
         row["x"], row["y"] = position.split(",")
         row["first_x"], row["first_y"] = first_position.split(",")
-        row.update(label_x=label_x, label_y=label_y, label_anchor=anchor)
+        # Боковые подписи из двух слов («Ясность идеи») идут в две строки, иначе не помещаются в радар.
+        lines = row["label"].split(" ", 1) if anchor != "middle" else [row["label"]]
+        row.update(label_x=label_x, label_y=label_y, label_anchor=anchor, label_lines=lines)
     workspace = workspace_context(startup)
     for task in workspace["overview_tasks"]:
         task.radar_result_form = EvidenceForm(
