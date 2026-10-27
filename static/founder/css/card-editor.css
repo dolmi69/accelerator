@@ -78,3 +78,10 @@
     .card-publish-buttons { grid-template-columns:1fr; }
 }
 @media(prefers-reduced-motion:reduce) { .card-edit-document input,.card-edit-document textarea { transition:none; } }
+.card-leave-dialog { border:0; border-radius:16px; padding:0; max-width:min(440px,calc(100vw - 32px)); background:#fff; color:inherit; box-shadow:0 18px 48px rgba(0,0,0,.25); }
+.card-leave-dialog::backdrop { background:rgba(20,24,28,.45); }
+.card-leave-body { display:flex; flex-direction:column; gap:14px; padding:28px; margin:0; }
+.card-leave-body h2 { margin:0; font-size:22px; }
+.card-leave-body p { margin:0; line-height:1.5; }
+.card-leave-actions { display:flex; flex-wrap:wrap; gap:10px; justify-content:flex-end; margin-top:8px; }
+@media(max-width:560px) { .card-leave-actions .button { flex:1 1 100%; } }
