@@ -27,6 +27,8 @@
   scrim?.addEventListener('click', closeSidebar);
   collapse?.addEventListener('click', () => {
     if (mobile.matches) { closeSidebar(); mobileToggle?.focus(); return; }
+    document.body.classList.add('sidebar-animating');
+    setTimeout(() => document.body.classList.remove('sidebar-animating'), 320);
     document.body.classList.toggle('sidebar-collapsed');
     try { localStorage.setItem('project-sidebar', document.body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'expanded'); } catch (_) {}
     syncSidebar();
@@ -69,3 +71,41 @@
     if (error.textContent.trim()) reveal(error);
   });
 })();
+
+// Телефон: аватар в шапке открывает меню с разделами сайта. На компьютере ссылки стоят в строку, кнопка скрыта стилями.
+(() => {
+  const nav = document.querySelector('.topnav');
+  const toggle = nav?.querySelector('.account-menu-toggle');
+  if (!toggle) return;
+  const wide = window.matchMedia('(min-width:681px)');
+  document.body.classList.add('js-topnav');
+  toggle.hidden = false;
+  const setOpen = open => {
+    nav.classList.toggle('is-open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+  };
+  toggle.addEventListener('click', () => setOpen(!nav.classList.contains('is-open')));
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || !nav.classList.contains('is-open')) return;
+    setOpen(false);
+    toggle.focus();
+  });
+  document.addEventListener('click', event => { if (!nav.contains(event.target)) setOpen(false); });
+  wide.addEventListener('change', event => { if (event.matches) setOpen(false); });
+})();
+
+// Карточки-свёртки (<details>): при раскрытии человеком содержимое проявляется (app.css, details.is-opening).
+// Где браузер сам плавно раскрывает свёртку по высоте (::details-content, interpolate-size), класс не нужен.
+document.addEventListener('click', event => {
+  const summary = event.target.closest?.('summary');
+  const details = summary?.parentElement;
+  if (!(details instanceof HTMLDetailsElement) || details.open || details.querySelector(':scope > summary') !== summary) return;
+  if (getComputedStyle(details).interpolateSize === 'allow-keywords') return;
+  details.classList.add('is-opening');
+});
+document.addEventListener('animationend', event => {
+  if (event.animationName === 'fold-in' || event.animationName === 'fold-fade') event.target.parentElement?.classList.remove('is-opening');
+});
+document.addEventListener('toggle', event => {
+  if (event.target instanceof HTMLDetailsElement && !event.target.open) event.target.classList.remove('is-opening');
+}, true);

@@ -35,7 +35,7 @@ class CardReportTests(TestCase):
         self.assertEqual(CardReport.objects.count(), 1)
         for url in (reverse('community'), self.detail_url):
             page = self.client.get(url)
-            self.assertContains(page, '<p class="danger-label">Опасно!</p>', html=True)
+            self.assertContains(page, '<p class="danger-label">Опасно</p>', html=True)
             self.assertContains(page, 'report-button is-reported')
             self.assertNotContains(page, 'data-report-form')
 

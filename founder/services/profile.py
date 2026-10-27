@@ -2,13 +2,14 @@
 
 from uuid import UUID
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator
 from django.db.models import Prefetch, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 
-from founder.models import StartupMetrics
+from founder.models import ProjectCard, StartupMetrics
 from founder.services.access import ROLE_LABELS, accessible_startups, project_role
 from founder.services.metrics import AXES, radar_grid, radar_points
 
@@ -18,9 +19,12 @@ def grid_context():
 
 
 def project_cards(user):
-    projects = accessible_startups(user).select_related("owner").prefetch_related(Prefetch(
+    projects = accessible_startups(user).select_related("owner", "mascot_state").prefetch_related(Prefetch(
         "metric_snapshots", queryset=StartupMetrics.objects.all()[:1], to_attr="latest_snapshots",
     ))
+    # Опубликованным карточкам на странице проектов нужна кнопка «Скопировать ссылку».
+    published = set(ProjectCard.objects.filter(startup__in=projects, published_at__isnull=False)
+                    .values_list("startup_id", flat=True))
     cards = []
     for startup in projects:
         latest = startup.latest_snapshots[0] if startup.latest_snapshots else None
@@ -28,9 +32,23 @@ def project_cards(user):
         cards.append({
             "startup": startup, "latest": latest, "points": radar_points(latest) if latest else "",
             "role": role, "role_label": ROLE_LABELS[role] if startup.is_shared else "",
+            "published": startup.id in published,
+            "note": _bruno_note(startup),
             "axes": [(label, getattr(latest, key, None)) for key, label in AXES],
         })
     return cards
+
+
+def _bruno_note(startup):
+    """Заметка Бруно на полях списка проектов: последний вывод талисмана о проекте."""
+    try:
+        state = startup.mascot_state
+    except ObjectDoesNotExist:
+        state = None
+    if state and state.reason:
+        return {"text": state.reason, "date": state.updated_at}
+    return {"text": "Оценки пока нет. Расскажите Бруно, кто будет платить и сколько, и он соберёт первый радар.",
+            "date": None}
 
 
 def evidence_display(startup, snapshot, key):
@@ -40,7 +58,11 @@ def evidence_display(startup, snapshot, key):
         status = "manual"
     labels = {"stated": "Со слов основателя", "assumption": "Предположение",
               "missing": "Нет данных", "unlinked": "Источник не указан", "manual": "Поправлено вручную"}
-    item.update({"status": status, "status_label": labels.get(status, "Источник не указан")})
+    # Короткая метка для списка направлений рядом с радаром; полная остаётся в подробностях.
+    chips = {"stated": "Факт", "assumption": "Догадка", "missing": "Нет данных",
+             "unlinked": "Без источника", "manual": "Вручную"}
+    item.update({"status": status, "status_label": labels.get(status, "Источник не указан"),
+                 "chip": chips.get(status, "Без источника")})
     if item.get("quote"):
         if item.get("kind") == "profile":
             item["url"] = reverse("startup_edit", args=[startup.id])
@@ -70,13 +92,22 @@ def history_context(startup, snapshot_id=None, page_number=1):
             Q(assessed_at__lt=selected.assessed_at)
             | Q(assessed_at=selected.assessed_at, id__lt=selected.id)
         ).first()
+    # Самая первая оценка проекта: радар умеет показать, как проект вырос с неё до выбранной.
+    first = snapshots.order_by("assessed_at", "id").first() if selected else None
+    if first == selected:
+        first = None
     rows = []
     if selected:
         for key, label in AXES:
+            growth = getattr(selected, key) - getattr(first, key) if first else None
             rows.append({
                 "key": key, "label": label, "score": getattr(selected, key),
                 "before": getattr(previous, key) if previous else None,
                 "delta": getattr(selected, key) - getattr(previous, key) if previous else None,
+                "first_score": getattr(first, key) if first else None,
+                "growth": growth,
+                "growth_label": None if growth is None else (
+                    f"+{growth}" if growth > 0 else f"−{-growth}" if growth < 0 else "без изменений"),
                 "reason": selected.assessment_details.get(key, ""),
                 "old_reason": previous.assessment_details.get(key, "") if previous else "",
                 "evidence": evidence_display(startup, selected, key),
@@ -86,4 +117,6 @@ def history_context(startup, snapshot_id=None, page_number=1):
         "history_rows": rows,
         "history_points": radar_points(selected) if selected else "",
         "history_previous_points": radar_points(previous) if previous else "",
+        "history_first": first,
+        "history_first_points": radar_points(first) if first else "",
     }

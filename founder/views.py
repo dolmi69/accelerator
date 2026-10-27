@@ -58,8 +58,10 @@ def about(request):
     return render(request, "founder/about.html")
 
 
-@login_required
 def home(request):
+    # Гость видит заставку с Бруно и выбирает регистрацию или вход.
+    if not request.user.is_authenticated:
+        return render(request, "founder/welcome.html")
     cards = project_cards(request.user)
     invites = list(pending_invites(request.user))
     if not cards and not invites:
@@ -233,9 +235,15 @@ def _dashboard_context(startup, metrics_form=None, *, snapshot_id=None, history_
     positions = radar_points(selected).split() if selected else radar_grid(100).split()
     label_positions = [(110, 8, "middle"), (203, 82, "start"),
                        (169, 196, "middle"), (51, 196, "middle"), (17, 82, "end")]
-    for row, position, (label_x, label_y, anchor) in zip(radar_rows, positions, label_positions):
+    first = history["history_first"]
+    first_positions = history["history_first_points"].split() if first else positions
+    for row, position, first_position, (label_x, label_y, anchor) in zip(
+            radar_rows, positions, first_positions, label_positions):
         row["x"], row["y"] = position.split(",")
-        row.update(label_x=label_x, label_y=label_y, label_anchor=anchor)
+        row["first_x"], row["first_y"] = first_position.split(",")
+        # Боковые подписи из двух слов («Ясность идеи») идут в две строки, иначе не помещаются в радар.
+        lines = row["label"].split(" ", 1) if anchor != "middle" else [row["label"]]
+        row.update(label_x=label_x, label_y=label_y, label_anchor=anchor, label_lines=lines)
     workspace = workspace_context(startup)
     for task in workspace["overview_tasks"]:
         task.radar_result_form = EvidenceForm(

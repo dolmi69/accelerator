@@ -3,18 +3,17 @@
 {% block title %}Радар · {{ startup.name }}{% endblock %}
 {% block extra_css %}
     <link rel="stylesheet"
-          href="{% static 'founder/css/radar.css' %}?v=workspace-21">
+          href="{% static 'founder/css/radar.css' %}?v=redesign-2">
 {% endblock %}
 {% block content %}
     <div class="radar-home">
         {% include 'founder/_workspace_nav.html' %}
         <header class="page-heading radar-home-heading">
             <div>
-                <span class="eyebrow">ГЛАВНАЯ ПРОЕКТА</span>
                 <h1>{{ startup.name }}</h1>
-                <p>{{ startup.one_line_pitch|default:"От идеи к первым результатам — вместе с Бруно." }}</p>
+                <p>{{ startup.one_line_pitch|default:"Добавьте описание проекта в одно предложение, чтобы Бруно точнее подсказывал." }}</p>
             </div>
-            <a class="button ghost" href="{% url 'lab' startup.id %}">Открыть лабораторию <span aria-hidden="true">↗</span></a>
+            <a class="button ghost" href="{% url 'lab' startup.id %}">Открыть лабораторию</a>
         </header>
         <section class="dashboard-grid radar-dashboard">
             {% include 'founder/_radar.html' %}
@@ -23,7 +22,7 @@
                     {% include 'founder/_bruno_hub.html' %}
                     <details class="bruno-recent-conversations">
                         <summary>
-                            <span>Недавние беседы</span><span class="muted small">{{ recent_sessions|length }}</span><span aria-hidden="true">⌄</span>
+                            <span>Недавние беседы</span><span class="muted small">{{ recent_sessions|length }}</span><span aria-hidden="true">{% include 'founder/_icon.html' with name='chevron-down' %}</span>
                         </summary>
                         <div>
                             {% for session in recent_sessions %}
@@ -39,11 +38,8 @@
             </aside>
             <div class="radar-main-workspace">
                 <div class="radar-workspace-heading">
-                    <div>
-                        <span class="eyebrow">ОТ ОЦЕНКИ К ДЕЙСТВИЯМ</span>
-                        <h2>Сегодня в проекте</h2>
-                    </div>
-                    <p class="muted">Один день — несколько понятных шагов.</p>
+                    <h2>Сегодня в проекте</h2>
+                    <p class="muted">Что сделать сегодня, чтобы на радаре появились новые доказательства.</p>
                 </div>
                 {% include 'founder/_radar_workspace.html' %}
             </div>
@@ -51,5 +47,5 @@
     </div>
 {% endblock %}
 {% block scripts %}
-    <script src="{% static 'founder/js/dashboard.js' %}?v=radar-13" defer></script><script src="{% static 'founder/js/workbench.js' %}" defer></script>
+    <script src="{% static 'founder/js/dashboard.js' %}?v=radar-14" defer></script><script src="{% static 'founder/js/radar-compare.js' %}?v=redesign-3" defer></script><script src="{% static 'founder/js/workbench.js' %}" defer></script>
 {% endblock %}

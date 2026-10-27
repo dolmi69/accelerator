@@ -3,39 +3,39 @@
 {% block title %}История проекта · {{ startup.name }}{% endblock %}
 {% block work_css %}
     <link rel="stylesheet"
-          href="{% static 'founder/css/project-history.css' %}?v=2">
+          href="{% static 'founder/css/project-history.css' %}?v=redesign-1">
 {% endblock %}
 {% block work_page_class %}history-page{% endblock %}
 {% block work_title %}История проекта{% endblock %}
 {% block work_description %}Что сделали, что узнали и куда идём дальше.{% endblock %}
 {% block work_actions %}
     {% if startup.user_role != 'viewer' %}
-        <a class="button primary" href="{% url 'result_tell' startup.id %}">Расскажи Бруно <span aria-hidden="true">✦</span></a>
+        <a class="button primary" href="{% url 'result_tell' startup.id %}">Расскажите Бруно</a>
     {% endif %}
 {% endblock %}
 {% block work_content %}
     <section class="history-overview" aria-label="Что изменилось в проекте">
         <div class="history-overview-copy">
-            <span class="history-caption">ПРОЕКТ ДВИЖЕТСЯ ШАГ ЗА ШАГОМ</span>
+            <span class="history-caption">Проект движется шаг за шагом</span>
             {% if history_latest %}
                 <h2>{{ history_latest.progress.learned|default:history_latest.claim }}</h2>
                 <p>
                     {% if history_latest.progress.learned %}
                         Вывод по последнему сохранённому результату.
                     {% elif history_latest.origin == 'lab' %}
-                        Новая версия сохранена. Её отчёт и проверки — в истории ниже.
+                        Новая версия сохранена. Её отчёт и проверки лежат в истории ниже.
                     {% else %}
                         Последний результат уже в истории. Продолжайте проверять идею на практике.
                     {% endif %}
                 </p>
                 <a href="#entry-{{ history_latest.pk }}">Открыть последний шаг ↓</a>
             {% else %}
-                <h2>Первый результат — начало вашей истории</h2>
+                <h2>С первого результата начинается история проекта</h2>
                 <p>Выполните задачу в лаборатории или расскажите Бруно, что получилось на практике. Здесь сохранится путь проекта.</p>
             {% endif %}
         </div>
         <div class="history-week">
-            <span class="history-caption">ПОСЛЕДНИЕ 7 ДНЕЙ</span><strong>{{ history_week }}<small>сохранённых шагов</small></strong>
+            <span class="history-caption">Последние 7 дней</span><strong>{{ history_week }}<small>сохранённых шагов</small></strong>
             <div>
                 <span>{{ history_lab }} из лаборатории</span><span>{{ history_people }} от участников</span>
             </div>
@@ -45,7 +45,7 @@
         <div class="history-drafts">
             <span>Незавершённые разговоры</span>
             {% for draft in result_drafts %}
-                <a href="{% url 'result_tell' startup.id %}?draft={{ draft.pk }}">{{ draft.task.title|default:'Рассказ о результате' }} →</a>
+                <a href="{% url 'result_tell' startup.id %}?draft={{ draft.pk }}">{{ draft.task.title|default:'Рассказ о результате' }}</a>
             {% endfor %}
         </div>
     {% endif %}
@@ -73,9 +73,8 @@
             <article class="history-step" id="entry-{{ entry.id }}">
                 <div class="history-step-node" aria-hidden="true">
                     {% if entry.origin == 'lab' %}
-                        ✦
                     {% else %}
-                        ✓
+                        {% include 'founder/_icon.html' with name='check' %}
                     {% endif %}
                 </div>
                 <div class="history-step-card">
@@ -87,7 +86,7 @@
                                 {% else %}
                                     Результат участника
                                 {% endif %}
-                            </span><span>{{ entry.get_axis_display }}</span><time datetime="{{ entry.created_at|date:'c' }}">{{ entry.created_at|date:'d.m.Y · H:i' }}</time>
+                            </span><span>{{ entry.get_axis_display }}</span><time datetime="{{ entry.created_at|date:'c' }}">{{ entry.created_at|date:'d.m.Y, H:i' }}</time>
                         </div>
                         <code>#{{ entry.short_id }}</code>
                     </header>
@@ -116,9 +115,9 @@
                         <div>
                             <span class="history-caption">
                                 {% if entry.origin == 'lab' %}
-                                    ОТЧЁТ БРУНО · {{ entry.progress.report_model }}
+                                    Отчёт Бруно, {{ entry.progress.report_model }}
                                 {% else %}
-                                    ЧТО ПРОИЗОШЛО · {{ entry.observed_on|date:'d.m.Y' }}
+                                    Что произошло, {{ entry.observed_on|date:'d.m.Y' }}
                                 {% endif %}
                             </span>
                             <p class="history-observation">{{ entry.observation|linebreaksbr }}</p>
@@ -136,12 +135,9 @@
                                 </ul>
                             {% endif %}
                             <p class="history-muted">
-                                Источник: {{ entry.source|default:'не указан' }}
-                                {% if entry.source_url %}
-                                    · <a href="{{ entry.source_url }}"
+                                {# djlint:off #}Источник: {{ entry.source|default:'не указан' }}{% if entry.source_url %}, <a href="{{ entry.source_url }}"
     target="_blank"
-    rel="noopener noreferrer">Открыть источник ↗</a>
-                                {% endif %}
+    rel="noopener noreferrer">открыть источник</a>{% endif %}{# djlint:on #}
                             </p>
                             {% if entry.task %}
                                 <p class="history-muted">Задание: {{ entry.progress.task_snapshot.title|default:entry.task.title }}</p>
@@ -166,10 +162,10 @@
                             {% endif %}
                             {% if entry.revisions.count > 1 %}
                                 <details class="history-revisions">
-                                    <summary>История уточнений · {{ entry.revisions.count }} версии</summary>
+                                    <summary>История уточнений: {{ entry.revisions.count|plural:"версия,версии,версий" }}</summary>
                                     {% for revision in entry.revisions.all %}
                                         <div>
-                                            <strong>Версия {{ revision.number }} · {{ revision.created_at|date:'d.m.Y H:i' }}</strong>
+                                            <strong>Версия {{ revision.number }}, {{ revision.created_at|date:'d.m.Y H:i' }}</strong>
                                             <p>{{ revision.snapshot.observation|linebreaksbr }}</p>
                                             {% if revision.snapshot.progress.learned %}<p>{{ revision.snapshot.progress.learned }}</p>{% endif %}
                                             <small>
@@ -187,15 +183,15 @@
                     </details>
                     {% if entry.progress.next_step %}
                         <div class="history-next">
-                            <span class="history-caption">ПРЕДЛОЖЕНИЕ БРУНО</span>
+                            <span class="history-caption">Предложение Бруно</span>
                             <p>{{ entry.progress.next_step }}</p>
                             {% if entry.followup_task_id %}
-                                <a href="{% url 'tasks' startup.id %}#task-{{ entry.followup_task_id }}">Уже в плане →</a>
+                                <a href="{% url 'tasks' startup.id %}#task-{{ entry.followup_task_id }}">Уже в плане</a>
                             {% elif startup.user_role != 'viewer' %}
                                 <form method="post"
                                       action="{% url 'result_followup' startup.id entry.pk %}">
                                     {% csrf_token %}
-                                    <button class="history-text-button">Добавить задачу →</button>
+                                    <button class="history-text-button">Добавить задачу</button>
                                 </form>
                             {% endif %}
                         </div>
@@ -207,7 +203,7 @@
                     <footer>
                         <span>{{ entry.author_label }}</span>
                         <div>
-                            {% if entry.version_url %}<a href="{{ entry.version_url }}">Открыть версию сайта ↗</a>{% endif %}
+                            {% if entry.version_url %}<a href="{{ entry.version_url }}">Открыть версию сайта</a>{% endif %}
                             {% if startup.user_role != 'viewer' and entry.origin == 'manual' %}
                                 <a href="{% url 'evidence_edit' startup.id entry.id %}">Уточнить запись</a>
                             {% endif %}
@@ -231,12 +227,11 @@
             </article>
         {% empty %}
             <div class="history-empty">
-                <span aria-hidden="true">↗</span>
                 <h3>Здесь будут видны ваши реальные шаги</h3>
                 <p>
-                    Тест прототипа, разговор с клиентом, первая продажа или неудачная попытка — каждый результат помогает понять проект.
+                    Тест прототипа, разговор с клиентом, первая продажа или неудачная попытка: любой результат помогает понять проект.
                 </p>
-                <a href="{% url 'tasks' startup.id %}">Выбрать первый шаг →</a>
+                <a href="{% url 'tasks' startup.id %}">Выбрать первый шаг</a>
             </div>
         {% endfor %}
     </div>
@@ -247,12 +242,12 @@
             {% endif %}
             <span>{{ entries.number }} / {{ entries.paginator.num_pages }}</span>
             {% if entries.has_next %}
-                <a href="?axis={{ selected_axis }}&page={{ entries.next_page_number }}">Далее →</a>
+                <a href="?axis={{ selected_axis }}&page={{ entries.next_page_number }}">Далее</a>
             {% endif %}
         </nav>
     {% endif %}
     <div class="history-bottom">
-        <a href="{% url 'tasks' startup.id %}">К плану и действиям →</a>
+        <a href="{% url 'tasks' startup.id %}">К плану и действиям</a>
         {% if startup.user_role != 'viewer' %}
             <a href="{% url 'evidence_create' startup.id %}">Записать вручную</a>
         {% endif %}

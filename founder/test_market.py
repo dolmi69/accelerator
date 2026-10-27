@@ -180,7 +180,7 @@ class MarketReportTests(TestCase):
         page = self.client.get(reverse("market", args=[self.startup.pk]))
         self.assertContains(page, "Dress &amp; Go")
         self.assertContains(page, 'href="https://prokat-platiev.ru/"')
-        self.assertContains(page, "АКТУАЛЬНОСТЬ: ВЫСОКАЯ")
+        self.assertContains(page, "Актуальность: высокая")
         report = MarketReport.objects.get(startup=self.startup)
         response = self.client.post(reverse("market_check_task", args=[self.startup.pk, report.pk, 0]))
         self.assertRedirects(response, reverse("tasks", args=[self.startup.pk]))
@@ -305,7 +305,7 @@ class MarketLinkTests(TestCase):
         ChatMessage.objects.create(session=session, role="assistant", content="Цену проверим.", provider="gigachat")
         self.client.force_login(user)
         page = self.client.get(reverse("chat_detail", args=[startup.pk, session.pk]))
-        self.assertContains(page, "«Рынок и конкуренты» →", count=1)
+        self.assertContains(page, "Полный анализ с источниками: «Рынок и конкуренты»", count=1)
 
 
 class MarketSizeTests(TestCase):

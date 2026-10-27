@@ -24,7 +24,7 @@
                 <a href="?method=ice{% if mine %}&mine=1{% endif %}#mvp-features"
                    {% if mvp_method == 'ice' %}aria-current="page"{% endif %}>ICE</a>
             </nav>
-            <span class="priority-stats">{{ feature_count }} функций <span>·</span> {{ rated_count }} оценено <span>·</span> <strong>{{ mvp_count }} в MVP</strong></span>
+            <span class="priority-stats">{{ feature_count }} функций, {{ rated_count }} оценено, <strong>{{ mvp_count }} в MVP</strong></span>
         </div>
         {% if startup.user_role != 'viewer' %}
             <form id="mvp-transfer"
@@ -64,7 +64,7 @@
                         {% if feature.source == 'bruno' %}<span>От Бруно</span>{% endif %}
                         {% if feature.estimate_preview.preliminary %}<span>Оценки Бруно</span>{% endif %}
                         {% if feature.kano.total %}
-                            <a href="{% url 'feature_kano' startup.id feature.pk %}?method={{ mvp_method }}">Кано: {{ feature.kano.label|lower }} · ответов: {{ feature.kano.total }}</a>
+                            <a href="{% url 'feature_kano' startup.id feature.pk %}?method={{ mvp_method }}">Кано: {{ feature.kano.label|lower }}, ответов: {{ feature.kano.total }}</a>
                         {% endif %}
                     </div>
                 </div>
@@ -108,12 +108,11 @@
                                 Оценить
                             {% else %}
                                 Изменить
-                            {% endif %}
-                            <span aria-hidden="true">↗</span></a>
+                            {% endif %}</a>
                     {% endif %}
                     {% if kano_enabled %}<a href="{% url 'feature_kano' startup.id feature.pk %}?method={{ mvp_method }}">Опрос Кано</a>{% endif %}
                     {% if feature.task_id %}
-                        <a href="{% if feature.task.status == 'todo' %}?method={{ mvp_method }}#task-{{ feature.task_id }}{% else %}{% url 'evidence_list' startup.id %}?axis=product{% endif %}">{{ feature.task.get_status_display }} →</a>
+                        <a href="{% if feature.task.status == 'todo' %}?method={{ mvp_method }}#task-{{ feature.task_id }}{% else %}{% url 'evidence_list' startup.id %}?axis=product{% endif %}">{{ feature.task.get_status_display }}</a>
                     {% endif %}
                 </div>
             </article>
@@ -136,7 +135,7 @@
         {% endif %}
     </div>
     {% if startup.user_role != 'viewer' and transferable_count %}
-        <button class="button primary" type="submit" form="mvp-transfer">Взять выбранные в работу →</button>
+        <button class="button primary" type="submit" form="mvp-transfer">Взять выбранные в работу</button>
     {% endif %}
 </footer>
 <details class="priority-help">

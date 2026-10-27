@@ -3,7 +3,7 @@
          id="project-readiness">
     <header class="readiness-heading">
         <div>
-            <span class="readiness-eyebrow">СОСТОЯНИЕ ПРОЕКТА</span>
+            <span class="readiness-eyebrow">Состояние проекта</span>
             <h3 id="readiness-title">Что уже известно</h3>
         </div>
         <span class="state-live-label">По сохранённым данным</span>
@@ -22,11 +22,11 @@
                         </summary>
                         <p>{{ state.description }}</p>
                         {% for source in state.sources %}
-                            <a href="{{ source.url }}">{{ source.claim|truncatechars:65 }}<small>{{ source.outcome_label }} · {{ source.observed_on|date:'d.m.Y' }}</small></a>
+                            <a href="{{ source.url }}">{{ source.claim|truncatechars:65 }}<small>{{ source.outcome_label }}, {{ source.observed_on|date:'d.m.Y' }}</small></a>
                         {% endfor %}
                         {% if state.key == 'product' %}
-                            {% if readiness.prototype %}<a href="{{ readiness.prototype_url }}">Открыть сохранённый прототип →</a>{% endif %}
-                            <a href="{{ readiness.test_url }}">Внешних участников с отзывом: {{ readiness.testers }} →</a>
+                            {% if readiness.prototype %}<a href="{{ readiness.prototype_url }}">Открыть сохранённый прототип</a>{% endif %}
+                            <a href="{{ readiness.test_url }}">Внешних участников с отзывом: {{ readiness.testers }}</a>
                         {% endif %}
                     </details>
                 </div>
@@ -35,7 +35,7 @@
     </div>
     {% if not readiness_in_work %}
         <div class="readiness-next">
-            <span class="readiness-next-icon" aria-hidden="true">↗</span>
+            <span class="readiness-next-icon" aria-hidden="true">{% include 'founder/_icon.html' with name='chevron-right' %}</span>
             <div>
                 <span class="work-caption">
                     {% if readiness.manual_focus %}
@@ -46,7 +46,7 @@
                 </span>
                 <strong>{{ readiness.focus_label }}</strong>
                 <p>{{ readiness.next_description }}</p>
-                <a class="readiness-action" href="{% url 'tasks' startup.id %}">К плану и действиям →</a>
+                <a class="readiness-action" href="{% url 'tasks' startup.id %}">К плану и действиям</a>
             </div>
         </div>
     {% endif %}
@@ -59,7 +59,7 @@
                 Это три независимых направления. Создание сайта не подтверждает спрос, а три отзыва не доказывают готовность продукта. Отрицательный результат отличается от отсутствия данных.
             </p>
             <p>
-                Потребность — результаты проверок спроса; продукт — прототип, отзывы и пилоты; оплаты и возврат — записи о первых и повторных оплатах. Возврат без оплаты сохраняйте с типом «Возврат пользователей».
+                Потребность показывают результаты проверок спроса, продукт показывают прототип, отзывы и пилоты, оплаты и возврат показывают записи о первых и повторных оплатах. Возврат без оплаты сохраняйте с типом «Возврат пользователей».
             </p>
             <p>
                 Источники оплаты и интервью добавляет основатель. Платформа фиксирует факт тестирования, но не удостоверяет слова пользователя или получение денег. Противоречивые результаты показываются вместе.

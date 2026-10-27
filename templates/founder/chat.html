@@ -1,50 +1,400 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}{% if is_panel %}Панель акул{% elif is_pitch %}Питч{% else %}Чат с Бруно{% endif %} · BrunoLab{% endblock %}
-{% block content %}
-{% include 'founder/_workspace_nav.html' %}
-<div class="chat-heading"><div><a class="back-link" href="{% if is_training %}{% url 'investor' startup.id %}{% else %}{% url 'dashboard' startup.id %}{% endif %}">← {% if is_training %}К тренировкам{% else %}К профилю{% endif %}</a>{% if not is_panel %}<span class="eyebrow">{% if is_pitch %}ТРЕНИРОВОЧНОЕ ИНТЕРВЬЮ{% else %}РАЗГОВОР С БРУНО{% endif %}</span>{% endif %}<h1>{% if is_panel %}{{ panel.audience.heading }}{% elif is_pitch %}Встреча с инвестором{% else %}Расскажите о сервисе{% endif %}</h1><p>{% if is_panel %}{% for shark in panel.steps %}{{ shark.name }}{% if not forloop.last %}{% if forloop.revcounter == 2 %} и {% else %}, {% endif %}{% endif %}{% endfor %} спрашивают по очереди, каждый о своём, потом голосуют. Тренировка не меняет радар.{% elif is_pitch %}Продажи, цена, клиенты и спрос. Один вопрос за раз. Тренировочные ответы не меняют радар.{% else %}Говорите своими словами. Бруно разберёт проект, подскажет идеи и поможет собрать таблицу в профиле.{% endif %}</p></div></div>
-
-{% if session.focus_axis %}<div class="focus-banner"><strong>Уточняем: {{ session.get_focus_axis_display }}</strong><span>Добавьте детали, затем нажмите «Составить таблицу», чтобы обновить радар.</span></div>{% endif %}
-<div class="chat-layout{% if is_panel %} is-panel{% endif %}">
-  <div class="card conversation-card">
-    <div class="conversation-toolbar">{% if is_panel %}{% include 'founder/_panel_bench.html' %}{% endif %}{% if chat_page.has_other_pages %}<nav class="community-pagination" aria-label="История разговора">{% if chat_page.has_next %}<a href="?page={{ chat_page.next_page_number }}">← Ранние сообщения</a>{% endif %}{% if chat_page.has_previous %}<a href="?page={{ chat_page.previous_page_number }}">Более новые →</a>{% endif %}{% if chat_page.number != 1 %}<a href="{% url 'chat_detail' startup.id session.id %}">К последним</a>{% endif %}</nav>{% endif %}{% url 'chat_search' startup.id session.id as search_url %}{% include 'founder/_chat_search_button.html' with mode='bruno' url=search_url %}</div>
-    <div data-chat-search-slot></div>
-    <div id="message-list" class="message-list" aria-live="polite">
-      {% for message in chat_messages %}
-        <div id="message-{{ message.id }}" class="message {% if message.role == 'user' %}message-user{% else %}message-assistant{% endif %}{% if message.shark %} shark-{{ message.shark.key }}{% endif %}">
-          <div class="message-avatar">{% if message.role == 'user' %}{{ message.author.public_name|default:request.user.public_name|first|upper }}{% elif message.shark %}{{ message.shark.initial }}{% else %}Б{% endif %}</div>
-          <div class="message-body"><div class="message-meta">{% if message.role == 'user' %}{% if show_authors and message.author and message.author != request.user %}{{ message.author.public_name }}{% else %}Вы{% endif %}{% elif message.shark %}{{ message.shark.name }}{% else %}Бруно{% endif %}<span>{{ message.created_at|date:"H:i" }}</span></div><div class="message-text">{{ message.content|linebreaksbr }}</div>{% if message.funding_note %}<p class="funding-note"><strong>Бруно передаст акулам:</strong> деньги придут не от инвесторов, а {% if message.funding_note.kind == 'institution' %}от вуза, фонда или гранта{% else %}от компании{% endif %}{% if message.funding_note.name %} ({{ message.funding_note.name }}){% endif %}. На панели вас встретят её представители. <a href="{% url 'investor' startup.id %}#panel-start">К панели →</a></p>{% endif %}{% for attachment in message.attachments.all %}<div class="attachment-label">▣ {{ attachment.original_name }}</div>{% endfor %}{% if can_edit %}{% include 'founder/_message_actions.html' %}{% endif %}</div>
-        </div>
-      {% endfor %}
-    </div>
-    {% if not can_edit %}<div class="ended-note">Вы наблюдатель: можно читать разговор, но писать Бруно могут только владелец и соавторы.</div>
-    {% elif session.completed_at %}<div class="ended-note">{% if is_panel %}Панель проголосовала. Итог и разбор — ниже.{% else %}Интервью завершено. Отчёт Бруно — ниже.{% endif %}</div>
-    {% elif panel.finished %}<div class="panel-finish"><div><strong>{% if panel.audience.kind == 'investors' %}Акулы задали все вопросы{% else %}Вопросов больше нет{% endif %}</strong><span>Каждый скажет «{{ panel.audience.yes_word }}» или «{{ panel.audience.no_word }}» и назовёт условие. Потом Бруно разберёт ваши ответы.</span></div><form method="post" action="{% url 'panel_vote' startup.id session.id %}" data-busy-form>{% csrf_token %}<button type="submit" class="button dark" data-busy-label="Панель совещается…">Голосование</button></form></div>
+{% block title %}
+    {% if is_panel %}
+        Панель акул
+    {% elif is_pitch %}
+        Питч
     {% else %}
-      <form id="chat-form" {% if hub_message %}data-hub-send="true"{% endif %} data-draft-key="bruno:{{ request.user.pk }}:{{ session.id }}" method="post" action="{% url 'chat_send' startup.id session.id %}" enctype="multipart/form-data" class="chat-composer{% if is_panel %} is-panel{% endif %}">
-        {% csrf_token %}
-        {% if quick_replies %}<div class="quick-replies" aria-label="Быстрые ответы">{% for reply in quick_replies %}<button type="button" class="quick-reply" data-quick-reply="{{ reply }}">{{ reply }}</button>{% endfor %}</div>{% endif %}
-        <textarea name="content" id="message-input" rows="3" maxlength="4000" placeholder="{% if is_panel %}Ваш ответ {{ panel.speaker.dative|default:'акулам' }}…{% elif is_pitch %}Ваш ответ инвестору…{% else %}Напишите Бруно…{% endif %}">{{ hub_message }}</textarea>
-        <div class="composer-bottom"><label class="file-button">▣ <span id="file-name">Прикрепить файл</span><input type="file" name="attachment" id="attachment-input" accept=".txt,.md,.csv,.json"></label><button class="button primary" type="submit" id="send-button">Отправить <span aria-hidden="true">↗</span></button></div>
-      </form>
+        Чат с Бруно
     {% endif %}
-  </div>
-  {% if not is_panel %}<aside class="chat-aside">
-    <div class="card companion-card">{% include 'founder/_bruno.html' with investor=is_pitch %}<h2>{% if is_pitch %}Бруно · инвестор{% else %}Бруно · сооснователь{% endif %}</h2><p>{% if is_pitch %}«Докажите мне, что это бизнес, а не красивая презентация».{% else %}«Расскажите, как всё устроено. Я помогу разложить по пяти пунктам».{% endif %}</p></div>
-    {% if picture %}<details class="card project-card-fold picture-card" id="project-picture"><summary>Картина проекта</summary><div class="project-fold-body">{% include 'founder/_picture_value.html' %}{% if picture.known %}<ul class="picture-list">{% for item in picture.items %}<li class="picture-{{ item.status }}"><span class="picture-label">{{ item.label }} <em>{{ item.status_label }}</em></span><p>{{ item.text|default:"пока неизвестно" }}</p></li>{% endfor %}</ul>{% if picture.gap %}<div class="task-criterion"><strong>Главный пробел</strong><p>{{ picture.gap }}</p></div>{% endif %}{% if can_edit %}<details class="picture-edit"><summary>Поправить картину</summary><form method="post" action="{% url 'picture_edit' startup.id session.id %}">{% csrf_token %}{% for item in picture.items %}<label>{{ item.label }}<textarea name="{{ item.key }}" rows="2" maxlength="300">{{ item.text }}</textarea></label><select name="{{ item.key }}_status" aria-label="Статус: {{ item.label }}">{% for value, label in picture.statuses %}<option value="{{ value }}"{% if value == item.status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>{% endfor %}<button type="submit" class="button primary wide">Сохранить</button></form></details>{% endif %}{% else %}<p class="muted small">Бруно соберёт её по ходу разговора: клиент, проблема, деньги, каналы, конкуренты и что из этого уже проверено.</p>{% endif %}<div class="revenue-card"><strong>Как проект зарабатывает</strong>{% if picture.revenue.missing %}<small>Бруно спросит, чего не хватает</small>{% endif %}<ul>{% for item in picture.revenue.items %}<li class="{% if item.text %}is-known{% else %}is-missing{% endif %}"><span>{{ item.label|capfirst }}</span><p>{{ item.text|default:"пока не названо" }}</p></li>{% endfor %}</ul></div></div></details>{% endif %}
-    {% if can_edit %}
-    {% if not is_training %}<details class="card project-card-fold"><summary>Работа с проектом</summary><div class="project-fold-body">
-    {% if not is_training %}<div class="card finish-card"><span class="eyebrow">КАРТОЧКА ДЛЯ СООБЩЕСТВА</span><h3>Расскажем о вашем проекте</h3><p>Бруно обновит оценку и соберёт короткую карточку из ваших ответов. Проверьте её перед публикацией.</p><form method="post" action="{% url 'card_generate' startup.id %}" data-busy-form>{% csrf_token %}<button type="submit" class="button primary wide" data-busy-label="Бруно собирает карточку…">Оценить и собрать карточку</button></form><a class="evidence-link" href="{% url 'card_edit' startup.id %}">Заполнить вручную →</a></div>{% endif %}
-    {% if not is_training %}<div class="card finish-card"><span class="eyebrow">ТАБЛИЦА В ПРОФИЛЕ</span><h3>Пять направлений</h3><p>{% if has_assessment_context %}Бруно соберёт оценки и пояснения из анкеты и разговора. Позже таблицу можно поправить.{% else %}Расскажите о сервисе в чате или заполните описание проекта — Бруно учтёт оба источника.{% endif %}</p>{% if has_assessment_context and ai_available %}<form method="post" action="{% url 'metrics_assess' startup.id %}" id="ai-assessment-form">{% csrf_token %}<button type="submit" class="button primary wide">Составить таблицу</button><span id="ai-assessment-status" class="muted small" role="status" aria-live="polite"></span></form>{% elif has_assessment_context %}<p>Для автоматической таблицы нужно подключить ИИ. Сейчас пункты можно заполнить вручную в профиле.</p>{% endif %}</div>{% endif %}
-    </div></details>{% endif %}
-    {% if is_pitch and not session.completed_at %}<div class="card finish-card"><span class="eyebrow">КОГДА БУДЕТЕ ГОТОВЫ</span><h3>Получить разбор</h3><p>Бруно разберёт конкретность ответов, обоснование продаж и противоречия. Обычно достаточно 6–8 ответов.</p><form method="post" action="{% url 'pitch_finish' startup.id session.id %}" data-busy-form data-pitch-finish>{% csrf_token %}<button type="submit" class="button dark wide" data-busy-label="Бруно готовит разбор…">Завершить интервью</button></form></div>{% endif %}
-    {% endif %}
-  </aside>{% endif %}
-</div>
-
-{% if panel.verdict %}{% include 'founder/_panel_verdict.html' %}{% endif %}
-
-{% if report %}{% if not is_panel %}<p class="work-notice">Оценка отражает качество тренировочного разговора, а не инвестиционную привлекательность бизнеса.</p>{% endif %}<section class="card report-card" id="report"><div class="section-top"><div><span class="eyebrow">{% if is_panel %}РАЗБОР БРУНО{% else %}РАЗБОР ИНВЕСТОРА{% endif %}</span><h2>{% if is_panel %}Как вы ответили панели{% else %}Как вы ответили инвестору{% endif %}</h2></div><span class="score-badge">{{ report.score }}/100</span></div><p class="report-summary">{{ report.summary }}</p><div class="mistake-grid">{% for mistake in report.mistakes %}<article class="mistake-card"><span class="mistake-number">0{{ forloop.counter }}</span><h3>{{ mistake.title }}</h3>{% if mistake.quote %}<blockquote class="investor-quote">«{{ mistake.quote }}»</blockquote>{% endif %}<p>{{ mistake.detail }}</p><strong>Что улучшить</strong><p>{{ mistake.recommendation }}</p></article>{% endfor %}</div></section>{% endif %}
+    · BrunoLab
 {% endblock %}
-{% block scripts %}<script src="{% static 'founder/js/workbench.js' %}?v=2" defer></script><script src="{% static 'founder/js/chat.js' %}?v=merged-sharks-3"></script><script src="{% static 'founder/js/dashboard.js' %}"></script>{% if panel.verdict %}<script src="{% static 'founder/js/panel.js' %}?v=sharks-3" defer></script>{% endif %}{% endblock %}
+{% block content %}
+    {% include 'founder/_workspace_nav.html' %}
+    <div class="chat-heading">
+        <div>
+            <a class="back-link"
+               href="{% if is_training %}{% url 'investor' startup.id %}{% else %}{% url 'dashboard' startup.id %}{% endif %}">←
+                {% if is_training %}
+                    К тренировкам
+                {% else %}
+                    К радару
+                {% endif %}
+            </a>
+            <h1>
+                {% if is_panel %}
+                    {{ panel.audience.heading }}
+                {% elif is_pitch %}
+                    Встреча с инвестором
+                {% else %}
+                    Расскажите о сервисе
+                {% endif %}
+            </h1>
+            <p>
+                {% if is_panel %}
+                    {# djlint:off #}{% for shark in panel.steps %}{{ shark.name }}{% if not forloop.last %}{% if forloop.revcounter == 2 %} и {% else %}, {% endif %}{% endif %}{% endfor %}{# djlint:on #} спрашивают по очереди, каждый о своём, потом голосуют. Тренировка не меняет радар.
+                {% elif is_pitch %}
+                    Продажи, цена, клиенты и спрос. Один вопрос за раз. Тренировочные ответы не меняют радар.
+                {% else %}
+                    Говорите своими словами. Бруно задаёт по одному вопросу и собирает из ответов картину проекта.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    {% if session.focus_axis %}
+        <div class="focus-banner">
+            <strong>Уточняем: {{ session.get_focus_axis_display }}</strong><span>Добавьте детали, затем нажмите «Составить таблицу», чтобы обновить радар.</span>
+        </div>
+    {% endif %}
+    <div class="chat-layout{% if is_panel %} is-panel{% endif %}">
+        <div class="card conversation-card">
+            <div class="conversation-toolbar">
+                {% if is_panel %}
+                    {% include 'founder/_panel_bench.html' %}
+                {% endif %}
+                {% if chat_page.has_other_pages %}
+                    <nav class="community-pagination" aria-label="История разговора">
+                        {% if chat_page.has_next %}<a href="?page={{ chat_page.next_page_number }}">← Ранние сообщения</a>{% endif %}
+                        {% if chat_page.has_previous %}<a href="?page={{ chat_page.previous_page_number }}">Более новые</a>{% endif %}
+                        {% if chat_page.number != 1 %}
+                            <a href="{% url 'chat_detail' startup.id session.id %}">К последним</a>
+                        {% endif %}
+                    </nav>
+                {% endif %}
+                {% url 'chat_search' startup.id session.id as search_url %}
+                {% include 'founder/_chat_search_button.html' with mode='bruno' url=search_url %}
+            </div>
+            <div data-chat-search-slot></div>
+            <div id="message-list" class="message-list" aria-live="polite">
+                {% for message in chat_messages %}
+                    <div id="message-{{ message.id }}"
+                         class="message {% if message.role == 'user' %}message-user{% else %}message-assistant{% endif %}{% if message.shark %} shark-{{ message.shark.key }}{% endif %}">
+                        <div class="message-avatar">
+                            {% if message.role == 'user' %}
+                                {{ message.author.public_name|default:request.user.public_name|first|upper }}
+                            {% elif message.shark %}
+                                {{ message.shark.initial }}
+                            {% else %}
+                                Б
+                            {% endif %}
+                        </div>
+                        <div class="message-body">
+                            <div class="message-meta">
+                                {% if message.role == 'user' %}
+                                    {% if show_authors and message.author and message.author != request.user %}
+                                        {{ message.author.public_name }}
+                                    {% else %}
+                                        Вы
+                                    {% endif %}
+                                {% elif message.shark %}
+                                    {{ message.shark.name }}
+                                {% else %}
+                                    Бруно
+                                {% endif %}
+                                <span class="message-meta-end">
+                                    <span>{{ message.created_at|date:"H:i" }}</span>
+                                    {% if message.role == 'assistant' %}
+                                        <button type="button"
+                                                class="icon-button message-copy"
+                                                data-copy-text="#message-{{ message.id }} .message-text"
+                                                aria-label="Скопировать ответ"
+                                                title="Скопировать ответ">
+                                            {% include 'founder/_icon.html' with name='copy' %}
+                                        </button>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {# djlint:off #}<div class="message-text">{{ message.content|linebreaksbr }}</div>{# djlint:on #}
+                            {% if message.funding_note %}
+                                <p class="funding-note">
+                                    <strong>Бруно передаст акулам:</strong>
+                                    {# djlint:off #}{% if message.funding_note.kind == 'institution' %}деньги даст вуз, фонд или грант{% else %}деньги даст компания{% endif %}{% if message.funding_note.name %} ({{ message.funding_note.name }}){% endif %}.{# djlint:on #} На панели вас встретят её представители. <a href="{% url 'investor' startup.id %}#panel-start">К панели</a>
+                                </p>
+                            {% endif %}
+                            {% for attachment in message.attachments.all %}
+                                <div class="attachment-label">
+                                    {% include 'founder/_icon.html' with name='paperclip' %}
+                                    {{ attachment.original_name }}
+                                </div>
+                            {% endfor %}
+                            {% if can_edit %}
+                                {% include 'founder/_message_actions.html' %}
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            {% if not can_edit %}
+                <div class="ended-note">Вы наблюдатель: можно читать разговор, но писать Бруно могут только владелец и соавторы.</div>
+            {% elif session.completed_at %}
+                <div class="ended-note">
+                    {% if is_panel %}
+                        Панель проголосовала. Итог и разбор ниже.
+                    {% else %}
+                        Интервью завершено. Отчёт Бруно ниже.
+                    {% endif %}
+                </div>
+            {% elif panel.finished %}
+                <div class="panel-finish">
+                    <div>
+                        <strong>
+                            {% if panel.audience.kind == 'investors' %}
+                                Акулы задали все вопросы
+                            {% else %}
+                                Вопросов больше нет
+                            {% endif %}
+                            </strong><span>Каждый скажет «{{ panel.audience.yes_word }}» или «{{ panel.audience.no_word }}» и назовёт условие. Потом Бруно разберёт ваши ответы.</span>
+                        </div>
+                        <form method="post"
+                              action="{% url 'panel_vote' startup.id session.id %}"
+                              data-busy-form>
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="button dark"
+                                    data-busy-label="Панель совещается…">Начать голосование</button>
+                        </form>
+                    </div>
+                {% else %}
+                    <form id="chat-form"
+                          {% if hub_message %}data-hub-send="true"{% endif %}
+                          data-draft-key="bruno:{{ request.user.pk }}:{{ session.id }}"
+                          method="post"
+                          action="{% url 'chat_send' startup.id session.id %}"
+                          enctype="multipart/form-data"
+                          class="chat-composer{% if is_panel %} is-panel{% endif %}">
+                        {% csrf_token %}
+                        {% if quick_replies %}
+                            <div class="quick-replies" aria-label="Быстрые ответы">
+                                {% for reply in quick_replies %}
+                                    <button type="button" class="quick-reply" data-quick-reply="{{ reply }}">{{ reply }}</button>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <textarea name="content"
+                                  id="message-input"
+                                  rows="3"
+                                  maxlength="4000"
+                                  aria-label="{% if is_panel %}Ваш ответ {{ panel.speaker.dative|default:'акулам' }}{% elif is_pitch %}Ваш ответ инвестору{% else %}Сообщение Бруно{% endif %}"
+                                  placeholder="{% if is_panel %}Ваш ответ {{ panel.speaker.dative|default:'акулам' }}…{% elif is_pitch %}Ваш ответ инвестору…{% else %}Напишите Бруно…{% endif %}">{{ hub_message }}</textarea>
+                        <div class="composer-bottom">
+                            <label class="file-button">
+                                {% include 'founder/_icon.html' with name='paperclip' %}
+                                <span id="file-name">Прикрепить файл</span>
+                                <input type="file"
+                                       name="attachment"
+                                       id="attachment-input"
+                                       accept=".txt,.md,.csv,.json">
+                            </label>
+                            <button class="button primary" type="submit" id="send-button">
+                                {% if is_panel %}
+                                    Ответить
+                                {% else %}
+                                    Отправить Бруно
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
+            {% if not is_panel %}
+                <aside class="chat-aside">
+                    <div class="card companion-card">
+                        {% include 'founder/_bruno.html' with investor=is_pitch %}
+                        <h2>
+                            {% if is_pitch %}
+                                Бруно-инвестор
+                            {% else %}
+                                Бруно-сооснователь
+                            {% endif %}
+                        </h2>
+                        <p>
+                            {% if is_pitch %}
+                                «Покажите, кто уже платит и сколько».
+                            {% else %}
+                                «Расскажите, как всё устроено, и я разложу проект по пяти направлениям».
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% if picture %}
+                        <details class="card project-card-fold picture-card" id="project-picture">
+                            <summary>Картина проекта</summary>
+                            <div class="project-fold-body">
+                                {% include 'founder/_picture_value.html' %}
+                                {% if picture.known %}
+                                    <ul class="picture-list">
+                                        {% for item in picture.items %}
+                                            <li class="picture-{{ item.status }}">
+                                                <span class="picture-label">{{ item.label }} <em>{{ item.status_label }}</em></span>
+                                                <p>{{ item.text|default:"пока неизвестно" }}</p>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% if picture.gap %}
+                                        <div class="task-criterion">
+                                            <strong>Главный пробел</strong>
+                                            <p>{{ picture.gap }}</p>
+                                        </div>
+                                    {% endif %}
+                                    {% if can_edit %}
+                                        <details class="picture-edit">
+                                            <summary>Поправить картину</summary>
+                                            <form method="post" action="{% url 'picture_edit' startup.id session.id %}">
+                                                {% csrf_token %}
+                                                {% for item in picture.items %}
+                                                    <label>
+                                                        {{ item.label }}<textarea name="{{ item.key }}" rows="2" maxlength="300">{{ item.text }}</textarea>
+                                                    </label>
+                                                    <select name="{{ item.key }}_status" aria-label="Статус: {{ item.label }}">
+                                                        {% for value, label in picture.statuses %}
+                                                            <option value="{{ value }}"{% if value == item.status %} selected{% endif %}>{{ label }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                {% endfor %}
+                                                <button type="submit" class="button primary wide">Сохранить картину</button>
+                                            </form>
+                                        </details>
+                                    {% endif %}
+                                {% else %}
+                                    <p class="muted small">
+                                        Бруно соберёт её по ходу разговора: клиент, проблема, деньги, каналы, конкуренты и что из этого уже проверено.
+                                    </p>
+                                {% endif %}
+                                <div class="revenue-card">
+                                    <strong>Как проект зарабатывает</strong>
+                                    {% if picture.revenue.missing %}<small>Бруно спросит, чего не хватает</small>{% endif %}
+                                    <ul>
+                                        {% for item in picture.revenue.items %}
+                                            <li class="{% if item.text %}is-known{% else %}is-missing{% endif %}">
+                                                <span>{{ item.label|capfirst }}</span>
+                                                <p>{{ item.text|default:"пока не названо" }}</p>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </details>
+                    {% endif %}
+                    {% if can_edit %}
+                        {% if not is_training %}
+                            <details class="card project-card-fold">
+                                <summary>Работа с проектом</summary>
+                                <div class="project-fold-body">
+                                    {% if not is_training %}
+                                        <div class="card finish-card">
+                                            <span class="eyebrow">Карточка для сообщества</span>
+                                            <h3>Расскажем о вашем проекте</h3>
+                                            <p>Бруно обновит оценку и соберёт короткую карточку из ваших ответов. Проверьте её перед публикацией.</p>
+                                            <form method="post"
+                                                  action="{% url 'card_generate' startup.id %}"
+                                                  data-busy-form>
+                                                {% csrf_token %}
+                                                <button type="submit"
+                                                        class="button primary wide"
+                                                        data-busy-label="Бруно собирает карточку…">
+                                                    Оценить и собрать карточку
+                                                </button>
+                                            </form>
+                                            <a class="evidence-link" href="{% url 'card_edit' startup.id %}">Заполнить вручную</a>
+                                        </div>
+                                    {% endif %}
+                                    {% if not is_training %}
+                                        <div class="card finish-card">
+                                            <span class="eyebrow">Таблица в профиле</span>
+                                            <h3>Пять направлений</h3>
+                                            <p>
+                                                {% if has_assessment_context %}
+                                                    Бруно соберёт оценки и пояснения из анкеты и разговора. Позже таблицу можно поправить.
+                                                {% else %}
+                                                    Расскажите о сервисе в чате или заполните описание проекта: Бруно учтёт оба источника.
+                                                {% endif %}
+                                            </p>
+                                            {% if has_assessment_context and ai_available %}
+                                                <form method="post"
+                                                      action="{% url 'metrics_assess' startup.id %}"
+                                                      id="ai-assessment-form">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="button primary wide">Составить таблицу</button>
+                                                    <span id="ai-assessment-status"
+                                                          class="muted small"
+                                                          role="status"
+                                                          aria-live="polite"></span>
+                                                </form>
+                                            {% elif has_assessment_context %}
+                                                <p>Для автоматической таблицы нужно подключить ИИ. Сейчас пункты можно заполнить вручную в профиле.</p>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </details>
+                        {% endif %}
+                        {% if is_pitch and not session.completed_at %}
+                            <div class="card finish-card">
+                                <span class="eyebrow">Когда будете готовы</span>
+                                <h3>Получить разбор</h3>
+                                <p>Бруно разберёт конкретность ответов, обоснование продаж и противоречия. Обычно достаточно 6–8 ответов.</p>
+                                <form method="post"
+                                      action="{% url 'pitch_finish' startup.id session.id %}"
+                                      data-busy-form
+                                      data-pitch-finish>
+                                    {% csrf_token %}
+                                    <button type="submit"
+                                            class="button dark wide"
+                                            data-busy-label="Бруно готовит разбор…">Завершить интервью</button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                </aside>
+            {% endif %}
+        </div>
+
+        {% if panel.verdict %}
+            {% include 'founder/_panel_verdict.html' %}
+        {% endif %}
+
+        {% if report %}
+            {% if not is_panel %}
+                <p class="work-notice">
+                    Балл показывает, насколько точно вы отвечали. Сам бизнес он не оценивает.
+                </p>
+            {% endif %}
+            <section class="card report-card" id="report">
+                <div class="section-top">
+                    <div>
+                        <h2>
+                            {% if is_panel %}
+                                Как вы ответили панели
+                            {% else %}
+                                Как вы ответили инвестору
+                            {% endif %}
+                        </h2>
+                    </div>
+                    <span class="score-badge">{{ report.score }}/100</span>
+                </div>
+                <p class="report-summary">{{ report.summary }}</p>
+                <div class="mistake-grid">
+                    {% for mistake in report.mistakes %}
+                    <article class="mistake-card">
+                    <h3>{{ mistake.title }}</h3>
+                    {% if mistake.quote %}
+                        <blockquote class="investor-quote">
+                            «{{ mistake.quote }}»
+                        </blockquote>
+                    {% endif %}
+                    <p>{{ mistake.detail }}</p>
+                    <strong>Что улучшить</strong>
+                    <p>{{ mistake.recommendation }}</p>
+                </article>
+            {% endfor %}
+        </div>
+    </section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'founder/js/workbench.js' %}?v=2" defer></script><script src="{% static 'founder/js/chat.js' %}?v=frontend-2"></script><script src="{% static 'founder/js/dashboard.js' %}"></script>
+    {% if panel.verdict %}
+        <script src="{% static 'founder/js/panel.js' %}?v=sharks-3" defer></script>
+    {% endif %}
+{% endblock %}

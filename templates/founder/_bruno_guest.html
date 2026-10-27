@@ -1,0 +1,43 @@
+{% load static %}
+{% comment %}
+    Бруно для гостевых страниц (заставка, вход, регистрация): у гостя нет проекта и гардероба.
+    pose='walk' — Бруно идёт (заставка), иначе машет. Дальше позами управляет bruno.js.
+{% endcomment %}
+<div class="bruno-art bruno-reference bruno-curious" data-pose="{{ pose|default:'wave' }}">
+    <svg class="bruno-stage"
+         viewBox="0 0 300 300"
+         xmlns="http://www.w3.org/2000/svg"
+         role="img"
+         aria-label="Бруно, ваш наставник"
+         focusable="false">
+        <g class="bruno-character">
+            {% if pose == 'walk' %}
+                <svg x="16"
+                     y="2"
+                     width="268"
+                     height="290"
+                     viewBox="990 738 236 256"
+                     overflow="hidden">
+                    <image href="{% static 'founder/img/bruno-sprite.webp' %}"
+                           width="1280"
+                           height="1066" />
+                </svg>
+            {% else %}
+                <svg x="10"
+                     y="0"
+                     width="280"
+                     height="295"
+                     viewBox="30 25 680 690"
+                     overflow="hidden">
+                    <defs><clipPath id="bruno-guest-{{ instance_id|default:'guest' }}">
+                    <path d="M30 25 H635 V295 H705 V485 H625 V720 H30 Z" />
+                    </clipPath></defs>
+                    <image href="{% static 'founder/img/bruno-sprite.webp' %}"
+                           width="1280"
+                           height="1066"
+                           clip-path="url(#bruno-guest-{{ instance_id|default:'guest' }})" />
+                </svg>
+            {% endif %}
+        </g>
+    </svg>
+</div>

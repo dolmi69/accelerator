@@ -5,9 +5,18 @@
             {% if card.is_promoted %}<span class="promo-badge">Продвигается</span>{% endif %}
             <span class="community-tag">{{ card.published_data.stage_label }}</span>
         </div>
-        {% include 'community/_card_report.html' with name=card.published_data.name %}
+        <div class="discovery-actions">
+            <button type="button"
+                    class="icon-button"
+                    data-copy-url="{% url 'card_detail' card.startup_id %}"
+                    aria-label="Скопировать ссылку на «{{ card.published_data.name }}»"
+                    title="Скопировать ссылку">
+                {% include 'founder/_icon.html' with name='link' %}
+            </button>
+            {% include 'community/_card_report.html' with name=card.published_data.name %}
+        </div>
     </div>
-    {% if card.is_dangerous %}<p class="danger-label">Опасно!</p>{% endif %}
+    {% if card.is_dangerous %}<p class="danger-label">Опасно</p>{% endif %}
     <h2>
         <a href="{% url 'card_detail' card.startup_id %}">{{ card.published_data.name }}</a>
     </h2>
@@ -15,7 +24,7 @@
     <p class="muted">{{ card.published_data.summary|truncatechars:210 }}</p>
     {% if card.published_data.looking_for %}
         <div class="looking-for-box">
-            <span class="eyebrow">ИЩЕМ</span>
+            <span class="eyebrow">Ищем</span>
             <p>{{ card.published_data.looking_for|truncatechars:150 }}</p>
         </div>
     {% endif %}
@@ -27,4 +36,4 @@
         {% if card.is_saved %}<span class="saved-label">В избранном</span>{% endif %}
     </div>
     <a class="button ghost wide"
-       href="{% url 'card_detail' card.startup_id %}">Открыть карточку →</a></article>
+       href="{% url 'card_detail' card.startup_id %}">Открыть карточку</a></article>

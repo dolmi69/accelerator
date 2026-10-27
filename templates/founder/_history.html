@@ -1,7 +1,7 @@
 <section class="card radar-history-card" id="radar-history">
     <div class="section-top">
         <div>
-            <span class="eyebrow">КАК МЕНЯЛАСЬ КАРТИНА</span>
+            <span class="eyebrow">Как менялась картина</span>
             <h2>История радара</h2>
         </div>
         <span class="muted small">{{ history_page.paginator.count|plural:"версия,версии,версий" }}</span>
@@ -11,7 +11,7 @@
             {% for snapshot in history_page %}
                 <a class="snapshot-chip {% if snapshot.id == history_selected.id %}selected{% endif %}"
                    href="?snapshot={{ snapshot.id }}&amp;history_page={{ history_page.number }}#radar-history"
-                   {% if snapshot.id == history_selected.id %}aria-current="true"{% endif %}>{{ snapshot.assessed_at|date:"d.m.Y H:i:s" }} · {{ snapshot.get_source_display }} · {{ snapshot.overall_score }}/100</a>
+                   {% if snapshot.id == history_selected.id %}aria-current="true"{% endif %}>{{ snapshot.assessed_at|date:"d.m.Y H:i:s" }}, {{ snapshot.get_source_display }}, {{ snapshot.overall_score }}/100</a>
             {% endfor %}
         </nav>
         {% if history_page.has_other_pages %}
@@ -23,7 +23,7 @@
                 <span>{{ history_page.number }} / {{ history_page.paginator.num_pages }}</span>
                 {% if history_page.has_next %}
                     <a class="button ghost"
-                       href="?history_page={{ history_page.next_page_number }}&amp;snapshot={{ history_selected.id }}#radar-history">Раньше →</a>
+                       href="?history_page={{ history_page.next_page_number }}&amp;snapshot={{ history_selected.id }}#radar-history">Раньше</a>
                 {% endif %}
             </nav>
         {% endif %}
@@ -33,10 +33,10 @@
                     {% include 'founder/_radar_svg.html' with points=history_points previous_points=history_previous_points %}
                 </div>
                 <p class="muted small">
-                    <span class="legend-current">●</span> Выбрано: {{ history_selected.assessed_at|date:"d.m.Y H:i:s" }} · {{ history_selected.get_source_display }}
+                    <span class="legend-current">●</span> Выбрано: {{ history_selected.assessed_at|date:"d.m.Y H:i:s" }}, {{ history_selected.get_source_display }}
                     {% if history_previous %}
                         <br>
-                        <span class="legend-previous">●</span> До этого: {{ history_previous.assessed_at|date:"d.m.Y H:i:s" }} · {{ history_previous.get_source_display }}
+                        <span class="legend-previous">●</span> До этого: {{ history_previous.assessed_at|date:"d.m.Y H:i:s" }}, {{ history_previous.get_source_display }}
                     {% endif %}
                 </p>
             </div>

@@ -549,7 +549,7 @@ class AudienceTests(PanelSetup):
         answer(chat, "Хотим, чтобы Сбер вложился после пилота")
         page = self.client.get(reverse("chat_detail", args=[self.startup.pk, chat.pk]))
         self.assertContains(page, "Бруно передаст акулам:")
-        self.assertContains(page, "от компании (Сбер)")
+        self.assertContains(page, "деньги даст компания (Сбер)")
 
     @override_settings(AI_PROVIDER="demo")
     def test_commission_verdict_uses_its_words(self):

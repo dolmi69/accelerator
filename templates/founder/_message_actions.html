@@ -1,9 +1,9 @@
 {% if message.market_link %}
-    <a class="evidence-link" href="{% url 'market' startup.id %}">Полный анализ с источниками: «Рынок и конкуренты» →</a>
+    <a class="evidence-link" href="{% url 'market' startup.id %}">Полный анализ с источниками: «Рынок и конкуренты»</a>
 {% endif %}
 {% if message.evidence_candidate %}
     <a class="evidence-link"
-       href="{% url 'evidence_create' startup.id %}?message={{ message.id }}">Записать в дневник →</a>
+       href="{% url 'evidence_create' startup.id %}?message={{ message.id }}">Записать в дневник</a>
 {% endif %}
 {% if message.rateable %}
     <form method="post"
@@ -15,13 +15,13 @@
                 class="feedback-button{% if message.user_feedback.rating == 1 %} is-active{% endif %}"
                 title="Полезный ответ"
                 aria-label="Полезный ответ"
-                aria-pressed="{% if message.user_feedback.rating == 1 %}true{% else %}false{% endif %}">👍</button>
+                aria-pressed="{% if message.user_feedback.rating == 1 %}true{% else %}false{% endif %}">{% include 'founder/_icon.html' with name='thumb-up' %}</button>
         <button name="rating"
                 value="down"
                 class="feedback-button{% if message.user_feedback.rating == -1 %} is-active{% endif %}"
                 title="Неудачный ответ"
                 aria-label="Неудачный ответ"
-                aria-pressed="{% if message.user_feedback.rating == -1 %}true{% else %}false{% endif %}">👎</button>
+                aria-pressed="{% if message.user_feedback.rating == -1 %}true{% else %}false{% endif %}">{% include 'founder/_icon.html' with name='thumb-down' %}</button>
         {% if message.user_feedback.rating == -1 %}
             <input name="comment"
                    maxlength="500"
@@ -35,14 +35,14 @@
 {% endif %}
 {% if message.mentor_ideas %}
     <div class="idea-list">
-        <span class="eyebrow">ИДЕИ БРУНО</span>
+        <span class="eyebrow">Идеи Бруно</span>
         {% for idea in message.mentor_ideas %}
             <div class="idea-row">
                 <div>
                     <strong>{{ idea.title }}</strong><small>Проверка: {{ idea.test }}</small>
                 </div>
                 {% if idea.task_id %}
-                    <a class="evidence-link" href="{% url 'tasks' startup.id %}">В заданиях →</a>
+                    <a class="evidence-link" href="{% url 'tasks' startup.id %}">В заданиях</a>
                 {% else %}
                     <form method="post"
                           action="{% url 'idea_task' startup.id session.id idea.id %}">

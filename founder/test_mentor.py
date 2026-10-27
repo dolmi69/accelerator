@@ -115,8 +115,8 @@ class MentorPlanTests(TestCase):
         self.client.post(reverse("idea_task", args=[self.startup.pk, self.session.pk, second.pk]))
         self.assertEqual(BrunoTask.objects.count(), 1)  # одно открытое задание на направление
         page = self.client.get(reverse("chat_detail", args=[self.startup.pk, self.session.pk]))
-        self.assertContains(page, "ИДЕИ БРУНО")
-        self.assertContains(page, "В заданиях →")
+        self.assertContains(page, "Идеи Бруно")
+        self.assertContains(page, "В заданиях")
         self.assertContains(page, "Проверить это")
 
 

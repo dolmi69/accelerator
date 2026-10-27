@@ -3,7 +3,7 @@
          aria-labelledby="work-analysis-title">
     <header class="work-section-heading">
         <div>
-            <span class="eyebrow">01 · РАЗБОР БРУНО</span>
+            <span class="eyebrow">Разбор Бруно</span>
             <h2 id="work-analysis-title">
                 {% if review %}
                     Главное из разбора
@@ -13,7 +13,7 @@
             </h2>
         </div>
         {% if review %}
-            <time datetime="{{ review.created_at|date:'c' }}">{{ review.created_at|date:'d.m.Y · H:i' }}</time>
+            <time datetime="{{ review.created_at|date:'c' }}">{{ review.created_at|date:'d.m.Y, H:i' }}</time>
         {% endif %}
     </header>
     {% if review %}
@@ -40,7 +40,7 @@
             <summary>Все основания и риски</summary>
             <div class="project-fold-body">
                 <p>{{ data.stage_reason }}</p>
-                {% for strength in data.strengths %}<p>✓ {{ strength }}</p>{% endfor %}
+                {% for strength in data.strengths %}<p class="work-strength">{% include 'founder/_icon.html' with name='check' %}{{ strength }}</p>{% endfor %}
                 {% for risk in risks %}
                     <p>
                         <strong>{{ risk.title }}</strong> · {{ risk.axis_label }}
@@ -51,13 +51,13 @@
             </div>
         </details>
         <h3 class="work-plan-title">Предложенные шаги</h3>
-        <p class="muted small">Текущие задания — выше. Здесь подробности плана и дополнительные шаги.</p>
+        <p class="muted small">Текущие задания стоят выше. Здесь подробности плана и дополнительные шаги.</p>
         <ol class="work-plan-list">
             {% for step in steps %}
                 <li>
                     <span class="work-plan-number">{{ forloop.counter|stringformat:'02d' }}</span>
                     <div>
-                        <span class="work-caption">Неделя {{ step.week }} · {{ step.axis_label }}</span>
+                        <span class="work-caption">Неделя {{ step.week }}, {{ step.axis_label }}</span>
                         <h3>{{ step.title }}</h3>
                         <p>{{ step.action }}</p>
                         <details class="work-done-when">
@@ -67,7 +67,7 @@
                     </div>
                     <div class="work-plan-action">
                         {% if step.accepted %}
-                            <span class="work-saved-label">✓ Уже добавлен</span>
+                            <span class="work-saved-label">{% include 'founder/_icon.html' with name='check' %}Уже добавлен</span>
                         {% elif step.axis_busy %}
                             <a href="#work-tasks" class="muted small">Уже есть задание
                                 <br>
@@ -76,7 +76,7 @@
                             <form method="post"
                                   action="{% url 'review_step_task' startup.id review.id step.index %}">
                                 {% csrf_token %}
-                                <button class="button ghost">Взять в работу →</button>
+                                <button class="button ghost">Взять в работу</button>
                             </form>
                         {% endif %}
                     </div>
@@ -107,11 +107,10 @@
             </details>
         {% endif %}
         <p class="work-analysis-footnote">
-            Мнение Бруно по сохранённым данным. Обновление разбора использует AI; выбор готовых шагов и функций — нет.
+            Мнение Бруно по сохранённым данным. Обновление разбора использует AI; выбор готовых шагов и функций обходится без AI.
         </p>
     {% else %}
         <div class="work-analysis-empty">
-            <div class="work-empty-symbol" aria-hidden="true">✦</div>
             <div>
                 <h3>
                     {% if has_story %}
@@ -130,7 +129,7 @@
                 {% if not has_story and startup.user_role != 'viewer' %}
                     <form method="post" action="{% url 'chat_create' startup.id %}">
                         {% csrf_token %}
-                        <button class="button ghost">Рассказать Бруно →</button>
+                        <button class="button ghost">Рассказать Бруно</button>
                     </form>
                 {% endif %}
             </div>
@@ -142,7 +141,7 @@
             <div class="project-fold-body">
                 {% for item in review_history %}
                     <a class="history-row"
-                       href="{% url 'tasks' startup.id %}?review={{ item.pk }}#work-analysis"><span>{{ item.data.focus|truncatechars:100 }}<small>{{ item.created_at|date:'d.m.Y H:i' }}</small></span><span aria-hidden="true">→</span></a>
+                       href="{% url 'tasks' startup.id %}?review={{ item.pk }}#work-analysis"><span>{{ item.data.focus|truncatechars:100 }}<small>{{ item.created_at|date:'d.m.Y H:i' }}</small></span></a>
                 {% endfor %}
             </div>
         </details>

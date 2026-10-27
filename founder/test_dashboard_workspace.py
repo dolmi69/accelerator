@@ -31,7 +31,7 @@ class RadarWorkspaceTests(TestCase):
         ProjectMember.objects.create(startup=self.startup, user=self.viewer, status='active', role='viewer')
         ProjectMember.objects.create(startup=self.startup, user=self.invited, status='invited')
         page = self.client.get(reverse('dashboard', args=[self.startup.pk]))
-        for text in ['Свежий взгляд', 'Опрос студентов', self.viewer.public_name]:
+        for text in ['План от Бруно', 'Опрос студентов', self.viewer.public_name]:
             self.assertContains(page, text)
         self.assertNotContains(page, 'Чужая тайная задача')
         self.assertNotContains(page, self.invited.public_name)

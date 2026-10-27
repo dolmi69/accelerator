@@ -1,22 +1,22 @@
 .custom-select { position:relative; display:inline-block; width:100%; min-width:0; vertical-align:middle; }
 .custom-select>select.custom-select-native { display:none!important; }
-.custom-select-trigger { display:flex; align-items:center; justify-content:space-between; gap:16px; width:100%; min-width:0; min-height:42px; padding:10px 12px; border:1px solid #bed6ca; border-radius:9px; background:#edf5ee; color:#34765f; font:inherit; font-size:13px; font-weight:600; text-align:left; cursor:pointer; transition:background .15s,border-color .15s; }
-.custom-select-trigger:hover,.custom-select-trigger[aria-expanded="true"] { background:#e4f0e8; border-color:#78ad98; }
-.custom-select-trigger:focus-visible { outline:2px solid #15877d; outline-offset:3px; }
+.custom-select-trigger { display:flex; align-items:center; justify-content:space-between; gap:16px; width:100%; min-width:0; min-height:42px; padding:10px 12px; border:1px solid var(--line-strong); border-radius:8px; background:var(--tint-soft); color:var(--teal-dark); font:inherit; font-size:13px; font-weight:600; text-align:left; cursor:pointer; transition:background .15s,border-color .15s; }
+.custom-select-trigger:hover,.custom-select-trigger[aria-expanded="true"] { background:var(--tint); border-color:var(--line-teal); }
+.custom-select-trigger:focus-visible { outline:2px solid var(--teal); outline-offset:3px; }
 .custom-select-value { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .custom-select-chevron { width:7px; height:7px; flex-shrink:0; margin:0 3px 4px 2px; border:solid currentColor; border-width:0 1.5px 1.5px 0; transform:rotate(45deg); transition:transform .15s; }
 .custom-select-trigger[aria-expanded="true"] .custom-select-chevron { transform:translateY(3px) rotate(225deg); }
 .custom-select-trigger:disabled { opacity:.5; cursor:not-allowed; }
-.custom-select-trigger[aria-invalid="true"] { border-color:#b44b43; }
-.custom-select-error { display:block; margin-top:6px; color:#b44b43; font-size:12px; line-height:1.4; }
+.custom-select-trigger[aria-invalid="true"] { border-color:var(--danger); }
+.custom-select-error { display:block; margin-top:6px; color:var(--danger); font-size:13px; line-height:1.4; }
 .custom-select-error[hidden] { display:none; }
-.custom-select-menu { position:fixed; inset:auto; z-index:10000; box-sizing:border-box; margin:0; padding:7px; overflow:auto; overscroll-behavior:contain; border:1px solid #dce7df; border-radius:13px; background:#fff; color:#586d60; box-shadow:0 12px 34px #183f2921; font-family:inherit; }
+.custom-select-menu { position:fixed; inset:auto; z-index:10000; box-sizing:border-box; margin:0; padding:7px; overflow:auto; overscroll-behavior:contain; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--muted); box-shadow:var(--shadow-pop); font-family:inherit; }
 .custom-select-menu[hidden] { display:none!important; }
-.custom-select-option { display:block; padding:10px 12px; border-radius:7px; color:#586d60; font-size:13px; line-height:1.45; overflow-wrap:anywhere; cursor:pointer; }
+.custom-select-option { display:block; padding:10px 12px; border-radius:8px; color:var(--muted); font-size:13px; line-height:1.45; overflow-wrap:anywhere; cursor:pointer; }
 .custom-select-option+.custom-select-option { margin-top:3px; }
-.custom-select-option:hover,.custom-select-option.is-active { background:#f1f6f1; color:#286d54; }
-.custom-select-option[aria-selected="true"] { background:#e8f3ec; color:#28795c; font-weight:600; }
-.custom-select-option.is-active { outline:1px solid #78ad98; outline-offset:-1px; }
+.custom-select-option:hover,.custom-select-option.is-active { background:var(--tint-soft); color:var(--teal-dark); }
+.custom-select-option[aria-selected="true"] { background:var(--tint); color:var(--teal-dark); font-weight:600; }
+.custom-select-option.is-active { outline:1px solid var(--line-teal); outline-offset:-1px; }
 .custom-select-option[aria-disabled="true"] { opacity:.45; cursor:not-allowed; }
-.custom-select-group { padding:10px 12px 6px; color:#8a998e; font-size:11px; font-weight:600; }
+.custom-select-group { padding:10px 12px 6px; color:var(--muted); font-size:13px; font-weight:600; }
 @media(prefers-reduced-motion:reduce) { .custom-select-trigger,.custom-select-chevron { transition:none; } }

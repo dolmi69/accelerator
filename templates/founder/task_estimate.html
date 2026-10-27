@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}Оценки задания · {{ startup.name }}{% endblock %}
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'founder/css/mvp.css' %}?v=3">
+    <link rel="stylesheet" href="{% static 'founder/css/mvp.css' %}?v=redesign-1">
 {% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
@@ -30,7 +30,7 @@
         </details>
         {% include 'founder/_estimate_fields.html' %}
         <p class="muted small">
-            Охват — число людей, которым поможет результат за 30 дней. Простота: 1 — сложно, 10 — легко. Оценки должны относиться к одному и тому же результату задания.
+            Охват: сколько людей получат пользу от результата за 30 дней. Простота: от 1 (сложно) до 10 (легко). Оценки должны относиться к одному и тому же результату задания.
         </p>
         <label class="field">
             <span>{{ form.priority.label }}</span>{{ form.priority }}{{ form.priority.errors }}<small>Можно оставить рекомендацию рейтинга или задать приоритет вручную.</small>

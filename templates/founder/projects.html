@@ -2,36 +2,38 @@
 {% load static %}
 {% block title %}Мои проекты · BrunoLab{% endblock %}
 {% block content %}
-    <div class="page-heading">
+    <div class="page-heading projects-heading">
         <div>
-            <span class="eyebrow">ВАШИ ИДЕИ И ИХ ПРОГРЕСС</span>
             <h1>Мои проекты</h1>
-            <p>У каждого проекта свой радар, разговоры с Бруно и история изменений.</p>
+            <p>Рядом с каждым проектом Бруно пишет, что проверить следующим.</p>
         </div>
-        <a href="{% url 'startup_create' %}" class="button primary">+ Добавить проект</a>
+        <a href="{% url 'startup_create' %}" class="button primary">
+            {% include 'founder/_icon.html' with name='plus' %}
+            Создать проект
+        </a>
     </div>
     {% if invites %}
         <section class="card work-card invites-card"
-                 aria-label="Приглашения в проекты">
-            <span class="eyebrow">ВАС ЗОВУТ В КОМАНДУ</span>
+                 aria-labelledby="invites-title">
+            <h2 class="invites-title" id="invites-title">Вас зовут в команду</h2>
             {% for invite in invites %}
                 <div class="team-row">
                     <div>
                         <strong>{{ invite.startup.name }}</strong>
                         <p class="muted small">
                             {% if invite.invited_by %}
-                                @{{ invite.invited_by.handle }} приглашает
+                                @{{ invite.invited_by.handle }} приглашает,
                             {% else %}
-                                Приглашение
+                                Приглашение,
                             {% endif %}
-                            · роль: {{ invite.get_role_display|lower }}
+                            роль: {{ invite.get_role_display|lower }}
                         </p>
                     </div>
                     <div class="team-actions">
                         <form method="post" action="{% url 'invite_respond' invite.id %}">
                             {% csrf_token %}
                             <input type="hidden" name="accept" value="1">
-                            <button class="button primary" type="submit">Принять</button>
+                            <button class="button primary" type="submit">Принять приглашение</button>
                         </form>
                         <form method="post" action="{% url 'invite_respond' invite.id %}">
                             {% csrf_token %}
@@ -43,104 +45,119 @@
         </section>
     {% endif %}
     {% if join_requests %}
-        <section class="card work-card invites-card" aria-label="Заявки в команду">
-            <span class="eyebrow">ХОТЯТ В ВАШУ КОМАНДУ</span>
+        <section class="card work-card invites-card"
+                 aria-labelledby="requests-title">
+            <h2 class="invites-title" id="requests-title">Хотят в вашу команду</h2>
             {% for request_item in join_requests %}
                 <div class="team-row">
                     <div>
-                        <strong>@{{ request_item.user.handle }}</strong> → {{ request_item.startup.name }}
+                        <strong>@{{ request_item.user.handle }}</strong> хочет в «{{ request_item.startup.name }}»
                         <p class="muted small">{{ request_item.message|truncatechars:140 }}</p>
                     </div>
                     <a class="button primary"
-                       href="{% url 'team' request_item.startup_id %}">Рассмотреть</a>
+                       href="{% url 'team' request_item.startup_id %}">Рассмотреть заявку</a>
                 </div>
             {% endfor %}
         </section>
     {% endif %}
     {% if project_cards %}
-        <section class="project-carousel"
-                 aria-label="Радары проектов"
-                 aria-roledescription="карусель">
-            <div class="carousel-toolbar">
-                <span class="muted small">Листайте свайпом или стрелками</span>
-                <div class="carousel-controls">
-                    <button type="button"
-                            class="button ghost carousel-arrow"
-                            data-carousel-prev
-                            aria-label="Предыдущий проект"
-                            aria-controls="project-slides"
-                            disabled>←</button>
-                    <span data-carousel-counter aria-live="polite" aria-atomic="true">1 / {{ project_cards|length }}</span>
-                    <button type="button"
-                            class="button ghost carousel-arrow"
-                            data-carousel-next
-                            aria-label="Следующий проект"
-                            aria-controls="project-slides"
-                            {% if project_cards|length < 2 %}disabled{% endif %}>→</button>
+        <section class="projects" aria-label="Ваши проекты" data-projects>
+            {% if project_cards|length > 1 %}
+                <div class="projects-toolbar">
+                    <search class="project-search">
+                        <label class="sr-only" for="project-search">Найти проект по названию</label>
+                        {% include 'founder/_icon.html' with name='search' %}
+                        <input id="project-search"
+                               type="search"
+                               placeholder="Найти проект"
+                               autocomplete="off"
+                               enterkeyhint="search"
+                               maxlength="160"
+                               data-project-search>
+                        <button type="button"
+                                class="icon-button project-search-clear"
+                                data-project-search-reset
+                                aria-label="Сбросить поиск"
+                                title="Сбросить поиск"
+                                hidden>
+                            {% include 'founder/_icon.html' with name='close' %}
+                        </button>
+                    </search>
+                    <p class="projects-count"
+                       data-project-search-status
+                       data-total="{{ project_cards|length|plural:'проект,проекта,проектов' }}"
+                       role="status">{{ project_cards|length|plural:"проект,проекта,проектов" }}</p>
                 </div>
-            </div>
-            <div class="project-slides"
-                 id="project-slides"
-                 tabindex="0"
-                 aria-label="Проекты; используйте стрелки влево и вправо">
+                <div class="card project-search-empty" data-project-search-empty hidden>
+                    <h2>Ничего не нашлось</h2>
+                    <p class="muted">
+                        Нет проектов, в названии которых есть «<span data-project-search-query></span>». Проверьте написание.
+                    </p>
+                    <button type="button" class="button ghost" data-project-search-reset>Сбросить поиск</button>
+                </div>
+            {% endif %}
+            <ol class="project-list" data-project-list>
                 {% for card in project_cards %}
-                    <article class="card project-slide"
-                             aria-roledescription="слайд"
-                             aria-label="{{ forloop.counter }} из {{ project_cards|length }}: {{ card.startup.name }}">
-                        <div class="section-top">
-                            <div>
-                                <span class="eyebrow">{{ card.startup.get_stage_display }}
-                                    {% if card.role_label %}· {{ card.role_label|upper }} · @{{ card.startup.owner.handle }}{% endif %}
+                    <li class="project-row" data-project-name="{{ card.startup.name }}">
+                        <a class="project-row-radar"
+                           href="{% url 'dashboard' card.startup.id %}"
+                           tabindex="-1"
+                           aria-hidden="true">
+                            {% include 'founder/_radar_svg.html' with points=card.points %}
+                        </a>
+                        <div class="project-row-main">
+                            <p class="project-row-meta">
+                                <span class="tag">{{ card.startup.get_stage_display }}</span>
+                                {% if card.role_label %}<span class="tag">{{ card.role_label }}, @{{ card.startup.owner.handle }}</span>{% endif %}
+                                <span>
+                                    {% if card.latest %}
+                                        Оценка {{ card.latest.overall_score }} из 100, {{ card.latest.assessed_at|date:"j E" }}
+                                    {% else %}
+                                        Без оценки
+                                    {% endif %}
                                 </span>
-                                <h2>{{ card.startup.name }}</h2>
-                            </div>
-                            <span class="score-badge">
-                                {% if card.latest %}
-                                    {{ card.latest.overall_score }}/100
-                                {% else %}
-                                    Без оценки
+                            </p>
+                            <h2>
+                                <a href="{% url 'dashboard' card.startup.id %}">{{ card.startup.name }}</a>
+                            </h2>
+                            <p class="project-row-pitch">
+                                {{ card.startup.one_line_pitch|default:"Описание появится, когда вы расскажете Бруно об идее." }}
+                            </p>
+                            <div class="project-row-actions">
+                                <a class="button ghost" href="{% url 'dashboard' card.startup.id %}">Открыть проект</a>
+                                {% if card.role != 'viewer' %}
+                                    <a class="button ghost" href="{% url 'card_edit' card.startup.id %}">Карточка проекта</a>
                                 {% endif %}
-                            </span>
-                        </div>
-                        <p class="muted project-description">
-                            {{ card.startup.one_line_pitch|default:"Расскажите Бруно об идее, чтобы получить первый радар." }}
-                        </p>
-                        <div class="radar-layout">
-                            <div class="radar-wrap">{% include 'founder/_radar_svg.html' with points=card.points %}</div>
-                            <div class="metric-list">
-                                {% for label, score in card.axes %}
-                                    <div class="metric-row">
-                                        <span>{{ label }}</span><strong>
-                                            {% if score is not None %}
-                                                {{ score }}
-                                            {% else %}
-                                                —
-                                            {% endif %}
-                                        </strong>
-                                        <div class="metric-bar">
-                                            <i style="width:{{ score|default:0 }}%"></i>
-                                        </div>
-                                    </div>
-                                {% endfor %}
+                                {% if card.published %}
+                                    <button type="button"
+                                            class="icon-button"
+                                            data-copy-url="{% url 'card_detail' card.startup.id %}"
+                                            aria-label="Скопировать ссылку на «{{ card.startup.name }}»"
+                                            title="Скопировать ссылку">
+                                        {% include 'founder/_icon.html' with name='link' %}
+                                    </button>
+                                {% endif %}
                             </div>
                         </div>
-                        <p class="muted small">
-                            {% if card.latest %}
-                                {{ card.latest.get_source_display }} · {{ card.latest.assessed_at|date:"d.m.Y H:i" }}
-                            {% else %}
-                                Проект сохранён. Оценку можно получить после разговора.
-                            {% endif %}
-                        </p>
-                        <a class="button primary" href="{% url 'dashboard' card.startup.id %}">Открыть профиль <span aria-hidden="true">→</span></a>
-                        {% if card.role != 'viewer' %}
-                            <a class="button ghost" href="{% url 'card_edit' card.startup.id %}">Карточка проекта</a>
-                        {% endif %}
-                    </article>
+                        <aside class="project-row-note" aria-label="Заметка Бруно">
+                            <p class="project-note-author">
+                                <img src="{% static 'founder/img/branding/bruno-logo-96.png' %}"
+                                     width="24"
+                                     height="24"
+                                     alt="">
+                                <span>Бруно</span>
+                                {% if card.note.date %}
+                                    <time datetime="{{ card.note.date|date:'c' }}">{{ card.note.date|date:"j E" }}</time>
+                                {% endif %}
+                            </p>
+                            <p>{{ card.note.text }}</p>
+                        </aside>
+                    </li>
                 {% endfor %}
-            </div>
+            </ol>
         </section>
     {% endif %}
 {% endblock %}
 {% block scripts %}
-    <script src="{% static 'founder/js/projects.js' %}" defer></script>
+    <script src="{% static 'founder/js/projects.js' %}?v=redesign-1" defer></script>
 {% endblock %}

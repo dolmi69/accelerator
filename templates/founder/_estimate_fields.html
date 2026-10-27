@@ -20,7 +20,7 @@
     {% endif %}
     <div class="mvp-form-grid">
         <fieldset>
-            <legend>RICE · охват и затраты</legend>
+            <legend>RICE: охват и затраты</legend>
             <label class="field">
                 <span>{{ form.reach.label }}</span>{{ form.reach }}{{ form.reach.errors }}
             </label>
@@ -32,12 +32,12 @@
             </label>
         </fieldset>
         <fieldset>
-            <legend>ICE · влияние и простота</legend>
+            <legend>ICE: влияние и простота</legend>
             <label class="field">
                 <span>{{ form.ice_impact.label }}</span>{{ form.ice_impact }}{{ form.ice_impact.errors }}
             </label>
             <label class="field">
-                <span>{{ form.ease.label }}</span>{{ form.ease }}{{ form.ease.errors }}<small>1 — очень сложно, 10 — очень просто. Не трудозатраты в днях.</small>
+                <span>{{ form.ease.label }}</span>{{ form.ease }}{{ form.ease.errors }}<small>От 1 (очень сложно) до 10 (очень просто). Это не трудозатраты в днях.</small>
             </label>
         </fieldset>
     </div>

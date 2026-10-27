@@ -1,0 +1,12 @@
+{% comment %}
+    Заставка при заходе на сайт для вошедшего пользователя: Бруно приходит по линейке тетради,
+    машет, здоровается и растворяется, открывая страницу. Показ решает скрипт в <head> base.html
+    (класс intro-on), время задаёт CSS (app.css → «Заставка при заходе»), позы — intro.js.
+{% endcomment %}
+<div class="intro" data-intro aria-hidden="true">
+    <div class="intro-scene">
+        <span class="intro-ground"></span>
+        <div class="intro-bear">{% include 'founder/_bruno_guest.html' with pose='walk' instance_id='intro' %}</div>
+        <p class="intro-bubble">Здравствуйте, {{ request.user.public_name|truncatechars:24 }}.</p>
+    </div>
+</div>

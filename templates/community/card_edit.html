@@ -3,17 +3,25 @@
 {% block title %}Карточка · {{ startup.name }}{% endblock %}
 {% block extra_css %}
     <link rel="stylesheet"
-          href="{% static 'founder/css/card-editor.css' %}?v=2">
+          href="{% static 'founder/css/card-editor.css' %}?v=redesign-1">
 {% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
     <header class="card-edit-heading">
         <div>
-            <span class="eyebrow">ВАШ ПРОЕКТ</span>
+            <span class="eyebrow">Ваш проект</span>
             <h1>Карточка проекта</h1>
         </div>
         {% if card.published_at %}
-            <a class="evidence-link" href="{% url 'card_detail' startup.id %}">Посмотреть в сообществе ↗</a>
+            <div class="card-edit-links">
+                <a class="evidence-link" href="{% url 'card_detail' startup.id %}">Посмотреть в сообществе</a>
+                <button type="button"
+                        class="button ghost"
+                        data-copy-url="{% url 'card_detail' startup.id %}">
+                    {% include 'founder/_icon.html' with name='link' %}
+                    Скопировать ссылку
+                </button>
+            </div>
         {% endif %}
     </header>
     <form method="post"
@@ -65,7 +73,7 @@
         </article>
         <aside class="card-edit-sidebar">
             <section class="card card-publish-controls">
-                <span class="eyebrow">ПУБЛИКАЦИЯ</span>
+                <span class="eyebrow">Публикация</span>
                 <h2>
                     {% if card.published_at %}
                         Ваш проект в сообществе
@@ -133,7 +141,7 @@
                             data-busy-label="Бруно дорабатывает…">Предложить правки</button>
                 </details>
                 {% if latest %}
-                    <a class="evidence-link small" href="{% url 'dashboard' startup.id %}">Радар {{ latest.overall_score }}/100 →</a>
+                    <a class="evidence-link small" href="{% url 'dashboard' startup.id %}">Радар {{ latest.overall_score }}/100</a>
                 {% endif %}
             </section>
         </aside>

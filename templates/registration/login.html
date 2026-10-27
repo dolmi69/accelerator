@@ -3,7 +3,8 @@
 {% block content %}
     <section class="auth-wrap">
         <div class="auth-intro">
-            <span class="eyebrow">С ВОЗВРАЩЕНИЕМ</span>
+            <div class="auth-bruno" data-bruno-watcher>{% include 'founder/_bruno_guest.html' with instance_id='login' %}</div>
+            <span class="eyebrow">С возвращением</span>
             <h1>
                 Продолжим строить
                 <br>
@@ -13,7 +14,7 @@
         </div>
         <div class="card auth-card">
             <h2>Войти в аккаунт</h2>
-            <form method="post" class="form-stack">
+            <form method="post" class="form-stack" data-bruno-watch>
                 {% csrf_token %}
                 {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
                 {% for field in form %}
@@ -23,7 +24,7 @@
                     </label>
                 {% endfor %}
                 <button type="submit" class="button primary wide">
-                    Войти <span aria-hidden="true">→</span>
+                    Войти
                 </button>
             </form>
             <p class="auth-bottom">

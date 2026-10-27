@@ -1,0 +1,86 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color"
+              content="#f5f4ef"
+              media="(prefers-color-scheme: light)">
+        <meta name="theme-color"
+              content="#131920"
+              media="(prefers-color-scheme: dark)">
+        <script>
+            // Тема до первой отрисовки: сохранённый выбор, иначе — как в системе (theme.js).
+            (() => {
+                try {
+                    const theme = localStorage.getItem('bl-theme');
+                    if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+                } catch (_) {}
+            })();
+        </script>
+        <script>
+            // Заставка играет при каждом заходе на сайт извне. После перехода внутри сайта (например, назад со входа),
+            // перезагрузки и при reduced motion сразу видна последняя сцена.
+            (() => {
+                let internal = false;
+                try { internal = new URL(document.referrer).origin === location.origin; } catch (_) {}
+                const nav = performance.getEntriesByType('navigation')[0];
+                const entering = !internal && (!nav || nav.type === 'navigate');
+                if (!entering || window.matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('welcome-static');
+            })();
+        </script>
+        <title>BrunoLab: наставник для первого стартапа</title>
+        <meta name="description"
+              content="Расскажите идею своими словами. Бруно разложит её по пяти направлениям и подскажет, что проверить первым.">
+        <link rel="icon"
+              type="image/png"
+              href="{% static 'founder/img/branding/bruno-logo-96.png' %}?v=1">
+        <link rel="preload"
+              href="{% static 'founder/img/bruno-sprite.webp' %}"
+              as="image">
+        <link rel="preload"
+              href="{% static 'founder/fonts/golos-text-cyrillic.woff2' %}"
+              as="font"
+              type="font/woff2"
+              crossorigin>
+        <link rel="preload"
+              href="{% static 'founder/fonts/manrope-cyrillic.woff2' %}"
+              as="font"
+              type="font/woff2"
+              crossorigin>
+        <link rel="stylesheet"
+              href="{% static 'founder/css/app.css' %}?v=redesign-2">
+        <link rel="stylesheet"
+              href="{% static 'founder/css/welcome.css' %}?v=redesign-1">
+    </head>
+    <body class="welcome-body">
+        <main class="welcome" data-welcome>
+            <div class="welcome-scene">
+                <span class="welcome-ground" aria-hidden="true"></span>
+                <div class="welcome-bear">{% include 'founder/_bruno_guest.html' with pose='walk' instance_id='welcome' %}</div>
+                <p class="welcome-bubble">Здравствуйте. Я Бруно.</p>
+            </div>
+            <div class="welcome-copy">
+                <p class="welcome-brand">
+                    <img src="{% static 'founder/img/branding/bruno-logo-96.png' %}"
+                         width="28"
+                         height="28"
+                         alt="">
+                    Bruno<span>Lab</span>
+                </p>
+                <h1 class="welcome-title">Наставник для вашего первого стартапа</h1>
+                <p class="welcome-lead">
+                    Расскажите идею своими словами. Бруно разложит её по пяти направлениям и подскажет, что проверить первым.
+                </p>
+                <div class="welcome-actions">
+                    <a class="button primary" href="{% url 'register' %}">Создать аккаунт</a>
+                    <a class="button ghost" href="{% url 'login' %}">Войти</a>
+                </div>
+                <a class="welcome-about" href="{% url 'about' %}">Подробнее о BrunoLab</a>
+            </div>
+        </main>
+        <script src="{% static 'founder/js/bruno.js' %}?v=10" defer></script>
+        <script src="{% static 'founder/js/welcome.js' %}?v=1" defer></script>
+    </body>
+</html>

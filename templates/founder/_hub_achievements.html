@@ -2,7 +2,7 @@
          aria-labelledby="hub-achievements-heading">
     <summary class="hub-section-heading">
         <h3 id="hub-achievements-heading">Достижения</h3>
-        <span>{{ achievements|length }}</span><span class="hub-fold-chevron" aria-hidden="true">⌄</span>
+        <span>{{ achievements|length }}</span><span class="hub-fold-chevron" aria-hidden="true">{% include 'founder/_icon.html' with name='chevron-down' %}</span>
     </summary>
     <div class="hub-achievements-body">
         <ul class="history-achievements">

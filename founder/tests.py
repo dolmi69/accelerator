@@ -272,7 +272,7 @@ class MVPFlowTests(TestCase):
         self.assertEqual(snapshot.assessment_details["product"], values["product_reason"])
         self.assertEqual(snapshot.assessment_details["pitch"], values["pitch_reason"])
         page = self.client.get(reverse("dashboard", args=[self.startup.id]))
-        self.assertContains(page, "Startup Radar")
+        self.assertContains(page, "Радар проекта")
         self.assertContains(page, values["product_reason"])
         self.assertContains(page, values["pitch_reason"])
         self.assertNotContains(page, "Сохранить изменения")

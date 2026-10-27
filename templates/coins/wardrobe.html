@@ -4,13 +4,13 @@
     {% include 'founder/_workspace_nav.html' %}
     <div class="page-heading work-heading">
         <div>
-            <span class="eyebrow">НАРЯДЫ ЗА МОНЕТЫ</span>
+            <span class="eyebrow">Наряды за монеты</span>
             <h1>Гардероб Бруно</h1>
-            <p>{{ startup.name }} · Выберите аксессуары для Бруно. Их увидит вся команда.</p>
+            <p>Выберите аксессуары для Бруно. Их увидит вся команда.</p>
         </div>
         <a class="coin-balance-big"
            href="{% url 'wallet' %}"
-           aria-label="Ваш баланс, открыть кошелёк"><span aria-hidden="true">🪙</span><strong>{{ balance }}</strong></a>
+           aria-label="Ваш баланс, открыть кошелёк">{% include 'founder/_icon.html' with name='coin' %}<strong>{{ balance }}</strong></a>
     </div>
 
     <div class="wardrobe-layout">
@@ -62,7 +62,7 @@
                                                 value="buy"
                                                 type="submit"
                                                 {% if entry.missing %}disabled title="Не хватает {{ entry.missing }} монет"{% endif %}>
-                                            Купить за {{ entry.item.cost }} 🪙
+                                            Купить за {{ entry.item.cost|plural:"монета,монеты,монет" }}
                                         </button>
                                     {% endif %}
                                 </form>

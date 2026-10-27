@@ -1,0 +1,47 @@
+/* Заставка для гостя: Бруно входит по линейке тетради, останавливается, машет и здоровается.
+   Вся сцена укладывается в 1,8 с; повтор за сессию и reduced motion показывают последний кадр сразу (welcome-static). */
+.welcome-body { margin:0; min-height:100vh; min-height:100dvh; display:grid; place-items:center; background:var(--bg); color:var(--ink); font-family:'Golos Text',system-ui,-apple-system,'Segoe UI',sans-serif; overflow-x:hidden; }
+.welcome { width:min(560px,calc(100% - 32px)); padding:32px 0 48px; display:flex; flex-direction:column; align-items:center; gap:24px; text-align:center; }
+.welcome-scene { position:relative; width:100%; height:250px; display:flex; align-items:flex-end; justify-content:center; }
+.welcome-ground { position:absolute; left:-16px; right:-16px; bottom:12px; height:1px; background:var(--line-teal); transform-origin:0 50%; }
+.welcome-bear { position:relative; width:220px; }
+.welcome-bear .bruno-art { width:100%; margin:0; transform-origin:50% 100%; }
+.welcome-bubble { position:absolute; top:14px; left:calc(50% + 64px); margin:0; padding:10px 14px; border:1px solid var(--line); border-radius:8px 8px 8px 4px; background:var(--surface); font-size:16px; font-weight:600; line-height:1.35; white-space:nowrap; transform-origin:0 100%; }
+.welcome-bubble::after { content:""; position:absolute; left:-1px; bottom:-7px; width:12px; height:12px; background:var(--surface); border-left:1px solid var(--line); border-bottom:1px solid var(--line); clip-path:polygon(0 0,100% 100%,0 100%); }
+.welcome-copy { display:flex; flex-direction:column; align-items:center; gap:16px; }
+.welcome-brand { display:inline-flex; align-items:center; gap:8px; margin:0; font:800 20px/1 Manrope,sans-serif; letter-spacing:-.02em; }
+.welcome-brand img { display:block; }
+.welcome-brand span { color:var(--teal); }
+.welcome-title { margin:0; max-width:17ch; font:700 clamp(25px,6vw,39px)/1.15 Manrope,sans-serif; letter-spacing:-.02em; }
+.welcome-lead { margin:0; max-width:46ch; color:var(--muted); font-size:16px; line-height:1.6; }
+.welcome-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; width:100%; margin-top:8px; }
+.welcome-actions .button { min-width:180px; }
+.welcome-about { color:var(--teal-dark); font-size:16px; font-weight:600; text-decoration:underline; text-underline-offset:3px; }
+.welcome-about:hover { color:var(--teal); }
+@media (max-width:480px) {
+  .welcome { gap:20px; padding-top:20px; }
+  .welcome-scene { height:210px; }
+  .welcome-bear { width:170px; }
+  .welcome-bubble { top:0; left:calc(50% + 34px); max-width:calc(50% - 38px); white-space:normal; }
+  .welcome-actions .button { flex:1 1 100%; }
+}
+
+@media (prefers-reduced-motion:no-preference) {
+  html:not(.welcome-static) .welcome-ground { animation:welcome-rule .6s cubic-bezier(.2,.7,.2,1) both; }
+  html:not(.welcome-static) .welcome-bear { animation:welcome-walk-in .8s cubic-bezier(.22,.61,.36,1) both; }
+  html:not(.welcome-static) .welcome-bear .bruno-art { animation:welcome-step .2s ease-in-out 4 alternate both; }
+  html:not(.welcome-static) .welcome-bubble { animation:welcome-bubble .32s cubic-bezier(.2,.8,.2,1) .9s both; }
+  html:not(.welcome-static) .welcome-brand { animation:welcome-fade .25s ease-out 1s both; }
+  html:not(.welcome-static) .welcome-title { animation:welcome-ink .5s cubic-bezier(.4,.1,.2,1) 1.05s both; }
+  html:not(.welcome-static) .welcome-lead { animation:welcome-fade .3s ease-out 1.3s both; }
+  html:not(.welcome-static) .welcome-actions,html:not(.welcome-static) .welcome-about { animation:welcome-fade .3s ease-out 1.45s both; }
+}
+/* Линейка тетради прочерчивается, по ней Бруно и приходит. */
+@keyframes welcome-rule { from { transform:scaleX(0); } }
+@keyframes welcome-walk-in { from { transform:translateX(calc(-50vw - 150px)); } }
+/* Шаг вперевалку: четыре полушага за время входа. */
+@keyframes welcome-step { from { translate:0 0; rotate:-3deg; } to { translate:0 -7px; rotate:3deg; } }
+@keyframes welcome-bubble { from { opacity:0; transform:scale(.5); } }
+@keyframes welcome-fade { from { opacity:0; } }
+/* Заголовок проявляется слева направо, как строка, которую пишут в тетради. */
+@keyframes welcome-ink { from { clip-path:inset(0 100% 0 0); } to { clip-path:inset(0 0 0 0); } }

@@ -5,8 +5,6 @@
   app.ready();
   app.expand();
   if (app.isVersionAtLeast('6.1')) {
-    app.setHeaderColor('#ffffff');
-    app.setBackgroundColor('#f5f4ef');
     const back = document.querySelector('.chat-heading a[href]');
     if (back) {
       app.BackButton.show();

@@ -21,16 +21,14 @@
                     {% for person in team %}
                         <option value="{{ person.pk }}"
                                 {% if item.task.assignee_id == person.pk %}selected{% endif %}>
-                            {{ person.public_name }}
-                            {% if person.pk == request.user.pk %}· это вы{% endif %}
-                            · открыто: {{ person.open_task_count }}
+                            {# djlint:off #}{{ person.public_name }}{% if person.pk == request.user.pk %} (это вы){% endif %}, открыто: {{ person.open_task_count }}{# djlint:on #}
                         </option>
                     {% endfor %}
                 </select>
                 <button class="button ghost" type="submit">Сохранить</button>
             </div>
             {% if team|length == 1 %}
-                <a href="{% url 'team' startup.id %}">Пригласить соавтора →</a>
+                <a href="{% url 'team' startup.id %}">Пригласить соавтора</a>
             {% else %}
                 <small>Исполнитель может изменять проект и сохранять результат задания.</small>
             {% endif %}

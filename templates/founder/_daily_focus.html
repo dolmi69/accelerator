@@ -2,11 +2,7 @@
          id="project-plan"
          aria-labelledby="daily-focus-title">
     <div class="module-heading">
-        <span class="module-icon" aria-hidden="true">↗</span>
-        <div>
-            <span class="eyebrow">ПЛАН ОТ БРУНО</span>
-            <h2 id="daily-focus-title">Свежий взгляд</h2>
-        </div>
+        <h2 id="daily-focus-title">План от Бруно</h2>
         {% if daily_focus %}
             <span class="module-status">
                 {% if daily_focus.today %}
@@ -24,7 +20,6 @@
                 <ol class="daily-focus-list">
                     {% for item in daily_focus.actions %}
                         <li>
-                            <span class="daily-focus-number">0{{ forloop.counter }}</span>
                             <div>
                                 <h3>{{ item.title }}</h3>
                                 <p>{{ item.detail }}</p>
@@ -32,10 +27,10 @@
                                 {% if item.kind == 'idea' %}
                                     <form method="post" action="{{ item.url }}">
                                         {% csrf_token %}
-                                        <button class="daily-focus-link" type="submit">{{ item.link }} →</button>
+                                        <button class="daily-focus-link" type="submit">{{ item.link }}</button>
                                     </form>
                                 {% else %}
-                                    <a class="daily-focus-link" href="{{ item.url }}">{{ item.link }} →</a>
+                                    <a class="daily-focus-link" href="{{ item.url }}">{{ item.link }}</a>
                                 {% endif %}
                             </div>
                         </li>
@@ -44,13 +39,10 @@
             {% else %}
                 <h3 class="daily-focus-empty-title">На чём сосредоточимся сегодня?</h3>
                 <p class="daily-focus-summary">
-                    Бруно посмотрит на задачи, команду и последние результаты и предложит до трёх посильных шагов на день.
+                    Бруно посмотрит, что уже сделано, и предложит до трёх шагов на день.
                 </p>
                 <p class="muted small">План сохраняется. Вернуться к нему можно в любой момент.</p>
             {% endif %}
-        </div>
-        <div class="daily-focus-mascot" aria-hidden="true" inert>
-            {% include 'founder/_bruno.html' with investor=False instance_id='daily-focus' %}
         </div>
     </div>
     {% if startup.user_role != 'viewer' %}
@@ -59,15 +51,14 @@
               action="{% url 'daily_plan_generate' startup.id %}"
               data-busy-form>
             {% csrf_token %}
-            <button class="button {% if daily_focus %}ghost{% else %}primary{% endif %}"
+            <button class="button ghost"
                     type="submit"
                     data-busy-label="Бруно составляет план…">
                 {% if daily_focus %}
                     Обновить план
                 {% else %}
-                    Составить план с Бруно
+                    Составить план на день
                 {% endif %}
-                <span aria-hidden="true">✦</span>
             </button>
             <span class="sr-only" role="status"></span>
         </form>

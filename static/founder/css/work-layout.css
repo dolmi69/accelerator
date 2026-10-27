@@ -2,34 +2,38 @@
 .work-shell.work-page{width:100%;max-width:1300px;margin:0 auto;padding-bottom:40px}
 .work-shell-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:24px;min-height:104px;margin:0 0 20px}
 .work-shell-heading-copy{min-width:0}
-.work-shell-heading h1{margin:0;font-size:36px;font-weight:700;line-height:1.2;letter-spacing:-.045em;color:var(--ink)}
-.work-shell-heading p{margin:10px 0 0;font-size:13px;line-height:1.6;color:#7a887f}
+.work-shell-heading h1{margin:0;font-size:31px;font-weight:700;line-height:1.2;letter-spacing:-.045em;color:var(--ink)}
+.work-shell-heading p{margin:10px 0 0;font-size:13px;line-height:1.6;color:var(--muted)}
 .work-shell-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-height:44px}
 .work-shell-actions form{display:grid;gap:8px;margin:0}
 .work-shell-actions .button{min-height:44px;padding:11px 18px;font-size:13px;line-height:1.5;gap:20px;white-space:normal}
 .work-shell-actions [role=status]:empty{display:none}
 .work-shell-actions .bruno-art{width:64px;flex:0 0 64px;margin:0}
-.work-shell-actions .bruno-greet{width:24px;height:24px;min-height:0;padding:0;right:-2px;bottom:0;font-size:14px}
+.work-shell-actions .bruno-greet{width:24px;height:24px;min-height:0;padding:0;right:-2px;bottom:0;font-size:16px}
 .work-shell>.work-subnav{margin:0 0 24px;padding:0 0 12px;gap:6px}
-.work-shell>.work-subnav a{padding:9px 13px;border-radius:10px;font-size:13px;line-height:1.5;text-decoration:none;color:#687c74}
-.work-shell>.work-subnav a[aria-current]{background:#e1eee7;color:#146c60;font-weight:650}
+.work-shell>.work-subnav a{padding:9px 13px;border-radius:8px;font-size:13px;line-height:1.5;text-decoration:none;color:var(--muted)}
+.work-shell>.work-subnav a[aria-current]{background:var(--tint);color:var(--teal-dark);font-weight:650}
 .work-shell-content{min-width:0}
-.work-shell-content>.card,.work-shell .project-training-grid>.card{border-color:#dfe6df;border-radius:18px;margin-top:0}
-.work-shell .priority-board{border-radius:18px}
-.work-shell .history-overview{margin-top:0;border-radius:18px}
+.work-shell-content>.card,.work-shell .project-training-grid>.card{border-color:var(--line);border-radius:16px;margin-top:0}
+.work-shell .priority-board{border-radius:16px}
+.work-shell .history-overview{margin-top:0;border-radius:16px}
 .work-shell .project-training-grid{gap:24px}
 .work-shell .priority-board>.work-context-line{margin:0;padding:0 26px 16px;min-height:0}
 .work-shell .priority-board>.work-context-line .work-focus-edit{margin:0}
 @media(max-width:680px){
     .work-shell-heading{grid-template-columns:1fr;gap:14px;min-height:0;margin-bottom:20px}
     .work-shell-heading-copy{min-height:100px}
-    .work-shell-heading h1{font-size:30px}
+    .work-shell-heading h1{font-size:31px}
     .work-shell-actions{justify-content:flex-start}
     .work-shell-actions form,.work-shell-actions>.button{width:100%}
     .work-shell-actions .button{width:100%}
     .work-shell-actions .bruno-art{width:44px;flex-basis:44px}
     .work-shell>.work-subnav{gap:4px;margin-bottom:20px;padding-bottom:10px}
-    .work-shell>.work-subnav a{padding:8px 10px;font-size:12px}
+    .work-shell>.work-subnav a{padding:8px 10px;font-size:13px}
+    /* Вкладки раздела — одна строка с прокруткой пальцем. */
+    .work-shell>.work-subnav{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;margin-inline:-14px;padding-inline:14px}
+    .work-shell>.work-subnav::-webkit-scrollbar{display:none}
+    .work-shell>.work-subnav a{flex:none;display:flex;align-items:center;min-height:44px;white-space:nowrap;font-size:13px}
     .work-shell .priority-board>.work-context-line{padding-left:20px;padding-right:20px}
     .work-shell .project-training-grid{gap:20px}
 }

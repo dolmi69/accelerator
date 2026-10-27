@@ -5,7 +5,7 @@
          viewBox="0 0 300 300"
          xmlns="http://www.w3.org/2000/svg"
          role="img"
-         aria-label="Бруно — {% if investor %}строгий инвестор{% else %}{{ mascot.get_mood_display }}{% endif %}"
+         aria-label="Бруно: {% if investor %}строгий инвестор{% else %}{{ mascot.get_mood_display }}{% endif %}"
          focusable="false">
         <g class="bruno-character">
         {% if investor %}
@@ -53,7 +53,7 @@
                                 <path d="M30 25 H635 V295 H705 V485 H625 V720 H30 Z" />
                                 </clipPath></defs>
                             {% endif %}
-                            <image href="{% static 'founder/img/bruno-reference.png' %}"
+                            <image href="{% static 'founder/img/bruno-sprite.webp' %}"
                                    width="1280"
                                    height="1066"
                                    {% if investor %}clip-path="url(#bruno-reference-investor-{{ instance_id|default:"card" }})"{% elif mascot.mood == 'confident' %}clip-path="url(#bruno-reference-happy-{{ instance_id|default:"card" }})"{% elif mascot.mood != 'sleepy' and mascot.mood != 'focused' and mascot.mood != 'confident' %}clip-path="url(#bruno-reference-wave-{{ instance_id|default:"card" }})"{% endif %} />
@@ -71,7 +71,17 @@
                                 aria-label="Поздороваться с Бруно"
                                 title="Поздороваться с Бруно"
                                 hidden="hidden">
-                            <span aria-hidden="true">✦</span>
+                            <svg class="icon"
+                                 viewBox="0 0 24 24"
+                                 fill="currentColor"
+                                 aria-hidden="true"
+                                 focusable="false">
+                                <ellipse cx="12" cy="15.6" rx="4.6" ry="3.9" />
+                                <ellipse cx="6.2" cy="10.4" rx="1.9" ry="2.4" />
+                                <ellipse cx="10" cy="7.2" rx="1.9" ry="2.5" />
+                                <ellipse cx="14" cy="7.2" rx="1.9" ry="2.5" />
+                                <ellipse cx="17.8" cy="10.4" rx="1.9" ry="2.4" />
+                            </svg>
                         </button>
                     {% endif %}
                 </div>

@@ -1,0 +1,11 @@
+{# Выбор темы (theme.js). id различает экземпляры: подвал и меню аватара на телефоне. #}
+<div class="theme-switch"
+     role="group"
+     aria-labelledby="theme-label-{{ id }}">
+    <span class="theme-switch-label" id="theme-label-{{ id }}">Тема</span>
+    <div class="theme-switch-options">
+        <button type="button" data-theme-choice="system" aria-pressed="true">Как в системе</button>
+        <button type="button" data-theme-choice="light" aria-pressed="false">Светлая</button>
+        <button type="button" data-theme-choice="dark" aria-pressed="false">Тёмная</button>
+    </div>
+</div>

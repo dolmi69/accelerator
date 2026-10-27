@@ -32,20 +32,47 @@ class ProjectProgressTests(TestCase):
             assessment_evidence={key: {"status": "stated", "quote": quote} for key, _ in AXES},
         )
 
-    def test_saved_projects_carousel_shows_each_latest_radar_and_no_other_owner(self):
+    def test_saved_projects_list_shows_each_latest_radar_and_no_other_owner(self):
         self.snapshot(score=10)
         self.snapshot(score=75)
         self.snapshot(startup=self.private, score=99)
         page = self.client.get(reverse("home"))
         self.assertContains(page, "Первый проект")
         self.assertContains(page, "Второй проект")
-        self.assertContains(page, "75/100")
-        self.assertNotContains(page, "10/100")
+        self.assertContains(page, "Оценка 75 из 100")
+        self.assertNotContains(page, "Оценка 10 из 100")
         self.assertNotContains(page, "Закрытый проект")
-        self.assertContains(page, 'data-carousel-prev')
-        self.assertContains(page, 'data-carousel-next')
+        self.assertContains(page, 'class="project-list"')
         self.assertContains(page, "Без оценки")
         self.assertEqual(len(page.context["project_cards"]), 2)
+
+    def test_projects_page_has_search_and_copy_link_only_for_published_card(self):
+        from django.utils import timezone
+        from founder.models import ProjectCard
+        ProjectCard.objects.create(startup=self.startup, name="Первый проект", published_at=timezone.now(),
+                                   published_data={"name": "Первый проект"})
+        ProjectCard.objects.create(startup=self.second, name="Второй проект")
+        page = self.client.get(reverse("home"))
+        self.assertContains(page, 'id="project-search"')
+        self.assertContains(page, 'data-project-name="Первый проект"')
+        self.assertContains(page, "Ничего не нашлось")
+        self.assertContains(page, "Сбросить поиск")
+        self.assertContains(page, f'data-copy-url="{reverse("card_detail", args=[self.startup.id])}"', count=1)
+        self.assertNotContains(page, f'data-copy-url="{reverse("card_detail", args=[self.second.id])}"')
+
+    def test_single_project_has_no_search(self):
+        solo = User.objects.create_user(username="solo", email="solo@example.com")
+        StartupProfile.objects.create(owner=solo, name="Один проект")
+        self.client.force_login(solo)
+        self.assertNotContains(self.client.get(reverse("home")), "data-project-search")
+
+    def test_chat_offers_copy_only_for_bruno_answers(self):
+        session = ChatSession.objects.create(startup=self.startup, mode="cofounder")
+        ChatMessage.objects.create(session=session, role="user", content="Мой вопрос")
+        answer = ChatMessage.objects.create(session=session, role="assistant", content="Ответ Бруно")
+        page = self.client.get(reverse("chat_detail", args=[self.startup.id, session.id]))
+        self.assertContains(page, f'data-copy-text="#message-{answer.id} .message-text"')
+        self.assertContains(page, "Скопировать ответ", count=2)  # aria-label и title одной кнопки
 
     def test_citations_reject_invented_quotes_assistant_and_other_project_sources(self):
         session = ChatSession.objects.create(startup=self.startup, mode="cofounder")
@@ -138,6 +165,24 @@ class ProjectProgressTests(TestCase):
         self.assertContains(page, 'aria-label="Уточнить с Бруно:', count=5)
         self.assertContains(page, "Первая версия")
         self.assertContains(page, "Вернуться к последней")
+
+    def test_radar_list_shows_source_chip_and_growth_since_first_assessment(self):
+        self.snapshot(score=20)
+        self.snapshot(score=30)
+        self.snapshot(score=45)
+        page = self.client.get(reverse("dashboard", args=[self.startup.id]))
+        product = page.context["radar_rows"][0]
+        self.assertEqual((product["first_score"], product["growth_label"]), (20, "+25"))
+        self.assertEqual(product["evidence"]["chip"], "Факт")
+        self.assertEqual(page.context["radar_rows"][4]["label_lines"], ["Ясность", "идеи"])
+        self.assertContains(page, 'class="radar-axis-row"', count=5)
+        self.assertContains(page, 'class="radar-chip radar-chip-stated">Факт', count=5)
+        self.assertContains(page, "+25", count=5)
+        self.assertContains(page, 'class="radar-previous radar-first"', count=1)
+        self.assertContains(page, "Пунктир показывает первую оценку.")
+        self.snapshot(score=15)
+        fell = self.client.get(reverse("dashboard", args=[self.startup.id]))
+        self.assertEqual(fell.context["radar_rows"][0]["growth_label"], "−5")
 
     def test_unified_radar_distinguishes_zero_scores_from_no_assessment(self):
         url = reverse("dashboard", args=[self.startup.id])

@@ -66,8 +66,16 @@ document.querySelectorAll("[data-interactive-radar]").forEach((radar) => {
     tooltipPoint = null;
   }
 
+  // Строка списка и точка одного направления подсвечивают друг друга.
+  function link(point, on) {
+    points.forEach((item) => {
+      if (item !== point && item.dataset.radarAxis === point.dataset.radarAxis) item.classList.toggle("is-linked", on);
+    });
+  }
+
   function showTooltip(point) {
-    if (panels.some(isOpen)) return;
+    // У строки списка название и балл уже видны, подсказка нужна только на радаре.
+    if (panels.some(isOpen) || !chart.contains(point)) return;
     tooltipPoint = point;
     tooltipLabel.textContent = `${point.dataset.label} · ${point.dataset.score === "—" ? "нет оценки" : point.dataset.score + "/100"}`;
     tooltip.hidden = false;
@@ -109,10 +117,10 @@ document.querySelectorAll("[data-interactive-radar]").forEach((radar) => {
   }
 
   points.forEach((point) => {
-    point.addEventListener("pointerenter", () => showTooltip(point));
-    point.addEventListener("pointerleave", hideTooltip);
-    point.addEventListener("focus", () => showTooltip(point));
-    point.addEventListener("blur", hideTooltip);
+    point.addEventListener("pointerenter", () => { link(point, true); showTooltip(point); });
+    point.addEventListener("pointerleave", () => { link(point, false); hideTooltip(); });
+    point.addEventListener("focus", () => { link(point, true); showTooltip(point); });
+    point.addEventListener("blur", () => { link(point, false); hideTooltip(); });
     point.addEventListener("click", () => activate(point));
     point.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {

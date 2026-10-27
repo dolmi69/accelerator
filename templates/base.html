@@ -4,29 +4,122 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="icon" type="image/png" href="{% static 'founder/img/branding/bruno-logo.png' %}?v=1">
+        <meta name="theme-color"
+              content="#f5f4ef"
+              media="(prefers-color-scheme: light)">
+        <meta name="theme-color"
+              content="#131920"
+              media="(prefers-color-scheme: dark)">
+        <script>
+            // Тема до первой отрисовки, без вспышки: сохранённый выбор «светлая» или «тёмная», иначе — как в системе (theme.js).
+            (() => {
+                try {
+                    const theme = localStorage.getItem('bl-theme');
+                    if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+                } catch (_) {}
+            })();
+        </script>
+        {% if request.user.is_authenticated and workspace_tab != 'lab' %}
+            <script>
+                // Заставка при каждом заходе на сайт извне (закладка, ссылка, новая вкладка, Telegram).
+                // Переходы внутри сайта, перезагрузки и возврат «Назад» её не показывают.
+                (() => {
+                    let internal = false;
+                    try { internal = new URL(document.referrer).origin === location.origin; } catch (_) {}
+                    const nav = performance.getEntriesByType('navigation')[0];
+                    if (!internal && (!nav || nav.type === 'navigate') && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                        document.documentElement.classList.add('intro-on');
+                    }
+                })();
+            </script>
+        {% endif %}
+        <script>
+            // Плавная смена страниц (app.css): уход по клику на ссылку и появление после первой отрисовки.
+            (() => {
+                const root = document.documentElement;
+                const nav = performance.getEntriesByType('navigation')[0];
+                const viewTransitions = 'onpagereveal' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                // Пришли переходом View Transition: страница уже проявляется им, своё появление отменяем.
+                // Браузер пропускает переход, если вкладка скрыта или страница сменилась слишком быстро; это не ошибка.
+                const quiet = transition => ['ready', 'finished', 'updateCallbackDone'].forEach(name => transition?.[name]?.catch(() => {}));
+                window.addEventListener('pageswap', event => quiet(event.viewTransition));
+                window.addEventListener('pagereveal', event => {
+                    if (!event.viewTransition) return;
+                    quiet(event.viewTransition);
+                    root.classList.remove('page-enter', 'page-entered');
+                    root.dataset.viewTransition = 'on';
+                });
+                let samePage = false;
+                try {
+                    const ref = new URL(document.referrer);
+                    samePage = ref.origin === location.origin && ref.pathname + ref.search === location.pathname + location.search;
+                } catch (_) {}
+                if (nav?.type !== 'reload' && !samePage) {
+                    root.classList.add('page-enter');
+                    const reveal = () => root.classList.add('page-entered');
+                    requestAnimationFrame(() => requestAnimationFrame(reveal));
+                    setTimeout(reveal, 1200);
+                }
+                document.addEventListener('click', event => {
+                    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                    const link = event.target.closest?.('a[href]');
+                    if (!link || (link.target && link.target !== '_self') || link.hasAttribute('download')) return;
+                    const url = new URL(link.href, location.href);
+                    if (url.origin !== location.origin || url.pathname + url.search === location.pathname + location.search) return;
+                    if (document.body.classList.contains('lab-shell')) return;
+                    // Внутри проекта страницы сменяет View Transition (project-work.css): своё затухание ему мешает.
+                    if (viewTransitions && location.pathname.startsWith('/startups/') && url.pathname.startsWith('/startups/')) return;
+                    root.classList.remove('page-enter', 'page-entered');
+                    root.classList.add('page-leaving');
+                    setTimeout(() => root.classList.remove('page-leaving'), 1500);
+                });
+                // Возврат кнопкой «Назад» из кеша браузера: страница снова видна.
+                window.addEventListener('pageshow', event => {
+                    if (event.persisted) root.classList.remove('page-leaving');
+                });
+            })();
+        </script>
+        <link rel="icon"
+              type="image/png"
+              href="{% static 'founder/img/branding/bruno-logo-96.png' %}?v=1">
         <title>
             {% block title %}BrunoLab{% endblock %}
         </title>
         <meta name="description"
               content="Расскажите Бруно о своём сервисе и соберите понятную таблицу по пяти направлениям.">
         {% if request.telegram_miniapp %}<script src="https://telegram.org/js/telegram-web-app.js?63"></script>{% endif %}
-        <link rel="stylesheet" href="{% static 'founder/css/tailwind.css' %}?v=1">
+        <link rel="preload"
+              href="{% static 'founder/fonts/golos-text-cyrillic.woff2' %}"
+              as="font"
+              type="font/woff2"
+              crossorigin>
+        <link rel="preload"
+              href="{% static 'founder/fonts/manrope-cyrillic.woff2' %}"
+              as="font"
+              type="font/woff2"
+              crossorigin>
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=merged-06">
-        <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=6">
-        <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=2">
-        <link rel="stylesheet" href="{% static 'founder/css/coins.css' %}?v=5">
+              href="{% static 'founder/css/tailwind.css' %}?v=frontend-5">
         <link rel="stylesheet"
-              href="{% static 'founder/css/project-workspace.css' %}?v=10">
+              href="{% static 'founder/css/app.css' %}?v=redesign-2">
+        <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=redesign-2">
+        <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=redesign-1">
+        <link rel="stylesheet"
+              href="{% static 'founder/css/coins.css' %}?v=redesign-1">
+        <link rel="stylesheet"
+              href="{% static 'founder/css/project-workspace.css' %}?v=redesign-1">
         {% if startup %}
             <link rel="stylesheet"
-                  href="{% static 'founder/css/project-work.css' %}?v=7">
+                  href="{% static 'founder/css/project-work.css' %}?v=redesign-1">
         {% endif %}
         {% block extra_css %}{% endblock %}
-        <link rel="stylesheet" href="{% static 'founder/css/custom-select.css' %}?v=1">
+        <link rel="stylesheet"
+              href="{% static 'founder/css/custom-select.css' %}?v=redesign-1">
     </head>
     <body class="{% if startup and request.user.is_authenticated %}project-shell {% endif %}{% if workspace_tab == 'lab' %}lab-shell {% endif %}{% if startup.user_role == 'viewer' %}is-viewer{% endif %}">
+        {% if request.user.is_authenticated and workspace_tab != 'lab' %}
+            {% include 'founder/_intro.html' %}
+        {% endif %}
         <div class="app-shell">
             <header class="topbar">
                 <div class="project-header-start">
@@ -36,64 +129,90 @@
                                 aria-label="Открыть разделы проекта"
                                 aria-controls="project-sidebar"
                                 aria-expanded="false"
-                                hidden>☰</button>
+                                hidden>{% include 'founder/_icon.html' with name='sections' %}</button>
                     {% endif %}
-                    <a class="brand"
-                       href="{% url 'home' %}"
-                       aria-label="BrunoLab — главная">
+                    <a class="brand" href="{% url 'home' %}" aria-label="BrunoLab, главная">
                         <img class="brand-mark"
-                             src="{% static 'founder/img/branding/bruno-logo.png' %}"
+                             src="{% static 'founder/img/branding/bruno-logo-96.png' %}"
                              width="35"
                              height="35"
-                             alt=""><span>Bruno<span class="brand-dot">Lab</span></span>
+                             alt="">
+                        <span>Bruno<span class="brand-dot">Lab</span></span>
                     </a>
                     {% if request.user.is_authenticated and startup %}
                         <details class="project-switcher">
                             <summary>
-                                <span>{{ startup.name }}</span><span aria-hidden="true">⌄</span>
+                                <span>{{ startup.name }}</span>
+                                {% include 'founder/_icon.html' with name='chevron-down' %}
                             </summary>
                             <div class="project-switcher-list">
                                 <small>Ваши проекты</small>
                                 {% for item in my_projects %}
                                     <a href="{% url 'dashboard' item.id %}"
                                        {% if item.id == startup.id %}aria-current="true"{% endif %}>{{ item.name }}
-                                        {% if item.id == startup.id %}<span aria-hidden="true">✓</span>{% endif %}
+                                        {% if item.id == startup.id %}
+                                            {% include 'founder/_icon.html' with name='check' %}
+                                        {% endif %}
                                     </a>
                                 {% endfor %}
                                 <a class="project-switcher-all" href="{% url 'home' %}">Все проекты
-                                    {% if project_invites_count %}· {{ project_invites_count|plural:"приглашение,приглашения,приглашений" }}{% endif %}
-                                ↗</a>
+                                    {% if project_invites_count %}({{ project_invites_count|plural:"приглашение,приглашения,приглашений" }}){% endif %}
+                                </a>
                             </div>
                         </details>
                     {% endif %}
                 </div>
                 <nav class="topnav" aria-label="Основная навигация">
-                    <a href="{% url 'about' %}"
-                       {% if request.resolver_match.url_name == 'about' %}aria-current="page"{% endif %}>О проекте</a>
                     {% if request.user.is_authenticated %}
-                        <a href="{% url 'home' %}">Мои проекты
-                            {% if project_invites_count %}
-                                <span class="unread-badge"
-                                      aria-label="приглашений: {{ project_invites_count }}">{{ project_invites_count }}</span>
-                            {% endif %}
-                        </a>
-                        <a href="{% url 'community' %}">Сообщество</a>
-                        <a href="{% url 'tariffs' %}" {% if request.resolver_match.url_name == 'tariffs' %}aria-current="page"{% endif %}>Тарифы</a>
-                        <a href="{% url 'inbox' %}">Сообщения <span class="unread-badge"
+                        <div class="topnav-links" id="topnav-links">
+                            <a href="{% url 'about' %}"
+                               {% if request.resolver_match.url_name == 'about' %}aria-current="page"{% endif %}>О проекте</a>
+                            <a href="{% url 'home' %}">Мои проекты
+                                {% if project_invites_count %}
+                                    <span class="unread-badge"
+                                          aria-label="приглашений: {{ project_invites_count }}">{{ project_invites_count }}</span>
+                                {% endif %}
+                            </a>
+                            <a href="{% url 'community' %}">Сообщество</a>
+                            <a href="{% url 'tariffs' %}"
+                               {% if request.resolver_match.url_name == 'tariffs' %}aria-current="page"{% endif %}>Тарифы</a>
+                            <a href="{% url 'inbox' %}">Сообщения <span class="unread-badge"
        data-unread-count
        {% if not direct_unread %}hidden{% endif %}>{{ direct_unread }}</span></a>
+                            {% if wallet_balance %}
+                                <a class="wallet-chip"
+                                   href="{% url 'payments_wallet' %}"
+                                   title="USDT-кошелёк">USDT: {{ wallet_balance.amount_text }}</a>
+                            {% endif %}
+                            {% if is_pro %}
+                                <a class="pro-badge"
+                                   href="{% url 'tariffs' %}"
+                                   title="Тариф Pro до {{ pro_until|date:'d.m.Y' }}">Pro</a>
+                            {% endif %}
+                            <a class="topnav-profile-item" href="{% url 'my_profile' %}">Профиль</a>
+                            {% include 'founder/_theme_switch.html' with id='menu' %}
+                        </div>
                         <a class="coin-chip"
                            href="{% url 'wallet' %}"
                            aria-label="Монеты: {{ request.user.coins }}"
-                           {% if request.resolver_match.url_name == 'wallet' %}aria-current="page"{% endif %}><span aria-hidden="true">🪙</span> <span data-coin-balance>{{ request.user.coins }}</span></a>
-                        {% if wallet_balance %}<a class="wallet-chip" href="{% url 'payments_wallet' %}" title="USDT-кошелёк">USDT: {{ wallet_balance.amount_text }}</a>{% endif %}
-                        {% if is_pro %}<a class="pro-badge" href="{% url 'tariffs' %}" title="Тариф Pro до {{ pro_until|date:'d.m.Y' }}">PRO</a>{% endif %}
+                           {% if request.resolver_match.url_name == 'wallet' %}aria-current="page"{% endif %}>
+                            {% include 'founder/_icon.html' with name='coin' %}
+                            <span data-coin-balance>{{ request.user.coins }}</span></a>
                         <a class="account-profile-link"
                            href="{% url 'my_profile' %}"
                            aria-label="Открыть профиль">
                             {% include 'profiles/_avatar.html' with member=request.user %}
                         </a>
+                        <button class="account-menu-toggle"
+                                type="button"
+                                aria-label="Меню"
+                                aria-controls="topnav-links"
+                                aria-expanded="false"
+                                hidden>{% include 'profiles/_avatar.html' with member=request.user %}</button>
                     {% else %}
+                        <a class="topnav-about"
+                           href="{% url 'about' %}"
+                           {% if request.resolver_match.url_name == 'about' %}aria-current="page"{% endif %}>О проекте</a>
                         <a href="{% url 'login' %}">Войти</a>
                         <a class="nav-cta" href="{% url 'register' %}">Создать аккаунт</a>
                     {% endif %}
@@ -105,7 +224,15 @@
             {% endif %}
 
             <main class="main-content">
-                {% if bruno_job %}<div class="bruno-job" data-bruno-job data-url="{% url 'bruno_job' %}" role="status"><span class="bruno-job-dot" aria-hidden="true"></span><span>Бруно сейчас <span data-bruno-job-label>{{ bruno_job.label }}</span>. Когда он закончит, страница обновится сама.</span></div><script src="{% static 'founder/js/bruno-job.js' %}?v=1" defer></script>{% endif %}
+                {% if bruno_job %}
+                    <div class="bruno-job"
+                         data-bruno-job
+                         data-url="{% url 'bruno_job' %}"
+                         role="status">
+                        <span class="bruno-job-dot" aria-hidden="true"></span><span>Бруно сейчас <span data-bruno-job-label>{{ bruno_job.label }}</span>. Когда он закончит, страница обновится сама.</span>
+                    </div>
+                    <script src="{% static 'founder/js/bruno-job.js' %}?v=1" defer></script>
+                {% endif %}
                 {% if messages %}
                     <div class="flash-stack" aria-live="polite">
                         {% for message in messages %}<div class="flash flash-{{ message.tags }}">{{ message }}</div>{% endfor %}
@@ -115,18 +242,24 @@
             </main>
 
             <footer class="site-footer">
-                <span>Bruno<span class="brand-dot">Lab</span> · MVP</span><span>Меньше тревоги. Больше проверенных решений.</span>
+                <span>Bruno<span class="brand-dot">Lab</span>, бета. <a href="{% url 'about' %}">О проекте</a></span>
+                {% include 'founder/_theme_switch.html' with id='footer' %}
             </footer>
         </div>
-        {% if workspace_tab != 'lab' and not hide_bruno_pet %}
+        {% if workspace_tab != 'lab' and not hide_bruno_pet and request.resolver_match.url_name != 'chat_detail' %}
             {% include 'founder/_bruno_pet.html' %}
         {% endif %}
         {% if request.telegram_miniapp %}
-            <script src="{% static 'founder/js/telegram.js' %}" defer></script>
+            <script src="{% static 'founder/js/telegram.js' %}?v=redesign-1" defer></script>
         {% endif %}
-        <script src="{% static 'founder/js/bruno.js' %}?v=6" defer></script>
+        <script src="{% static 'founder/js/bruno.js' %}?v=10" defer></script>
+        <script src="{% static 'founder/js/copy.js' %}?v=1" defer></script>
+        <script src="{% static 'founder/js/theme.js' %}?v=redesign-1" defer></script>
+        {% if request.user.is_authenticated and workspace_tab != 'lab' %}
+            <script src="{% static 'founder/js/intro.js' %}?v=1" defer></script>
+        {% endif %}
         {% if request.user.is_authenticated %}
-            <script src="{% static 'founder/js/drafts.js' %}?v=1"></script><script src="{% static 'founder/js/direct-attachments.js' %}?v=1" defer></script><script src="{% static 'founder/js/messages.js' %}?v=6" defer></script><script src="{% static 'founder/js/coins.js' %}?v=1" defer></script><script src="{% static 'founder/js/chat-search.js' %}?v=1" defer></script><script src="{% static 'founder/js/card-reports.js' %}?v=1" defer></script>
+            <script src="{% static 'founder/js/drafts.js' %}?v=1"></script><script src="{% static 'founder/js/direct-attachments.js' %}?v=1" defer></script><script src="{% static 'founder/js/messages.js' %}?v=6" defer></script><script src="{% static 'founder/js/coins.js' %}?v=3" defer></script><script src="{% static 'founder/js/chat-search.js' %}?v=1" defer></script><script src="{% static 'founder/js/card-reports.js' %}?v=1" defer></script>
         {% endif %}
         {% if lab_workspace %}
             <form hidden
@@ -138,8 +271,9 @@
             </form>
             <script src="{% static 'founder/js/lab-workspace.js' %}?v=1" defer></script>
         {% endif %}
-        <script src="{% static 'founder/js/project-workspace.js' %}?v=2" defer></script>
+        <script src="{% static 'founder/js/project-workspace.js' %}?v=6" defer></script>
         <script src="{% static 'founder/js/custom-select.js' %}?v=1" defer></script>
-        {% block scripts %}{% endblock %}
+        {% block scripts %}
+        {% endblock %}
     </body>
 </html>

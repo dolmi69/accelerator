@@ -4,19 +4,19 @@
     {% include 'founder/_workspace_nav.html' %}
     <div class="page-heading work-heading">
         <div>
-            <span class="eyebrow">ПОКАЖИТЕ ПРОЕКТ ДРУГИМ</span>
+            <span class="eyebrow">Покажите проект другим</span>
             <h1>Продвижение</h1>
-            <p>{{ startup.name }} · Покажите проект сообществу или найдите тестировщиков за монеты.</p>
+            <p>Покажите проект сообществу или найдите тестировщиков за монеты.</p>
         </div>
         <a class="coin-balance-big"
            href="{% url 'wallet' %}"
-           aria-label="Ваш баланс, открыть кошелёк"><span aria-hidden="true">🪙</span><strong>{{ balance }}</strong></a>
+           aria-label="Ваш баланс, открыть кошелёк">{% include 'founder/_icon.html' with name='coin' %}<strong>{{ balance }}</strong></a>
     </div>
 
     <div class="work-grid">
         {% for item in offers %}
             <article class="card work-card promo-card {% if item.active_until %}is-active{% endif %}">
-                <span class="eyebrow">{{ item.offer.days }} ДН. · {{ item.offer.cost }} МОНЕТ</span>
+                <span class="eyebrow">{{ item.offer.days }} дн., {{ item.offer.cost|plural:"монета,монеты,монет" }}</span>
                 <h2>{{ item.offer.title }}</h2>
                 <p>{{ item.offer.description }}</p>
                 {% if item.active_until %}
@@ -30,8 +30,7 @@
                             В лабораторию
                         {% else %}
                             К карточке проекта
-                        {% endif %}
-                    →</a>
+                        {% endif %}</a>
                 {% else %}
                     <form method="post" action="{% url 'promote_buy' startup.id %}">
                         {% csrf_token %}
@@ -44,7 +43,7 @@
                             {% else %}
                                 Запустить
                             {% endif %}
-                            за {{ item.offer.cost }} 🪙
+                            за {{ item.offer.cost|plural:"монета,монеты,монет" }}
                         </button>
                     </form>
                     {% if item.missing %}
@@ -70,9 +69,9 @@
             {% for bounty in bounties %}
                 <div class="team-row">
                     <div>
-                        <strong>{{ bounty.reward }} 🪙 за тест</strong>
+                        <strong>{{ bounty.reward|plural:"монета,монеты,монет" }} за тест</strong>
                         <p class="muted small">
-                            Осталось на {{ bounty.remaining|floatformat:0 }} 🪙 · от @{{ bounty.funder.handle }} · {{ bounty.created_at|date:'d.m.Y' }}
+                            Осталось {{ bounty.remaining|floatformat:0 }} монет, от @{{ bounty.funder.handle }}, {{ bounty.created_at|date:'d.m.Y' }}
                         </p>
                     </div>
                     {% if bounty.funder_id == request.user.pk %}
@@ -107,7 +106,7 @@
                         <div>
                             <strong>{{ promo.get_kind_display }}</strong>
                             <p class="muted small">
-                                {{ promo.starts_at|date:'d.m.Y H:i' }} — {{ promo.ends_at|date:'d.m.Y H:i' }}
+                                с {{ promo.starts_at|date:'d.m.Y H:i' }} до {{ promo.ends_at|date:'d.m.Y H:i' }}
                                 {% if promo.bought_by %}· оплатил(а) @{{ promo.bought_by.handle }}{% endif %}
                             </p>
                         </div>

@@ -9,7 +9,7 @@
                     {% else %}
                         Участник
                     {% endif %}
-                </strong> · {{ item.text }}
+                </strong>: {{ item.text }}
                 <span class="muted small"><time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:'d.m H:i' }}</time></span>
             </div>
         </li>
