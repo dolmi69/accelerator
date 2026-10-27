@@ -66,4 +66,4 @@ class BrunoPetTests(TestCase):
             with self.subTest(page=name):
                 page = self.client.get(reverse(name))
                 self.assertContains(page, 'data-bruno-watcher')
-                self.assertContains(page, 'data-bruno-watch>')
+                self.assertRegex(page.content.decode(), r'<form\b[^>]*\sdata-bruno-watch(?:\s|>)')

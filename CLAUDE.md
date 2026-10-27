@@ -194,3 +194,13 @@ Django. Тесты: `founder.test_auth_csrf`, `tests/auth.test.cjs` (включ�
 Проверка: 31 тест Django (назначение, работа над проектом, лаборатория), 12 JS-тестов
 соседних сценариев; интерфейс просмотрен в Chrome на обычной ширине и 390 px.
 Обновление опубликованного приложения Amvera выполняется отдельно от GitHub.
+
+## Общий merge 28 октября 2026
+
+В main объединены frontend2/frontend, small-tasks/amvera-deployment, Dima_2.0,
+card-unsaved-guard, password-visibility-toggle, task-filters-device-preview,
+ws-close-code и сохранённые eval из claude/gwen-3-5-model-migration-c7431b.
+Дизайн и функциональность при конфликтах сохранены вместе. Проверки: 809 Django,
+60 blueprint, 56 JavaScript; Chrome на компьютере и 375 px. Детали и резервная
+копия базы: `docs/team_merge_2026_10_28.md`. Amvera этим merge не обновляется.
+После этого общего merge новые задачи начинают с новых веток от свежего main.

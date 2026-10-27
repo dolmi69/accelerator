@@ -210,7 +210,6 @@
 .work-history-pagination{display:flex;align-items:center;justify-content:flex-end;gap:18px;padding-top:16px;font-size:13px;color:var(--muted)}
 .work-history-pagination a{color:var(--teal-dark);text-decoration:none}
 @media(max-width:800px){.work-task-history{margin-left:20px;margin-right:20px}}
-.work-filter-group{display:block;margin:5px 5px 0;padding:11px 7px 5px;border-top:1px solid #edf1ed;font-size:10px;color:#8a998e}
 .work-classic .priority-board:has(.work-filter[open]){overflow:visible}
 .priority-task-controls .priority-task-filter{padding:0;margin:0;display:flex;gap:6px;flex-wrap:wrap}
 .priority-task-controls .task-filter a{font-size:13px;padding:7px 10px;border-radius:8px;text-decoration:none;color:var(--muted)}
