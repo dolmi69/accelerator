@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -29,9 +31,12 @@ class CardLeaveMarkupTests(TestCase):
 
     def test_generated_page_is_marked_dirty_for_the_guard(self):
         # После «Оценить и собрать с Бруно» страница помечена как несохранённая.
-        html = self.client.post(self.url, {
-            **card_values(get_card(self.project)), 'action': 'generate', 'revision': get_card(self.project).revision,
-        }).content.decode()
+        # Без ИИ в тестовой среде генерация отказывает, поэтому подменяем её ответом Бруно.
+        card = get_card(self.project)
+        with patch('founder.community_views.generate_card', return_value={'tagline': 'Новая идея'}):
+            html = self.client.post(self.url, {
+                **card_values(card), 'action': 'generate', 'revision': card.revision,
+            }).content.decode()
         self.assertIn('data-generated="1"', html)
 
     def test_saved_page_is_not_marked_dirty(self):
