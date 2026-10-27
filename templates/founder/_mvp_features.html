@@ -19,9 +19,9 @@
     {% if features %}
         <div class="priority-toolbar">
             <nav class="priority-method" aria-label="Сортировка функций">
-                <a href="?method=rice{% if mine %}&mine=1{% endif %}#mvp-features"
+                <a href="?{% if rice_filter_query %}{{ rice_filter_query }}{% else %}method=rice{% if mine %}&amp;mine=1{% endif %}{% endif %}#mvp-features"
                    {% if mvp_method == 'rice' %}aria-current="page"{% endif %}>RICE</a>
-                <a href="?method=ice{% if mine %}&mine=1{% endif %}#mvp-features"
+                <a href="?{% if ice_filter_query %}{{ ice_filter_query }}{% else %}method=ice{% if mine %}&amp;mine=1{% endif %}{% endif %}#mvp-features"
                    {% if mvp_method == 'ice' %}aria-current="page"{% endif %}>ICE</a>
             </nav>
             <span class="priority-stats">{{ feature_count }} функций, {{ rated_count }} оценено, <strong>{{ mvp_count }} в MVP</strong></span>

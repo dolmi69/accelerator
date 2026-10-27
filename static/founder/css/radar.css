@@ -227,10 +227,6 @@ body:has(.radar-home) .bruno-pet { display:none; }
 @media(max-width:680px) { .radar-task-dialog { padding:22px; } .hub-result-fields { grid-template-columns:1fr; gap:0; } }
 
 /* Readiness is a separate journey, not a sixth radar axis. */
-.project-readiness { margin:24px 0 8px; padding:22px; border:1px solid var(--line); border-radius:16px; background:var(--surface); scroll-margin-top:calc(var(--project-topbar-height,64px) + 20px); }
-.readiness-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
-.readiness-eyebrow { color:var(--muted); font-size:13px; font-weight:800; }
-.readiness-heading h3 { margin:6px 0 0; font-size:20px; line-height:1.3; font-weight:700; letter-spacing:-.5px; }
 .readiness-level { display:flex; align-items:baseline; flex:0 0 auto; gap:2px; color:var(--teal-dark); font-size:31px; line-height:1; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-1.8px; }
 .readiness-level small { font-size:16px; color:var(--muted); font-weight:500; letter-spacing:0; }
 .readiness-track { display:grid; grid-template-columns:repeat(9,minmax(0,1fr)); gap:6px; margin-top:22px; }
@@ -238,18 +234,6 @@ body:has(.radar-home) .bruno-pet { display:none; }
 .readiness-track>span.is-reached { background:#9cc9b5; color:var(--teal-dark); }
 .readiness-track>span.is-current { color:var(--on-accent); background:var(--teal);  }
 .readiness-phase-labels { display:flex; justify-content:space-between; margin-top:7px; font-size:13px; color:var(--muted); }
-.readiness-next { display:flex; align-items:start; gap:12px; margin-top:20px; padding:16px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
-.readiness-next-icon { display:grid; place-items:center; width:28px; height:28px; flex:0 0 28px; border-radius:8px; color:var(--teal-dark); background:var(--tint); font-size:20px; }
-.readiness-next>div { min-width:0; }
-.readiness-next strong { display:block; color:var(--teal-dark); font-size:13px; font-weight:700; line-height:1.5; }
-.readiness-next p { margin:5px 0 0; color:var(--muted); font-size:13px; line-height:1.6; }
-.readiness-action { display:inline-flex; gap:9px; align-items:center; margin-top:11px; color:var(--teal-dark); font-size:13px; font-weight:700; text-decoration:none; min-height:28px; }
-.readiness-action:hover { text-decoration:underline; }
-.readiness-details>summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; margin:6px 0 -8px; color:var(--muted); cursor:pointer; list-style:none; font-size:13px; font-weight:600; }
-.readiness-details>summary::-webkit-details-marker { display:none; }
-.readiness-details>summary>span:last-child { transition:transform .15s; }
-.readiness-details[open]>summary>span:last-child { transform:rotate(180deg); }
-.readiness-details-body { padding-top:14px; border-top:1px solid var(--line); }
 .readiness-explanation { margin:0 0 12px; font-size:13px; line-height:1.65; color:var(--muted); }
 .readiness-explanation:last-child { margin:14px 0 0; }
 .readiness-gap-note { padding:10px 12px; background:var(--warn-bg); border-radius:8px; font-size:13px; line-height:1.6; color:var(--warn); }
@@ -263,16 +247,11 @@ body:has(.radar-home) .bruno-pet { display:none; }
 .readiness-stages p { margin:4px 0; font-size:13px; color:var(--muted); line-height:1.6; }
 .readiness-stages a { font-size:13px; color:var(--teal-dark); text-underline-offset:3px; }
 .readiness-stages small { font-size:13px; color:var(--muted); }
-.project-readiness :focus-visible { outline:2px solid var(--teal); outline-offset:4px; border-radius:4px; }
 @media(max-width:680px) {
-  .project-readiness { padding:18px; border-radius:10px; }
-  .readiness-heading h3 { font-size:20px; }
   .readiness-level { font-size:31px; }
   .readiness-track { gap:4px; margin-top:18px; }
-  .readiness-next { padding:12px; gap:9px; }
   .readiness-phase-labels { font-size:13px; }
 }
-@media(prefers-reduced-motion:reduce) { .readiness-details>summary>span:last-child { transition:none; } }
 
 /* Bruno hub: one place to ask, act and resume saved work. */
 .bruno-hub-intro { display:flex; flex:1; flex-direction:column; justify-content:center; align-items:center; gap:12px; padding:20px 0 24px; text-align:center; }

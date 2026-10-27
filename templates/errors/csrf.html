@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Повторите отправку · BrunoLab{% endblock %}
+{% block content %}
+<section class="auth-wrap">
+    <div class="auth-intro">
+        <span class="eyebrow">ПОПРОБУЕМ ЕЩЁ РАЗ</span>
+        <h1>Обновите форму</h1>
+        <p>Страница могла устареть. Откройте форму заново и повторите попытку.</p>
+        <p>Если ошибка повторяется, проверьте, разрешены ли cookies для этого сайта.</p>
+        <a class="button primary" href="{{ retry_url }}">Открыть форму заново →</a>
+    </div>
+</section>
+{% endblock %}

@@ -3,10 +3,10 @@
          aria-labelledby="priority-title">
     <header class="priority-heading">
         <div>
-            <h2 id="priority-title">Приоритеты задач</h2>
-            <p>Все задания Бруно и функции MVP в одном рейтинге.</p>
+            <h2 id="priority-title">{% if status_filter == 'done' %}Завершённые задания{% elif status_filter == 'skipped' %}Отложенные задания{% else %}Приоритеты задач{% endif %}</h2>
+            <p>{% if status_filter == 'done' or status_filter == 'skipped' %}Сохранённая история работы над проектом.{% else %}Все задания Бруно и функции MVP в одном рейтинге.{% endif %}</p>
         </div>
-        {% if startup.user_role != 'viewer' %}
+        {% if startup.user_role != 'viewer' and status_filter != 'done' and status_filter != 'skipped' %}
             <div class="priority-heading-actions">
                 {% if priority_count and not is_demo %}
                     <form method="post"
@@ -33,13 +33,11 @@
     {% include 'founder/_work_focus.html' %}
     <div id="work-tasks"></div>
     <div class="priority-task-controls">
-        <details class="work-filter" data-work-filter>
+        <details class="work-filter work-filter-panel" data-work-filter>
             <summary aria-label="Фильтр заданий">
-                <span>
-                    {% for value,label in assignee_options %}
-                        {% if assignee_filter == value %}{{ label }}{% endif %}
-                    {% endfor %}
-                </span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.5" fill="currentColor" stroke="none"/><circle cx="15" cy="17" r="2.5" fill="currentColor" stroke="none"/></svg>
+                <span>Фильтры</span>
+                {% if active_filter_count %}<span class="work-filter-badge">{{ active_filter_count }}</span>{% endif %}
                 <svg class="work-filter-chevron"
                      width="14"
                      height="14"
@@ -51,16 +49,32 @@
                     <path d="m6 9 6 6 6-6" />
                 </svg>
             </summary>
-            <nav class="work-filter-menu" aria-label="Выбор заданий">
-                {% for option in task_filter_options %}
-                    <a href="?method={{ mvp_method }}&amp;assignee={{ option.value|urlencode }}#task-priorities"
-                       {% if assignee_filter == option.value %}aria-current="page"{% endif %}>
-                        <span>{{ option.label }}</span>
-                        <span class="work-filter-count">{{ option.count }}</span>
-                    </a>
-                {% endfor %}
-            </nav>
+            <form method="get" action="{% url 'tasks' startup.id %}#task-priorities" class="work-filter-menu work-filter-form">
+                <input type="hidden" name="method" value="{{ mvp_method }}">
+                <label for="work-status-filter">Статус</label>
+                <select id="work-status-filter" name="status">
+                    {% for value,label in status_options %}
+                        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <label for="work-assignee-filter">Исполнитель</label>
+                <select id="work-assignee-filter" name="assignee">
+                    {% for value,label in assignee_options %}
+                        <option value="{{ value }}" {% if assignee_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <div class="work-filter-form-actions">
+                    <a href="?method={{ mvp_method }}#task-priorities">Сбросить</a>
+                    <button type="submit" class="button primary">Показать</button>
+                </div>
+            </form>
         </details>
+        {% if active_filter_count %}
+            <span class="work-filter-selection">
+                {% if status_filter != 'all' %}{{ status_filter_label }}{% endif %}{% if status_filter != 'all' and assignee_filter != 'all' %}<span aria-hidden="true"> · </span>{% endif %}{% if assignee_filter != 'all' %}{{ assignee_filter_label }}{% endif %}
+            </span>
+            <a class="work-filter-clear" href="?method={{ mvp_method }}#task-priorities" aria-label="Сбросить фильтры" title="Сбросить фильтры">×</a>
+        {% endif %}
     </div>
     {% if priority_entries %}
         <div class="priority-table">
@@ -180,10 +194,14 @@
             </p>
         </div>
     </details>
-{% else %}
+{% elif not past_tasks %}
     <div class="priority-empty">
         <p>
-            {% if assignee_filter == 'mine' %}
+            {% if status_filter == 'done' %}
+                По выбранным условиям нет завершённых заданий.
+            {% elif status_filter == 'skipped' %}
+                По выбранным условиям нет отложенных заданий.
+            {% elif assignee_filter == 'mine' %}
                 На вас пока нет назначенных задач. Откройте все задания и выберите, за что возьмётесь.
             {% elif assignee_filter != 'all' %}
                 По этому фильтру нет открытых задач. Выберите другой фильтр или откройте все задания.
@@ -191,6 +209,8 @@
                 Получите задачи Бруно или добавьте первую функцию. Здесь появятся все шаги с оценками RICE и ICE.
             {% endif %}
         </p>
+        {% if active_filter_count %}<a href="?method={{ mvp_method }}#task-priorities">Сбросить фильтры</a>{% endif %}
     </div>
 {% endif %}
+{% include 'founder/_work_task_history.html' %}
 </section>

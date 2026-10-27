@@ -1,0 +1,9 @@
+meta:
+  environment: docker
+  toolchain:
+    name: docker
+build:
+  dockerfile: deploy/Dockerfile
+run:
+  persistenceMount: /data
+  containerPort: 8080

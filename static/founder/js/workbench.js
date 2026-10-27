@@ -1,5 +1,15 @@
 (() => {
   document.querySelectorAll('[data-work-filter]').forEach(filter => {
+    filter.addEventListener('toggle', () => {
+      filter.classList.remove('work-filter-up');
+      if (!filter.open) return;
+      const menu = filter.querySelector('.work-filter-menu');
+      if (!menu) return;
+      const panel = menu.getBoundingClientRect();
+      if (panel.bottom > window.innerHeight - 12 && filter.getBoundingClientRect().top > panel.height + 12) {
+        filter.classList.add('work-filter-up');
+      }
+    });
     document.addEventListener('click', event => {
       if (!filter.contains(event.target)) filter.open = false;
     });

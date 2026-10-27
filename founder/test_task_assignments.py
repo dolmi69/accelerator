@@ -97,6 +97,57 @@ class TaskAssignmentTests(TestCase):
         client = Client(enforce_csrf_checks=True); client.force_login(self.owner)
         self.assertEqual(client.post(url, {'assignee':self.owner.pk}).status_code, 403)
 
+    def test_status_and_assignee_filter_both_queue_and_history_without_ai(self):
+        done = BrunoTask.objects.create(startup=self.project, axis='market', title='Интервью завершено',
+                                        assignee=self.mate, status='done')
+        skipped = BrunoTask.objects.create(startup=self.project, axis='finance', title='Расчёт отложен',
+                                           assignee=self.owner, status='skipped')
+        foreign = StartupProfile.objects.create(owner=self.stranger, name='Чужой проект')
+        BrunoTask.objects.create(startup=foreign, axis='market', title='Чужая завершённая задача',
+                                  assignee=self.mate, status='done')
+        with patch('founder.services.ai.complete_text', side_effect=AssertionError('Filtering is read-only')):
+            page = self.client.get(self.url('tasks'), {'status': 'done', 'assignee': self.mate.pk})
+            self.assertEqual(page.status_code, 200)
+            self.assertEqual(page.context['priority_entries'], [])
+            self.assertEqual(list(page.context['past_tasks']), [done])
+            self.assertTrue(page.context['task_history_open'])
+            self.assertEqual(page.context['active_filter_count'], 2)
+            self.assertNotContains(page, 'Чужая завершённая задача')
+            self.assertIn(f'assignee={self.mate.pk}&status=done', page.context['ice_filter_query'])
+            page = self.client.get(self.url('tasks'), {'status': 'skipped', 'assignee': 'mine'})
+            self.assertEqual(list(page.context['past_tasks']), [skipped])
+            page = self.client.get(self.url('tasks'), {'status': 'todo', 'assignee': 'mine'})
+            self.assertEqual([item['task'] for item in page.context['priority_entries']], [self.mine])
+            self.assertEqual(list(page.context['past_tasks']), [])
+            self.assertContains(page, 'Фильтры')
+            self.assertEqual(self.client.get(self.url('tasks'), {'status': 'unknown'}).status_code, 404)
+        self.assertEqual(self.project.bruno_tasks.count(), 4)
+
+    def test_filtered_history_is_paginated_after_filtering_and_valid_for_viewers(self):
+        for number in range(17):
+            BrunoTask.objects.create(startup=self.project, axis='market', title=f'Готово {number}',
+                                      assignee=self.mate, status='done')
+        BrunoTask.objects.create(startup=self.project, axis='finance', title='Не мой результат',
+                                  assignee=self.owner, status='done')
+        page = self.client.get(self.url('tasks'), {'status': 'done', 'assignee': self.mate.pk, 'task_page': 2})
+        self.assertEqual(len(page.context['past_tasks']), 2)
+        self.assertEqual(page.context['task_history_page'].paginator.count, 17)
+        self.assertNotContains(page, 'Не мой результат')
+        self.assertContains(page, 'task_page=1')
+        self.client.force_login(self.viewer)
+        page = self.client.get(self.url('tasks'), {'status': 'done', 'assignee': self.mate.pk})
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(len(page.context['past_tasks']), 15)
+        self.assertNotContains(page, 'Кто возьмёт задачу')
+
+    def test_assignment_preserves_status_filter(self):
+        response = self.client.post(self.url('task_assign', self.task.pk), {
+            'assignee': self.mate.pk, 'work_filter': 'unassigned', 'work_status': 'todo', 'method': 'ice',
+        })
+        self.assertIn('method=ice&assignee=unassigned&status=todo', response.url)
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.assignee_id, self.mate.pk)
+
     def test_demotion_releases_open_tasks_but_retains_finished_history(self):
         self.task.assignee = self.mate; self.task.save()
         done = BrunoTask.objects.create(startup=self.project, axis='market', title='Сделано', assignee=self.mate, status='done')

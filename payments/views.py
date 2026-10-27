@@ -48,7 +48,7 @@ def _topup_error(request, message, status):
 @require_POST
 def topup_create(request):
     if not settings.PAYMENTS_ENABLED:
-        return _topup_error(request, "Приём оплаты выключен (PAYMENTS_ENABLED=0).", 503)
+        return _topup_error(request, "Пополнение криптовалютой временно недоступно.", 503)
 
     raw = (request.POST.get("amount") or "").replace(",", ".").strip()
     try:

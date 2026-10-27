@@ -3,7 +3,7 @@
 {% block title %}Работа над проектом · {{ startup.name }}{% endblock %}
 {% block work_css %}
     <link rel="stylesheet" href="{% static 'founder/css/mvp.css' %}?v=redesign-1">
-    <link rel="stylesheet" href="{% static 'founder/css/work-plan.css' %}?v=redesign-1">
+    <link rel="stylesheet" href="{% static 'founder/css/work-plan.css' %}?v=merge-20261028">
 {% endblock %}
 {% block work_page_class %}work-classic{% endblock %}
 {% block work_title %}Работа над проектом{% endblock %}
@@ -17,13 +17,19 @@
             <input type="hidden" name="method" value="{{ mvp_method }}">
             <button class="button primary"
                     data-busy-label="Бруно готовит задачи…"
-                    {% if not has_story %}disabled{% endif %}>
+                    {% if not has_story %}disabled aria-describedby="work-story-help"{% endif %}>
                 {% if review %}
                     Обновить задачи
                 {% else %}
                     Получить задачи
                 {% endif %}
             </button>
+            {% if not has_story %}
+                <p class="work-start-hint" id="work-story-help">
+                    Сначала <a href="{% url 'startup_edit' startup.id %}">опишите идею проекта</a>
+                    или расскажите о ней Бруно, чтобы он смог подобрать задачи.
+                </p>
+            {% endif %}
             <span class="muted small" role="status" aria-live="polite"></span>
         </form>
     {% endif %}
@@ -38,7 +44,6 @@
         </summary>
         {% include 'founder/_work_analysis.html' %}
     </details>
-    {% include 'founder/_work_task_history.html' %}
     <details class="work-secondary" id="mvp-details">
         <summary>
             <span>Функции MVP
@@ -55,5 +60,5 @@
         </details>
     {% endblock %}
     {% block scripts %}
-        <script src="{% static 'founder/js/workbench.js' %}?v=6" defer></script>
+        <script src="{% static 'founder/js/workbench.js' %}?v=7" defer></script>
     {% endblock %}

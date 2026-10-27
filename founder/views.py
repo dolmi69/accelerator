@@ -16,6 +16,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.cache import never_cache
 
 from founder.forms import ChatSendForm, EvidenceForm, IdeaCardForm, MetricsForm, RegisterForm, StartupForm
 from founder.models import (
@@ -42,6 +43,7 @@ from founder.services.dashboard import workspace_context
 from founder.services.readiness import readiness_context
 
 
+@never_cache
 def register(request):
     if request.user.is_authenticated:
         return redirect("home")
