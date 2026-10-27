@@ -19,6 +19,20 @@
                 } catch (_) {}
             })();
         </script>
+        {% if request.user.is_authenticated and workspace_tab != 'lab' %}
+            <script>
+                // Заставка при каждом заходе на сайт извне (закладка, ссылка, новая вкладка, Telegram).
+                // Переходы внутри сайта, перезагрузки и возврат «Назад» её не показывают.
+                (() => {
+                    let internal = false;
+                    try { internal = new URL(document.referrer).origin === location.origin; } catch (_) {}
+                    const nav = performance.getEntriesByType('navigation')[0];
+                    if (!internal && (!nav || nav.type === 'navigate') && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                        document.documentElement.classList.add('intro-on');
+                    }
+                })();
+            </script>
+        {% endif %}
         <script>
             // Плавная смена страниц (app.css): уход по клику на ссылку и появление после первой отрисовки.
             (() => {
@@ -83,7 +97,7 @@
         <link rel="stylesheet"
               href="{% static 'founder/css/tailwind.css' %}?v=frontend-5">
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=redesign-1">
+              href="{% static 'founder/css/app.css' %}?v=redesign-2">
         <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=redesign-2">
         <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=redesign-1">
         <link rel="stylesheet"
@@ -99,6 +113,9 @@
               href="{% static 'founder/css/custom-select.css' %}?v=redesign-1">
     </head>
     <body class="{% if startup and request.user.is_authenticated %}project-shell {% endif %}{% if workspace_tab == 'lab' %}lab-shell {% endif %}{% if startup.user_role == 'viewer' %}is-viewer{% endif %}">
+        {% if request.user.is_authenticated and workspace_tab != 'lab' %}
+            {% include 'founder/_intro.html' %}
+        {% endif %}
         <div class="app-shell">
             <header class="topbar">
                 <div class="project-header-start">
@@ -234,6 +251,9 @@
         <script src="{% static 'founder/js/bruno.js' %}?v=10" defer></script>
         <script src="{% static 'founder/js/copy.js' %}?v=1" defer></script>
         <script src="{% static 'founder/js/theme.js' %}?v=redesign-1" defer></script>
+        {% if request.user.is_authenticated and workspace_tab != 'lab' %}
+            <script src="{% static 'founder/js/intro.js' %}?v=1" defer></script>
+        {% endif %}
         {% if request.user.is_authenticated %}
             <script src="{% static 'founder/js/drafts.js' %}?v=1"></script><script src="{% static 'founder/js/direct-attachments.js' %}?v=1" defer></script><script src="{% static 'founder/js/messages.js' %}?v=6" defer></script><script src="{% static 'founder/js/coins.js' %}?v=3" defer></script><script src="{% static 'founder/js/chat-search.js' %}?v=1" defer></script><script src="{% static 'founder/js/card-reports.js' %}?v=1" defer></script>
         {% endif %}

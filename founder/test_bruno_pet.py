@@ -51,6 +51,15 @@ class BrunoPetTests(TestCase):
         self.assertContains(response, 'data-pose="walk"')
         self.assertNotContains(response, 'data-bruno-pet')
 
+    def test_signed_in_pages_carry_intro_except_lab_and_guest_pages(self):
+        page = self.client.get(reverse('dashboard', args=[self.project.pk]))
+        self.assertContains(page, 'data-intro')
+        self.assertContains(page, 'intro.js')
+        self.assertContains(page, 'Здравствуйте, ')
+        self.assertNotContains(self.client.get(reverse('lab', args=[self.project.pk])), 'data-intro')
+        self.client.logout()
+        self.assertNotContains(self.client.get(reverse('login')), 'data-intro')
+
     def test_login_and_register_show_bruno_watching_the_form(self):
         self.client.logout()
         for name in ('login', 'register'):

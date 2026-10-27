@@ -20,14 +20,14 @@
             })();
         </script>
         <script>
-            // Заставка играет один раз за сессию браузера; при повторе и при reduced motion сразу видна последняя сцена.
+            // Заставка играет при каждом заходе на сайт извне. После перехода внутри сайта (например, назад со входа),
+            // перезагрузки и при reduced motion сразу видна последняя сцена.
             (() => {
-                let seen = false;
-                try {
-                    seen = sessionStorage.getItem('bl-welcome') === '1';
-                    sessionStorage.setItem('bl-welcome', '1');
-                } catch (_) {}
-                if (seen || window.matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('welcome-static');
+                let internal = false;
+                try { internal = new URL(document.referrer).origin === location.origin; } catch (_) {}
+                const nav = performance.getEntriesByType('navigation')[0];
+                const entering = !internal && (!nav || nav.type === 'navigate');
+                if (!entering || window.matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('welcome-static');
             })();
         </script>
         <title>BrunoLab: наставник для первого стартапа</title>
@@ -50,7 +50,7 @@
               type="font/woff2"
               crossorigin>
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=redesign-1">
+              href="{% static 'founder/css/app.css' %}?v=redesign-2">
         <link rel="stylesheet"
               href="{% static 'founder/css/welcome.css' %}?v=redesign-1">
     </head>

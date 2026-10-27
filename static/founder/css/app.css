@@ -1252,3 +1252,24 @@ html.theme-switching *, html.theme-switching *::before, html.theme-switching *::
   .radar-compare button,.theme-switch-options button { min-height:44px; }
   .feedback-button { min-width:44px; min-height:44px; }
 }
+
+/* Заставка при заходе на сайт (вошедший пользователь, _intro.html, intro.js): 0–0,8 с Бруно идёт
+   по линейке, 0,8 с машет, 0,9 с здоровается, с 1,9 с заставка растворяется и открывает страницу. */
+.intro { display:none; }
+html.intro-on .intro { position:fixed; inset:0; z-index:100; display:grid; place-items:center; background:var(--bg); animation:intro-out .35s ease-in 1.9s forwards; }
+html.intro-skip .intro { animation:intro-out .2s ease-in forwards; }
+.intro-scene { position:relative; width:min(520px,calc(100% - 32px)); height:250px; display:flex; align-items:flex-end; justify-content:center; }
+.intro-ground { position:absolute; left:-16px; right:-16px; bottom:12px; height:1px; background:var(--line-teal); transform-origin:0 50%; animation:intro-rule .6s cubic-bezier(.2,.7,.2,1) both; }
+.intro-bear { position:relative; width:220px; animation:intro-walk .8s cubic-bezier(.22,.61,.36,1) both; }
+.intro-bear .bruno-art { width:100%; margin:0; transform-origin:50% 100%; animation:intro-step .2s ease-in-out 4 alternate both; }
+.intro-bubble { position:absolute; top:14px; left:calc(50% + 64px); margin:0; padding:10px 14px; border:1px solid var(--line); border-radius:10px 10px 10px 4px; background:var(--surface); color:var(--ink); font-size:16px; font-weight:600; line-height:1.35; white-space:nowrap; transform-origin:0 100%; animation:intro-bubble .32s cubic-bezier(.2,.8,.2,1) .9s both; }
+@media (max-width:480px) {
+  .intro-scene { height:210px; }
+  .intro-bear { width:170px; }
+  .intro-bubble { top:0; left:calc(50% + 34px); max-width:calc(50% - 20px); white-space:normal; }
+}
+@keyframes intro-rule { from { transform:scaleX(0); } }
+@keyframes intro-walk { from { transform:translateX(calc(-50vw - 150px)); } }
+@keyframes intro-step { from { translate:0 0; rotate:-3deg; } to { translate:0 -7px; rotate:3deg; } }
+@keyframes intro-bubble { from { opacity:0; transform:scale(.5); } }
+@keyframes intro-out { to { opacity:0; visibility:hidden; } }
