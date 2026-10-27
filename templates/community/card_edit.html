@@ -138,6 +138,16 @@
             </section>
         </aside>
     </form>
+    <dialog id="card-leave-dialog" class="card-leave-dialog" aria-labelledby="card-leave-title" aria-describedby="card-leave-text">
+        <form method="dialog" class="card-leave-body">
+            <h2 id="card-leave-title">Изменения не сохранены</h2>
+            <p id="card-leave-text" class="muted">Вы поменяли карточку и не сохранили черновик. Если уйти сейчас, правки пропадут.</p>
+            <div class="card-leave-actions">
+                <button type="button" class="button primary" data-leave-stay autofocus>Остаться</button>
+                <button type="button" class="button ghost" data-leave-go>Уйти без сохранения</button>
+            </div>
+        </form>
+    </dialog>
     {% if card.published_at %}
         <form method="post"
               action="{% url 'card_unpublish' startup.id %}"
@@ -147,5 +157,6 @@
     {% endif %}
 {% endblock %}
 {% block scripts %}
-    <script src="{% static 'founder/js/cards.js' %}?v=3" defer></script>
+    <script src="{% static 'founder/js/card-leave.js' %}?v=1" defer></script>
+    <script src="{% static 'founder/js/cards.js' %}?v=4" defer></script>
 {% endblock %}
