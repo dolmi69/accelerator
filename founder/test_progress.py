@@ -32,18 +32,17 @@ class ProjectProgressTests(TestCase):
             assessment_evidence={key: {"status": "stated", "quote": quote} for key, _ in AXES},
         )
 
-    def test_saved_projects_carousel_shows_each_latest_radar_and_no_other_owner(self):
+    def test_saved_projects_list_shows_each_latest_radar_and_no_other_owner(self):
         self.snapshot(score=10)
         self.snapshot(score=75)
         self.snapshot(startup=self.private, score=99)
         page = self.client.get(reverse("home"))
         self.assertContains(page, "Первый проект")
         self.assertContains(page, "Второй проект")
-        self.assertContains(page, "75/100")
-        self.assertNotContains(page, "10/100")
+        self.assertContains(page, "Оценка 75 из 100")
+        self.assertNotContains(page, "Оценка 10 из 100")
         self.assertNotContains(page, "Закрытый проект")
-        self.assertContains(page, 'data-carousel-prev')
-        self.assertContains(page, 'data-carousel-next')
+        self.assertContains(page, 'class="project-list"')
         self.assertContains(page, "Без оценки")
         self.assertEqual(len(page.context["project_cards"]), 2)
 

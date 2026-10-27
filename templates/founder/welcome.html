@@ -4,6 +4,21 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color"
+              content="#f5f4ef"
+              media="(prefers-color-scheme: light)">
+        <meta name="theme-color"
+              content="#131920"
+              media="(prefers-color-scheme: dark)">
+        <script>
+            // Тема до первой отрисовки: сохранённый выбор, иначе — как в системе (theme.js).
+            (() => {
+                try {
+                    const theme = localStorage.getItem('bl-theme');
+                    if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+                } catch (_) {}
+            })();
+        </script>
         <script>
             // Заставка играет один раз за сессию браузера; при повторе и при reduced motion сразу видна последняя сцена.
             (() => {
@@ -22,7 +37,7 @@
               type="image/png"
               href="{% static 'founder/img/branding/bruno-logo-96.png' %}?v=1">
         <link rel="preload"
-              href="{% static 'founder/img/bruno-reference.png' %}"
+              href="{% static 'founder/img/bruno-sprite.webp' %}"
               as="image">
         <link rel="preload"
               href="{% static 'founder/fonts/golos-text-cyrillic.woff2' %}"
@@ -35,9 +50,9 @@
               type="font/woff2"
               crossorigin>
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=frontend-7">
+              href="{% static 'founder/css/app.css' %}?v=redesign-1">
         <link rel="stylesheet"
-              href="{% static 'founder/css/welcome.css' %}?v=2">
+              href="{% static 'founder/css/welcome.css' %}?v=redesign-1">
     </head>
     <body class="welcome-body">
         <main class="welcome" data-welcome>

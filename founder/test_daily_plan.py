@@ -36,7 +36,7 @@ class DailyPlanTests(TestCase):
         with patch('founder.services.daily_plan.complete_text') as ai:
             for _ in range(2):
                 page = self.client.get(reverse('dashboard', args=[self.startup.pk]))
-                self.assertContains(page, 'Свежий взгляд')
+                self.assertContains(page, 'План от Бруно')
                 self.assertContains(page, '0 из 1 выполнено')
             ai.assert_not_called()
         self.task.status = 'done'

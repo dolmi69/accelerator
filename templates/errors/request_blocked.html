@@ -6,12 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title }} · BrunoLab</title>
   <link rel="stylesheet" href="{% static 'founder/css/tailwind.css' %}?v=frontend-5">
-  <link rel="stylesheet" href="{% static 'founder/css/app.css' %}?v=frontend-5">
+  <link rel="stylesheet" href="{% static 'founder/css/app.css' %}?v=redesign-1">
 </head>
 <body>
   <main class="main-content">
     <section class="card auth-card">
-      <span class="eyebrow">BRUNOLAB</span>
+      <span class="eyebrow">BrunoLab</span>
       <h1>{% if wait_for_bruno %}Бруно ещё работает{% else %}{{ title }}{% endif %}</h1>
       <p role="alert">{{ error_message }}</p>
       {% if wait_for_bruno %}

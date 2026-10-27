@@ -24,7 +24,7 @@
                         {% include 'community/_card_report.html' with name=public.name %}
                     </div>
                 </div>
-                {% if card.is_dangerous %}<p class="danger-label">Опасно!</p>{% endif %}
+                {% if card.is_dangerous %}<p class="danger-label">Опасно</p>{% endif %}
                 <h1>{{ public.name }}</h1>
                 <p class="public-tagline">{{ public.tagline }}</p>
                 {% if lab_publication %}
@@ -39,9 +39,9 @@
                         </div>
                         <a class="button primary" href="{% url 'lab_trial' card.startup_id %}">
                             {% if lab_publication.version.kind == 'generated' %}
-                                Открыть рабочий сайт →
+                                Открыть рабочий сайт
                             {% else %}
-                                Попробовать прототип и оставить отзыв →
+                                Попробовать прототип и оставить отзыв
                             {% endif %}
                         </a>
                         <p class="muted small">
@@ -56,39 +56,39 @@
                 <p class="public-summary">{{ public.summary|linebreaksbr }}</p>
                 <div class="public-sections">
                     <section>
-                        <span class="eyebrow">ПРОБЛЕМА</span>
+                        <span class="eyebrow">Проблема</span>
                         <p>{{ public.problem|default:'Пока не описана'|linebreaksbr }}</p>
                     </section>
                     <section>
-                        <span class="eyebrow">РЕШЕНИЕ</span>
+                        <span class="eyebrow">Решение</span>
                         <p>{{ public.solution|default:'Пока не описано'|linebreaksbr }}</p>
                     </section>
                     <section>
-                        <span class="eyebrow">ДЛЯ КОГО</span>
+                        <span class="eyebrow">Для кого</span>
                         <p>{{ public.audience|default:'Уточняем аудиторию' }}</p>
                     </section>
                     <section>
-                        <span class="eyebrow">КАК ЗАРАБАТЫВАЕМ</span>
+                        <span class="eyebrow">Как зарабатываем</span>
                         <p>{{ public.business_model|default:'Проверяем гипотезы' }}</p>
                     </section>
                 </div>
                 <section class="public-traction">
-                    <span class="eyebrow">ЧТО УЖЕ ПОЛУЧИЛОСЬ</span>
+                    <span class="eyebrow">Что уже получилось</span>
                     <p>{{ public.traction|default:'Автор пока не добавил результаты'|linebreaksbr }}</p>
                 </section>
                 {% if public.looking_for %}
                     <div class="looking-for-box">
-                        <span class="eyebrow">КОГО И ЧТО ИЩЕМ</span>
+                        <span class="eyebrow">Кого и что ищем</span>
                         <p>{{ public.looking_for }}</p>
                     </div>
                 {% endif %}
-                <p class="muted small">Обновлено {{ card.published_at|date:'d.m.Y' }} · Сведения со слов автора.</p>
+                <p class="muted small">Обновлено {{ card.published_at|date:'d.m.Y' }}. Сведения со слов автора.</p>
             </article>
         </div>
         <aside class="public-sidebar">
             {% if public.radar %}
                 <section class="card public-radar">
-                    <span class="eyebrow">СНИМОК РАДАРА</span>
+                    <span class="eyebrow">Снимок радара</span>
                     <h2>{{ public.radar.score }}/100</h2>
                     <div class="metric-list">
                         {% for axis in public.radar.axes %}
@@ -104,14 +104,14 @@
                 </section>
             {% endif %}
             <section class="card author-card">
-                <span class="eyebrow">ЗНАКОМЬТЕСЬ, ОСНОВАТЕЛЬ</span><a class="author-profile-link" href="{{ author.get_absolute_url }}">
+                <span class="eyebrow">Знакомьтесь, основатель</span><a class="author-profile-link" href="{{ author.get_absolute_url }}">
                     {% include 'profiles/_avatar.html' with member=author avatar_class='avatar-lg' %}
                     <h2>{{ author.public_name }}</h2>
                     <span class="member-handle">@{{ author.handle }}</span></a>
                 <p class="muted">{{ author.bio|truncatechars:160|default:'Большие проекты начинаются с одного разговора.' }}</p>
                 {% if team %}
                     <div class="card-team">
-                        <span class="eyebrow">КОМАНДА</span>
+                        <span class="eyebrow">Команда</span>
                         {% for member in team %}
                             <a class="member-inline" href="{{ member.get_absolute_url }}">
                                 {% include 'profiles/_avatar.html' with member=member %}
@@ -125,7 +125,7 @@
                 {% elif can_message %}
                     <form method="post" action="{% url 'conversation_start' card.startup_id %}">
                         {% csrf_token %}
-                        <button class="button primary wide" type="submit">Написать основателю ↗</button>
+                        <button class="button primary wide" type="submit">Написать основателю</button>
                     </form>
                 {% else %}
                     <p class="muted">Личная переписка недоступна.</p>

@@ -113,7 +113,7 @@ class CollaborationTests(TestCase):
         self.accept(self.invite())
         home = self.client.get(reverse('home'))
         self.assertContains(home, 'Shared Clinic')
-        self.assertContains(home, 'СОАВТОР')
+        self.assertContains(home, 'Соавтор, @')
 
 
 @override_settings(AI_PROVIDER='demo')
@@ -138,7 +138,7 @@ class JoinRequestTests(TestCase):
         self.assertEqual(self.client.get(reverse('dashboard', args=[self.startup.pk])).status_code, 404)
         self.assertContains(self.client.get(reverse('card_detail', args=[self.startup.pk])), 'Отозвать заявку')
         self.client.force_login(self.owner)
-        self.assertContains(self.client.get(reverse('home')), 'ХОТЯТ В ВАШУ КОМАНДУ')
+        self.assertContains(self.client.get(reverse('home')), 'Хотят в вашу команду')
         team = self.client.get(reverse('team', args=[self.startup.pk]))
         self.assertContains(team, 'Дизайнер интерфейсов')
         self.client.post(reverse('team_member_update', args=[self.startup.pk, member.pk]),

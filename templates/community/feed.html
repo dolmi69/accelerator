@@ -3,7 +3,7 @@
 {% block content %}
     <section class="community-hero">
         <div>
-            <span class="eyebrow">ИДЕИ СТАНОВЯТСЯ БЛИЖЕ</span>
+            <span class="eyebrow">Идеи становятся ближе</span>
             <h1>
                 Здесь встречаются
                 <br>
@@ -15,7 +15,7 @@
                 и помогайте друг другу двигаться дальше.
             </p>
             <div class="hero-actions">
-                <a href="{% url 'home' %}" class="button primary">Мои проекты →</a><a href="{% url 'community' %}?saved=1" class="button ghost">Избранное</a>
+                <a href="{% url 'home' %}" class="button primary">Мои проекты</a><a href="{% url 'community' %}?saved=1" class="button ghost">Избранное</a>
             </div>
         </div>
         <div class="community-hero-art" aria-hidden="true">
@@ -45,23 +45,23 @@
             </select>
         </label>
         {% if saved %}<input type="hidden" name="saved" value="1">{% endif %}
-        <button class="button primary" type="submit">Найти</button>
+        <button class="button primary" type="submit">Найти проекты</button>
     </form>
     {% if testers_wanted %}
         <section class="testers-wanted" aria-label="Нужны тестировщики">
             <div class="section-top">
                 <div>
-                    <span class="eyebrow">НУЖНЫ ТЕСТИРОВЩИКИ</span>
+                    <span class="eyebrow">Нужны тестировщики</span>
                     <h2>Попробуйте прототипы основателей</h2>
                 </div>
-                <span class="muted small">+5 🪙 за тест с отзывом</span>
+                <span class="muted small">+5 монет за тест с отзывом</span>
             </div>
             <div class="testers-grid">
                 {% for card in testers_wanted %}
                 <a class="card testers-card"
                    href="{% url 'lab_trial' card.startup_id %}"><strong>{{ card.published_data.name }}</strong><span class="muted small">{{ card.published_data.tagline|truncatechars:90 }}</span>
-                {% if card.bounty_reward %}<span class="bounty-chip">+{{ card.bounty_reward }} 🪙 от автора</span>{% endif %}
-                <span class="evidence-link">Попробовать →</span></a>
+                {% if card.bounty_reward %}<span class="bounty-chip">+{{ card.bounty_reward|plural:"монета,монеты,монет" }} от автора</span>{% endif %}
+                <span class="evidence-link">Попробовать</span></a>
         {% endfor %}
     </div>
 </section>
@@ -86,7 +86,6 @@
         {% include 'community/_project_card.html' %}
     {% empty %}
         <div class="card community-empty">
-            <span class="empty-icon">✦</span>
             <h2>
                 {% if query or stage %}
                     Пока нет совпадений
@@ -125,7 +124,7 @@
         <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
         {% if page.has_next %}
             <a class="button ghost"
-               href="?{{ filter_query }}&page={{ page.next_page_number }}">Далее →</a>
+               href="?{{ filter_query }}&page={{ page.next_page_number }}">Далее</a>
         {% endif %}
     </nav>
 {% endif %}

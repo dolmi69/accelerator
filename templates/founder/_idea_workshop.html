@@ -9,7 +9,7 @@
 </form></section>
 {% endif %}
 {% if round %}
-<section class="card work-card review-summary"><span class="eyebrow">{% if parent_title %}РАЗВИТИЕ НАПРАВЛЕНИЯ «{{ parent_title|upper }}»{% else %}КАК БРУНО ПОНЯЛ ИДЕЮ{% endif %}</span>
+<section class="card work-card review-summary"><span class="eyebrow">{% if parent_title %}Развитие направления «{{ parent_title }}»{% else %}Как Бруно понял идею{% endif %}</span>
 <h2>{{ understanding|default:round.seed }}</h2>
 {% if core %}<p><strong>Что за этим стоит:</strong> {{ core }}</p>{% endif %}</section>
 <section class="idea-picker" data-idea-picker data-pick="{{ pick }}">
@@ -19,7 +19,7 @@
 <div class="idea-panels">
 {% for direction in directions %}
 <article class="card work-card idea-panel{% if direction.number == pick %} is-active{% endif %}" role="tabpanel" id="idea-panel-{{ direction.index }}" aria-labelledby="idea-tab-{{ direction.index }}" data-index="{{ direction.index }}" data-advice="{{ direction.advice }}">
-<span class="eyebrow">ИДЕЯ {{ direction.number }}{% if direction.technique_label %} · {{ direction.technique_label|upper }}{% endif %}</span>
+<span class="eyebrow">Идея {{ direction.number }}{% if direction.technique_label %}: {{ direction.technique_label|lower }}{% endif %}</span>
 <h2>{{ direction.title }}</h2>
 <p>{{ direction.what }}</p>
 <div class="task-criterion idea-insight"><strong>Мысль Бруно</strong><p>{{ direction.insight }}</p></div>
@@ -30,12 +30,12 @@
 {% if direction.rivals %}<div><dt>Кто уже делает похожее</dt><dd>{{ direction.rivals }}</dd></div>{% endif %}
 {% if direction.risk %}<div><dt>Главный риск</dt><dd>{{ direction.risk }}</dd></div>{% endif %}
 </dl>
-{% if direction.competitors %}<div class="idea-competitors"><span>Похожие проекты и конкуренты</span>{% for source in direction.competitors %}<a class="evidence-link" href="{{ source.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ source.domain }} ↗</a>{% endfor %}</div>{% endif %}
-<div class="task-criterion"><strong>Проверка за неделю · {{ direction.axis_label }}</strong><p>{{ direction.test }}</p></div>
+{% if direction.competitors %}<div class="idea-competitors"><span>Похожие проекты и конкуренты</span>{% for source in direction.competitors %}<a class="evidence-link" href="{{ source.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ source.domain }}</a>{% endfor %}</div>{% endif %}
+<div class="task-criterion"><strong>Проверка за неделю: {{ direction.axis_label|lower }}</strong><p>{{ direction.test }}</p></div>
 </article>
 {% endfor %}
 </div>
-<div class="card work-card idea-advice" aria-live="polite"><span class="eyebrow">БРУНО СОВЕТУЕТ</span><p data-advice-text>{% for direction in directions %}{% if direction.number == pick %}{{ direction.advice }}{% endif %}{% endfor %}</p><p class="muted small" data-advice-status hidden></p></div>
+<div class="card work-card idea-advice" aria-live="polite"><span class="eyebrow">Бруно советует</span><p data-advice-text>{% for direction in directions %}{% if direction.number == pick %}{{ direction.advice }}{% endif %}{% endfor %}</p><p class="muted small" data-advice-status hidden></p></div>
 {% if can_edit %}
 {% for direction in directions %}
 <div class="idea-actions idea-panel-actions{% if direction.number == pick %} is-active{% endif %}" data-index="{{ direction.index }}">

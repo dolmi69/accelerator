@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}Кано · {{ feature.title }}{% endblock %}
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'founder/css/mvp.css' %}?v=1">
+    <link rel="stylesheet" href="{% static 'founder/css/mvp.css' %}?v=redesign-1">
 {% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
@@ -10,7 +10,7 @@
     <div class="page-heading">
         <div>
             <a class="mvp-link"
-               href="{% url 'tasks' startup.id %}?method={{ mvp_method }}#feature-{{ feature.pk }}">← Функции MVP</a><span class="eyebrow">ПОТРЕБНОСТИ РЕАЛЬНЫХ ЛЮДЕЙ</span>
+               href="{% url 'tasks' startup.id %}?method={{ mvp_method }}#feature-{{ feature.pk }}">← Функции MVP</a><span class="eyebrow">Потребности реальных людей</span>
             <h1>{{ feature.title }}</h1>
             <p class="muted">Два вопроса одному человеку. Категорию определит программа.</p>
         </div>
@@ -18,11 +18,11 @@
     <section class="card mvp-survey">
         <div class="mvp-form-grid">
             <div class="mvp-question">
-                <span>01 · Если функция есть</span>
+                <span>1. Если функция есть</span>
                 <h2>{{ present_question }}</h2>
             </div>
             <div class="mvp-question">
-                <span>02 · Если функции нет</span>
+                <span>2. Если функции нет</span>
                 <h2>{{ absent_question }}</h2>
             </div>
         </div>
@@ -41,7 +41,7 @@
                 {% endif %}
                 {% if feature.kano_task_id %}
                     <a class="button ghost"
-                       href="{% url 'tasks' startup.id %}#task-{{ feature.kano_task_id }}">Открыть задание опроса →</a>
+                       href="{% url 'tasks' startup.id %}#task-{{ feature.kano_task_id }}">Открыть задание опроса</a>
                 {% else %}
                     <form method="post"
                           action="{% url 'feature_survey_prepare' startup.id feature.pk %}">
@@ -52,7 +52,7 @@
                 {% endif %}
                 {% if not responses %}
                     <a class="mvp-link"
-                       href="{% url 'feature_edit' startup.id feature.pk %}?method={{ mvp_method }}">Изменить вопросы вручную →</a>
+                       href="{% url 'feature_edit' startup.id feature.pk %}?method={{ mvp_method }}">Изменить вопросы вручную</a>
                 {% endif %}
             </div>
         {% endif %}
@@ -62,10 +62,10 @@
     </section>
     <div class="mvp-kano-layout">
         <section class="card mvp-survey">
-            <span class="eyebrow">РЕЗУЛЬТАТЫ</span>
+            <span class="eyebrow">Результаты</span>
             <h2>{{ summary.label }}</h2>
             <p>
-                Ответов: {{ summary.total }} · пригодных: {{ summary.valid }}
+                Ответов: {{ summary.total }}, пригодных: {{ summary.valid }}
                 {% if summary.questionable %}· {{ summary.questionable }} противоречивых{% endif %}
             </p>
             <div class="mvp-distribution">
@@ -76,11 +76,11 @@
                 {% endfor %}
             </div>
             <p class="muted small">
-                Итог — самая частая категория среди пригодных ответов. При ничьей показываем «Смешанные ответы». Противоречивые пары сохранены, но не участвуют в выборе категории. Маленькая выборка не доказывает потребность всего рынка.
+                Итог показывает самую частую категорию среди пригодных ответов. При ничьей показываем «Смешанные ответы». Противоречивые пары сохранены, но не участвуют в выборе категории. Маленькая выборка не доказывает потребность всего рынка.
             </p>
             {% if feature.kano_evidence_id %}
                 <a class="button ghost"
-                   href="{% url 'evidence_list' startup.id %}?axis=product">Результат в дневнике →</a>
+                   href="{% url 'evidence_list' startup.id %}?axis=product">Результат в дневнике</a>
             {% endif %}
         </section>
         {% if startup.user_role != 'viewer' %}
@@ -133,20 +133,20 @@
     </div>
     {% if responses %}
         <details class="card mvp-survey" open>
-            <summary>Сохранённые ответы · {{ responses|length }}</summary>
+            <summary>Сохранённые ответы: {{ responses|length }}</summary>
             <div class="mvp-response-list">
                 {% for response in responses %}
                     <article>
                         <div>
-                            <strong>{{ response.respondent }}</strong><span>{{ response.observed_on|date:'d.m.Y' }} · {{ response.source }}</span>
-                            <p>Есть: {{ response.get_present_display }} · Нет: {{ response.get_absent_display }}</p>
+                            <strong>{{ response.respondent }}</strong><span>{{ response.observed_on|date:'d.m.Y' }}, {{ response.source }}</span>
+                            <p>Есть: {{ response.get_present_display }}, Нет: {{ response.get_absent_display }}</p>
                             {% if response.notes %}<p class="muted small">{{ response.notes }}</p>{% endif %}
                         </div>
                         <div>
                             <span class="mvp-priority">{{ response.category_label }}</span>
                             {% if startup.user_role != 'viewer' %}
                                 <a class="mvp-link"
-                                   href="{% url 'feature_kano_edit' startup.id feature.pk response.pk %}?method={{ mvp_method }}">Исправить →</a>
+                                   href="{% url 'feature_kano_edit' startup.id feature.pk response.pk %}?method={{ mvp_method }}">Исправить</a>
                             {% endif %}
                         </div>
                     </article>

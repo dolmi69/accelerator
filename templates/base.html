@@ -4,11 +4,33 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color"
+              content="#f5f4ef"
+              media="(prefers-color-scheme: light)">
+        <meta name="theme-color"
+              content="#131920"
+              media="(prefers-color-scheme: dark)">
+        <script>
+            // Тема до первой отрисовки, без вспышки: сохранённый выбор «светлая» или «тёмная», иначе — как в системе (theme.js).
+            (() => {
+                try {
+                    const theme = localStorage.getItem('bl-theme');
+                    if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+                } catch (_) {}
+            })();
+        </script>
         <script>
             // Плавная смена страниц (app.css): уход по клику на ссылку и появление после первой отрисовки.
             (() => {
                 const root = document.documentElement;
                 const nav = performance.getEntriesByType('navigation')[0];
+                const viewTransitions = 'onpagereveal' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                // Пришли переходом View Transition: страница уже проявляется им, своё появление отменяем.
+                window.addEventListener('pagereveal', event => {
+                    if (!event.viewTransition) return;
+                    root.classList.remove('page-enter', 'page-entered');
+                    root.dataset.viewTransition = 'on';
+                });
                 let samePage = false;
                 try {
                     const ref = new URL(document.referrer);
@@ -27,6 +49,8 @@
                     const url = new URL(link.href, location.href);
                     if (url.origin !== location.origin || url.pathname + url.search === location.pathname + location.search) return;
                     if (document.body.classList.contains('lab-shell')) return;
+                    // Внутри проекта страницы сменяет View Transition (project-work.css): своё затухание ему мешает.
+                    if (viewTransitions && location.pathname.startsWith('/startups/') && url.pathname.startsWith('/startups/')) return;
                     root.classList.remove('page-enter', 'page-entered');
                     root.classList.add('page-leaving');
                     setTimeout(() => root.classList.remove('page-leaving'), 1500);
@@ -59,20 +83,20 @@
         <link rel="stylesheet"
               href="{% static 'founder/css/tailwind.css' %}?v=frontend-5">
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=frontend-7">
-        <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=7">
-        <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=2">
+              href="{% static 'founder/css/app.css' %}?v=redesign-1">
+        <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=redesign-1">
+        <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=redesign-1">
         <link rel="stylesheet"
-              href="{% static 'founder/css/coins.css' %}?v=frontend-5">
+              href="{% static 'founder/css/coins.css' %}?v=redesign-1">
         <link rel="stylesheet"
-              href="{% static 'founder/css/project-workspace.css' %}?v=12">
+              href="{% static 'founder/css/project-workspace.css' %}?v=redesign-1">
         {% if startup %}
             <link rel="stylesheet"
-                  href="{% static 'founder/css/project-work.css' %}?v=7">
+                  href="{% static 'founder/css/project-work.css' %}?v=redesign-1">
         {% endif %}
         {% block extra_css %}{% endblock %}
         <link rel="stylesheet"
-              href="{% static 'founder/css/custom-select.css' %}?v=frontend-5">
+              href="{% static 'founder/css/custom-select.css' %}?v=redesign-1">
     </head>
     <body class="{% if startup and request.user.is_authenticated %}project-shell {% endif %}{% if workspace_tab == 'lab' %}lab-shell {% endif %}{% if startup.user_role == 'viewer' %}is-viewer{% endif %}">
         <div class="app-shell">
@@ -86,7 +110,7 @@
                                 aria-expanded="false"
                                 hidden>{% include 'founder/_icon.html' with name='sections' %}</button>
                     {% endif %}
-                    <a class="brand" href="{% url 'home' %}" aria-label="BrunoLab — главная">
+                    <a class="brand" href="{% url 'home' %}" aria-label="BrunoLab, главная">
                         <img class="brand-mark"
                              src="{% static 'founder/img/branding/bruno-logo-96.png' %}"
                              width="35"
@@ -111,8 +135,7 @@
                                     </a>
                                 {% endfor %}
                                 <a class="project-switcher-all" href="{% url 'home' %}">Все проекты
-                                    {% if project_invites_count %}· {{ project_invites_count|plural:"приглашение,приглашения,приглашений" }}{% endif %}
-                                    {% include 'founder/_icon.html' with name='arrow-up-right' %}
+                                    {% if project_invites_count %}({{ project_invites_count|plural:"приглашение,приглашения,приглашений" }}){% endif %}
                                 </a>
                             </div>
                         </details>
@@ -143,9 +166,10 @@
                             {% if is_pro %}
                                 <a class="pro-badge"
                                    href="{% url 'tariffs' %}"
-                                   title="Тариф Pro до {{ pro_until|date:'d.m.Y' }}">PRO</a>
+                                   title="Тариф Pro до {{ pro_until|date:'d.m.Y' }}">Pro</a>
                             {% endif %}
                             <a class="topnav-profile-item" href="{% url 'my_profile' %}">Профиль</a>
+                            {% include 'founder/_theme_switch.html' with id='menu' %}
                         </div>
                         <a class="coin-chip"
                            href="{% url 'wallet' %}"
@@ -197,17 +221,19 @@
             </main>
 
             <footer class="site-footer">
-                <span>Bruno<span class="brand-dot">Lab</span> · MVP · <a href="{% url 'about' %}">О проекте</a></span><span>Меньше тревоги. Больше проверенных решений.</span>
+                <span>Bruno<span class="brand-dot">Lab</span>, бета. <a href="{% url 'about' %}">О проекте</a></span>
+                {% include 'founder/_theme_switch.html' with id='footer' %}
             </footer>
         </div>
         {% if workspace_tab != 'lab' and not hide_bruno_pet and request.resolver_match.url_name != 'chat_detail' %}
             {% include 'founder/_bruno_pet.html' %}
         {% endif %}
         {% if request.telegram_miniapp %}
-            <script src="{% static 'founder/js/telegram.js' %}" defer></script>
+            <script src="{% static 'founder/js/telegram.js' %}?v=redesign-1" defer></script>
         {% endif %}
         <script src="{% static 'founder/js/bruno.js' %}?v=10" defer></script>
         <script src="{% static 'founder/js/copy.js' %}?v=1" defer></script>
+        <script src="{% static 'founder/js/theme.js' %}?v=redesign-1" defer></script>
         {% if request.user.is_authenticated %}
             <script src="{% static 'founder/js/drafts.js' %}?v=1"></script><script src="{% static 'founder/js/direct-attachments.js' %}?v=1" defer></script><script src="{% static 'founder/js/messages.js' %}?v=6" defer></script><script src="{% static 'founder/js/coins.js' %}?v=3" defer></script><script src="{% static 'founder/js/chat-search.js' %}?v=1" defer></script><script src="{% static 'founder/js/card-reports.js' %}?v=1" defer></script>
         {% endif %}

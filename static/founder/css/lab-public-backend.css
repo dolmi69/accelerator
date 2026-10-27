@@ -1,14 +1,14 @@
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
-body { color: #183238; background: #f5f7f2; font: 15px/1.6 system-ui, sans-serif; }
+body { color: var(--info); background: var(--tint-soft); font: 15px/1.6 system-ui, sans-serif; }
 [hidden] { display: none !important; }
 main { min-height: 100%; padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 main > p { max-width: 540px; }
 h1 { font-size: 26px; overflow-wrap: anywhere; }
-button { padding: 12px 20px; border: 0; border-radius: 12px; background: #178579; color: white; font: inherit; cursor: pointer; }
+button { padding: 12px 20px; border: 0; border-radius: 12px; background: var(--teal); color: white; font: inherit; cursor: pointer; }
 button:disabled { opacity: .65; cursor: wait; }
-.note { font-size: 12px; color: #65766d; }
+.note { font-size: 12px; color: var(--muted); }
 #backend-site { display: flex; flex-direction: column; height: 100%; }
 nav { padding: 8px 16px; background: white; font-size: 12px; text-align: right; }
-a { color: #178579; }
+a { color: var(--teal); }
 iframe { display: block; border: 0; width: 100%; flex: 1; min-height: 0; }

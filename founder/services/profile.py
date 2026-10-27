@@ -2,6 +2,7 @@
 
 from uuid import UUID
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator
 from django.db.models import Prefetch, Q
 from django.http import Http404
@@ -18,7 +19,7 @@ def grid_context():
 
 
 def project_cards(user):
-    projects = accessible_startups(user).select_related("owner").prefetch_related(Prefetch(
+    projects = accessible_startups(user).select_related("owner", "mascot_state").prefetch_related(Prefetch(
         "metric_snapshots", queryset=StartupMetrics.objects.all()[:1], to_attr="latest_snapshots",
     ))
     # Опубликованным карточкам на странице проектов нужна кнопка «Скопировать ссылку».
@@ -32,9 +33,22 @@ def project_cards(user):
             "startup": startup, "latest": latest, "points": radar_points(latest) if latest else "",
             "role": role, "role_label": ROLE_LABELS[role] if startup.is_shared else "",
             "published": startup.id in published,
+            "note": _bruno_note(startup),
             "axes": [(label, getattr(latest, key, None)) for key, label in AXES],
         })
     return cards
+
+
+def _bruno_note(startup):
+    """Заметка Бруно на полях списка проектов: последний вывод талисмана о проекте."""
+    try:
+        state = startup.mascot_state
+    except ObjectDoesNotExist:
+        state = None
+    if state and state.reason:
+        return {"text": state.reason, "date": state.updated_at}
+    return {"text": "Оценки пока нет. Расскажите Бруно, кто будет платить и сколько, и он соберёт первый радар.",
+            "date": None}
 
 
 def evidence_display(startup, snapshot, key):
@@ -85,9 +99,15 @@ def history_context(startup, snapshot_id=None, page_number=1):
                 "old_reason": previous.assessment_details.get(key, "") if previous else "",
                 "evidence": evidence_display(startup, selected, key),
             })
+    # Самая первая оценка проекта: радар умеет показать, как проект вырос с неё до выбранной.
+    first = snapshots.order_by("assessed_at", "id").first() if selected else None
+    if first == selected:
+        first = None
     return {
         "history_page": page, "history_selected": selected, "history_previous": previous,
         "history_rows": rows,
         "history_points": radar_points(selected) if selected else "",
         "history_previous_points": radar_points(previous) if previous else "",
+        "history_first": first,
+        "history_first_points": radar_points(first) if first else "",
     }

@@ -197,7 +197,7 @@ class ValueCanvasTests(TestCase):
         self.assertEqual(problem['harm'], ['money', 'time'])  # Only known kinds, fixed order.
         self.assertEqual(set(canvas.options['jobs']), {'functional', 'social', 'emotional'})
         page = self.client.get(self.page)
-        for text in ('ПРОБЛЕМА', 'деньги', 'время', 'Тратит вечер на готовку', 'Социальная',
+        for text in ('Проблема', 'деньги', 'время', 'Тратит вечер на готовку', 'Социальная',
                      'Почувствовать заботу вдали от дома', 'Сравнение «X для Y»'):
             self.assertContains(page, text)
         # The problem goes to the project picture as a guess, the jobs to step 2 as chosen.
@@ -250,7 +250,7 @@ class ValueCanvasTests(TestCase):
         self.assertEqual(options['question'], 'Как именно вы будете кормить студентов?')  # Exactly one question.
         self.assertEqual(options['unknown'], ['solution'])
         page = self.client.get(self.page)
-        self.assertContains(page, 'БРУНО СПРАШИВАЕТ')
+        self.assertContains(page, 'Бруно спрашивает')
         self.assertContains(page, 'неизвестно: решение')
         self.assertContains(page, 'есть пробелы, ответьте на вопрос Бруно')
         response = self.client.post(self.url('value_save'), {'value': options['formula'][0]}, follow=True)

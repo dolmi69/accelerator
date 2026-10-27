@@ -5,14 +5,14 @@
     {% include 'founder/_workspace_nav.html' %}
     <div class="page-heading work-heading">
         <div>
-            <span class="eyebrow">СЕГМЕНТЫ, ЗАДАЧИ КЛИЕНТА, ЦЕННОСТЬ</span>
+            <span class="eyebrow">Сегменты, задачи клиента, ценность</span>
             <h1>Клиент и ценность</h1>
-            <p>{{ startup.name }} · Три шага: делим клиентов по ABCDX, устраиваем брейншторм по идеальным и формулируем ценностное предложение.</p>
+            <p>Три шага: делим клиентов по ABCDX, устраиваем брейншторм по идеальным и формулируем ценностное предложение.</p>
         </div>
     </div>
     {% if canvas.value %}
         <div class="card value-current">
-            <span class="eyebrow">ВАШЕ ЦЕННОСТНОЕ ПРЕДЛОЖЕНИЕ</span>
+            <span class="eyebrow">Ваше ценностное предложение</span>
             <p>{{ canvas.value }}</p>
         </div>
     {% endif %}
@@ -181,7 +181,7 @@
             </header>
             {% if question %}
                 <div class="value-question" role="status">
-                    <span class="eyebrow">БРУНО СПРАШИВАЕТ</span>
+                    <span class="eyebrow">Бруно спрашивает</span>
                     {% if unknown_labels %}
                         <p class="muted small">
                             В картине проекта неизвестно: {{ unknown_labels|join:", "|lower }}. Эти места Бруно не додумывает и пишет «неизвестно».
@@ -202,7 +202,7 @@
                 <div class="value-insights">
                     {% if problem %}
                         <section class="value-insight" aria-labelledby="value-problem-title">
-                            <span class="eyebrow" id="value-problem-title">ПРОБЛЕМА</span>
+                            <span class="eyebrow" id="value-problem-title">Проблема</span>
                             <p class="value-problem">{{ problem.text }}</p>
                             {% if problem_harms or problem.harm_text %}
                                 <p class="value-harm">
@@ -220,7 +220,7 @@
                     {% endif %}
                     {% if offered_jobs %}
                         <section class="value-insight" aria-labelledby="value-jobs-title">
-                            <span class="eyebrow" id="value-jobs-title">ЗАДАЧИ КЛИЕНТА (JTBD)</span>
+                            <span class="eyebrow" id="value-jobs-title">Задачи клиента (JTBD)</span>
                             <ul class="value-jobs">
                                 {% for kind, label, text in offered_jobs %}
                                     <li><span class="value-kind kind-{{ kind }}">{{ label }}</span> {{ text }}</li>
@@ -245,12 +245,12 @@
                             {% for label, text, selectable in options %}
                                 <label class="value-option{% if not selectable %} is-incomplete{% endif %}">
                                     <input type="radio" name="choice" value="{{ text }}" data-value-choice{% if text == canvas.value %} checked{% endif %}{% if not selectable %} disabled{% endif %}>
-                                    <span><small>{{ label }}{% if not selectable %} · есть пробелы, ответьте на вопрос Бруно{% endif %}</small>{{ text }}</span>
+                                    <span><small>{{ label }}{% if not selectable %}, есть пробелы, ответьте на вопрос Бруно{% endif %}</small>{{ text }}</span>
                                 </label>
                             {% endfor %}
                         </fieldset>
                     {% endif %}
-                    <label class="value-final">Итоговая формулировка <span class="muted small">— станет питчем проекта; проблема по шаблону станет проблемой проекта</span>
+                    <label class="value-final">Итоговая формулировка <span class="muted small">станет питчем проекта, а проблема по шаблону станет проблемой проекта</span>
                         <textarea name="value" rows="3" maxlength="300" data-value-final placeholder="Наш продукт помогает … справиться с … с помощью … и получить …">{{ canvas.value }}</textarea>
                     </label>
                     <button class="button primary" type="submit">Сохранить ценность</button>

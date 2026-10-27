@@ -21,7 +21,6 @@
                             {% else %}
                                 Обновить оценки Бруно
                             {% endif %}
-                            ✦
                         </button>
                         <span class="muted small" role="status" aria-live="polite"></span>
                     </form>
@@ -99,7 +98,7 @@
                     {% if item.description %}<p title="{{ item.description }}">{{ item.description }}</p>{% endif %}
                     <div class="priority-feature-meta">
                         <span>{{ item.kind_label }}</span>
-                        {% if item.lab_url %}<span class="priority-lab-label">Можно выполнить в лаборатории!</span>{% endif %}
+                        {% if item.lab_url %}<span class="priority-lab-label">Можно выполнить в лаборатории</span>{% endif %}
                     </div>
                     {% include 'founder/_work_assignment.html' %}
                 </div>
@@ -140,7 +139,7 @@
                 <div class="priority-row-actions">
                     {% if startup.user_role != 'viewer' %}
                         {% if item.lab_url %}
-                            <a class="priority-execute" href="{{ item.lab_url }}">Выполнить ↗</a>
+                            <a class="priority-execute" href="{{ item.lab_url }}">Выполнить</a>
                         {% elif item.task %}
                             <a class="button ghost priority-record"
                                href="{% url 'result_tell' startup.id %}?task={{ item.task.pk }}">Записать решение</a>
@@ -177,7 +176,7 @@
                 Бруно объясняет предположения и уровень уверенности, программа проверяет числа и считает баллы. Новые задания получают оценки вместе с планом в одном ответе. Для существующих пунктов кнопка «Оценить с Бруно» запускает одну общую оценку. Просмотр, обновление страницы и переключение RICE/ICE не вызывают ИИ.
             </p>
             <p>
-                Связанные с MVP задания используют оценки своей функции. У опросов, поиска клиентов и других задач — собственные оценки. По кнопке «Выполнить» лаборатория открывается с готовым промптом; отправьте его, когда будете готовы.
+                Связанные с MVP задания используют оценки своей функции. У опросов, поиска клиентов и других задач оценки свои. По кнопке «Выполнить» лаборатория открывается с готовым промптом; отправьте его, когда будете готовы.
             </p>
         </div>
     </details>

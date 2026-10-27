@@ -5,7 +5,7 @@
         <h4>Как выполнить</h4>
         {% if item.lab_url %}
             <p>
-                Нажмите «Выполнить» — откроется лаборатория с готовым запросом для этой функции.
+                Кнопка «Выполнить» открывает лабораторию с готовым запросом для этой функции.
                 Отправьте его Бруно, чтобы добавить функцию в сайт.
             </p>
             <div class="task-criterion">
@@ -44,7 +44,7 @@
         <details class="priority-estimate-details">
             <summary>
                 {% if item.preview.preliminary %}
-                    Оценка Бруно · почему такой балл
+                    Оценка Бруно: почему такой балл
                 {% else %}
                     Оценка RICE и ICE
                 {% endif %}
@@ -53,7 +53,7 @@
                 {% if item.preview.preliminary %}<p>{{ item.preview.bruno_basis }}</p>{% endif %}
                 {% include 'founder/_estimate_breakdown.html' with estimate_preview=item.preview %}
                 {% if startup.user_role != 'viewer' %}
-                    <a class="priority-edit" href="{{ item.edit_url }}">Уточнить оценку ↗</a>
+                    <a class="priority-edit" href="{{ item.edit_url }}">Уточнить оценку</a>
                 {% endif %}
             </div>
         </details>

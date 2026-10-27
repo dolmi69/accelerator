@@ -1,60 +1,60 @@
 /* Edit the same visual hierarchy visitors read in the community. */
 .card-edit-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; margin:0 0 24px; }
-.card-edit-heading h1 { font-size:24px; margin:8px 0 0; }
-.card-edit-heading .evidence-link { font-size:12px; }
+.card-edit-heading h1 { font-size:25px; margin:8px 0 0; }
+.card-edit-heading .evidence-link { font-size:13px; }
 .card-edit-canvas { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:24px; align-items:start; }
 .card-edit-document { padding:32px; min-width:0; }
 .card-edit-document .discovery-top { margin-bottom:26px; }
 .card-edit-stage { max-width:100%; }
 .card-edit-stage select {
     width:auto; max-width:100%; min-height:34px; padding:8px 32px 8px 13px;
-    appearance:none; border:1px solid #d2e3d9; border-radius:30px;
-    background:#f1f7f1 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m3 4.5 3 3 3-3' fill='none' stroke='%23356753' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center;
-    color:#356753; font:700 11px/1.4 Manrope,system-ui,sans-serif; cursor:pointer;
+    appearance:none; border:1px solid var(--line-strong); border-radius:16px;
+    background:var(--tint-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m3 4.5 3 3 3-3' fill='none' stroke='%23356753' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+    color:var(--teal-dark); font:700 13px/1.4 Manrope,system-ui,sans-serif; cursor:pointer;
 }
-.card-edit-stage select:hover { background-color:#e8f2e9; border-color:#abcabb; }
+.card-edit-stage select:hover { background-color:var(--tint); border-color:var(--line-teal); }
 .card-edit-stage select:focus-visible { outline:2px solid var(--teal); outline-offset:3px; }
 .card-edit-stage .field-error { display:block; margin-top:8px; }
-.card-edit-hint { color:var(--muted); font-size:11px; }
+.card-edit-hint { color:var(--muted); font-size:13px; }
 .card-edit-document .field { display:block; margin:0; }
-.card-edit-document .field > span { display:block; margin-bottom:8px; color:var(--teal); font-size:10px; letter-spacing:2px; font-weight:800; text-transform:uppercase; }
+.card-edit-document .field > span { display:block; margin-bottom:8px; color:var(--teal); font-size:13px; font-weight:800; }
 .card-edit-document input,.card-edit-document textarea {
-    display:block; width:100%; min-width:0; border:1px solid transparent; border-radius:9px;
+    display:block; width:100%; min-width:0; border:1px solid transparent; border-radius:8px;
     padding:8px 10px; margin-left:-10px; width:calc(100% + 20px); background:transparent;
-    color:var(--ink); font:400 15px/1.7 Manrope,system-ui,sans-serif; box-shadow:none;
+    color:var(--ink); font:400 16px/1.7 Manrope,system-ui,sans-serif; box-shadow:none;
     resize:none; overflow:hidden;
     transition:border-color .15s,background .15s;
 }
 .card-edit-document textarea { min-height:0; }
-.card-edit-document input:hover,.card-edit-document textarea:hover { background:#f8faf6; border-color:#e5ebe2; }
-.card-edit-document input:focus,.card-edit-document textarea:focus { background:#fbfcf9; border-color:#7aaa99; outline:2px solid #18847812; }
-.card-edit-document input::placeholder,.card-edit-document textarea::placeholder { color:#94a29a; font-weight:400; }
+.card-edit-document input:hover,.card-edit-document textarea:hover { background:var(--tint-soft); border-color:var(--line); }
+.card-edit-document input:focus,.card-edit-document textarea:focus { background:var(--surface); border-color:var(--line-teal); outline:2px solid #18847812; }
+.card-edit-document input::placeholder,.card-edit-document textarea::placeholder { color:var(--muted); font-weight:400; }
 .card-edit-name .field > span,.card-edit-pitch .field > span { font-size:0; margin:0; letter-spacing:0; }
-.card-edit-name input,.card-edit-name textarea { font-size:36px; font-weight:750; letter-spacing:-1.2px; line-height:1.3; padding-top:2px; padding-bottom:6px; }
+.card-edit-name input,.card-edit-name textarea { font-size:31px; font-weight:750; letter-spacing:-1.2px; line-height:1.3; padding-top:2px; padding-bottom:6px; }
 .card-edit-pitch { margin:2px 0 22px; }
 .card-edit-pitch input,.card-edit-pitch textarea { font-size:20px; font-weight:500; line-height:1.5; }
 .card-edit-summary textarea { color:var(--muted); min-height:70px; font-size:16px; }
 .card-edit-facts { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:26px 32px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:28px 0; margin:24px 0 28px; }
 .card-edit-facts textarea { min-height:52px; }
-.card-edit-facts input,.card-edit-facts textarea,.card-edit-traction textarea { font-size:14px; }
+.card-edit-facts input,.card-edit-facts textarea,.card-edit-traction textarea { font-size:16px; }
 .card-edit-traction textarea { min-height:52px; }
 .card-edit-looking { margin-top:24px; padding:20px; }
 .card-edit-looking input { background:transparent; }
-.card-edit-footnote { margin:25px 0 0; font-size:11px; }
+.card-edit-footnote { margin:25px 0 0; font-size:13px; }
 .card-edit-sidebar { display:grid; gap:18px; min-width:0; }
 .card-edit-sidebar .card { padding:24px; }
 .card-edit-sidebar h2 { font-size:20px; margin:12px 0; line-height:1.4; }
 .card-edit-sidebar p { line-height:1.65; }
-.card-publish-controls .community-tag { margin:0 0 12px; font-size:10px; }
+.card-publish-controls .community-tag { margin:0 0 12px; font-size:13px; }
 .card-publish-buttons { display:grid; gap:10px; margin:20px 0 12px; }
-.card-publish-controls .danger-link { font-size:11px; margin-top:12px; }
+.card-publish-controls .danger-link { font-size:13px; margin-top:12px; }
 .card-publish-options { border-top:1px solid var(--line); padding-top:16px; margin-top:16px; }
 .card-publish-options .checkbox-field { display:flex; align-items:flex-start; gap:12px; margin:0; }
-.card-publish-options .checkbox-field > span { font-size:12px; font-weight:500; line-height:1.6; }
+.card-publish-options .checkbox-field > span { font-size:13px; font-weight:500; line-height:1.6; }
 .card-publish-options input[type=checkbox] { flex:0 0 auto; width:16px; height:16px; margin:2px 0 0; accent-color:var(--teal); }
 .card-edit-bruno textarea { width:100%; min-width:0; }
 .card-edit-bruno-heading { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
-.card-edit-bruno-heading .bruno-art { width:54px; height:58px; margin:0; flex-shrink:0; mix-blend-mode:multiply; }
+.card-edit-bruno-heading .bruno-art { width:54px; height:58px; margin:0; flex-shrink:0; }
 .card-edit-bruno-heading h2 { margin:0; }
 .card-edit-bruno-heading p { margin:3px 0 0; }
 .card-edit-bruno .bruno-refine { margin:18px 0; }
@@ -72,8 +72,8 @@
 @media(max-width:540px) {
     .card-edit-heading { align-items:flex-start; flex-direction:column; gap:10px; }
     .card-edit-document,.card-edit-sidebar .card { padding:22px; }
-    .card-edit-name input,.card-edit-name textarea { font-size:28px; }
-    .card-edit-pitch input,.card-edit-pitch textarea { font-size:17px; }
+    .card-edit-name input,.card-edit-name textarea { font-size:31px; }
+    .card-edit-pitch input,.card-edit-pitch textarea { font-size:16px; }
     .card-edit-facts,.card-edit-sidebar { grid-template-columns:minmax(0,1fr); }
     .card-publish-buttons { grid-template-columns:1fr; }
 }

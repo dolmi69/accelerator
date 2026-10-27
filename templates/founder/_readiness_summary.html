@@ -8,7 +8,7 @@
         {% else %}
             Следующий шаг
         {% endif %}
-        — {{ readiness.focus_label|lower }}.
+        : {{ readiness.focus_label|lower }}.
     </p>
     {% if history_selected.assessment_notes %}
         <details class="radar-summary-details">
@@ -16,5 +16,5 @@
             <p>{{ history_selected.assessment_notes }}</p>
         </details>
     {% endif %}
-    <a class="evidence-link" href="{% url 'tasks' startup.id %}">Перейти к работе над проектом →</a>
+    <a class="evidence-link" href="{% url 'tasks' startup.id %}">Перейти к работе над проектом</a>
 </section>

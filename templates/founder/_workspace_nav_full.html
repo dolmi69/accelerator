@@ -19,7 +19,7 @@
     {% endif %}
     {% if startup.user_role != 'viewer' %}
         <a href="{% url 'promote' startup.id %}"
-           {% if workspace_tab == 'promote' %}aria-current="page"{% endif %}>Продвижение <span aria-hidden="true">🪙</span></a>
+           {% if workspace_tab == 'promote' %}aria-current="page"{% endif %}>Продвижение</a>
     {% endif %}
 </nav>
 {% if startup.user_role == 'viewer' %}

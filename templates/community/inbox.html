@@ -3,7 +3,7 @@
 {% block content %}
     <div class="page-heading messenger-page-heading {% if active %}has-active{% endif %}">
         <div>
-            <span class="eyebrow">ОТ ЗНАКОМСТВА К СОТРУДНИЧЕСТВУ</span>
+            <span class="eyebrow">От знакомства к сотрудничеству</span>
             <h1>Личные сообщения</h1>
             <p>Обсуждайте проекты напрямую с их авторами.</p>
         </div>
@@ -41,7 +41,7 @@
                 <a href="{% url 'inbox' %}"
                    class="new-conversation-link evidence-link"
                    data-new-thread
-                   hidden>Есть новый диалог — открыть список</a>
+                   hidden>Есть новый диалог. Открыть список</a>
             </aside>
             <section class="direct-chat">
                 {% if active %}
@@ -78,7 +78,7 @@
                         <div data-chat-search-slot></div>
                         {% if active.source_card.published_at %}
                             <a href="{% url 'card_detail' active.source_card.startup_id %}"
-                               class="conversation-project">Обсуждаем: {{ active.source_card.published_data.name }} →</a>
+                               class="conversation-project">Обсуждаем: {{ active.source_card.published_data.name }}</a>
                         {% endif %}
                         <div class="direct-scroll" data-direct-scroll>
                             <button class="button ghost load-older" type="button" data-load-older hidden>Ранние сообщения</button>
@@ -139,16 +139,15 @@
                                         {% if blocked %}
                                             Отправка сообщений недоступна.
                                         {% else %}
-                                            Enter — отправить · Shift + Enter — новая строка
+                                            Enter отправляет сообщение, Shift + Enter переносит строку
                                         {% endif %}
                                     </span>
                                 </div>
-                                <button class="button primary" type="submit" disabled>Отправить ↗</button>
+                                <button class="button primary" type="submit" disabled>Отправить</button>
                             </div>
                         </form>
                     {% else %}
                         <div class="messenger-welcome">
-                            <span class="empty-icon">↗</span>
                             <h2>Один разговор может многое изменить</h2>
                             <p class="muted">Выберите диалог слева или познакомьтесь с автором интересного проекта.</p>
                             <a class="button primary" href="{% url 'community' %}">В сообщество</a>

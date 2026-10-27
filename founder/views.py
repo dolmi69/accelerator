@@ -235,8 +235,12 @@ def _dashboard_context(startup, metrics_form=None, *, snapshot_id=None, history_
     positions = radar_points(selected).split() if selected else radar_grid(100).split()
     label_positions = [(110, 8, "middle"), (203, 82, "start"),
                        (169, 196, "middle"), (51, 196, "middle"), (17, 82, "end")]
-    for row, position, (label_x, label_y, anchor) in zip(radar_rows, positions, label_positions):
+    first = history["history_first"]
+    first_positions = history["history_first_points"].split() if first else positions
+    for row, position, first_position, (label_x, label_y, anchor) in zip(
+            radar_rows, positions, first_positions, label_positions):
         row["x"], row["y"] = position.split(",")
+        row["first_x"], row["first_y"] = first_position.split(",")
         row.update(label_x=label_x, label_y=label_y, label_anchor=anchor)
     workspace = workspace_context(startup)
     for task in workspace["overview_tasks"]:

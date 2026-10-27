@@ -2,21 +2,21 @@
 {% load static %}
 {% block title %}Команда · {{ startup.name }}{% endblock %}
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'founder/css/team-work.css' %}?v=1">
+    <link rel="stylesheet" href="{% static 'founder/css/team-work.css' %}?v=redesign-1">
 {% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
     <div class="page-heading work-heading">
         <div>
-            <span class="eyebrow">ВМЕСТЕ БЫСТРЕЕ</span>
+            <span class="eyebrow">Вместе быстрее</span>
             <h1>Команда проекта</h1>
-            <p>{{ startup.name }} · Участники, приглашения и доступ к проекту.</p>
+            <p>Участники, приглашения и доступ к проекту.</p>
         </div>
     </div>
 
     <section class="team-work-overview" aria-label="Распределение заданий">
         <div>
-            <span class="eyebrow">РАБОТА КОМАНДЫ</span>
+            <span class="eyebrow">Работа команды</span>
             <h2>У каждого шага есть ответственный</h2>
             <p>Назначайте исполнителей в списке задач. Здесь видно, кто за что отвечает.</p>
         </div>
@@ -24,7 +24,7 @@
             <a href="{{ unassigned_url }}"><strong>{{ unassigned_count }}</strong><span>без исполнителя</span></a><a href="{% url 'tasks' startup.id %}"><strong>{{ assigned_count }}</strong><span>распределено</span></a>
         </div>
         <a class="button primary"
-           href="{% url 'tasks' startup.id %}#task-priorities">К распределению задач →</a>
+           href="{% url 'tasks' startup.id %}#task-priorities">К распределению задач</a>
     </section>
     <div class="team-layout">
         <section class="card work-card">
@@ -142,7 +142,7 @@
                         <div class="team-row">
                             <span class="member-inline">
                                 {% include 'profiles/_avatar.html' with member=member.user %}
-                                <span>@{{ member.user.handle }} · {{ member.get_role_display|lower }}</span></span>
+                                <span>@{{ member.user.handle }}, {{ member.get_role_display|lower }}</span></span>
                                 <form method="post"
                                       action="{% url 'team_member_update' startup.id member.id %}">
                                     {% csrf_token %}

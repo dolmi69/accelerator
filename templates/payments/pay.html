@@ -24,28 +24,28 @@
 
     <p class="pay-hint" data-hint>
       Отправьте ровно {{ invoice.amount_expected_text }} USDT (TRC-20) на этот адрес.
-      Зачисление — после {{ required }} подтверждений сети.
+      Деньги зачислятся после {{ required }} подтверждений сети.
     </p>
-    <p class="pay-order">Номер пополнения: {{ invoice.order_id }} · <a href="{% url 'payments_wallet' %}">← К балансу</a></p>
+    <p class="pay-order">Номер пополнения: {{ invoice.order_id }}, <a href="{% url 'payments_wallet' %}">← К балансу</a></p>
   </div>
 </section>
 <style>
   .pay-card-wrap { max-width: 520px; margin: 32px auto; padding: 0 16px; }
-  .pay-card { background:#fff; border:1px solid #e6e6ef; border-radius:18px; padding:28px;
-              box-shadow:0 12px 40px rgba(20,20,60,.08); text-align:center; }
-  .pay-card h1 { margin:.2em 0 .4em; font-size:1.8rem; }
-  .pay-lead { color:#555; margin-bottom:16px; }
+  .pay-card { background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:28px;
+              box-shadow:0 12px 40px rgba(18,35,56,.06); text-align:center; }
+  .pay-card h1 { margin:.2em 0 .4em; font-size:25px; }
+  .pay-lead { color:var(--muted); margin-bottom:16px; }
   .pay-qr { margin:12px auto; }
   .pay-qr img { border-radius:12px; }
-  .pay-label { font-size:.8rem; color:#888; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
-  .pay-address { display:block; word-break:break-all; background:#f5f5fa; border-radius:10px;
-                 padding:10px 12px; font-size:.95rem; }
+  .pay-label { font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+  .pay-address { display:block; word-break:break-all; background:var(--surface-2); border-radius:10px;
+                 padding:10px 12px; font-size:16px; }
   .pay-badge { display:inline-block; padding:6px 14px; border-radius:999px; font-weight:600; margin-top:12px; }
-  .pay-badge-wait { background:#fff4d6; color:#8a6100; }
-  .pay-badge-paid { background:#d9f7e3; color:#0d7a3d; }
-  .pay-badge-expired { background:#fde2e2; color:#a11; }
-  .pay-hint { color:#666; font-size:.9rem; }
-  .pay-order { color:#999; font-size:.8rem; margin-top:16px; }
+  .pay-badge-wait { background:var(--warn-bg); color:var(--warn); }
+  .pay-badge-paid { background:var(--fact-bg); color:var(--fact); }
+  .pay-badge-expired { background:var(--danger-bg); color:var(--danger); }
+  .pay-hint { color:var(--muted); font-size:13px; }
+  .pay-order { color:var(--muted); font-size:13px; margin-top:16px; }
 </style>
 {% endblock %}
 {% block scripts %}
@@ -69,7 +69,7 @@
         if (data.is_paid) {
           setBadge('pay-badge-paid', 'Оплачено');
           var hint = card.querySelector('[data-hint]');
-          if (hint) hint.textContent = 'Оплата получена. Спасибо!';
+          if (hint) hint.textContent = 'Оплата получена.';
           clearInterval(timer);
         } else if (data.status === 'expired') {
           setBadge('pay-badge-expired', 'Счёт истёк');

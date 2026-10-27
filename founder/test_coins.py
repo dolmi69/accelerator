@@ -216,7 +216,7 @@ class BountyTests(TestCase):
         self.client.post(reverse('bounty_fund', args=[self.startup.pk]), {'reward': 20, 'tests': 1})
         visitor = User.objects.create_user('bounty_visitor', email='bv@example.test')
         self.client.force_login(visitor)
-        self.assertContains(self.client.get(reverse('community')), '+20 🪙 от автора')
+        self.assertContains(self.client.get(reverse('community')), '+20 монет от автора')
         self.assertContains(self.client.get(reverse('lab_trial', args=[self.startup.pk])), 'Автор платит')
 
     def test_cannot_fund_without_coins_or_public_prototype(self):

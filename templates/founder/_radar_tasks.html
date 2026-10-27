@@ -10,6 +10,7 @@
         <div class="hub-task-list">
             {% for task in overview_tasks %}
                 <div class="hub-task">
+                    <label class="hub-task-hit">
                     <input type="checkbox"
                            class="hub-task-check"
                            data-task-checkbox
@@ -18,22 +19,17 @@
                            aria-haspopup="dialog"
                            aria-controls="task-result-{{ task.pk }}"
                            {% if startup.user_role == 'viewer' %}disabled{% endif %}>
+                    </label>
                     <details class="preview-task">
                         <summary>
-                            <span><strong>{{ task.title }}</strong><small>{{ task.get_axis_display }}
-                                {% if task.assignee %}
-                                    · {{ task.assignee.public_name }}
-                                {% else %}
-                                    · Без исполнителя
-                                {% endif %}
-                            </small></span><span aria-hidden="true">{% include 'founder/_icon.html' with name='chevron-down' %}</span>
+                            <span><strong>{{ task.title }}</strong>{# djlint:off #}<small>{{ task.get_axis_display }}, {% if task.assignee %}{{ task.assignee.public_name }}{% else %}без исполнителя{% endif %}</small>{# djlint:on #}</span><span aria-hidden="true">{% include 'founder/_icon.html' with name='chevron-down' %}</span>
                     </summary>
                     <div class="preview-task-body">
                         <p>{{ task.instructions }}</p>
                         <p class="muted small">Готово, когда: {{ task.success_criterion }}</p>
                         {% if startup.user_role != 'viewer' %}
                             <a class="evidence-link"
-                               href="{% url 'result_tell' startup.id %}?task={{ task.id }}">Расскажи Бруно →</a>
+                               href="{% url 'result_tell' startup.id %}?task={{ task.id }}">Расскажите Бруно</a>
                         {% endif %}
                     </div>
                 </details>
@@ -44,7 +40,7 @@
                         aria-labelledby="task-result-title-{{ task.pk }}">
                     <div class="radar-popover-heading">
                         <div>
-                            <span class="radar-comment-caption">РЕЗУЛЬТАТ ЗАДАНИЯ</span>
+                            <span class="radar-comment-caption">Результат задания</span>
                             <h3 id="task-result-title-{{ task.pk }}">{{ task.title }}</h3>
                         </div>
                         <button type="button"
@@ -92,7 +88,7 @@
         {% endfor %}
     </div>
     <div class="hub-task-actions">
-        <a class="evidence-link" href="{% url 'tasks' startup.id %}">Все задания →</a>
+        <a class="evidence-link" href="{% url 'tasks' startup.id %}">Все задания</a>
     </div>
 </div>
 </details>

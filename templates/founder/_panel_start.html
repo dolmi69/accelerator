@@ -1,11 +1,11 @@
 <section class="card work-card panel-start" id="panel-start">
-  <div class="project-training-header"><span class="panel-trio" aria-hidden="true"><i class="shark-timur">Т</i><i class="shark-vadim">В</i><i class="shark-margarita">М</i></span><strong>Панель акул · 7–9 ответов</strong></div>
+  <div class="project-training-header"><span class="panel-trio" aria-hidden="true"><i class="shark-timur">Т</i><i class="shark-vadim">В</i><i class="shark-margarita">М</i></span><strong>Панель акул, 7–9 ответов</strong></div>
   <h2>Защита проекта</h2><p>Трое спрашивают по очереди, каждый о своём, потом голосуют и называют условия, которые можно взять в задания.</p>
   {% if startup.user_role != 'viewer' %}<form method="post" action="{% url 'panel_create' startup.id %}" class="panel-start-form">{% csrf_token %}
     <fieldset class="panel-audience"><legend>Кто решает о деньгах</legend><div class="panel-audience-options">{% for audience in audiences %}<label><input type="radio" name="audience" value="{{ audience.kind }}"{% if audience.checked %} checked{% endif %}><span>{{ audience.label }}</span></label>{% endfor %}</div></fieldset>
     <label class="panel-funder"><span>Организация <small>необязательно</small></span><input type="text" name="funder_name" maxlength="80" value="{{ funder_name }}" placeholder="Например, ВШЭ или Сбер" autocomplete="organization"></label>
     {% if heard_funding %}<p class="panel-heard"><strong>Бруно передал акулам</strong> ваши слова: «{{ heard_funding.quote }}». Поэтому выбрано «{{ heard_funding.kind_label }}».</p>{% endif %}
-    <button class="button dark">Выйти к акулам →</button>
+    <button class="button dark">Выйти к акулам</button>
   </form>{% endif %}
   <details class="project-fold"><summary>Кто будет спрашивать</summary><div class="project-fold-body">{% for audience in audiences %}<ul class="panel-sharks" data-audience="{{ audience.kind }}">{% for shark in audience.sharks %}<li class="shark-{{ shark.key }}"><span class="shark-avatar" aria-hidden="true">{{ shark.initial }}</span><span><strong>{{ shark.name }} · {{ shark.area }}</strong><small>{{ shark.title|capfirst }}. Спросит: {{ shark.topics }}.</small></span></li>{% endfor %}</ul>{% endfor %}</div></details>
 </section>

@@ -47,7 +47,7 @@ class WorkPrioritiesTests(TestCase):
         self.assertEqual(sum(row['feature'] == self.feature for row in entries), 1)
         self.assertEqual(sum(row['task'] is not None for row in entries), 6)
         self.assertContains(page, 'Все задания Бруно и функции MVP')
-        self.assertContains(page, 'Можно выполнить в лаборатории!')
+        self.assertContains(page, 'Можно выполнить в лаборатории')
         self.assertFalse(next(row for row in entries if row['task'] == self.market)['lab_url'])
 
     def test_editing_regular_task_saves_validated_inputs_and_updates_rank_and_context(self):
