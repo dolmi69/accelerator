@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Регистрация · BrunoLab{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'founder/css/password-toggle.css' %}">{% endblock %}
 {% block content %}
     <section class="auth-wrap">
         <div class="auth-intro">
@@ -32,3 +34,4 @@
         </div>
     </section>
 {% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/password-toggle.js' %}" defer></script>{% endblock %}
