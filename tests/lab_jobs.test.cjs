@@ -8,11 +8,11 @@ function setup(initial, statusJob = initial) {
   const node = () => ({value: '', textContent: '', disabled: false, children: [],
     append(...items) { this.children.push(...items); }, setAttribute() {}, dataset: {}, remove() {},
     querySelector(selector) { return this.children.flatMap(x => [x, ...(x.children || [])]).find(x => selector.includes('prompt') ? 'jobPrompt' in x.dataset : 'jobMessage' in x.dataset); }});
-  const input = node(), send = node(), status = node();
+  const input = node(), send = node(), status = node(), modelRoute = node();
   const form = {dataset: {jobsUrl: '/jobs/', jobStatusUrl: '/status/'}, checkValidity: () => true,
     querySelector: key => key.includes('prompt') ? input : send, querySelectorAll: () => [],
     addEventListener: (key, fn) => { events[`form:${key}`] = fn; }};
-  const elements = {'lab-form': form, 'lab-status': status, 'lab-job-state': {textContent: JSON.stringify(initial)}, 'lab-thread': node()};
+  const elements = {'lab-form': form, 'lab-status': status, 'lab-model-route': modelRoute, 'lab-job-state': {textContent: JSON.stringify(initial)}, 'lab-thread': node()};
   const document = {hidden: false, getElementById: key => elements[key], createElement: node, querySelectorAll: () => [],
     addEventListener: (key, fn) => { events[key] = fn; }, dispatchEvent: event => states.push(event.detail)};
   let returned = statusJob;
@@ -24,7 +24,7 @@ function setup(initial, statusJob = initial) {
   input.dispatchEvent = () => {};
   vm.runInNewContext(code, context);
   events.DOMContentLoaded();
-  return {input, send, status, states, requests, redirects, events, windowEvents, setJob: job => { returned = job; }};
+  return {input, send, status, modelRoute, states, requests, redirects, events, windowEvents, setJob: job => { returned = job; }};
 }
 const running = {id: 'job1', status: 'running', mode: 'edit', prompt: 'Создай сайт', url: '/lab/'};
 const flush = () => new Promise(resolve => setImmediate(resolve));
@@ -56,4 +56,19 @@ test('an already rendered completed job does not reload in a loop', async () => 
   const app = setup({...running, status: 'succeeded'});
   await flush();
   assert.equal(app.redirects.length, 0);
+});
+
+test('reload shows the persisted model and updates from analysis to generation', async () => {
+  const app = setup({...running, mode:'auto', model_route:{phase:'analysis',label:'GPT‑6 Luna',reason:'Разбор запроса'}});
+  await flush();
+  assert.equal(app.modelRoute.textContent, 'Разбор: GPT‑6 Luna · Разбор запроса');
+  app.setJob({...running, model_route:{phase:'code',label:'GPT‑6.1 Sol',reason:'Сложная задача'}});
+  await app.windowEvents.focus();
+  assert.equal(app.modelRoute.textContent, 'Задача: GPT‑6.1 Sol · Сложная задача');
+});
+
+test('a queued request does not claim a model has already been selected', async () => {
+  const app = setup({...running, status:'queued', mode:'auto'});
+  await flush();
+  assert.equal(app.modelRoute.textContent, 'Выбираем модель для запроса…');
 });

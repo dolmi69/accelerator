@@ -42,6 +42,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "founder.hosting.HostedSiteMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -53,6 +54,15 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
+
+# A separate wildcard origin for user applications. Never use a path on the
+# platform's origin: generated JavaScript must not access platform sessions.
+BRUNOHOST_BASE_URL = os.getenv('BRUNOHOST_BASE_URL', 'http://localhost:8000' if DEBUG else '').rstrip('/')
+BRUNOHOST_PLATFORM_URL = os.getenv('BRUNOHOST_PLATFORM_URL', '').strip()
+BRUNOHOST_ROOT = Path(os.getenv('BRUNOHOST_ROOT', str(BASE_DIR / '.runtime' / 'hosting')))
+BRUNOHOST_ENGINE = os.getenv('BRUNOHOST_ENGINE', 'sandbox' if DEBUG and sys.platform == 'darwin' else 'disabled')
+BRUNOHOST_DOCKER_IMAGE = os.getenv('BRUNOHOST_DOCKER_IMAGE', 'brunohost-worker:1')
+BRUNOHOST_MAX_RUNNING = int(os.getenv('BRUNOHOST_MAX_RUNNING', '5'))
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -138,6 +148,11 @@ LAB_RAW_AI_TEST_MODE = os.getenv("LAB_RAW_AI_TEST_MODE", "0") == "1" and sys.arg
 # Explicit, temporary local experiment; never enabled by .env on production.
 LAB_UNRESTRICTED_TEST_MODE = DEBUG and os.getenv("LAB_UNRESTRICTED_TEST_MODE", "0") == "1" and sys.argv[1:2] != ["test"]
 OFOX_CODE_MODEL = os.getenv("OFOX_CODE_MODEL", "openai/gpt-6.1-sol")
+LAB_MODEL_ROUTING = os.getenv("LAB_MODEL_ROUTING", "1") == "1"
+LAB_SOL_INPUT_USD_PER_MILLION = os.getenv("LAB_SOL_INPUT_USD_PER_MILLION", "2")
+LAB_SOL_OUTPUT_USD_PER_MILLION = os.getenv("LAB_SOL_OUTPUT_USD_PER_MILLION", "10")
+LAB_LUNA_INPUT_USD_PER_MILLION = os.getenv("LAB_LUNA_INPUT_USD_PER_MILLION", "0.10")
+LAB_LUNA_OUTPUT_USD_PER_MILLION = os.getenv("LAB_LUNA_OUTPUT_USD_PER_MILLION", "0.50")
 OFOX_CODE_API = os.getenv("OFOX_CODE_API", "responses").strip().lower()
 OFOX_CODE_STREAM = os.getenv("OFOX_CODE_STREAM", "1").strip().lower() in {"1", "true", "yes"}
 # Pin an upstream channel for reproducible tests; empty uses Ofox routing.
@@ -161,6 +176,7 @@ LAB_BACKEND_MAX_RUNNING = 3
 # A complete first design gets room to finish; edits remain small JSON patches.
 LAB_CREATE_MAX_TOKENS = int(os.getenv("LAB_CREATE_MAX_TOKENS", "16384"))
 LAB_PATCH_MAX_TOKENS = int(os.getenv("LAB_PATCH_MAX_TOKENS", "2048"))
+LAB_EDIT_REPAIR_ATTEMPTS = max(1, min(3, int(os.getenv('LAB_EDIT_REPAIR_ATTEMPTS', '3'))))
 LAB_CHAT_MAX_TOKENS = int(os.getenv("LAB_CHAT_MAX_TOKENS", "2048"))
 LAB_PATCH_MAX_RESPONSE_CHARS = int(os.getenv("LAB_PATCH_MAX_RESPONSE_CHARS", "24000"))
 LAB_PATCH_MAX_FIND_CHARS = int(os.getenv("LAB_PATCH_MAX_FIND_CHARS", "6000"))

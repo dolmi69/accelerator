@@ -1,4 +1,4 @@
-from founder import lab_job_views, history_views, auth_views as founder_auth_views
+from founder import lab_job_views, history_views, hosting, auth_views as founder_auth_views
 from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.urls import reverse_lazy
@@ -7,6 +7,7 @@ from founder import views, workbench_views, lab_views, lab_testing_views, team_v
 
 
 urlpatterns = [
+    path('startups/<uuid:startup_id>/lab/hosting/', hosting.manage, name='lab_hosting'),
     path('auth/csrf/', founder_auth_views.csrf_token, name='auth_csrf_token'),
     path('startups/<uuid:startup_id>/daily-plan/', views.daily_plan_generate, name='daily_plan_generate'),
     path('startups/<uuid:startup_id>/tasks/features/<uuid:feature_id>/result/', workbench_views.feature_result, name='feature_result'),

@@ -16,9 +16,10 @@ from founder.services.lab_capabilities import capability_prompt
 from founder.services.site_intent import parse_intent
 from founder.services.backend_modules import MODULES, OPTIONAL_MODULES
 from founder.services.site_editor import customize
-from founder.services.lab_bruno import request_policy, protect_service_secrets
+from founder.services.lab_bruno import request_policy, protect_service_secrets, LabRequestRejected
+from founder.services.lab_recovery import aggregate, attempt_limit, exhausted, validate_candidate
 
-GENERATOR_REVISION = 'forge-raw-experiment-v4'
+GENERATOR_REVISION = 'forge-scoped-recovery-v6'
 DESIGN_GUIDE = Path(__file__).resolve().parent.parent / 'design_guides' / 'qwen_frontend.md'
 LUNA_GUIDE = DESIGN_GUIDE.with_name('luna_frontend.md')
 
@@ -117,6 +118,34 @@ HTML остаётся в изолированном предпросмотре; 
 
 
 def generate_site(prompt, *, previous_html="", max_tokens=None, backend=False, edit_scope="auto", rebuild=False, project_context=None, report=False):
+    trace = []
+    limit = attempt_limit() if previous_html and not rebuild else 1
+    note = ''
+    for attempt in range(limit):
+        before = len(trace)
+        try:
+            result = _generate_site_once(prompt, previous_html=previous_html, max_tokens=max_tokens,
+                backend=backend, edit_scope=edit_scope, rebuild=rebuild, project_context=project_context,
+                report=report, _repair_note=note, _trace=trace)
+            try:
+                validate_candidate(result)
+            except QwenOutputError:
+                reject_output(result.request_id)
+                raise
+            return aggregate(result, trace, attempt + 1)
+        except LabRequestRejected:
+            raise
+        except QwenOutputError as error:
+            # A provider rejection/unfinished response has no completed CodeResult.
+            # Never reuse filtered content or retry requests with unknown billing.
+            if len(trace) == before:
+                raise
+            if attempt + 1 == limit:
+                raise QwenOutputError(exhausted(error, limit)) from None
+            note = str(error)
+
+
+def _generate_site_once(prompt, *, previous_html="", max_tokens=None, backend=False, edit_scope="auto", rebuild=False, project_context=None, report=False, _repair_note='', _trace=None):
     """Generate or revise a document without executing it or writing user files.
 
     Checks below detect incomplete documents, not malicious JavaScript. An
@@ -138,7 +167,7 @@ def generate_site(prompt, *, previous_html="", max_tokens=None, backend=False, e
     raw = settings.LAB_RAW_AI_TEST_MODE
     if raw:
         backend = False
-    patching = bool(previous_html) and not rebuild and not raw
+    patching = bool(previous_html) and not rebuild
     working_html = previous_html if raw else model_source(previous_html)
     cap = settings.LAB_PATCH_MAX_TOKENS if patching else settings.LAB_CREATE_MAX_TOKENS
     limit = min(cap, settings.QWEN_CODE_MAX_TOKENS, max_tokens or settings.QWEN_CODE_MAX_TOKENS)
@@ -175,7 +204,8 @@ def generate_site(prompt, *, previous_html="", max_tokens=None, backend=False, e
         instruction += '\n' + capability_prompt(capabilities)
     if not raw and (not patching or rebuild):
         instruction += '\n' + DESIGN_GUIDE.read_text(encoding='utf-8')
-    if not raw and settings.LAB_CODE_PROVIDER == 'ofox' and settings.OFOX_CODE_MODEL.startswith('openai/gpt-6'):
+    from founder.services.lab_models import active_model
+    if not raw and settings.LAB_CODE_PROVIDER == 'ofox' and active_model().startswith('openai/gpt-6'):
         instruction += '\n' + LUNA_GUIDE.read_text(encoding='utf-8')
     if not raw:
         instruction += '\n' + component_prompt(prompt, creating=not patching)
@@ -196,7 +226,12 @@ def generate_site(prompt, *, previous_html="", max_tokens=None, backend=False, e
             envelope += '\nЕсли ВЕСЬ запрос выполняется готовыми настройками/модулями, вместо changes верни {"route":"template","settings":{...},"add_modules":[...],"report":{...}}. Код не нужен. settings: title (до 100 символов), palette (blue/green/purple/dark/пустая строка), font (system/serif/mono/пустая строка), radius ("0"/"8"/"24"/пустая строка). Меняй только запрошенное, настройки применяются ко всему сайту. «Измени шрифт» без уточнения — system; если он уже выбран, serif. Нужна хотя бы одна настройка или модуль. Для конкретного другого шрифта, цвета вне списка, отдельного элемента или составного запроса верни changes и выполни весь запрос; не теряй нестандартную часть. Не угадывай новое название.'
         instruction = envelope + '\n\n' + instruction
     temperature = settings.LAB_PATCH_TEMPERATURE if patching else settings.LAB_CREATE_TEMPERATURE
+    if _repair_note:
+        messages.append({'role':'user','content':'Ошибка локальной проверки предыдущей правки: ' + _repair_note +
+            '\nИсправь ответ по исходной задаче и текущим исходникам. Подбери уникальные фрагменты с точным контекстом. Не меняй файлы/блоки вне разрешённой области.'})
     result = generate_code(instruction, messages, max_tokens=limit, temperature=temperature)
+    if _trace is not None:
+        _trace.append(result)
     try:
         output, feedback = result.text, {}
         if report:

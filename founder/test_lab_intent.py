@@ -46,12 +46,37 @@ class IntentContractTests(TestCase):
             data, _ = decide(self.project, source, 'Поменяй цвет')
         self.assertEqual(data['kind'], 'django')
 
+    def test_file_plan_sees_frontend_even_when_server_is_large(self):
+        source=LabSiteVersion.objects.create(startup=self.project,kind='generated',html=HTML,model='test',
+            backend_files={'app.py':'# server\n' * 5000,'index.html':HTML,'assets/site.css':'button { color:red; }'})
+        payload={**decision(),'complexity':'small','edit_files':['assets/site.css']}
+        with patch('founder.services.lab_intent.generate_code',return_value=output(payload)) as api:
+            data,_=decide(self.project,source,'Сделай кнопки синими')
+        sent=json.loads(api.call_args.args[1][0]['content'])
+        self.assertIn('button { color:red; }',sent['current_source_excerpt'])
+        self.assertFalse(sent['source_is_complete'])
+        self.assertEqual(len(sent['file_inventory']),3)
+        self.assertEqual(data['edit_files'],['assets/site.css'])
+
     def test_malformed_decision_fails_without_guess_or_paid_retry(self):
         for data in ({'action': 'edit'}, decision(action='unknown'), {**decision(), 'task': ''}):
             with self.subTest(data=data), patch('founder.services.lab_intent.generate_code', return_value=output(data)) as ai:
                 with self.assertRaises(QwenOutputError):
                     decide(self.project, None, 'Сделай сайт')
                 ai.assert_called_once()
+
+    def test_complexity_requires_large_work_explanation_and_uncertainty_is_standard(self):
+        for value, expected in [('small','small'), ('standard','standard'), ('complex','standard'), (None,'standard'), ('uncertain','standard')]:
+            payload = decision()
+            if value is not None:
+                payload['complexity'] = value
+            with self.subTest(value=value), patch('founder.services.lab_intent.generate_code', return_value=output(payload)):
+                data, _ = decide(self.project, None, 'Сделай сайт')
+            self.assertEqual(data['complexity'], expected)
+        payload = {**decision(), 'complexity':'complex', 'complexity_reason':'Новая архитектура базы и нескольких API'}
+        with patch('founder.services.lab_intent.generate_code', return_value=output(payload)):
+            data, _ = decide(self.project, None, 'Полностью перестрой приложение')
+        self.assertEqual(data['complexity'], 'complex')
 
 
 @override_settings(LAB_RAW_AI_TEST_MODE=True, LAB_UNRESTRICTED_TEST_MODE=True)

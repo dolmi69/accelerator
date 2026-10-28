@@ -1,6 +1,7 @@
 """Persistent lab jobs, executed by a detached, single-claim worker process.
 
-No model call is retried automatically. Queued delivery may be repeated safely;
+Delivery never replays an executing task. Generators may repair completed invalid
+outputs within their bounded policy. Queued delivery may be repeated safely;
 only the worker winning the database claim can execute a job.
 """
 import json
@@ -41,7 +42,12 @@ def describe(job):
     else:
         url += f'?job={job.pk}'
     mode = 'auto' if job.payload.get('automatic') == ['1'] and not job.payload.get('_intent_route') else job.mode
+    try:
+        model_route = json.loads(job.payload.get('_model_route', ['null'])[0])
+    except (ValueError, TypeError, IndexError):
+        model_route = None
     return {'id': str(job.pk), 'status': job.status, 'mode': mode,
+            'model_route': model_route,
             'prompt': job.payload.get('prompt', [''])[0], 'error': job.error,
             'version': str(job.version_id) if job.version_id else None,
             'url': url}
@@ -139,7 +145,7 @@ def run(job_id):
                 error = json.loads(response.content).get('error')
             except (ValueError, AttributeError):
                 error = None
-            raise JobFailure(error or 'Не удалось завершить запрос. Предыдущий сайт сохранён.')
+            raise JobFailure(error or getattr(request, 'lab_failure_message', '') or 'Не удалось завершить запрос. Предыдущий сайт сохранён.')
         turn_id = None
         if response.get('Content-Type', '').startswith('application/json'):
             turn_id = json.loads(response.content).get('id')
@@ -165,3 +171,13 @@ def remember_lease(request, token):
     job_id = getattr(request, 'lab_job_id', None)
     if job_id:
         LabGenerationJob.objects.filter(pk=job_id, status='running').update(lease_token=token)
+
+
+def remember_model_route(request, route):
+    """Persist the server's choice before a paid call, for reload-safe status."""
+    job_id = getattr(request, 'lab_job_id', None)
+    if job_id and route:
+        job = LabGenerationJob.objects.filter(pk=job_id, status='running').first()
+        if job:
+            LabGenerationJob.objects.filter(pk=job_id, status='running').update(
+                payload={**job.payload, '_model_route': [json.dumps(route, ensure_ascii=False)]})

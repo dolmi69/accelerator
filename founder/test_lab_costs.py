@@ -103,10 +103,10 @@ class CostTests(TestCase):
 
     @override_settings(LAB_UNRESTRICTED_TEST_MODE=True, LAB_RAW_AI_TEST_MODE=True,
                        QWEN_CODE_MAX_TOKENS=128000, LAB_CREATE_MAX_TOKENS=128000)
-    def test_large_raw_document_is_accepted_and_provider_cap_is_passed(self):
+    def test_large_raw_explicit_rebuild_is_accepted_and_provider_cap_is_passed(self):
         large = '<!doctype html><html><head><title>Test</title></head><body>' + (' ' * 130000) + '<p>Done</p></body></html>'
         with patch('founder.services.site_generator.generate_code', return_value=CodeResult(large, MODEL, 10, 20)) as provider:
-            result = generate_site('Обнови сайт', previous_html=large)
+            result = generate_site('Обнови сайт', previous_html=large, rebuild=True)
         self.assertEqual(result.text, large)
         self.assertEqual(provider.call_args.kwargs['max_tokens'], 128000)
         with override_settings(LAB_UNRESTRICTED_TEST_MODE=False):
@@ -194,7 +194,7 @@ class CostTests(TestCase):
         with self.assertRaises(QwenError): apply_patch_response(source,regions,'```json\n{}\n```')
 
     @override_settings(LAB_PATCH_MAX_TOKENS=2048)
-    def test_patch_one_call_and_lower_output_limit_and_invalid_result_no_fallback(self):
+    def test_patch_one_call_when_valid_and_bounded_repairs_when_invalid(self):
         change={'changes':[{'target':'full','find':'Buy','replace':'Try'}]}
         with patch('founder.services.site_generator.generate_code', return_value=CodeResult(json.dumps(change),MODEL,12,24)) as paid:
             result=generate_site('Change button',previous_html=HTML, max_tokens=6144)
@@ -203,7 +203,7 @@ class CostTests(TestCase):
             self.assertEqual(paid.call_args.kwargs['max_tokens'],2048)
         with patch('founder.services.site_generator.generate_code', return_value=CodeResult(HTML,MODEL,12,24)) as paid:
             with self.assertRaises(QwenError): generate_site('Change', previous_html=HTML)
-            self.assertEqual(paid.call_count,1)
+            self.assertEqual(paid.call_count,3)
         with patch('founder.services.site_generator.generate_code', return_value=CodeResult(HTML,MODEL,12,24)) as paid:
             generate_site('Redesign',previous_html=HTML,rebuild=True)
             self.assertEqual(paid.call_args.kwargs['max_tokens'],16384)

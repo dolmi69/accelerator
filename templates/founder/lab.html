@@ -4,7 +4,7 @@
 {% block extra_css %}
     <link rel="stylesheet"
           href="{% static 'founder/css/bruno-forge.css' %}?v=2">
-    <link rel="stylesheet" href="{% static 'founder/css/lab-studio.css' %}?v=merge-20261028">
+    <link rel="stylesheet" href="{% static 'founder/css/lab-studio.css' %}?v=hosting-20261028">
 {% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
@@ -58,6 +58,9 @@
                                     </div>
                                     <div class="lab-bruno-message{% if version.history_reply.failed %} lab-bruno-message-error{% endif %}">
                                         <small>Бруно · {{ version.model_label }}</small>
+                                        {% if version.history_reply.routing %}
+                                            <small class="lab-message-usage">{{ version.history_reply.routing.reason }}</small>
+                                        {% endif %}
                                         <p>
                                             <strong>{{ version.history_reply.title }}</strong>
                                         </p>
@@ -91,7 +94,7 @@
                                         <p>{{ discussion.prompt }}</p>
                                     </div>
                                     <div class="lab-bruno-message">
-                                        <small>Бруно · Обсуждение</small>
+                                        <small>Бруно · Обсуждение{% if discussion.reply.routing %} · {{ discussion.reply.routing.label }}{% endif %}</small>
                                         <p class="lab-answer-text">{{ discussion.reply.answer }}</p>
                                         {% if discussion.reply.suggestion %}
                                             <button class="lab-suggestion"
@@ -269,6 +272,11 @@
                    id="lab-status"
                    role="status"
                    aria-live="polite"></p>
+                {% if lab_model_routing %}
+                    <p class="muted small lab-model-route" id="lab-model-route" role="status" aria-live="polite">
+                        {% if selected %}Модель для доработки выбирается по сложности.{% else %}Первую версию создаёт GPT‑6.1 Sol.{% endif %}
+                    </p>
+                {% endif %}
                 <details class="lab-cost-details">
                     <summary>
                         {% if usage.measuring %}
@@ -380,6 +388,7 @@
                     {% endif %}
                     <button class="button primary" type="button" data-lab-expand>На весь экран</button>
                 </div>
+                {% include 'founder/_lab_hosting.html' %}
                 <details class="lab-site-details">
                     <summary>
                         Сохранение и настройки версии
@@ -568,7 +577,7 @@
 {% endblock %}
 {% block scripts %}
     {{ lab_job_state|json_script:'lab-job-state' }}
-    <script src="{% static 'founder/js/lab-jobs.js' %}?v=2" defer></script>
+    <script src="{% static 'founder/js/lab-jobs.js' %}?v=3" defer></script>
     <script src="{% static 'founder/js/lab-split.js' %}?v=4" defer></script>
     <script src="{% static 'founder/js/lab-preview-device.js' %}?v=1" defer></script>
     <script src="{% static 'founder/js/lab-chat.js' %}?v=4" defer></script><script src="{% static 'founder/js/lab.js' %}?v=16" defer></script><script src="{% static 'founder/js/lab-reply.js' %}?v=1" defer></script>

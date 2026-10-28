@@ -16,9 +16,13 @@ if not os.getenv("DATABASE_URL"):
         "OPTIONS": {"timeout": 30},
     }}
 MEDIA_ROOT = DATA_DIR / "private_uploads"
+BRUNOHOST_ROOT = Path(os.getenv('BRUNOHOST_ROOT', str(DATA_DIR / 'hosting')))
+BRUNOHOST_BASE_URL = os.getenv('BRUNOHOST_BASE_URL', '').rstrip('/')
+BRUNOHOST_ENGINE = os.getenv('BRUNOHOST_ENGINE', 'disabled')
 MIDDLEWARE = [
+    MIDDLEWARE[0],  # Hosted origins must bypass Telegram's frame/CSP overrides.
     "founder.telegram_middleware.TelegramFrameMiddleware",
-    *MIDDLEWARE,
+    *MIDDLEWARE[1:],
 ]
 MIDDLEWARE.insert(MIDDLEWARE.index("django.middleware.security.SecurityMiddleware") + 1,
                   "whitenoise.middleware.WhiteNoiseMiddleware")

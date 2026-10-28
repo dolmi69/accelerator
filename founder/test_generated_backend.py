@@ -58,12 +58,14 @@ class GeneratedBackendTests(TestCase):
         self.assertNotContains(page, 'data-lab-tools-open')
         self.assertNotIn('Данные не сохраняются', str(version.bruno_report))
 
-    def test_edit_sends_full_previous_server(self):
+    def test_edit_preserves_previous_server_and_changes_only_planned_html(self):
         source = LabSiteVersion.objects.create(startup=self.startup, kind='generated', html=HTML, backend_files=FILES, model='test')
-        with patch('founder.services.generated_backend.generate_code', return_value=CodeResult(json.dumps({'files': FILES, 'report': REPORT}), 'test', 10, 20)) as api:
-            result = generate_backend('Добавь кнопку', source=source)
+        response = {'changes':[{'file':'index.html','op':'replace','old':'<h1>Записи</h1>','new':'<h1>Записи</h1><button>Добавить</button>'}],'report':REPORT}
+        with patch('founder.services.backend_edits.generate_code', return_value=CodeResult(json.dumps(response), 'test', 10, 20)) as api:
+            result = generate_backend('Добавь кнопку', source=source, context={'edit_files':['index.html']})
         self.assertEqual(json.loads(api.call_args.args[1][0]['content'])['previous_files']['app.py'], APP)
-        self.assertEqual(result.backend_files, FILES)
+        self.assertEqual(result.backend_files['app.py'], APP)
+        self.assertIn('<button>Добавить</button>', result.text)
 
     def test_traversal_syntax_secrets_and_missing_server_rejected(self):
         for files in ({**FILES, '../.env': 'x'}, {**FILES, 'app.py': 'broken syntax :'}, {'index.html': HTML}):
@@ -75,7 +77,7 @@ class GeneratedBackendTests(TestCase):
 
     def test_failed_generation_preserves_version(self):
         source = LabSiteVersion.objects.create(startup=self.startup, kind='generated', html=HTML, backend_files=FILES, model='test')
-        with patch('founder.services.generated_backend.generate_code', return_value=CodeResult('{}', 'test', 10, 20)):
+        with patch('founder.services.backend_edits.generate_code', return_value=CodeResult('{}', 'test', 10, 20)):
             response = self.client.post(reverse('lab_generate', args=[self.startup.pk]), {'prompt': 'Измени сайт', 'source_version': source.pk})
         self.assertEqual(response.status_code, 503)
         self.assertEqual(self.startup.lab_versions.count(), 1)

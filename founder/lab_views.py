@@ -33,6 +33,7 @@ from founder.services.ai_costs import billing_scope, usage_summary
 from founder.services.site_editor import customize, simple_command, text_command, replace_visible_text
 from founder.services.backend_modules import module_command, normalize_modules, MODULES, OPTIONAL_MODULES, DEFAULT_OPTIONAL, MODULE_GROUPS
 from founder.services.request_limits import RequestLimitExceeded, acquire_ai_lease, consume_limit, release_ai_lease
+from founder.services import lab_models
 
 
 def _owned_startup(request, startup_id, *, edit=True):
@@ -79,7 +80,7 @@ def _version(startup, value):
 
 
 def _model_label(model):
-    return {'openai/gpt-6-luna': 'GPT‑6 Luna',
+    return {'local-editor': 'Без AI', 'openai/gpt-6-luna': 'GPT‑6 Luna',
             'openai/gpt-6.1-sol': 'GPT‑6.1 Sol',
             'anthropic/claude-sonnet-5.5': 'Claude Sonnet 5.5'}.get(model, model)
 
@@ -137,6 +138,7 @@ def _lab_page(request, startup, form=None, *, status=200):
         reply = {'title': 'Не получилось завершить запрос',
                  'items': [str(error) for errors in form.errors.values() for error in errors] if form is not None else ['Попробуй ещё раз.'],
                  'usage': '', 'mood': 'focused', 'failed': True}
+        request.lab_failure_message = ' '.join(reply['items'])[:1600]
     # Separate users and fresh notices; reloading a seen version keeps its timer.
     reply_key = hashlib.sha256(json.dumps([
         request.user.pk, str(startup.pk), str(selected.pk) if selected else None, reply,
@@ -151,7 +153,9 @@ def _lab_page(request, startup, form=None, *, status=200):
             if selected and selected.kind in (LabSiteVersion.Kind.STATIC, LabSiteVersion.Kind.GENERATED):
                 initial['kind'] = selected.kind
         form = LabPromptForm(source=selected, initial=initial)
+    from founder.hosting import context as hosting_context
     return render(request, "founder/lab.html", {
+        "hosting": hosting_context(startup, selected),
         "startup": startup,
         "lab_handoff": handoff,
         "lab_history_entry": selected.progress_entry if selected and hasattr(selected, "progress_entry") else None,
@@ -162,6 +166,7 @@ def _lab_page(request, startup, form=None, *, status=200):
         "backend_staged": settings.LAB_BACKEND_STAGED_GENERATION,
         "lab_model_label": _model_label(settings.OFOX_CODE_MODEL if settings.LAB_CODE_PROVIDER == 'ofox' else settings.QWEN_CODE_MODEL),
         "lab_provider_label": 'Ofox' if settings.LAB_CODE_PROVIDER == 'ofox' else 'Cloud.ru',
+        "lab_model_routing": lab_models.enabled(),
         "form": form,
         'backend_form': backend_form,
         'module_groups': [{'title': title, 'fields': [checkboxes[key] for key in keys]} for title, keys in MODULE_GROUPS],
@@ -211,8 +216,8 @@ def lab(request, startup_id):
     return _lab_page(request, _owned_startup(request, startup_id, edit=False))
 
 
-def generation_key(startup, source, prompt, kind, scope="auto", rebuild=False, modules=None, context=None):
-    code_profile = (f"ofox/{settings.OFOX_CODE_MODEL}/{settings.OFOX_CODE_REASONING_EFFORT}/{settings.OFOX_CODE_API}/{settings.OFOX_PROVIDER_TYPE or 'auto'}"
+def generation_key(startup, source, prompt, kind, scope="auto", rebuild=False, modules=None, context=None, code_model=None):
+    code_profile = (f"ofox/{code_model or settings.OFOX_CODE_MODEL}/{settings.OFOX_CODE_REASONING_EFFORT}/{settings.OFOX_CODE_API}/{settings.OFOX_PROVIDER_TYPE or 'auto'}"
                     if settings.LAB_CODE_PROVIDER == "ofox" else settings.QWEN_CODE_MODEL)
     return hashlib.sha256(json.dumps([
         GENERATOR_REVISION, str(startup.pk), str(source.pk) if source else None,
@@ -222,7 +227,7 @@ def generation_key(startup, source, prompt, kind, scope="auto", rebuild=False, m
         settings.LAB_CREATE_MAX_TOKENS, settings.LAB_PATCH_MAX_TOKENS,
         settings.QWEN_CODE_MAX_TOKENS, settings.LAB_CREATE_TEMPERATURE, settings.LAB_PATCH_TEMPERATURE,
         modules if modules is not None else source.backend_modules if source else [],
-        context,
+        context, lab_models.POLICY if code_model else None,
     ], ensure_ascii=False).encode()).hexdigest()
 
 
@@ -237,6 +242,30 @@ def lab_generate(request, startup_id):
 
     if request.POST.get("start_new"):
         source = None
+    if source and not form.cleaned_data['rebuild']:
+        from founder.services.site_names import rename_site
+        from founder.services.lab_task_history import validate_context
+        try:
+            request_policy(form.cleaned_data['prompt'])
+            change = rename_site(source, form.cleaned_data['prompt'])
+            if change:
+                validate_context(request, startup)
+                if change['html'] == source.html:
+                    messages.success(request, f'Название уже указано как «{change["new"]}». AI не использовался.')
+                    return _reply_redirect(request, startup, source, source)
+                report = {'title':'Название изменено',
+                          'items':[f'Название сайта изменено с «{change["old"]}» на «{change["new"]}».',
+                                   'Обновлены название вкладки, бренд и его подписи. Серверный код, CSS и JavaScript сохранены без изменений.'],
+                          'usage':'Без AI · 0 токенов', 'mood':'focused'}
+                version = _create_version(startup=startup, source=source, prompt=form.cleaned_data['prompt'],
+                    kind=source.kind, html=change['html'], backend_files=change['files'],
+                    backend_modules=source.backend_modules, presentation=source.presentation,
+                    model='local-editor', edit_method='local', input_tokens=0, output_tokens=0, report=report)
+                messages.success(request, 'Название изменено без AI: 0 токенов.')
+                return _reply_redirect(request, startup, version, source)
+        except QwenOutputError as exc:
+            form.add_error(None, str(exc))
+            return _lab_page(request, startup, form, status=400)
     if request.POST.get('automatic') == '1':
         return _lab_automatic(request, startup, source, form)
     return _lab_execute(request, startup, source, form)
@@ -253,12 +282,17 @@ def _lab_automatic(request, startup, source, form):
         protect_service_secrets(protect_prompt)
         with transaction.atomic():
             token = acquire_ai_lease(request.user.pk, ttl_seconds=max(600,
-                int(settings.QWEN_CODE_TIMEOUT) * 3 + 180))
+                int(settings.QWEN_CODE_TIMEOUT) * 8 + 180))
             request.ai_lease = token
             remember_lease(request, token)
             _consume_lab_limits(request.user)
-        with billing_scope(request.user, startup, 'intent'):
-            decision, result = decide(startup, source, protect_prompt)
+        from founder.services.lab_jobs import remember_model_route
+        planning = lab_models.planning_route(source)
+        request.lab_planning_route = planning
+        remember_model_route(request, planning)
+        with lab_models.model_scope(planning['model'] if planning else None):
+            with billing_scope(request.user, startup, 'intent'):
+                decision, result = decide(startup, source, protect_prompt)
         request.lab_automatic_decision = decision
         job_id = getattr(request, 'lab_job_id', None)
         if job_id:
@@ -360,10 +394,17 @@ def _lab_execute(request, startup, source, form):
         context['task_context'] = {'id':request.POST['task_context'], 'digest':request.POST.get('_task_digest', '')}
     if automatic:
         context['interpreted_request'] = automatic['task']
+        if automatic.get('edit_files') is not None:
+            context['edit_files'] = automatic['edit_files']
+    # Raw mode used to force rebuild=True for every followup. Only an explicit
+    # rebuild control may bypass file-scoped edits of an existing application.
+    context['full_rebuild'] = bool(form.cleaned_data['rebuild'])
     if raw:
         context['mode'] = 'generated_backend' if kind == LabSiteVersion.Kind.GENERATED else 'raw_static_experiment'
     # An experiment must invoke the model even for identical prompts.
-    key = None if raw else generation_key(startup, source, prompt, kind, scope, rebuild, chosen, context)
+    model_route = lab_models.generation_route(source, automatic, kind=kind, rebuild=form.cleaned_data['rebuild'], prompt=prompt)
+    key = None if raw else generation_key(startup, source, prompt, kind, scope, rebuild, chosen, context,
+                                         code_model=model_route['model'] if model_route else None)
     cached = startup.lab_versions.filter(generation_key=key).first() if key else None
     if cached:
         messages.success(request, "Открыли уже сохранённый результат. Новый AI-запрос не понадобился.")
@@ -383,7 +424,7 @@ def _lab_execute(request, startup, source, form):
             with transaction.atomic():
                 request.ai_lease = acquire_ai_lease(request.user.pk,
                     ttl_seconds=max(600, int(settings.QWEN_CODE_TIMEOUT) *
-                        (2 if kind == LabSiteVersion.Kind.GENERATED and settings.LAB_BACKEND_STAGED_GENERATION else 1) + 180))
+                        (8 if source else 2 if kind == LabSiteVersion.Kind.GENERATED and settings.LAB_BACKEND_STAGED_GENERATION else 1) + 180))
                 from founder.services.lab_jobs import remember_lease
                 remember_lease(request, request.ai_lease)
                 _consume_lab_limits(request.user, personal=True)
@@ -392,7 +433,13 @@ def _lab_execute(request, startup, source, form):
         if cached:
             return _reply_redirect(request, startup, cached, source, cached=True)
         generating_design = True
-        result = _generate_design(request, startup, source, prompt, kind, scope, rebuild, chosen, context)
+        from founder.services.lab_jobs import remember_model_route
+        remember_model_route(request, model_route)
+        with lab_models.model_scope(model_route['model'] if model_route else None):
+            # Followups are resolved by the intent stage. Sending only "давай
+            # обратно" to the code stages lets stale reports override the task.
+            effective_prompt = automatic['task'] if automatic else prompt
+            result = _generate_design(request, startup, source, effective_prompt, kind, scope, rebuild, chosen, context)
         generating_design = False
         intent = result.intent
         if intent:
@@ -401,7 +448,8 @@ def _lab_execute(request, startup, source, form):
             chosen = normalize_modules([*chosen, *result.add_modules])
             kind = LabSiteVersion.Kind.DJANGO
         feedback = ({**result.report, 'checks': {'generation_mode': 'generated_backend',
-                    'review_mode': 'local', 'runtime_verified': False}} if kind == LabSiteVersion.Kind.GENERATED
+                    'review_mode': 'local', 'runtime_verified': False,
+                    'edit_plan':result.report.get('edit_plan')}} if kind == LabSiteVersion.Kind.GENERATED
                     else validate_result(prompt, source, result, chosen))
     except RequestLimitExceeded as exc:
         form.add_error(None, str(exc))
@@ -440,6 +488,7 @@ def _lab_execute(request, startup, source, form):
         input_tokens=result.input_tokens, output_tokens=result.output_tokens,
         generation_key=key, edit_method=result.edit_method,
         presentation=presentation, backend_modules=chosen, backend_files=result.backend_files, feedback=feedback,
+        routing=model_route,
     )
     if result.request_id or result.request_ids:
         LabAIUsage.objects.filter(pk__in=result.request_ids or (result.request_id,), user=request.user, startup=startup).update(version=version)
@@ -512,8 +561,14 @@ def _lab_discuss(request, startup, source, form):
             existing = LabConversationTurn.objects.filter(pk=turn_id, startup=startup, user=request.user).first()
             if existing:
                 return response(existing)
-        with billing_scope(request.user, startup, 'discuss'):
-            reply, result = getattr(request, 'lab_prepared_answer', None) or discussion_reply(startup, source, prompt)
+        planning = getattr(request, 'lab_planning_route', None) or lab_models.planning_route(source)
+        from founder.services.lab_jobs import remember_model_route
+        remember_model_route(request, planning)
+        with lab_models.model_scope(planning['model'] if planning else None):
+            with billing_scope(request.user, startup, 'discuss'):
+                reply, result = getattr(request, 'lab_prepared_answer', None) or discussion_reply(startup, source, prompt)
+        if planning and result:
+            reply['routing'] = planning
         reply['usage'] = ('Без AI · 0 токенов' if reply.get('local') else
                           f'AI-ответ · {result.input_tokens + result.output_tokens} токенов'
                           if result.input_tokens is not None and result.output_tokens is not None else 'AI-ответ · расход уточняется')
@@ -542,11 +597,16 @@ def _lab_discuss(request, startup, source, form):
 
 
 def _generate_design(request, startup, source, prompt, kind, scope, rebuild, chosen, context):
+    full_rebuild = context.get('full_rebuild', rebuild)
+    context = {key:value for key,value in context.items() if key != 'full_rebuild'}
     if kind == LabSiteVersion.Kind.GENERATED:
         from founder.services.generated_backend import generate_backend
         with billing_scope(request.user, startup, 'patch' if source else 'create'):
-            return generate_backend(prompt, source=source, context=context, checkpoint=(request.user.pk, startup.pk))
+            return generate_backend(prompt, source=source, context=context, checkpoint=(request.user.pk, startup.pk),
+                                    rebuild=full_rebuild)
     options = {"backend": True} if kind == LabSiteVersion.Kind.DJANGO else {}
+    if source:
+        rebuild = full_rebuild
     if scope != "auto":
         options["edit_scope"] = scope
     if rebuild:
@@ -554,16 +614,20 @@ def _generate_design(request, startup, source, prompt, kind, scope, rebuild, cho
     # The ready scaffold has no design yet. Its first design needs a complete
     # document, rather than a small patch to a placeholder page.
     initial_design = design_pending(source)
-    with billing_scope(request.user, startup, "patch" if source and not rebuild and not initial_design else "create"):
+    from founder.services.lab_recovery import validation_scope
+    with billing_scope(request.user, startup, "patch" if source and not rebuild and not initial_design else "create"), validation_scope(
+            lambda candidate: validate_result(prompt, source, candidate, chosen)):
         result = generate_site(prompt, previous_html=source.html if source and not initial_design else "",
             max_tokens=min(settings.LAB_CREATE_MAX_TOKENS, settings.QWEN_CODE_MAX_TOKENS),
             project_context=context, report=True, **options)
     return result
 
 
-def _create_version(*, report=None, feedback=None, **fields):
+def _create_version(*, report=None, feedback=None, routing=None, **fields):
     version = LabSiteVersion(**fields)
     version.bruno_report = report if report is not None else reviewed_reply(version, feedback) if feedback else version_reply(version)
+    if routing:
+        version.bruno_report = {**version.bruno_report, 'routing': routing}
     version.save(force_insert=True)
     return version
 def _log_version(request, startup, source, version):
