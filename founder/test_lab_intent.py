@@ -53,14 +53,18 @@ class IntentContractTests(TestCase):
                     decide(self.project, None, 'Сделай сайт')
                 ai.assert_called_once()
 
-    def test_complexity_is_explicit_and_uncertainty_defaults_to_complex(self):
-        for value, expected in [('small','small'), ('complex','complex'), (None,'complex'), ('uncertain','complex')]:
+    def test_complexity_requires_large_work_explanation_and_uncertainty_is_standard(self):
+        for value, expected in [('small','small'), ('standard','standard'), ('complex','standard'), (None,'standard'), ('uncertain','standard')]:
             payload = decision()
             if value is not None:
                 payload['complexity'] = value
             with self.subTest(value=value), patch('founder.services.lab_intent.generate_code', return_value=output(payload)):
                 data, _ = decide(self.project, None, 'Сделай сайт')
             self.assertEqual(data['complexity'], expected)
+        payload = {**decision(), 'complexity':'complex', 'complexity_reason':'Новая архитектура базы и нескольких API'}
+        with patch('founder.services.lab_intent.generate_code', return_value=output(payload)):
+            data, _ = decide(self.project, None, 'Полностью перестрой приложение')
+        self.assertEqual(data['complexity'], 'complex')
 
 
 @override_settings(LAB_RAW_AI_TEST_MODE=True, LAB_UNRESTRICTED_TEST_MODE=True)

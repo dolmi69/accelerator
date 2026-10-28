@@ -32,15 +32,32 @@ class ModelRouteTests(SimpleTestCase):
         self.assertEqual(lab_models.planning_route(scaffold)['model'], lab_models.SOL)
         self.assertEqual(lab_models.generation_route(scaffold, {'complexity': 'small'})['model'], lab_models.SOL)
 
-    def test_followup_small_uses_luna_but_ambiguity_rebuild_or_type_change_uses_sol(self):
+    def test_followups_default_to_luna_and_only_explicit_large_work_uses_sol(self):
         source = self.source()
         self.assertEqual(lab_models.planning_route(source)['model'], lab_models.LUNA)
         self.assertEqual(lab_models.generation_route(source, {'complexity': 'small'})['model'], lab_models.LUNA)
-        for decision, options in [(None, {}), ({}, {}), ({'complexity':'complex'}, {}),
-                                  ({'complexity':'small'}, {'rebuild':True}),
+        for decision, options in [(None, {}), ({}, {}), ({'complexity':'standard'}, {}), ({'complexity':'complex'}, {}),
                                   ({'complexity':'small'}, {'kind':'generated'})]:
             with self.subTest(decision=decision, options=options):
-                self.assertEqual(lab_models.generation_route(source, decision, **options)['model'], lab_models.SOL)
+                self.assertEqual(lab_models.generation_route(source, decision, **options)['model'], lab_models.LUNA)
+        self.assertEqual(lab_models.generation_route(source, {'complexity':'complex', 'complexity_reason':'Новая архитектура нескольких подсистем'})['model'], lab_models.SOL)
+        self.assertEqual(lab_models.generation_route(source, rebuild=True)['model'], lab_models.SOL)
+
+    def test_display_rename_overrides_overclassification_but_not_mixed_work(self):
+        source = self.source()
+        source.kind = 'generated'
+        decision = {'complexity':'complex', 'complexity_reason':'Исходник обрезан, в сайте есть сервер'}
+        for prompt in ['бро давай название на smeta поменяем назад', 'поменяй название на smeta',
+                       'измени название с smeta на смета', 'Поменяй название сайта на «Новая смета»!',
+                       'Переименуй сайт в smeta']:
+            with self.subTest(prompt=prompt):
+                route = lab_models.generation_route(source, decision, prompt=prompt)
+                self.assertEqual(route['model'], lab_models.LUNA)
+                self.assertEqual(route['reason'], 'Смена названия')
+        for prompt in ['поменяй название на smeta и добавь оплату', 'да, сделай',
+                       'переименуй app.py в server.py', 'поменяй название на smeta; перепиши базу']:
+            with self.subTest(prompt=prompt):
+                self.assertFalse(lab_models.is_display_rename(prompt))
 
     @override_settings(OFOX_CODE_MODEL='anthropic/claude-sonnet-5.5')
     def test_nested_scopes_restore_model_even_on_error_without_mutating_settings(self):
@@ -77,17 +94,18 @@ class LabModelFlowTests(TestCase):
         self.project = StartupProfile.objects.create(owner=self.user, name='Routing')
         self.client.force_login(self.user)
 
-    def submit(self, source, complexity, *, start_new=False):
+    def submit(self, source, complexity, *, start_new=False, prompt='Обнови проект'):
         models = []
         def decide(*args):
             models.append(lab_models.active_model())
             data = {'action':'edit', 'kind':'static', 'answer':'', 'suggestion':'',
-                    'task':'Поменяй заголовок', 'complexity':complexity}
+                    'task':'Обнови проект', 'complexity':complexity,
+                    'complexity_reason':'Новая архитектура нескольких подсистем' if complexity == 'complex' else ''}
             return data, CodeResult(json.dumps(data), lab_models.active_model(), 10, 20)
         def generate(*args):
             models.append(lab_models.active_model())
             return CodeResult(HTML.replace('Demo', 'Название'), lab_models.active_model(), 30, 40)
-        data = {'prompt':'Поменяй заголовок', 'automatic':'1', 'kind':'static'}
+        data = {'prompt':prompt, 'automatic':'1', 'kind':'static'}
         if source:
             data['source_version'] = source.pk
         if start_new:
@@ -118,6 +136,12 @@ class LabModelFlowTests(TestCase):
         models, new = self.submit(old, 'small', start_new=True)
         self.assertEqual(models, [lab_models.SOL, lab_models.SOL])
         self.assertIsNone(new.source_id)
+
+    def test_exact_reported_rename_on_large_source_cannot_spend_on_sol(self):
+        old = LabSiteVersion.objects.create(startup=self.project, prompt='old', html=HTML + ' ' * 25000, model=lab_models.SOL)
+        models, updated = self.submit(old, 'complex', prompt='бро давай название на smeta поменяем назад')
+        self.assertEqual(models, [lab_models.LUNA, lab_models.LUNA])
+        self.assertEqual(updated.bruno_report['routing']['reason'], 'Смена названия')
 
     @override_settings(LAB_RAW_AI_TEST_MODE=False)
     def test_cached_luna_result_is_not_reused_when_analysis_selects_sol(self):

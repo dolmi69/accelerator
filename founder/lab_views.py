@@ -372,7 +372,7 @@ def _lab_execute(request, startup, source, form):
     if raw:
         context['mode'] = 'generated_backend' if kind == LabSiteVersion.Kind.GENERATED else 'raw_static_experiment'
     # An experiment must invoke the model even for identical prompts.
-    model_route = lab_models.generation_route(source, automatic, kind=kind, rebuild=form.cleaned_data['rebuild'])
+    model_route = lab_models.generation_route(source, automatic, kind=kind, rebuild=form.cleaned_data['rebuild'], prompt=prompt)
     key = None if raw else generation_key(startup, source, prompt, kind, scope, rebuild, chosen, context,
                                          code_model=model_route['model'] if model_route else None)
     cached = startup.lab_versions.filter(generation_key=key).first() if key else None
