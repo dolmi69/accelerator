@@ -18,7 +18,7 @@ from founder.services.backend_modules import MODULES, OPTIONAL_MODULES
 from founder.services.site_editor import customize
 from founder.services.lab_bruno import request_policy, protect_service_secrets
 
-GENERATOR_REVISION = 'forge-raw-experiment-v4'
+GENERATOR_REVISION = 'forge-scoped-edits-v5'
 DESIGN_GUIDE = Path(__file__).resolve().parent.parent / 'design_guides' / 'qwen_frontend.md'
 LUNA_GUIDE = DESIGN_GUIDE.with_name('luna_frontend.md')
 
@@ -138,7 +138,7 @@ def generate_site(prompt, *, previous_html="", max_tokens=None, backend=False, e
     raw = settings.LAB_RAW_AI_TEST_MODE
     if raw:
         backend = False
-    patching = bool(previous_html) and not rebuild and not raw
+    patching = bool(previous_html) and not rebuild
     working_html = previous_html if raw else model_source(previous_html)
     cap = settings.LAB_PATCH_MAX_TOKENS if patching else settings.LAB_CREATE_MAX_TOKENS
     limit = min(cap, settings.QWEN_CODE_MAX_TOKENS, max_tokens or settings.QWEN_CODE_MAX_TOKENS)

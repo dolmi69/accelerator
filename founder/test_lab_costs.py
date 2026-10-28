@@ -103,10 +103,10 @@ class CostTests(TestCase):
 
     @override_settings(LAB_UNRESTRICTED_TEST_MODE=True, LAB_RAW_AI_TEST_MODE=True,
                        QWEN_CODE_MAX_TOKENS=128000, LAB_CREATE_MAX_TOKENS=128000)
-    def test_large_raw_document_is_accepted_and_provider_cap_is_passed(self):
+    def test_large_raw_explicit_rebuild_is_accepted_and_provider_cap_is_passed(self):
         large = '<!doctype html><html><head><title>Test</title></head><body>' + (' ' * 130000) + '<p>Done</p></body></html>'
         with patch('founder.services.site_generator.generate_code', return_value=CodeResult(large, MODEL, 10, 20)) as provider:
-            result = generate_site('Обнови сайт', previous_html=large)
+            result = generate_site('Обнови сайт', previous_html=large, rebuild=True)
         self.assertEqual(result.text, large)
         self.assertEqual(provider.call_args.kwargs['max_tokens'], 128000)
         with override_settings(LAB_UNRESTRICTED_TEST_MODE=False):

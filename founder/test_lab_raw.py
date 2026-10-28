@@ -21,24 +21,28 @@ class RawLabTests(TestCase):
     def answer(self):
         return CodeResult(json.dumps({'html': HTML, 'report': REPORT}), MODEL, 900, 600)
 
+    def patch_answer(self):
+        return CodeResult(json.dumps({'changes':[{'target':'full','find':'body{color:#222}',
+            'replace':'body{color:#333;font-family:Arial}'}], 'report':REPORT}), MODEL, 100, 100)
+
     def post(self, prompt, **extra):
         return self.client.post(reverse('lab_generate', args=[self.startup.pk]), {'prompt':prompt, **extra})
 
-    def test_no_examples_assets_or_patch_and_full_source_is_sent(self):
-        with patch('founder.services.site_generator.component_prompt') as components, patch('founder.services.site_generator.enhance_interactions') as interactions, patch('founder.services.site_generator.generate_code', return_value=self.answer()) as api:
+    def test_followup_uses_exact_patch_without_examples_or_platform_tools(self):
+        with patch('founder.services.site_generator.component_prompt') as components, patch('founder.services.site_generator.enhance_interactions') as interactions, patch('founder.services.site_generator.generate_code', return_value=self.patch_answer()) as api:
             result = generate_site('Добавь FAQ', previous_html=HTML, backend=True, report=True, project_context={'modules': ['accounts', 'booking']})
         components.assert_not_called()
         interactions.assert_not_called()
-        self.assertEqual(result.text, HTML)
-        self.assertEqual(result.edit_method, 'full')
+        self.assertEqual(result.text, HTML.replace('body{color:#222}','body{color:#333;font-family:Arial}'))
+        self.assertEqual(result.edit_method, 'patch')
         self.assertEqual(result.add_modules, ())
-        self.assertIn(HTML, [m['content'] for m in api.call_args.args[1]])
-        self.assertNotIn('changes', api.call_args.args[0])
+        self.assertEqual(json.loads(api.call_args.args[1][-1]['content'])['fragments'][0]['html'], HTML)
+        self.assertIn('changes', api.call_args.args[0])
         self.assertNotIn('data-forge-components', result.text)
 
     def test_repeated_requests_call_model_each_time_no_local_dispatch_or_cache(self):
         source = LabSiteVersion.objects.create(startup=self.startup, html=HTML, prompt='Исходник', model='local-editor', presentation={'font':'serif'})
-        with patch('founder.services.site_generator.generate_code', return_value=self.answer()) as api:
+        with patch('founder.services.site_generator.generate_code', return_value=self.patch_answer()) as api:
             for _ in range(2):
                 self.assertEqual(self.post('Измени шрифт', source_version=source.pk).status_code, 302)
         self.assertEqual(api.call_count, 2)

@@ -107,7 +107,10 @@ def _generate_full_backend(prompt, *, source=None, context=None):
         request_ids=(result.request_id,) if result.request_id else (), edit_method='full')
 
 
-def generate_backend(prompt, *, source=None, context=None, checkpoint=None):
+def generate_backend(prompt, *, source=None, context=None, checkpoint=None, rebuild=False):
+    if source and source.kind in {'generated', 'static'} and not rebuild:
+        from founder.services.backend_edits import edit_backend
+        return edit_backend(prompt, source=source, context=context)
     if settings.LAB_BACKEND_STAGED_GENERATION:
         from founder.services.backend_stages import generate_staged
         return generate_staged(prompt, source=source, context=context, checkpoint=checkpoint)

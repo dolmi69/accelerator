@@ -393,6 +393,11 @@ def _lab_execute(request, startup, source, form):
         context['task_context'] = {'id':request.POST['task_context'], 'digest':request.POST.get('_task_digest', '')}
     if automatic:
         context['interpreted_request'] = automatic['task']
+        if automatic.get('edit_files') is not None:
+            context['edit_files'] = automatic['edit_files']
+    # Raw mode used to force rebuild=True for every followup. Only an explicit
+    # rebuild control may bypass file-scoped edits of an existing application.
+    context['full_rebuild'] = bool(form.cleaned_data['rebuild'])
     if raw:
         context['mode'] = 'generated_backend' if kind == LabSiteVersion.Kind.GENERATED else 'raw_static_experiment'
     # An experiment must invoke the model even for identical prompts.
@@ -442,7 +447,8 @@ def _lab_execute(request, startup, source, form):
             chosen = normalize_modules([*chosen, *result.add_modules])
             kind = LabSiteVersion.Kind.DJANGO
         feedback = ({**result.report, 'checks': {'generation_mode': 'generated_backend',
-                    'review_mode': 'local', 'runtime_verified': False}} if kind == LabSiteVersion.Kind.GENERATED
+                    'review_mode': 'local', 'runtime_verified': False,
+                    'edit_plan':result.report.get('edit_plan')}} if kind == LabSiteVersion.Kind.GENERATED
                     else validate_result(prompt, source, result, chosen))
     except RequestLimitExceeded as exc:
         form.add_error(None, str(exc))
@@ -590,11 +596,16 @@ def _lab_discuss(request, startup, source, form):
 
 
 def _generate_design(request, startup, source, prompt, kind, scope, rebuild, chosen, context):
+    full_rebuild = context.get('full_rebuild', rebuild)
+    context = {key:value for key,value in context.items() if key != 'full_rebuild'}
     if kind == LabSiteVersion.Kind.GENERATED:
         from founder.services.generated_backend import generate_backend
         with billing_scope(request.user, startup, 'patch' if source else 'create'):
-            return generate_backend(prompt, source=source, context=context, checkpoint=(request.user.pk, startup.pk))
+            return generate_backend(prompt, source=source, context=context, checkpoint=(request.user.pk, startup.pk),
+                                    rebuild=full_rebuild)
     options = {"backend": True} if kind == LabSiteVersion.Kind.DJANGO else {}
+    if source:
+        rebuild = full_rebuild
     if scope != "auto":
         options["edit_scope"] = scope
     if rebuild:
