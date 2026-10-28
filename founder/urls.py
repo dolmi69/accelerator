@@ -1,4 +1,4 @@
-from founder import lab_job_views, history_views, hosting, auth_views as founder_auth_views
+from founder import lab_job_views, history_views, hosting, builder_views, auth_views as founder_auth_views
 from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.urls import reverse_lazy
@@ -7,6 +7,13 @@ from founder import views, workbench_views, lab_views, lab_testing_views, team_v
 
 
 urlpatterns = [
+    path('startups/<uuid:startup_id>/lab/builder/', builder_views.editor, name='lab_builder'),
+    path('startups/<uuid:startup_id>/lab/builder/draft/', builder_views.draft, name='lab_builder_draft'),
+    path('startups/<uuid:startup_id>/lab/builder/preview/', builder_views.preview, name='lab_builder_preview'),
+    path('startups/<uuid:startup_id>/lab/builder/snapshot/', builder_views.snapshot, name='lab_builder_snapshot'),
+    path('startups/<uuid:startup_id>/lab/builder/upload/', builder_views.upload, name='lab_builder_upload'),
+    path('startups/<uuid:startup_id>/lab/builder/download/', builder_views.download, name='lab_builder_download'),
+    path('startups/<uuid:startup_id>/lab/builder/assets/<uuid:asset_id>/', builder_views.asset, name='lab_builder_asset'),
     path('startups/<uuid:startup_id>/lab/hosting/', hosting.manage, name='lab_hosting'),
     path('auth/csrf/', founder_auth_views.csrf_token, name='auth_csrf_token'),
     path('startups/<uuid:startup_id>/daily-plan/', views.daily_plan_generate, name='daily_plan_generate'),

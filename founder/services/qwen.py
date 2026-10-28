@@ -47,6 +47,7 @@ class CodeResult:
     intent: dict | None = None
     add_modules: tuple = ()
     backend_files: dict = field(default_factory=dict)
+    builder_document: dict = field(default_factory=dict)
 
 
 class StreamInterrupted(QwenError):

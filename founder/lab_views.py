@@ -80,7 +80,7 @@ def _version(startup, value):
 
 
 def _model_label(model):
-    return {'local-editor': 'Без AI', 'openai/gpt-6-luna': 'GPT‑6 Luna',
+    return {'visual-builder': 'Визуальный конструктор', 'local-editor': 'Без AI', 'openai/gpt-6-luna': 'GPT‑6 Luna',
             'openai/gpt-6.1-sol': 'GPT‑6.1 Sol',
             'anthropic/claude-sonnet-5.5': 'Claude Sonnet 5.5'}.get(model, model)
 
@@ -176,7 +176,7 @@ def _lab_page(request, startup, form=None, *, status=200):
         "selected": selected,
         "lab_reply": reply,
         "lab_reply_key": reply_key if selected or status >= 400 else '',
-        "lab_reply_mascot": {"mood": reply["mood"], "get_mood_display": "готов помочь"},
+        "lab_reply_mascot": {"mood": reply.get("mood", "confident"), "get_mood_display": "готов помочь"},
         "design_pending": design_pending(selected) and not settings.LAB_RAW_AI_TEST_MODE,
         "large_design": bool(selected and len(selected.html.encode('utf-8')) > 18_000),
         "versions": versions,
@@ -242,7 +242,7 @@ def lab_generate(request, startup_id):
 
     if request.POST.get("start_new"):
         source = None
-    if source and not form.cleaned_data['rebuild']:
+    if source and not getattr(source, 'builder_document', {}) and not form.cleaned_data['rebuild']:
         from founder.services.site_names import rename_site
         from founder.services.lab_task_history import validate_context
         try:
@@ -343,6 +343,8 @@ def _lab_execute(request, startup, source, form):
            or form.cleaned_data['kind'] == LabSiteVersion.Kind.GENERATED)
     kind = (LabSiteVersion.Kind.GENERATED if form.cleaned_data['kind'] == LabSiteVersion.Kind.GENERATED
             else LabSiteVersion.Kind.STATIC if raw else form.cleaned_data["kind"])
+    if source and getattr(source, 'builder_document', {}):
+        kind, raw = LabSiteVersion.Kind.STATIC, False
     chosen = [] if raw else source.backend_modules if source and source.kind == 'django' else normalize_modules() if kind == 'django' else []
     if not raw and request.POST.get('modules_selected'):
         module_form = LabBackendModulesForm(request.POST)
@@ -356,7 +358,7 @@ def _lab_execute(request, startup, source, form):
             chosen = []
     scope = "auto" if raw else form.cleaned_data["edit_scope"] or "auto"
     rebuild = True if raw else form.cleaned_data["rebuild"]
-    rename = text_command(prompt) if source and scope == 'auto' and not rebuild and not simple_command(prompt) else None
+    rename = text_command(prompt) if source and not getattr(source, 'builder_document', {}) and scope == 'auto' and not rebuild and not simple_command(prompt) else None
     if rename and chosen == source.backend_modules:
         old, new = rename
         replacements = dict(source.presentation.get('text_replacements', {}))
@@ -382,7 +384,7 @@ def _lab_execute(request, startup, source, form):
         version = _customized_version(startup, source, presentation, prompt, kind)
         messages.success(request, f'Надпись заменена на «{new}» без AI: 0 токенов.')
         return _reply_redirect(request, startup, version, source)
-    modules_command = module_command(prompt) if scope == 'auto' and not rebuild else None
+    modules_command = module_command(prompt) if not (source and getattr(source, 'builder_document', {})) and scope == 'auto' and not rebuild else None
     if modules_command:
         chosen = normalize_modules([*chosen,*modules_command])
         version = _backend_version(startup,source,chosen,prompt)
@@ -409,7 +411,7 @@ def _lab_execute(request, startup, source, form):
     if cached:
         messages.success(request, "Открыли уже сохранённый результат. Новый AI-запрос не понадобился.")
         return _reply_redirect(request, startup, cached, source, cached=True)
-    local = simple_command(prompt) if source and scope == "auto" and not rebuild else None
+    local = simple_command(prompt) if source and not getattr(source, 'builder_document', {}) and scope == "auto" and not rebuild else None
     if local and (not source or chosen == source.backend_modules):
         version = _customized_version(startup, source, {**source.presentation, **local}, prompt, kind, key)
         _log_version(request, startup, source, version)
@@ -447,10 +449,13 @@ def _lab_execute(request, startup, source, form):
         if result.add_modules:
             chosen = normalize_modules([*chosen, *result.add_modules])
             kind = LabSiteVersion.Kind.DJANGO
-        feedback = ({**result.report, 'checks': {'generation_mode': 'generated_backend',
-                    'review_mode': 'local', 'runtime_verified': False,
-                    'edit_plan':result.report.get('edit_plan')}} if kind == LabSiteVersion.Kind.GENERATED
-                    else validate_result(prompt, source, result, chosen))
+        if getattr(result, 'builder_document', {}):
+            feedback = result.report
+        elif kind == LabSiteVersion.Kind.GENERATED:
+            feedback = {**result.report, 'checks': {'generation_mode': 'generated_backend',
+                'review_mode': 'local', 'runtime_verified': False, 'edit_plan': result.report.get('edit_plan')}}
+        else:
+            feedback = validate_result(prompt, source, result, chosen)
     except RequestLimitExceeded as exc:
         form.add_error(None, str(exc))
         return _lab_page(request, startup, form, status=429)
@@ -487,11 +492,22 @@ def _lab_execute(request, startup, source, form):
         html=result.text, model=result.model,
         input_tokens=result.input_tokens, output_tokens=result.output_tokens,
         generation_key=key, edit_method=result.edit_method,
-        presentation=presentation, backend_modules=chosen, backend_files=result.backend_files, feedback=feedback,
+        presentation=presentation, backend_modules=chosen, backend_files=result.backend_files, builder_document=getattr(result, 'builder_document', {}), feedback=feedback,
         routing=model_route,
     )
     if result.request_id or result.request_ids:
         LabAIUsage.objects.filter(pk__in=result.request_ids or (result.request_id,), user=request.user, startup=startup).update(version=version)
+    if version.builder_document and source:
+        from founder.models import LabBuilderDraft
+        # Advance the editor only when it still represents the exact AI source.
+        # A newer manual draft is never replaced by an asynchronous AI response.
+        with transaction.atomic():
+            StartupProfile.objects.select_for_update().get(pk=startup.pk)
+            draft = LabBuilderDraft.objects.filter(startup=startup, saved_version=source).first()
+            if draft and draft.document == getattr(source, 'builder_document', {}):
+                draft.document, draft.saved_version = version.builder_document, version
+                draft.revision += 1
+                draft.save()
     _log_version(request, startup, source, version)
     messages.success(request, "Готовая правка применена; генерация кода не понадобилась." if intent else "Правка сохранена. Отчёт Бруно — в истории сообщений.")
     return redirect("lab", startup_id=startup.pk)
@@ -597,6 +613,10 @@ def _lab_discuss(request, startup, source, form):
 
 
 def _generate_design(request, startup, source, prompt, kind, scope, rebuild, chosen, context):
+    if source and getattr(source, 'builder_document', {}):
+        from founder.services.builder_ai import generate
+        with billing_scope(request.user, startup, 'patch'):
+            return generate(prompt, source)
     full_rebuild = context.get('full_rebuild', rebuild)
     context = {key:value for key,value in context.items() if key != 'full_rebuild'}
     if kind == LabSiteVersion.Kind.GENERATED:
@@ -654,6 +674,9 @@ def lab_customize(request, startup_id):
     if settings.LAB_RAW_AI_TEST_MODE:
         return JsonResponse({'error': 'Готовые настройки отключены на время сырого тестирования. Отправьте изменение модели.'}, status=409)
     source = _version(startup, request.POST.get("source_version"))
+    if source.builder_document:
+        messages.info(request, 'Оформление этой версии меняется в визуальном конструкторе.')
+        return redirect(reverse('lab_builder', args=[startup.pk]) + '?version=' + str(source.pk))
     form = LabCustomizeForm(request.POST)
     if not form.is_valid():
         messages.error(request, "Проверьте название и параметры оформления.")
@@ -798,6 +821,9 @@ def lab_stop(request, startup_id):
 def lab_preview(request, startup_id, version_id):
     startup = _owned_startup(request, startup_id, edit=False)
     version = get_object_or_404(startup.lab_versions, pk=version_id)
+    if version.builder_document:
+        from founder.builder_views import version_preview
+        return version_preview(request, startup, version)
     return preview_response(version.html, exit_viewer=True)
 
 

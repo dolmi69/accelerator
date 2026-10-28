@@ -4,10 +4,11 @@
 {% block extra_css %}
     <link rel="stylesheet"
           href="{% static 'founder/css/bruno-forge.css' %}?v=2">
-    <link rel="stylesheet" href="{% static 'founder/css/lab-studio.css' %}?v=hosting-20261028">
+    <link rel="stylesheet" href="{% static 'founder/css/lab-studio.css' %}?v=builder-20261028">
 {% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
+
 
     <div class="lab-section-panel"
          data-lab-panel="development"
@@ -323,6 +324,12 @@
         <section class="card lab-preview-card"
                  id="lab-preview-pane"
                  aria-label="Сайт проекта">
+    {% if startup.user_role != 'viewer' %}
+        <a class="lab-builder-entry" href="{% url 'lab_builder' startup.pk %}{% if selected %}?version={{ selected.pk }}{% endif %}">
+            <span aria-hidden="true">▦</span><strong>Визуальный конструктор</strong>
+            <span>Страницы, блоки и ваши изображения</span><b aria-hidden="true">↗</b>
+        </a>
+    {% endif %}
             {% if selected %}
                 <dialog class="lab-viewer" id="lab-viewer" aria-label="Сайт проекта">
                     <div class="lab-viewer-toolbar">
@@ -367,7 +374,7 @@
                                 id="lab-site-frame"
                                 title="Предпросмотр сайта для проекта {{ startup.name }}"
                                 {% if selected.is_backend and runtime_available %}hidden{% else %}src="{% url 'lab_preview' startup.id selected.id %}"{% endif %}
-                                sandbox="allow-scripts"
+                                sandbox="{% if selected.builder_document %}allow-same-origin{% else %}allow-scripts{% endif %}"
                                 referrerpolicy="no-referrer"></iframe>
                         </div>
                     </div>

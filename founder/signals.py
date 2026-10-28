@@ -2,7 +2,7 @@
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from founder.models import DirectAttachment, HostedSite, User
+from founder.models import DirectAttachment, HostedSite, LabBuilderAsset, User
 
 
 @receiver(post_delete, sender=DirectAttachment)
@@ -31,3 +31,11 @@ def stop_deleted_hosted_site(sender, instance, **kwargs):
         except Exception:
             logging.getLogger(__name__).exception('Could not stop deleted hosted site %s', instance.slug)
     transaction.on_commit(cleanup)
+
+
+@receiver(post_delete, sender=LabBuilderAsset)
+def delete_builder_asset_file(sender, instance, **kwargs):
+    from django.db import transaction
+    if instance.image:
+        storage, name = instance.image.storage, instance.image.name
+        transaction.on_commit(lambda: storage.delete(name))

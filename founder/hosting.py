@@ -20,7 +20,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.http import Http404, HttpResponse, HttpResponseBadRequest
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -111,6 +111,13 @@ def manage(request, startup_id):
             if version.kind == 'generated':
                 validate_files(version.backend_files)
             else:
+                if version.builder_document:
+                    from founder.builder_views import validate
+                    from founder.services.visual_builder import DocumentError
+                    try:
+                        validate(startup, version.builder_document)
+                    except DocumentError as error:
+                        raise BuilderError(str(error)) from error
                 protect_service_secrets(version.html)
                 if not version.html.strip() or len(version.html.encode()) > 2_000_000:
                     raise BuilderError('В версии отсутствует готовый HTML-сайт.')
@@ -153,9 +160,13 @@ def manage(request, startup_id):
                         except Exception:
                             logger.exception('Could not restore hosted runtime %s', site.slug)
                     raise
+        if request.headers.get('Accept') == 'application/json':
+            return JsonResponse({'url': site_url(site), 'active': site.active, 'version': str(site.version_id or '')})
         messages.success(request, 'Сайт снят с публикации. Адрес и данные сохранены.' if action == 'stop' else 'Сайт опубликован. Ссылку можно открыть без аккаунта BrunoLab.')
     except (BuilderError, QwenOutputError, RequestLimitExceeded, TimeoutError, OSError, subprocess.SubprocessError) as error:
         logger.warning('Hosting publication failed for %s: %s', startup.pk, type(error).__name__)
+        if request.headers.get('Accept') == 'application/json':
+            return JsonResponse({'error': str(error) if isinstance(error, (BuilderError, QwenOutputError, RequestLimitExceeded)) else 'Не удалось опубликовать сайт.'}, status=429 if isinstance(error, RequestLimitExceeded) else 400)
         messages.error(request, str(error) if isinstance(error, (BuilderError, QwenOutputError, RequestLimitExceeded)) else 'Не удалось опубликовать сайт. Повторите попытку позже.')
     return redirect(destination)
 
@@ -250,6 +261,33 @@ class HostedSiteMiddleware:
             logger.exception('Hosted request failed: %s', slug)
             return error_response(503, 'Сайт временно недоступен. Попробуйте позже.')
 
+    def serve_builder(self, request, site):
+        from founder.services import visual_builder as builder
+        from founder.builder_views import asset_response
+        from founder.models import LabBuilderAsset
+        document = site.version.builder_document
+        match = re.fullmatch(r'/assets/uploads/([0-9a-f-]{36})\.webp', request.path)
+        if match:
+            key = match.group(1)
+            if key not in builder.asset_ids(document):
+                return error_response(404, 'Изображение не опубликовано.')
+            item = LabBuilderAsset.objects.filter(startup_id=site.startup_id, pk=key).first()
+            if not item:
+                return error_response(404, 'Изображение не найдено.')
+            return secured(asset_response(item, head=request.method == 'HEAD'))
+        canonical = next((builder.page_path(p) for p in document['pages'] if p['slug'] and request.path == builder.page_path(p).rstrip('/')), None)
+        if canonical:
+            return secured(redirect(canonical, permanent=True))
+        page = next((p for p in document['pages'] if request.path in {builder.page_path(p), builder.page_path(p) + 'index.html'}), None)
+        if not page:
+            return error_response(404, 'Страница не найдена.')
+        response = HttpResponse(builder.render_document(document, page['id']), content_type='text/html; charset=utf-8')
+        add_branding(response)
+        response['Content-Length'] = len(response.content)
+        if request.method == 'HEAD':
+            response.content = b''
+        return secured(response)
+
     def serve(self, request, slug):
         site = HostedSite.objects.select_related('version', 'startup__owner').filter(
             slug=slug, active=True, version__isnull=False, startup__owner__is_active=True).first()
@@ -271,6 +309,8 @@ class HostedSiteMiddleware:
         if site.version.kind == 'static':
             if request.method not in {'GET', 'HEAD'}:
                 return error_response(405, 'Это статический сайт.')
+            if site.version.builder_document:
+                return self.serve_builder(request, site)
             if request.path not in {'/', '/index.html'}:
                 return error_response(404, 'Страница не найдена.')
             content = site.version.html.encode()

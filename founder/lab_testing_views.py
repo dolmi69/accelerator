@@ -99,6 +99,9 @@ def lab_public_preview(request, startup_id, version_id):
         response['Cache-Control'] = 'no-store'
         response['Content-Security-Policy'] = "default-src 'self'; frame-src http://*.localhost:*; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'"
         return response
+    if publication.version.builder_document:
+        from founder.services.builder_preview import render as render_builder
+        return preview_response(render_builder(publication.version))
     return preview_response(publication.version.html)
 
 
@@ -154,7 +157,11 @@ def lab_test_preview(request, startup_id, session_id):
     _, session = _session(request, startup_id, session_id)
     if session.finished_at or timezone.now() - session.created_at > timedelta(minutes=30):
         raise Http404('Тест уже завершён')
-    return preview_response(session.version.html, channel=str(session.pk), parent_origin=request.build_absolute_uri('/').rstrip('/'))
+    html = session.version.html
+    if session.version.builder_document:
+        from founder.services.builder_preview import render as render_builder
+        html = render_builder(session.version)
+    return preview_response(html, channel=str(session.pk), parent_origin=request.build_absolute_uri('/').rstrip('/'))
 
 
 def _json(request):

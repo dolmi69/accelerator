@@ -1,0 +1,44 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Конструктор · {{ startup.name }} · BrunoLab{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'founder/css/visual-builder.css' %}?v=20261028-3">{% endblock %}
+{% block content %}
+<div id="visual-builder" class="vb" data-panel="content">
+    <header class="vb-top">
+        <a class="vb-back" href="{% url 'lab' startup.pk %}" aria-label="Вернуться в лабораторию"><span aria-hidden="true">←</span><img src="{% static 'founder/img/branding/bruno-logo-96.png' %}" alt=""><span>Bruno<span class="vb-teal">Lab</span></span></a>
+        <span class="vb-divider"></span><div class="vb-project"><strong>{{ startup.name }}</strong><span>Визуальный конструктор</span></div>
+        <span id="vb-save-status" class="vb-status" role="status"><i></i>Все изменения сохранены</span>
+        <div class="vb-top-actions"><button type="button" class="vb-btn vb-preview" data-action="preview"><span aria-hidden="true">▷</span> Просмотр</button><button type="button" class="vb-btn" data-action="snapshot">Сохранить версию</button><button type="button" class="vb-btn vb-primary" data-action="publish">Опубликовать <span aria-hidden="true">↗</span></button></div>
+    </header>
+    <div class="vb-toolbar">
+        <div class="vb-toolbar-start"><button class="vb-icon vb-mobile-only" data-action="pages" aria-label="Страницы и блоки">☷</button><span class="vb-workspace-label">СОБИРАЕМ ВАШУ ИДЕЮ</span><span class="vb-page-title" id="vb-page-title"></span></div>
+        <div class="vb-device" role="group" aria-label="Размер экрана"><button data-device="desktop" class="active" aria-pressed="true" title="Компьютер"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/></svg><span>Компьютер</span></button><button data-device="mobile" aria-pressed="false" title="Телефон"><svg viewBox="0 0 24 24" fill="none"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/></svg><span>Телефон</span></button></div>
+        <div class="vb-history"><span id="vb-zoom">100%</span><button class="vb-icon" data-action="undo" title="Отменить · ⌘Z" aria-label="Отменить">↶</button><button class="vb-icon" data-action="redo" title="Повторить · ⌘⇧Z" aria-label="Повторить">↷</button><button class="vb-icon vb-mobile-only" data-action="settings" aria-label="Настройки блока">☷</button></div>
+    </div>
+    <div class="vb-workarea">
+        <aside class="vb-left" aria-label="Страницы и структура">
+            <div class="vb-panel-heading"><span>Страницы <b id="vb-page-count"></b></span><button class="vb-icon" data-action="add-page" title="Добавить страницу" aria-label="Добавить страницу">＋</button></div>
+            <div id="vb-pages" class="vb-pages"></div>
+            <div class="vb-outline-head"><span>БЛОКИ СТРАНИЦЫ</span><span id="vb-block-count"></span></div>
+            <div id="vb-layers" class="vb-layers"></div>
+            <div class="vb-left-bottom"><button type="button" class="vb-btn vb-add-block" data-action="catalog">＋ Добавить блок</button><p>Перетаскивайте блоки,<br>чтобы менять их порядок</p><div class="vb-shortcuts"><kbd>⌘ Z</kbd> Отменить <span>·</span> <kbd>⌘ S</kbd> Сохранить</div></div>
+        </aside>
+        <section class="vb-canvas" aria-label="Холст сайта">
+            <div class="vb-canvas-label"><span class="vb-live-dot"></span><span id="vb-canvas-address">Главная /</span><button class="vb-icon" data-action="page-settings" aria-label="Настройки страницы" title="Название и адрес страницы">⚙</button></div>
+            <div class="vb-stage" id="vb-stage"><div class="vb-scaled" id="vb-scaled"><iframe id="vb-frame" title="Редактируемая страница сайта" sandbox="allow-same-origin"></iframe></div><div id="vb-loading" class="vb-loading">Готовим ваш холст…</div></div>
+            <div class="vb-canvas-bottom"><span>Кликните по тексту, чтобы редактировать его прямо на странице</span><button data-action="catalog">＋ Блок</button></div>
+        </section>
+        <aside class="vb-right" aria-label="Настройки">
+            <div class="vb-inspector-tabs" role="tablist" aria-label="Настройки сайта"><button data-inspector="content" role="tab" class="active" aria-selected="true">Контент</button><button data-inspector="style" role="tab" aria-selected="false">Дизайн</button><button data-inspector="theme" role="tab" aria-selected="false">Сайт</button></div>
+            <div id="vb-inspector" class="vb-inspector"></div>
+            <div class="vb-inspector-footer"><span class="vb-live-dot"></span>Ваш сайт. Ваши правила.</div>
+        </aside>
+    </div>
+    <div id="vb-toast" class="vb-toast" role="status" aria-live="polite" hidden></div>
+    <div id="vb-error" class="vb-error" role="alert" hidden><span></span><button data-action="backup">Скачать копию</button><button data-action="retry">Повторить</button></div>
+    <dialog id="vb-dialog" class="vb-dialog"><div class="vb-dialog-top"><div><span class="vb-eyebrow" id="vb-dialog-eyebrow"></span><h2 id="vb-dialog-title"></h2></div><button class="vb-icon" data-action="close-dialog" aria-label="Закрыть">×</button></div><div id="vb-dialog-body"></div></dialog>
+    <input type="file" id="vb-upload" accept="image/jpeg,image/png,image/webp" hidden>
+    <div hidden>{% csrf_token %}</div>
+</div>
+{{ builder_config|json_script:'visual-builder-config' }}
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/visual-builder.js' %}?v=20261028-3" defer></script>{% endblock %}

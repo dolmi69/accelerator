@@ -76,6 +76,8 @@ def decide(startup, source, prompt):
         'last_change': source.prompt[:2000] if source else '',
         'last_report': str(source.bruno_report)[:3000] if source else '',
     }
+    if source and getattr(source, 'builder_document', {}):
+        payload['visual_builder'] = {'pages': [{'id': p['id'], 'title': p['title'], 'slug': p['slug'], 'blocks': [{'id': b['id'], 'type': b['type'], 'title': b['props'].get('title', '')[:150]} for b in p['blocks']]} for p in source.builder_document['pages']]}
     if files:
         per_file = max(800, 16000 // len(files))
         payload['file_inventory'] = [{'path':name,'characters':len(content)} for name,content in files.items()]

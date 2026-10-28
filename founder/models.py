@@ -269,6 +269,7 @@ class LabSiteVersion(models.Model):
     presentation = models.JSONField(default=dict, blank=True)
     backend_modules = models.JSONField(default=list, blank=True)
     backend_files = models.JSONField(default=dict, blank=True)
+    builder_document = models.JSONField(default=dict, blank=True)
     generation_key = models.CharField(max_length=64, unique=True, null=True, blank=True)
     edit_method = models.CharField(max_length=20, default="full")
     html = models.TextField(max_length=128000)
@@ -293,6 +294,32 @@ class HostedSite(models.Model):
     active = models.BooleanField(default=False)
     published_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class LabBuilderDraft(models.Model):
+    """Collaborative visual-editor draft; immutable releases remain LabSiteVersions."""
+    startup = models.OneToOneField(StartupProfile, on_delete=models.CASCADE, related_name='builder_draft')
+    document = models.JSONField(default=dict)
+    revision = models.PositiveIntegerField(default=1)
+    saved_version = models.ForeignKey(LabSiteVersion, null=True, blank=True, on_delete=models.SET_NULL)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class LabBuilderAsset(models.Model):
+    """Private, decoded and re-encoded raster images, scoped to one project."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='builder_assets')
+    image = models.FileField(upload_to='builder/')
+    name = models.CharField(max_length=160)
+    width = models.PositiveIntegerField()
+    height = models.PositiveIntegerField()
+    size = models.PositiveIntegerField()
+    digest = models.CharField(max_length=64)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [models.UniqueConstraint(fields=['startup', 'digest'], name='builder_asset_project_digest')]
 
 
 class LabConversationTurn(models.Model):

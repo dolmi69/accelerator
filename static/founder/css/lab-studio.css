@@ -166,3 +166,5 @@
   .lab-hosting-link a { flex-basis: 100%; }
   .lab-hosting-actions, .lab-hosting-actions form, .lab-hosting-actions .button { width: 100%; }
 }
+
+.lab-builder-entry{display:flex;flex-shrink:0;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--tint-soft);color:var(--teal);text-decoration:none;font-size:11px}.lab-builder-entry>span:first-child{font-size:18px}.lab-builder-entry>span:nth-child(3){color:var(--muted);font-size:10px}.lab-builder-entry b{margin-left:auto}.lab-builder-entry:hover{background:var(--tint)}@media(max-width:600px){.lab-builder-entry>span:nth-child(3){display:none}}
