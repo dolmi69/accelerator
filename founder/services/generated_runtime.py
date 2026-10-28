@@ -130,15 +130,25 @@ def start(version, *, launcher_origin=None, return_path=None, selection_token=No
         data = project / 'data'
         data.mkdir(exist_ok=True)
         database = data / 'data.sqlite3'
-        if not database.exists() and version.source_id and version.source.kind == 'generated':
-            source_db = _directory(runtime_id) / 'generated-projects' / str(version.source_id) / 'data' / 'data.sqlite3'
-            if source_db.is_file():
-                with sqlite3.connect(f'{source_db.as_uri()}?mode=ro', uri=True) as source_connection, sqlite3.connect(database) as target:
-                    source_connection.backup(target)
+        if not database.exists():
+            # An owner may save several manual versions before running one.
+            # Find the nearest launched ancestor instead of starting an empty DB.
+            ancestor = version.source
+            seen = set()
+            while ancestor and ancestor.kind == 'generated' and ancestor.pk not in seen and len(seen) < 100:
+                seen.add(ancestor.pk)
+                source_db = _directory(runtime_id) / 'generated-projects' / str(ancestor.pk) / 'data' / 'data.sqlite3'
+                if source_db.is_file():
+                    with sqlite3.connect(f'{source_db.as_uri()}?mode=ro', uri=True) as source_connection, sqlite3.connect(database) as target:
+                        source_connection.backup(target)
+                    break
+                ancestor = ancestor.source
         for name, content in files.items():
             target = project / name
             target.parent.mkdir(exist_ok=True)
             target.write_text(content, encoding='utf-8')
+        from founder.services.manual_assets import stage as stage_manual_assets
+        stage_manual_assets(version, project)
         shutil.copyfile(Path(__file__).with_name('generated_worker.py'), project / 'start.py')
         with socket.socket() as probe:
             probe.bind(('127.0.0.1', 0))

@@ -322,6 +322,16 @@ class LabBuilderAsset(models.Model):
         constraints = [models.UniqueConstraint(fields=['startup', 'digest'], name='builder_asset_project_digest')]
 
 
+class LabManualDraft(models.Model):
+    """Literal visual changes against an immutable AI source, separate from block drafts."""
+    startup = models.ForeignKey(StartupProfile, on_delete=models.CASCADE, related_name='manual_drafts')
+    source = models.OneToOneField(LabSiteVersion, on_delete=models.CASCADE, related_name='manual_draft')
+    changes = models.JSONField(default=dict)
+    revision = models.PositiveIntegerField(default=1)
+    saved_version = models.ForeignKey(LabSiteVersion, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class LabConversationTurn(models.Model):
     """Discussion never creates a website version; references its viewed source."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

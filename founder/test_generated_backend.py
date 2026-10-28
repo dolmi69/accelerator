@@ -120,6 +120,10 @@ class GeneratedBackendTests(TestCase):
                 child = LabSiteVersion.objects.create(startup=self.startup, source=version, kind='generated', html=HTML, backend_files=FILES, model='test')
                 url = start(child, launcher_origin='http://127.0.0.1:8000')
                 self.assertEqual(httpx.get(url+'api/items', trust_env=False).json(), [['persisted']])
+                skipped = LabSiteVersion.objects.create(startup=self.startup, source=child, kind='generated', html=HTML, backend_files=FILES, model='manual-editor')
+                latest = LabSiteVersion.objects.create(startup=self.startup, source=skipped, kind='generated', html=HTML, backend_files=FILES, model='manual-editor')
+                url = start(latest, launcher_origin='http://127.0.0.1:8000')
+                self.assertEqual(httpx.get(url+'api/items', trust_env=False).json(), [['persisted']])
                 parent_db = Path(directory)/'.runtime/lab-backends'/str(self.startup.pk)/'generated-projects'/str(version.pk)/'data/data.sqlite3'
                 with sqlite3.connect(parent_db) as db:
                     self.assertEqual(db.execute('SELECT name FROM items').fetchall(), [('persisted',)])

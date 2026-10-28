@@ -80,7 +80,7 @@ def _version(startup, value):
 
 
 def _model_label(model):
-    return {'visual-builder': 'Визуальный конструктор', 'local-editor': 'Без AI', 'openai/gpt-6-luna': 'GPT‑6 Luna',
+    return {'manual-editor': 'Ручной редактор', 'visual-builder': 'Визуальный конструктор', 'local-editor': 'Без AI', 'openai/gpt-6-luna': 'GPT‑6 Luna',
             'openai/gpt-6.1-sol': 'GPT‑6.1 Sol',
             'anthropic/claude-sonnet-5.5': 'Claude Sonnet 5.5'}.get(model, model)
 
@@ -645,6 +645,9 @@ def _generate_design(request, startup, source, prompt, kind, scope, rebuild, cho
 
 def _create_version(*, report=None, feedback=None, routing=None, **fields):
     version = LabSiteVersion(**fields)
+    if '/assets/bruno-images/' in version.html or any('/assets/bruno-images/' in text for text in version.backend_files.values()):
+        from founder.services.manual_assets import presentation as asset_presentation
+        version.presentation = asset_presentation(version.startup, version.html, version.backend_files, version.presentation)
     version.bruno_report = report if report is not None else reviewed_reply(version, feedback) if feedback else version_reply(version)
     if routing:
         version.bruno_report = {**version.bruno_report, 'routing': routing}
@@ -824,7 +827,8 @@ def lab_preview(request, startup_id, version_id):
     if version.builder_document:
         from founder.builder_views import version_preview
         return version_preview(request, startup, version)
-    return preview_response(version.html, exit_viewer=True)
+    from founder.services.manual_assets import inline as inline_manual_assets
+    return preview_response(inline_manual_assets(version, version.html), exit_viewer=True)
 
 
 @lru_cache(maxsize=1)

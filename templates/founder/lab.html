@@ -4,7 +4,7 @@
 {% block extra_css %}
     <link rel="stylesheet"
           href="{% static 'founder/css/bruno-forge.css' %}?v=2">
-    <link rel="stylesheet" href="{% static 'founder/css/lab-studio.css' %}?v=builder-20261028">
+    <link rel="stylesheet" href="{% static 'founder/css/lab-studio.css' %}?v=manual-20261029">
 {% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
@@ -325,9 +325,9 @@
                  id="lab-preview-pane"
                  aria-label="Сайт проекта">
     {% if startup.user_role != 'viewer' %}
-        <a class="lab-builder-entry" href="{% url 'lab_builder' startup.pk %}{% if selected %}?version={{ selected.pk }}{% endif %}">
+        <a class="lab-builder-entry" href="{% if selected and not selected.builder_document and selected.kind != 'django' %}{% url 'lab_manual' startup.pk selected.pk %}{% else %}{% url 'lab_builder' startup.pk %}{% if selected %}?version={{ selected.pk }}{% endif %}{% endif %}">
             <span aria-hidden="true">▦</span><strong>Визуальный конструктор</strong>
-            <span>Страницы, блоки и ваши изображения</span><b aria-hidden="true">↗</b>
+            <span>{% if selected and not selected.builder_document and selected.kind != 'django' %}Редактировать AI-сайт вручную{% else %}Страницы, блоки и ваши изображения{% endif %}</span><b aria-hidden="true">↗</b>
         </a>
     {% endif %}
             {% if selected %}

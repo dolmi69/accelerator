@@ -85,9 +85,9 @@ def main():
         if method in {'GET', 'HEAD'} and (path in {'/', '/index.html'} or path.startswith('/assets/')):
             relative = 'index.html' if path in {'/', '/index.html'} else unquote(path.lstrip('/'))
             target = (root / relative).resolve()
-            if not target.is_relative_to(root) or (relative != 'index.html' and not re.fullmatch(r'assets/[a-zA-Z0-9_-]+\.(css|js)', relative)) or not target.is_file():
+            if not target.is_relative_to(root) or (relative != 'index.html' and not re.fullmatch(r'assets/(?:[a-zA-Z0-9_-]+\.(?:css|js)|bruno-images/[0-9a-f-]{36}\.webp)', relative)) or not target.is_file():
                 return respond('404 Not Found', b'{}')
-            content_type = 'text/html; charset=utf-8' if target.suffix == '.html' else 'text/css' if target.suffix == '.css' else 'text/javascript'
+            content_type = 'text/html; charset=utf-8' if target.suffix == '.html' else 'text/css' if target.suffix == '.css' else 'image/webp' if target.suffix == '.webp' else 'text/javascript'
             secured_start('200 OK', [('Content-Type', content_type)])
             return [] if method == 'HEAD' else [target.read_bytes()]
         try:

@@ -306,6 +306,16 @@ class HostedSiteMiddleware:
             return error_response(400, 'Некорректный запрос.')
         if not 0 <= length <= 1_000_000:
             return error_response(413, 'Запрос слишком большой.')
+        if site.version.kind == 'static' and re.fullmatch(r'/assets/bruno-images/[0-9a-f-]{36}\.webp', request.path):
+            if request.method not in {'GET', 'HEAD'}:
+                return error_response(405, 'Это статический сайт.')
+            from founder.services.manual_assets import binaries
+            content = binaries(site.version).get(request.path.lstrip('/'))
+            if content is None:
+                return error_response(404, 'Изображение не опубликовано.')
+            response = HttpResponse(b'' if request.method == 'HEAD' else content, content_type='image/webp')
+            response['Content-Length'] = len(content)
+            return secured(response)
         if site.version.kind == 'static':
             if request.method not in {'GET', 'HEAD'}:
                 return error_response(405, 'Это статический сайт.')

@@ -102,7 +102,8 @@ def lab_public_preview(request, startup_id, version_id):
     if publication.version.builder_document:
         from founder.services.builder_preview import render as render_builder
         return preview_response(render_builder(publication.version))
-    return preview_response(publication.version.html)
+    from founder.services.manual_assets import inline as inline_manual_assets
+    return preview_response(inline_manual_assets(publication.version, publication.version.html))
 
 
 @login_required
@@ -157,7 +158,8 @@ def lab_test_preview(request, startup_id, session_id):
     _, session = _session(request, startup_id, session_id)
     if session.finished_at or timezone.now() - session.created_at > timedelta(minutes=30):
         raise Http404('Тест уже завершён')
-    html = session.version.html
+    from founder.services.manual_assets import inline as inline_manual_assets
+    html = inline_manual_assets(session.version, session.version.html)
     if session.version.builder_document:
         from founder.services.builder_preview import render as render_builder
         html = render_builder(session.version)

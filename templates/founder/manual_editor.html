@@ -1,0 +1,43 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Ручной редактор · {{ startup.name }}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'founder/css/visual-builder.css' %}?v=manual-2"><link rel="stylesheet" href="{% static 'founder/css/manual-editor.css' %}?v=2">{% endblock %}
+{% block content %}
+<div id="visual-builder" class="vb bm">
+    <header class="vb-top">
+        <a class="vb-back" href="{{ manual_config.labUrl }}" aria-label="Вернуться в лабораторию"><span aria-hidden="true">←</span><img src="{% static 'founder/img/branding/bruno-logo-96.png' %}" alt=""><span>Bruno<span class="vb-teal">Lab</span></span></a>
+        <span class="vb-divider"></span><div class="vb-project"><strong>{{ startup.name }}</strong><span>Ручной редактор AI-сайта</span></div>
+        <span id="bm-status" class="vb-status" role="status"><i></i>Все изменения сохранены</span>
+        <div class="vb-top-actions"><button type="button" class="vb-btn" data-action="work">Проверить работу ↗</button><button type="button" class="vb-btn" data-action="snapshot">Сохранить версию</button><button type="button" class="vb-btn vb-primary" data-action="publish">Опубликовать ↗</button></div>
+    </header>
+    <div class="vb-toolbar">
+        <div class="vb-toolbar-start"><button class="vb-icon vb-mobile-only" data-action="layers" aria-label="Структура сайта">☷</button><span class="vb-workspace-label">ВАШ AI-САЙТ · РУЧНЫЕ ПРАВКИ</span></div>
+        <div class="vb-device" role="group" aria-label="Размер экрана"><button data-device="desktop" class="active" aria-pressed="true">▱ <span>Компьютер</span></button><button data-device="mobile" aria-pressed="false">▯ <span>Телефон</span></button></div>
+        <div class="vb-history"><span id="bm-zoom"></span><button class="vb-icon" data-action="undo" aria-label="Отменить" title="Отменить · ⌘Z">↶</button><button class="vb-icon" data-action="redo" aria-label="Повторить" title="Повторить · ⌘⇧Z">↷</button><button class="vb-icon vb-mobile-only" data-action="settings" aria-label="Настройки элемента">☷</button></div>
+    </div>
+    <div class="vb-workarea">
+        <aside class="vb-left" aria-label="Элементы AI-сайта">
+            <div class="vb-panel-heading"><span>Элементы <b id="bm-count"></b></span><span class="bm-source-label">AI</span></div>
+            <div class="bm-search"><input id="bm-search" class="vb-input" placeholder="Найти текст или элемент" aria-label="Поиск элементов"></div>
+            <div class="bm-filters" role="group" aria-label="Тип элементов"><button data-filter="content" class="active">Контент</button><button data-filter="images">Картинки</button><button data-filter="all">Все</button></div>
+            <div id="bm-layers" class="vb-layers"></div>
+            <div class="vb-left-bottom"><span class="bm-zero">Без AI · 0 токенов</span><p>Выберите элемент на странице.<br>Правки сохраняются автоматически.</p><button class="vb-btn" data-action="download">↓ Скачать сайт</button></div>
+        </aside>
+        <section class="vb-canvas" aria-label="Холст AI-сайта">
+            <div class="vb-canvas-label"><span class="vb-live-dot"></span><span>Режим правки · внешний вид сайта</span></div>
+            <div class="vb-stage" id="bm-stage"><div class="vb-scaled" id="bm-scaled"><iframe id="bm-frame" title="AI-сайт для ручного редактирования" sandbox="allow-same-origin"></iframe></div><div id="bm-loading" class="vb-loading">Открываем ваш сайт…</div></div>
+            <div class="vb-canvas-bottom"><span>Кликните по тексту или изображению · формы проверяйте через «Проверить работу»</span></div>
+        </section>
+        <aside class="vb-right" aria-label="Ручные настройки">
+            <div class="vb-inspector-tabs" role="tablist" aria-label="Параметры элемента"><button data-tab="content" role="tab" class="active" aria-selected="true">Содержимое</button><button data-tab="design" role="tab" aria-selected="false">Оформление</button></div>
+            <div id="bm-inspector" class="vb-inspector"></div>
+            <div class="vb-inspector-footer"><span class="vb-live-dot"></span>Изменения сохраняются в новой версии</div>
+        </aside>
+    </div>
+    <div id="bm-toast" class="vb-toast" role="status" aria-live="polite" hidden></div>
+    <div id="bm-error" class="vb-error" role="alert" hidden><span></span><button data-action="backup">Скачать копию</button><button data-action="retry">Повторить</button></div>
+    <dialog id="bm-dialog" class="vb-dialog"><div class="vb-dialog-top"><div><span class="vb-eyebrow">ВАШ САЙТ · BRUNOLAB</span><h2 id="bm-dialog-title"></h2></div><button class="vb-icon" data-action="close" aria-label="Закрыть">×</button></div><div id="bm-dialog-body"></div></dialog>
+    <input type="file" id="bm-upload" accept="image/jpeg,image/png,image/webp" hidden><div hidden>{% csrf_token %}</div>
+</div>
+{{ manual_config|json_script:'manual-editor-config' }}
+{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/manual-editor.js' %}?v=2" defer></script>{% endblock %}

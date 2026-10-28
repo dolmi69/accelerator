@@ -174,6 +174,8 @@ def ensure(site):
             file = app / name
             file.parent.mkdir(exist_ok=True)
             file.write_text(content, encoding='utf-8')
+        from founder.services.manual_assets import stage as stage_manual_assets
+        stage_manual_assets(site.version, app)
         shutil.copyfile(Path(__file__).with_name('generated_worker.py'), app / 'start.py')
         _checked_database(database)
         if database.exists():
