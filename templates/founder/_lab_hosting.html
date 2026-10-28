@@ -1,0 +1,39 @@
+{% if selected %}
+<section class="lab-hosting" aria-labelledby="lab-hosting-title">
+    <div class="lab-hosting-heading">
+        <div>
+            <h3 id="lab-hosting-title">BrunoHost</h3>
+            <p class="muted small">{% if hosting.site.active %}Сайт опубликован · доступен по ссылке{% elif hosting.site %}Публикация приостановлена{% else %}Опубликуйте сайт и поделитесь ссылкой{% endif %}</p>
+        </div>
+        {% if hosting.site.active %}<span class="lab-hosting-status">В сети</span>{% endif %}
+    </div>
+    {% if hosting.url %}
+        <div class="lab-hosting-link">
+            <a href="{{ hosting.url }}" target="_blank" rel="noopener noreferrer">{{ hosting.url }}</a>
+            <button class="button ghost small" type="button" data-copy-url="{{ hosting.url }}" aria-label="Скопировать адрес сайта">Копировать</button>
+        </div>
+    {% endif %}
+    {% if startup.user_role != 'viewer' %}
+        <div class="lab-hosting-actions">
+            {% if hosting.can_publish %}
+                <form method="post" action="{% url 'lab_hosting' startup.id %}" data-busy-form>
+                    {% csrf_token %}
+                    <input type="hidden" name="version" value="{{ selected.pk }}">
+                    <button class="button primary" type="submit" name="action" value="publish" {% if hosting.up_to_date %}disabled{% endif %}>
+                        {% if hosting.up_to_date %}Эта версия опубликована{% elif hosting.site.active %}Обновить до этой версии{% elif hosting.site %}Вернуть в сеть{% else %}Опубликовать сайт{% endif %}
+                    </button>
+                </form>
+            {% endif %}
+            {% if hosting.site.active %}
+                <form method="post" action="{% url 'lab_hosting' startup.id %}" data-busy-form>
+                    {% csrf_token %}
+                    <input type="hidden" name="version" value="{{ selected.pk }}">
+                    <button class="button ghost" type="submit" name="action" value="stop">Снять с публикации</button>
+                </form>
+            {% endif %}
+        </div>
+        {% if hosting.reason %}<p class="muted small">{{ hosting.reason }}</p>{% endif %}
+    {% endif %}
+    <p class="muted small lab-hosting-help">Черновик в лаборатории сохраняется отдельно. {% if hosting.site.active %}Изменения появятся на сайте после обновления публикации.{% else %}Для просмотра сайта посетителям не нужен аккаунт BrunoLab.{% endif %}</p>
+</section>
+{% endif %}

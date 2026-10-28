@@ -2,7 +2,7 @@
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from founder.models import DirectAttachment, User
+from founder.models import DirectAttachment, HostedSite, User
 
 
 @receiver(post_delete, sender=DirectAttachment)
@@ -16,3 +16,18 @@ def welcome_coins(sender, instance, created, raw=False, **kwargs):
     if created and not raw:
         from founder.services.coins import grant_welcome
         grant_welcome(instance)
+
+
+@receiver(post_delete, sender=HostedSite)
+def stop_deleted_hosted_site(sender, instance, **kwargs):
+    """Deleting a project must not leave its public worker occupying a slot."""
+    import logging
+    from django.db import transaction
+    from founder.services.hosting_runtime import stop
+
+    def cleanup():
+        try:
+            stop(instance)
+        except Exception:
+            logging.getLogger(__name__).exception('Could not stop deleted hosted site %s', instance.slug)
+    transaction.on_commit(cleanup)

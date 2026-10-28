@@ -42,6 +42,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "founder.hosting.HostedSiteMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -53,6 +54,14 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
+
+# A separate wildcard origin for user applications. Never use a path on the
+# platform's origin: generated JavaScript must not access platform sessions.
+BRUNOHOST_BASE_URL = os.getenv('BRUNOHOST_BASE_URL', 'http://localhost:8000' if DEBUG else '').rstrip('/')
+BRUNOHOST_ROOT = Path(os.getenv('BRUNOHOST_ROOT', str(BASE_DIR / '.runtime' / 'hosting')))
+BRUNOHOST_ENGINE = os.getenv('BRUNOHOST_ENGINE', 'sandbox' if DEBUG and sys.platform == 'darwin' else 'disabled')
+BRUNOHOST_DOCKER_IMAGE = os.getenv('BRUNOHOST_DOCKER_IMAGE', 'brunohost-worker:1')
+BRUNOHOST_MAX_RUNNING = int(os.getenv('BRUNOHOST_MAX_RUNNING', '5'))
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",

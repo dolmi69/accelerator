@@ -11,8 +11,10 @@ except ImportError:
     resource = None
 import runpy
 import sys
+import socket
+import socketserver
 from urllib.parse import unquote
-from wsgiref.simple_server import make_server, WSGIRequestHandler
+from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 
 def main():
@@ -22,6 +24,7 @@ def main():
     parser.add_argument('--version', default='export')
     parser.add_argument('--project', default='export')
     parser.add_argument('--parent', default='')
+    parser.add_argument('--socket', default='')
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
     database = root / 'data' / 'data.sqlite3'
@@ -117,7 +120,25 @@ def main():
     class QuietHandler(WSGIRequestHandler):
         def log_message(self, *args):
             pass
-    with make_server('127.0.0.1', args.port, application, handler_class=QuietHandler) as server:
+    class UnixServer(WSGIServer):
+        address_family = socket.AF_UNIX
+
+        def server_bind(self):
+            socketserver.TCPServer.server_bind(self)
+            self.server_name, self.server_port = args.host, args.port
+            self.setup_environ()
+
+        def get_request(self):
+            connection, _ = self.socket.accept()
+            return connection, ('127.0.0.1', 0)
+
+    if args.socket:
+        server = UnixServer(args.socket, QuietHandler)
+        server.set_app(application)
+        os.chmod(args.socket, 0o600)
+    else:
+        server = make_server('127.0.0.1', args.port, application, handler_class=QuietHandler)
+    with server:
         print(f'Listening on {origin}', flush=True)
         server.serve_forever()
 

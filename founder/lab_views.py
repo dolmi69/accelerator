@@ -152,7 +152,9 @@ def _lab_page(request, startup, form=None, *, status=200):
             if selected and selected.kind in (LabSiteVersion.Kind.STATIC, LabSiteVersion.Kind.GENERATED):
                 initial['kind'] = selected.kind
         form = LabPromptForm(source=selected, initial=initial)
+    from founder.hosting import context as hosting_context
     return render(request, "founder/lab.html", {
+        "hosting": hosting_context(startup, selected),
         "startup": startup,
         "lab_handoff": handoff,
         "lab_history_entry": selected.progress_entry if selected and hasattr(selected, "progress_entry") else None,

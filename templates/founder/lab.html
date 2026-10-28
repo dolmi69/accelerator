@@ -4,7 +4,7 @@
 {% block extra_css %}
     <link rel="stylesheet"
           href="{% static 'founder/css/bruno-forge.css' %}?v=2">
-    <link rel="stylesheet" href="{% static 'founder/css/lab-studio.css' %}?v=merge-20261028">
+    <link rel="stylesheet" href="{% static 'founder/css/lab-studio.css' %}?v=hosting-20261028">
 {% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
@@ -388,6 +388,7 @@
                     {% endif %}
                     <button class="button primary" type="button" data-lab-expand>На весь экран</button>
                 </div>
+                {% include 'founder/_lab_hosting.html' %}
                 <details class="lab-site-details">
                     <summary>
                         Сохранение и настройки версии

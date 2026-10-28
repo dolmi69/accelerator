@@ -145,3 +145,24 @@
 .lab-task-context strong { display:block; font-size:13px; line-height:1.5; color:var(--fact); }
 .lab-task-context p { font-size:11px; line-height:1.6; color:var(--muted); margin:6px 0; }
 .lab-task-context a { font-size:11px; color:var(--teal); text-decoration:none; }
+
+/* A release action stays next to the preview, independent of community cards. */
+.lab-hosting {
+  margin: 12px 0; padding: 16px; border: 1px solid var(--line, #dbe6e1);
+  border-radius: 16px; background: var(--surface, #fff); min-width: 0;
+}
+.lab-hosting-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lab-hosting h3 { font: 700 16px 'Manrope', sans-serif; margin: 0 0 4px; }
+.lab-hosting p { margin: 0; }
+.lab-hosting-status { color: #187e70; background: #e4f4ed; border-radius: 20px; padding: 5px 10px; font-size: 12px; white-space: nowrap; }
+.lab-hosting-link { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 8px 10px; background: #f4f8f6; border-radius: 10px; }
+.lab-hosting-link a { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13px; color: #14796c; }
+.lab-hosting-link .button { flex-shrink: 0; }
+.lab-hosting-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.lab-hosting-actions form { margin: 0; }
+.lab-hosting .lab-hosting-help { margin-top: 10px; line-height: 1.5; }
+@media (max-width: 480px) {
+  .lab-hosting-link { flex-wrap: wrap; }
+  .lab-hosting-link a { flex-basis: 100%; }
+  .lab-hosting-actions, .lab-hosting-actions form, .lab-hosting-actions .button { width: 100%; }
+}

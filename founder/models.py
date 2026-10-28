@@ -285,6 +285,16 @@ class LabSiteVersion(models.Model):
         ordering = ["-created_at", "-id"]
 
 
+class HostedSite(models.Model):
+    """An explicit release, independent of the community card and editor."""
+    startup = models.OneToOneField(StartupProfile, on_delete=models.CASCADE, related_name='hosted_site')
+    version = models.ForeignKey(LabSiteVersion, on_delete=models.SET_NULL, null=True, related_name='hosted_releases')
+    slug = models.CharField(max_length=24, unique=True, editable=False)
+    active = models.BooleanField(default=False)
+    published_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class LabConversationTurn(models.Model):
     """Discussion never creates a website version; references its viewed source."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
