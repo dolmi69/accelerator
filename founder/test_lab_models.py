@@ -140,8 +140,10 @@ class LabModelFlowTests(TestCase):
     def test_exact_reported_rename_on_large_source_cannot_spend_on_sol(self):
         old = LabSiteVersion.objects.create(startup=self.project, prompt='old', html=HTML + ' ' * 25000, model=lab_models.SOL)
         models, updated = self.submit(old, 'complex', prompt='бро давай название на smeta поменяем назад')
-        self.assertEqual(models, [lab_models.LUNA, lab_models.LUNA])
-        self.assertEqual(updated.bruno_report['routing']['reason'], 'Смена названия')
+        self.assertEqual(models, [])
+        self.assertEqual(updated.model, 'local-editor')
+        self.assertEqual(updated.output_tokens, 0)
+        self.assertIn('smeta', updated.html)
 
     @override_settings(LAB_RAW_AI_TEST_MODE=False)
     def test_cached_luna_result_is_not_reused_when_analysis_selects_sol(self):

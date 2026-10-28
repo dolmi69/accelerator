@@ -80,7 +80,7 @@ def _version(startup, value):
 
 
 def _model_label(model):
-    return {'openai/gpt-6-luna': 'GPT‑6 Luna',
+    return {'local-editor': 'Без AI', 'openai/gpt-6-luna': 'GPT‑6 Luna',
             'openai/gpt-6.1-sol': 'GPT‑6.1 Sol',
             'anthropic/claude-sonnet-5.5': 'Claude Sonnet 5.5'}.get(model, model)
 
@@ -241,6 +241,30 @@ def lab_generate(request, startup_id):
 
     if request.POST.get("start_new"):
         source = None
+    if source and not form.cleaned_data['rebuild']:
+        from founder.services.site_names import rename_site
+        from founder.services.lab_task_history import validate_context
+        try:
+            request_policy(form.cleaned_data['prompt'])
+            change = rename_site(source, form.cleaned_data['prompt'])
+            if change:
+                validate_context(request, startup)
+                if change['html'] == source.html:
+                    messages.success(request, f'Название уже указано как «{change["new"]}». AI не использовался.')
+                    return _reply_redirect(request, startup, source, source)
+                report = {'title':'Название изменено',
+                          'items':[f'Название сайта изменено с «{change["old"]}» на «{change["new"]}».',
+                                   'Обновлены название вкладки, бренд и его подписи. Серверный код, CSS и JavaScript сохранены без изменений.'],
+                          'usage':'Без AI · 0 токенов', 'mood':'focused'}
+                version = _create_version(startup=startup, source=source, prompt=form.cleaned_data['prompt'],
+                    kind=source.kind, html=change['html'], backend_files=change['files'],
+                    backend_modules=source.backend_modules, presentation=source.presentation,
+                    model='local-editor', edit_method='local', input_tokens=0, output_tokens=0, report=report)
+                messages.success(request, 'Название изменено без AI: 0 токенов.')
+                return _reply_redirect(request, startup, version, source)
+        except QwenOutputError as exc:
+            form.add_error(None, str(exc))
+            return _lab_page(request, startup, form, status=400)
     if request.POST.get('automatic') == '1':
         return _lab_automatic(request, startup, source, form)
     return _lab_execute(request, startup, source, form)
@@ -406,7 +430,10 @@ def _lab_execute(request, startup, source, form):
         from founder.services.lab_jobs import remember_model_route
         remember_model_route(request, model_route)
         with lab_models.model_scope(model_route['model'] if model_route else None):
-            result = _generate_design(request, startup, source, prompt, kind, scope, rebuild, chosen, context)
+            # Followups are resolved by the intent stage. Sending only "давай
+            # обратно" to the code stages lets stale reports override the task.
+            effective_prompt = automatic['task'] if automatic else prompt
+            result = _generate_design(request, startup, source, effective_prompt, kind, scope, rebuild, chosen, context)
         generating_design = False
         intent = result.intent
         if intent:
