@@ -138,6 +138,7 @@ def _lab_page(request, startup, form=None, *, status=200):
         reply = {'title': 'Не получилось завершить запрос',
                  'items': [str(error) for errors in form.errors.values() for error in errors] if form is not None else ['Попробуй ещё раз.'],
                  'usage': '', 'mood': 'focused', 'failed': True}
+        request.lab_failure_message = ' '.join(reply['items'])[:1600]
     # Separate users and fresh notices; reloading a seen version keeps its timer.
     reply_key = hashlib.sha256(json.dumps([
         request.user.pk, str(startup.pk), str(selected.pk) if selected else None, reply,
@@ -281,7 +282,7 @@ def _lab_automatic(request, startup, source, form):
         protect_service_secrets(protect_prompt)
         with transaction.atomic():
             token = acquire_ai_lease(request.user.pk, ttl_seconds=max(600,
-                int(settings.QWEN_CODE_TIMEOUT) * 3 + 180))
+                int(settings.QWEN_CODE_TIMEOUT) * 8 + 180))
             request.ai_lease = token
             remember_lease(request, token)
             _consume_lab_limits(request.user)
@@ -423,7 +424,7 @@ def _lab_execute(request, startup, source, form):
             with transaction.atomic():
                 request.ai_lease = acquire_ai_lease(request.user.pk,
                     ttl_seconds=max(600, int(settings.QWEN_CODE_TIMEOUT) *
-                        (2 if kind == LabSiteVersion.Kind.GENERATED and settings.LAB_BACKEND_STAGED_GENERATION else 1) + 180))
+                        (8 if source else 2 if kind == LabSiteVersion.Kind.GENERATED and settings.LAB_BACKEND_STAGED_GENERATION else 1) + 180))
                 from founder.services.lab_jobs import remember_lease
                 remember_lease(request, request.ai_lease)
                 _consume_lab_limits(request.user, personal=True)
@@ -613,7 +614,9 @@ def _generate_design(request, startup, source, prompt, kind, scope, rebuild, cho
     # The ready scaffold has no design yet. Its first design needs a complete
     # document, rather than a small patch to a placeholder page.
     initial_design = design_pending(source)
-    with billing_scope(request.user, startup, "patch" if source and not rebuild and not initial_design else "create"):
+    from founder.services.lab_recovery import validation_scope
+    with billing_scope(request.user, startup, "patch" if source and not rebuild and not initial_design else "create"), validation_scope(
+            lambda candidate: validate_result(prompt, source, candidate, chosen)):
         result = generate_site(prompt, previous_html=source.html if source and not initial_design else "",
             max_tokens=min(settings.LAB_CREATE_MAX_TOKENS, settings.QWEN_CODE_MAX_TOKENS),
             project_context=context, report=True, **options)

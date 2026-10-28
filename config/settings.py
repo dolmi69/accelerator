@@ -175,6 +175,7 @@ LAB_BACKEND_MAX_RUNNING = 3
 # A complete first design gets room to finish; edits remain small JSON patches.
 LAB_CREATE_MAX_TOKENS = int(os.getenv("LAB_CREATE_MAX_TOKENS", "16384"))
 LAB_PATCH_MAX_TOKENS = int(os.getenv("LAB_PATCH_MAX_TOKENS", "2048"))
+LAB_EDIT_REPAIR_ATTEMPTS = max(1, min(3, int(os.getenv('LAB_EDIT_REPAIR_ATTEMPTS', '3'))))
 LAB_CHAT_MAX_TOKENS = int(os.getenv("LAB_CHAT_MAX_TOKENS", "2048"))
 LAB_PATCH_MAX_RESPONSE_CHARS = int(os.getenv("LAB_PATCH_MAX_RESPONSE_CHARS", "24000"))
 LAB_PATCH_MAX_FIND_CHARS = int(os.getenv("LAB_PATCH_MAX_FIND_CHARS", "6000"))

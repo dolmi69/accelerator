@@ -112,7 +112,12 @@ def decide(startup, source, prompt):
                 data['kind'] = source.kind
             if source and (source.kind == 'generated' or (source.kind == 'static' and data['kind'] == 'generated')) and 'edit_files' in data:
                 from founder.services.backend_edits import validate_plan
-                validate_plan(data['edit_files'])
+                try:
+                    validate_plan(data['edit_files'])
+                except QwenOutputError:
+                    # The task may be understood even when the file plan is bad.
+                    # Let the dedicated scope planner repair it before coding.
+                    data.pop('edit_files')
         elif not data['answer'] or data['task']:
             raise ValueError
         protect_service_secrets(json.dumps(data, ensure_ascii=False))

@@ -1,6 +1,7 @@
 """Persistent lab jobs, executed by a detached, single-claim worker process.
 
-No model call is retried automatically. Queued delivery may be repeated safely;
+Delivery never replays an executing task. Generators may repair completed invalid
+outputs within their bounded policy. Queued delivery may be repeated safely;
 only the worker winning the database claim can execute a job.
 """
 import json
@@ -144,7 +145,7 @@ def run(job_id):
                 error = json.loads(response.content).get('error')
             except (ValueError, AttributeError):
                 error = None
-            raise JobFailure(error or 'Не удалось завершить запрос. Предыдущий сайт сохранён.')
+            raise JobFailure(error or getattr(request, 'lab_failure_message', '') or 'Не удалось завершить запрос. Предыдущий сайт сохранён.')
         turn_id = None
         if response.get('Content-Type', '').startswith('application/json'):
             turn_id = json.loads(response.content).get('id')

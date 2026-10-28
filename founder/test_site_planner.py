@@ -15,11 +15,11 @@ class PlannerTests(SimpleTestCase):
         messages, _ = plan_messages('Change button', HTML)
         self.assertLess(len(messages[0]['content']), len(HTML))
 
-    def test_invalid_plan_never_reaches_edit_call(self):
+    def test_invalid_plan_stops_after_bounded_corrections(self):
         with patch('founder.services.site_generator.generate_code', return_value=CodeResult('{"targets":["unknown"]}', 'Qwen', 1, 2)) as api:
             with self.assertRaises(QwenOutputError):
                 generate_site('Change button', previous_html=HTML)
-            self.assertEqual(api.call_count, 1)
+        self.assertEqual(api.call_count, 3)
         for text in ['{}', '{"targets":[]}', '{"targets":["c1","c1"]}', '{"targets":"c1"}']:
             with self.assertRaises(QwenOutputError): parse_plan(text, chunks(HTML), HTML)
 

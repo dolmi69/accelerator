@@ -194,7 +194,7 @@ class CostTests(TestCase):
         with self.assertRaises(QwenError): apply_patch_response(source,regions,'```json\n{}\n```')
 
     @override_settings(LAB_PATCH_MAX_TOKENS=2048)
-    def test_patch_one_call_and_lower_output_limit_and_invalid_result_no_fallback(self):
+    def test_patch_one_call_when_valid_and_bounded_repairs_when_invalid(self):
         change={'changes':[{'target':'full','find':'Buy','replace':'Try'}]}
         with patch('founder.services.site_generator.generate_code', return_value=CodeResult(json.dumps(change),MODEL,12,24)) as paid:
             result=generate_site('Change button',previous_html=HTML, max_tokens=6144)
@@ -203,7 +203,7 @@ class CostTests(TestCase):
             self.assertEqual(paid.call_args.kwargs['max_tokens'],2048)
         with patch('founder.services.site_generator.generate_code', return_value=CodeResult(HTML,MODEL,12,24)) as paid:
             with self.assertRaises(QwenError): generate_site('Change', previous_html=HTML)
-            self.assertEqual(paid.call_count,1)
+            self.assertEqual(paid.call_count,3)
         with patch('founder.services.site_generator.generate_code', return_value=CodeResult(HTML,MODEL,12,24)) as paid:
             generate_site('Redesign',previous_html=HTML,rebuild=True)
             self.assertEqual(paid.call_args.kwargs['max_tokens'],16384)

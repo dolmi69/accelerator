@@ -28,7 +28,7 @@ class ScopedBackendTests(SimpleTestCase):
         with patch('founder.services.backend_edits.generate_code',return_value=self.answer(edit)) as api, \
                 patch('founder.services.backend_stages.generate_staged') as full:
             result = generate_backend('Сделай кнопки синими',source=source,context={'edit_files':['assets/site.css']})
-        api.assert_called_once()
+        self.assertEqual(api.call_count, 1)
         full.assert_not_called()
         self.assertEqual(result.backend_files['assets/site.css'],'button { color: blue; }')
         for path in FILES:
@@ -60,7 +60,7 @@ class ScopedBackendTests(SimpleTestCase):
                 patch('founder.services.backend_stages.generate_staged') as full:
             with self.assertRaises(QwenOutputError):
                 generate_backend('Сделай кнопки синими',source=SimpleNamespace(kind='generated',backend_files=FILES),context={'edit_files':['assets/site.css']})
-        api.assert_called_once()
+        self.assertEqual(api.call_count, 4)  # Three code attempts and one scope review.
         full.assert_not_called()
         self.assertEqual(FILES['assets/site.css'],'button { color: red; }')
 
@@ -145,7 +145,7 @@ class ScopedLabFlowTests(TestCase):
              patch('founder.services.backend_stages.generate_staged',side_effect=AssertionError('Full rebuild forbidden')):
             response=self.client.post(reverse('lab_generate',args=[self.startup.pk]),{
                 'source_version':self.source.pk,'automatic':'1','prompt':'Поменяй цвет кнопки на синий'})
-        code.assert_called_once()
+        self.assertIn(code.call_count, (1,4))
         return response
 
     def test_raw_mode_cannot_force_full_backend_rebuild(self):

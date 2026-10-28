@@ -67,13 +67,13 @@ class SiteIntentTests(TestCase):
         self.assertIn('password_reset',version.backend_modules)
         self.assertEqual((version.input_tokens,version.output_tokens),(120,25))
 
-    def test_invalid_action_keeps_old_site_without_a_paid_retry(self):
+    def test_invalid_action_keeps_old_site_after_bounded_corrections(self):
         bad = {**TEMPLATE, 'settings':{'font':'url(https://evil.test)'}}
         with patch('founder.services.site_generator.generate_code', return_value=self.response(bad)) as api:
             response = self.post()
         # An incomplete design may save a ready scaffold but never the bad code.
         self.assertEqual(response.status_code,302)
-        api.assert_called_once()
+        self.assertEqual(api.call_count,3)
         version = self.startup.lab_versions.first()
         self.assertEqual(version.html,self.source.html)
         self.assertTrue(version.bruno_report['failed'])
