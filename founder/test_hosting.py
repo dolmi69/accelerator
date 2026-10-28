@@ -131,10 +131,24 @@ class HostingTests(TestCase):
         self.publish()
         response = self.guest(method='head')
         self.assertEqual(response.content, b'')
-        self.assertEqual(int(response['Content-Length']), len(HTML.encode()))
+        self.assertEqual(int(response['Content-Length']), len(self.guest().content))
         self.assertEqual(self.guest(method='post', HTTP_ORIGIN=site_url(self.startup.hosted_site).rstrip('/')).status_code, 405)
         self.assertEqual(self.guest(method='post', HTTP_ORIGIN='http://localhost:8000').status_code, 403)
         self.assertEqual(self.guest('/assets/../app.py').status_code, 404)
+
+    @override_settings(BRUNOHOST_PLATFORM_URL='https://brunolab.example/')
+    def test_public_badge_is_added_without_changing_saved_source(self):
+        self.publish()
+        response = self.guest()
+        self.assertContains(response, 'Сделано в BrunoLab')
+        self.assertContains(response, 'href="https://brunolab.example/"')
+        self.assertContains(response, 'target="_blank" rel="noopener noreferrer"')
+        self.assertContains(response, 'position:fixed!important')
+        self.assertContains(response, '#brunohost-branding:hover{text-decoration:underline!important')
+        self.assertEqual(response.content.count(b'id="brunohost-branding"'), 1)
+        self.assertEqual(int(response['Content-Length']), len(response.content))
+        self.version.refresh_from_db()
+        self.assertEqual(self.version.html, HTML)
 
     def test_disabled_owner_and_deleted_version_are_not_served(self):
         self.publish()
@@ -240,6 +254,7 @@ def application(environ, start_response):
         self.assertEqual(response.status_code, 302)
         site = HostedSite.objects.get(startup=self.startup)
         self.addCleanup(hosting_runtime.stop, site)
+        self.assertContains(self.guest(), 'Сделано в BrunoLab')
         self.assertEqual(self.guest('/api/items').json(), [])
         origin = site_url(site).rstrip('/')
         response = self.guest('/api/items', method='post', data=json.dumps({'name':'Visitor record'}), content_type='application/json', HTTP_ORIGIN=origin)

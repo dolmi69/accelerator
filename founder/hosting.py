@@ -11,6 +11,7 @@ import subprocess
 from uuid import UUID
 from contextlib import contextmanager
 from http.cookies import SimpleCookie
+from html import escape
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -169,6 +170,47 @@ def secured(response):
     return response
 
 
+def add_branding(response):
+    """Decorate public HTML responses only; saved code/API payloads stay intact."""
+    if response.status_code != 200 or response.get('Content-Type', '').split(';')[0].strip().lower() != 'text/html':
+        return response
+    body = response.content
+    marker = b'<!--brunohost:branding:v1-->'
+    if not body or marker in body:
+        return response
+    destination = (settings.BRUNOHOST_PLATFORM_URL or
+                   ('http://127.0.0.1:8000/' if settings.DEBUG else
+                    settings.TELEGRAM_MINI_APP_URL or 'https://brunolab-brunolab.waw0.amvera.tech/'))
+    try:
+        parsed = urlsplit(destination)
+        valid_destination = parsed.scheme in {'http', 'https'} and parsed.hostname and not parsed.username and not parsed.password
+        parsed.port  # Validate malformed configured port numbers too.
+    except ValueError:
+        valid_destination = False
+    if not valid_destination:
+        destination = 'https://brunolab-brunolab.waw0.amvera.tech/'
+    fragment = '''<!--brunohost:branding:v1-->
+<style id="brunohost-branding-style">
+#brunohost-branding{all:initial!important;position:fixed!important;right:max(12px,env(safe-area-inset-right))!important;bottom:max(12px,env(safe-area-inset-bottom))!important;z-index:2147483647!important;display:inline-flex!important;align-items:center!important;box-sizing:border-box!important;max-width:calc(100vw - 24px)!important;padding:9px 13px!important;border:1px solid #dce7e2!important;border-radius:999px!important;background:#fff!important;color:#16796f!important;box-shadow:0 3px 16px #12382d18!important;font:500 12px/1.4 system-ui,-apple-system,sans-serif!important;white-space:nowrap!important;text-decoration:none!important;cursor:pointer!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important}
+#brunohost-branding:hover{text-decoration:underline!important;text-underline-offset:3px!important}
+#brunohost-branding:focus-visible{outline:2px solid #16796f!important;outline-offset:3px!important;text-decoration:underline!important}
+</style>
+<a id="brunohost-branding" href="DESTINATION" target="_blank" rel="noopener noreferrer" aria-label="Сделано в BrunoLab — открыть BrunoLab в новой вкладке">Сделано в BrunoLab</a>
+<script>/* Keep the badge outside transformed/scrolled application containers. */
+document.documentElement.appendChild(document.getElementById('brunohost-branding'));
+</script>
+'''.replace('DESTINATION', escape(destination, quote=True))
+    try:
+        encoded = fragment.encode(response.charset, errors='xmlcharrefreplace')
+    except LookupError:
+        return response
+    closing = list(re.finditer(br'</body\s*>', body, re.I))
+    position = closing[-1].start() if closing else len(body)
+    response.content = body[:position] + encoded + body[position:]
+    response['Content-Length'] = len(response.content)
+    return response
+
+
 def error_response(status, message):
     return secured(HttpResponse(message, status=status, content_type='text/plain; charset=utf-8'))
 
@@ -232,8 +274,12 @@ class HostedSiteMiddleware:
             if request.path not in {'/', '/index.html'}:
                 return error_response(404, 'Страница не найдена.')
             content = site.version.html.encode()
-            response = HttpResponse(content if request.method != 'HEAD' else b'', content_type='text/html; charset=utf-8')
-            response['Content-Length'] = len(content)
+            response = HttpResponse(content, content_type='text/html; charset=utf-8')
+            if request.headers.get('Sec-Fetch-Dest', 'document') in {'document', 'iframe'}:
+                add_branding(response)
+            response['Content-Length'] = len(response.content)
+            if request.method == 'HEAD':
+                response.content = b''
             return secured(response)
         if site.version.kind != 'generated':
             return error_response(503, 'Этот тип приложения пока не поддерживается.')
@@ -281,6 +327,8 @@ class HostedSiteMiddleware:
                                 response.set_cookie(name, morsel.value, path='/', httponly=True, samesite='Lax',
                                     secure=request.is_secure(), max_age=int(max_age) if max_age else None,
                                     expires=morsel['expires'] if not max_age else None)
+                        if request.method == 'GET' and request.headers.get('Sec-Fetch-Dest', 'document') in {'document', 'iframe'}:
+                            add_branding(response)
                         return secured(response)
             except httpx.HTTPError:
                 hosting_runtime.stop(site)
