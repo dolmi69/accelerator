@@ -1,19 +1,23 @@
-/* «О проекте»: заголовок с одним действием и список возможностей строками «название и 1–2 предложения». */
-.about-page { max-width:1080px; display:grid; gap:24px; }
-.about-heading { margin-bottom:0; }
-.about-heading p { max-width:62ch; }
-.about-list { padding:32px; }
-.about-list h2 { margin:0 0 8px; font-size:20px; }
-.about-list dl { margin:0; }
-.about-row { display:grid; grid-template-columns:minmax(180px,260px) minmax(0,1fr); gap:8px 32px; padding:16px 0; border-top:1px solid var(--line); }
-.about-row:first-child { border-top:0; }
-.about-row dt { font:700 16px/1.5 Manrope,sans-serif; }
-.about-row dd { margin:0; max-width:65ch; color:var(--muted); line-height:1.6; }
-.about-principle { max-width:65ch; padding:0 4px 24px; }
-.about-principle h2 { margin:0 0 8px; font-size:20px; }
-.about-principle p { margin:0; color:var(--muted); line-height:1.6; }
-@media (max-width:680px) {
-  .about-list { padding:20px; }
-  .about-row { grid-template-columns:1fr; gap:4px; }
-  .about-heading .button { width:100%; }
-}
+.about-page{max-width:1200px;margin:auto;color:var(--ink)}
+.about-page h1,.about-page h2,.about-page h3{font-family:Manrope,sans-serif;letter-spacing:-.035em}
+.about-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--teal);margin:0 0 24px}
+.about-hero{display:grid;grid-template-columns:1.7fr 1fr;gap:64px;padding:56px 0 48px;align-items:center}
+.about-hero h1{font-size:clamp(36px,4.5vw,64px);line-height:1.1;margin:0 0 24px;font-weight:800}
+.about-lead{font-size:19px;line-height:1.65;color:var(--muted);max-width:51ch;margin:0 0 32px}
+.about-hero-note{border-left:1px solid var(--teal);padding:24px 0 24px 36px;max-width:320px}
+.about-hero-note img{display:block;object-fit:contain;width:144px;height:144px;margin:0 0 24px}
+.about-hero-note strong{font-size:20px}.about-hero-note p{color:var(--muted);line-height:1.7}
+.about-route{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:24px 0;gap:16px;font-size:13px;font-weight:600}
+.about-route b{display:block;color:var(--teal);font-size:11px;margin-bottom:8px}
+.about-feature{display:grid;grid-template-columns:1.2fr 1fr;gap:64px;padding:64px 0;border-bottom:1px solid var(--line)}
+.about-feature h2,.about-section-heading h2,.about-closing h2{font-size:clamp(28px,3vw,39px);line-height:1.2;margin:0 0 24px;font-weight:800}
+.about-feature-intro>p:not(.about-eyebrow){max-width:54ch;color:var(--muted);line-height:1.8;margin:0 0 16px}
+.about-capabilities{display:grid;gap:24px;background:var(--surface);border:1px solid var(--line);padding:32px;border-radius:16px}
+.about-capabilities article{position:relative;padding-left:44px}.about-capabilities article>span{position:absolute;left:0;top:0;color:var(--teal);font-weight:700}
+.about-page h3{font-size:18px;margin:0 0 8px}.about-capabilities p,.about-support-grid p{color:var(--muted);font-size:14px;line-height:1.75;margin:0}
+.about-builder-list{list-style:none;margin:0;padding:0}.about-builder-list li{padding:20px 0;border-bottom:1px solid var(--line)}.about-builder-list li:first-child{padding-top:0}.about-builder-list strong{display:block;font-size:17px;margin-bottom:8px}.about-builder-list span{color:var(--muted);font-size:14px;line-height:1.7;display:block}
+.about-support{padding:64px 0}.about-support-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:40px 32px;margin-top:40px}.about-support-grid article{border-top:2px solid var(--line);padding-top:20px}
+.about-closing{padding:40px;background:var(--surface);border:1px solid var(--line);border-radius:16px}.about-closing p{color:var(--muted);line-height:1.75;max-width:65ch;margin:0 0 24px}
+.about-credit{padding:32px 0 16px;display:flex;justify-content:space-between;gap:16px;align-items:center}.about-credit>span{font-weight:800;color:var(--teal);font-size:20px}.about-credit p{margin:0;color:var(--muted);font-size:14px}
+@media(max-width:850px){.about-hero,.about-feature{gap:32px}.about-support-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.about-hero{grid-template-columns:1fr;padding-top:24px;gap:24px}.about-hero-note{max-width:none;padding:0 0 0 20px}.about-hero-note img{width:80px;height:80px;float:right;margin:0 0 8px 16px}.about-lead{font-size:17px}.about-route{grid-template-columns:1fr 1fr;gap:24px}.about-feature{grid-template-columns:1fr;padding:40px 0;gap:24px}.about-support{padding:40px 0}.about-support-grid{grid-template-columns:1fr;gap:24px;margin-top:24px}.about-capabilities{padding:24px}.about-closing{padding:24px}.about-credit{flex-direction:column;align-items:flex-start}.about-page .button{max-width:100%}}
