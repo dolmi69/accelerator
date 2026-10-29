@@ -61,7 +61,7 @@ class RawLabTests(TestCase):
 
     def test_raw_tools_are_hidden_and_old_endpoints_are_disabled(self):
         response = self.client.get(reverse('lab', args=[self.startup.pk]))
-        self.assertContains(response, 'Сырой тест модели')
+        self.assertContains(response, 'Обсуждайте идеи и меняйте сайт в одном диалоге')
         self.assertNotContains(response, 'data-lab-tools-open')
         self.assertNotContains(response, 'name="modules_selected"')
         for name in ('lab_backend_create', 'lab_customize'):
@@ -76,7 +76,8 @@ class RawLabTests(TestCase):
         self.assertEqual(response.context['lab_model_label'], 'GPT‑6.1 Sol')
         self.assertEqual(response.context['selected'].model_label, 'GPT‑6 Luna')
         self.assertNotContains(response, 'Запрос получит')
-        self.assertContains(response, 'Модель этой версии: GPT‑6 Luna')
+        self.assertNotContains(response, 'Модель этой версии:')
+        self.assertNotContains(response, 'Бруно · GPT')
 
     def test_failed_model_does_not_create_scaffold_or_delete_previous_version(self):
         source = LabSiteVersion.objects.create(startup=self.startup, html=HTML, prompt='Исходник', kind='django', model=MODEL, backend_modules=['accounts','catalog','booking'])

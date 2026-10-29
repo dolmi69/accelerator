@@ -27,6 +27,24 @@ class LabTests(TestCase):
     def route(self, name, startup=None, *parts):
         return reverse(name, args=[startup or self.startup.pk, *parts])
 
+    def test_compact_toolbar_keeps_usage_and_editor_links_without_model_labels(self):
+        version=LabSiteVersion.objects.create(startup=self.startup,prompt='Создай сайт',html=HTML,
+            model='gpt-6.1-sol',input_tokens=41,output_tokens=83,
+            bruno_report={'usage':'AI: 124 токенов','routing':{'label':'GPT‑6.1 Sol','reason':'Сложная задача'}})
+        page=self.client.get(self.route('lab')+f'?version={version.pk}')
+        self.assertEqual(page.status_code,200)
+        self.assertContains(page,'AI: 124 токенов')
+        self.assertNotContains(page,'Бруно · GPT')
+        self.assertNotContains(page,'Модель этой версии:')
+        self.assertNotContains(page,'id="lab-model-route"')
+        self.assertContains(page,'aria-controls="lab-version-settings"')
+        self.assertContains(page,'id="lab-version-settings"')
+        self.assertContains(page,'Конструктор Bruno')
+        self.assertContains(page,reverse('lab_manual',args=[self.startup.pk,version.pk]))
+        body=page.content.decode()
+        self.assertLess(body.index('lab-constructor-button'),body.index('data-lab-device-switch'))
+        self.assertLess(body.index('data-lab-device-switch'),body.index('data-lab-settings-open'))
+
     def test_ai_failure_releases_lease_without_response_middleware(self):
         from founder.services.request_limits import acquire_ai_lease, release_ai_lease
         from founder.security_middleware import RequestProtectionMiddleware

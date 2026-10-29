@@ -233,11 +233,13 @@
                     </div>
                     <script src="{% static 'founder/js/bruno-job.js' %}?v=1" defer></script>
                 {% endif %}
+                {% block flash_messages %}
                 {% if messages %}
                     <div class="flash-stack" aria-live="polite">
                         {% for message in messages %}<div class="flash flash-{{ message.tags }}">{{ message }}</div>{% endfor %}
                     </div>
                 {% endif %}
+                {% endblock flash_messages %}
                 {% block content %}{% endblock %}
             </main>
 
