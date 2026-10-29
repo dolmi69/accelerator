@@ -25,13 +25,13 @@ SYSTEM = '''Вы редактор визуального конструктор�
 {"op":"theme","values":{"accent":"#147d73"}} — только при запросе изменить весь сайт.
 Свободный блок type=canvas содержит props {height:620,mobileHeight:740,elements:[]}.
 Для него доступны операции:
-{"op":"add_element","block":"id свободного блока","type":"text|image|button|shape|line|art","content":{"text":"..."},"desktop":{"x":40,"y":40,"width":400,"height":100,"fontSize":40},"mobile":{"x":24,"y":24,"width":342,"height":100,"fontSize":28},"style":{"color":"#122338"}};
+{"op":"add_element","block":"id свободного блока","type":"text|image|button|shape|line|art|faq","content":{"text":"..."},"desktop":{"x":40,"y":40,"width":400,"height":100,"fontSize":40},"mobile":{"x":24,"y":24,"width":342,"height":100,"fontSize":28},"style":{"color":"#122338"}};
 {"op":"update_element","id":"id элемента","content":{...},"desktop":{...},"mobile":{...},"style":{...},"locked":false};
 {"op":"delete_element","id":"id элемента"}.
 Координаты целыми px: desktop ширина 1120, mobile 390. Элемент должен помещаться в высоту блока.
 У элемента content {text,image,alt,link}, style {color,background,borderColor,borderWidth,radius,fontWeight,fontFamily,textAlign,opacity,rotation,objectFit}.
 fontFamily: inherit/modern/serif/mono; background: #hex или transparent; opacity 0–100, rotation -180–180; hidden в desktop/mobile.
-Перенесённый блок может иметь дополнительные style: lineHeight (500–4000, 1000=1), letterSpacing (-200–500, 1000=1em), paddingX/paddingY/mobilePaddingX/mobilePaddingY (0–200), trailingIcon/plainLink (boolean). Сохраняй их при правках. Минимальная высота canvas 40 px.
+Перенесённый блок может иметь дополнительные style: lineHeight (500–4000, 1000=1), letterSpacing (-200–500, 1000=1em), paddingX/paddingY/mobilePaddingX/mobilePaddingY (0–200), trailingIcon/plainLink (boolean). Сохраняй их при правках. Минимальная высота canvas 40 px. props.template — необязательное имя исходного шаблона (nav, hero, text, features, image, gallery, quotes, pricing, faq, cta, footer); сохраняй его. Элемент type=faq: content.text — вопрос, content.alt — ответ (до 5000 символов), остальные поля как у текста.
 Расположение для компьютера и телефона независимо. Не меняйте второе, если пользователь просит поправить только одно.
 Закреплённые (locked) элементы не перемещайте без явной просьбы. Порядок elements задаёт слои снизу вверх.
 Используйте точные существующие id, названия и поля из каталога. Новым блокам id назначает сервер.

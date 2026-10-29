@@ -146,7 +146,7 @@ def validate_document(raw, asset_ids=()):
             rawprops = block['props']
             if not isinstance(rawprops, dict):
                 raise DocumentError('Некорректное содержимое блока.')
-            allowed = list(free_canvas.DEFAULT_PROPS) if block['type'] == 'canvas' else definition['fields'] + (['items'] if definition.get('items') else [])
+            allowed = list(free_canvas.DEFAULT_PROPS)+['template'] if block['type'] == 'canvas' else definition['fields'] + (['items'] if definition.get('items') else [])
             if set(rawprops) - set(allowed):
                 raise DocumentError('Неизвестное поле блока.')
             props = free_canvas.validate(rawprops, assets, identifier) if block['type'] == 'canvas' else _props({k: v for k, v in rawprops.items() if k != 'items'}, definition['fields'], assets)

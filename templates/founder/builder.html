@@ -26,7 +26,7 @@
             <div class="vb-canvas-label"><span class="vb-live-dot"></span><span id="vb-canvas-address">Главная /</span><button class="vb-icon" data-action="page-settings" aria-label="Настройки страницы" title="Название и адрес страницы">⚙</button></div>
             <div id="vf-quick-add" class="vf-quick-add" hidden></div>
             <div class="vb-stage" id="vb-stage"><div class="vb-scaled" id="vb-scaled"><iframe id="vb-frame" title="Редактируемая страница сайта" scrolling="no" sandbox="allow-same-origin"></iframe></div><div id="vb-loading" class="vb-loading">Готовим ваш холст…</div></div>
-            <div class="vb-canvas-bottom"><span>Выберите блок для настройки. В свободном блоке элементы можно перетаскивать.</span><button data-action="catalog">＋ Блок</button></div>
+            <div class="vb-canvas-bottom"><span>Перетаскивайте элементы. Выделяйте несколько рамкой или Shift+кликом.</span><button data-action="catalog">＋ Блок</button></div>
         </section>
         <aside class="vb-right" aria-label="Настройки">
             <div class="vb-inspector-tabs" role="tablist" aria-label="Настройки сайта"><button data-inspector="content" role="tab" class="active" aria-selected="true">Контент</button><button data-inspector="style" role="tab" aria-selected="false">Дизайн</button><button data-inspector="theme" role="tab" aria-selected="false">Сайт</button></div>
@@ -42,4 +42,4 @@
 </div>
 {{ builder_config|json_script:'visual-builder-config' }}
 {% endblock %}
-{% block scripts %}<script src="{% static 'founder/js/builder-clipboard.js' %}?v=2" defer></script><script src="{% static 'founder/js/free-canvas.js' %}?v=convert-20261029-1" defer></script><script src="{% static 'founder/js/visual-builder.js' %}?v=convert-20261029-1" defer></script>{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/builder-clipboard.js' %}?v=2" defer></script><script src="{% static 'founder/js/builder-templates.js' %}?v=1" defer></script><script src="{% static 'founder/js/free-canvas.js' %}?v=multi-20261029-1" defer></script><script src="{% static 'founder/js/visual-builder.js' %}?v=multi-20261029-1" defer></script>{% endblock %}

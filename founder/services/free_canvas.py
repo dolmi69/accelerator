@@ -6,7 +6,7 @@ from html import escape
 WIDTH = 1120
 MOBILE_WIDTH = 390
 MAX_ELEMENTS = 60
-TYPES = {'text', 'image', 'button', 'shape', 'line', 'art'}
+TYPES = {'text', 'image', 'button', 'shape', 'line', 'art', 'faq'}
 DEFAULT_STYLE = {'color':'#122338','background':'transparent','borderColor':'#147d73','borderWidth':0,
     'radius':0,'fontWeight':'500','fontFamily':'inherit','textAlign':'left','opacity':100,'rotation':0,'objectFit':'cover'}
 DEFAULT_PROPS = {'height':620,'mobileHeight':740,'elements':[]}
@@ -20,15 +20,15 @@ EXTRA_STYLE_FLAGS = {'trailingIcon','plainLink'}
 def new_element(kind):
     if kind not in TYPES:
         raise ValueError('Unknown canvas element')
-    sizes={'text':(450,120,48),'image':(340,280,20),'button':(220,56,16),'shape':(260,200,20),'line':(320,4,20),'art':(340,340,20)}
+    sizes={'text':(450,120,48),'image':(340,280,20),'button':(220,56,16),'shape':(260,200,20),'line':(320,4,20),'art':(340,340,20),'faq':(560,180,16)}
     width,height,font=sizes[kind]
     mobile_width=min(width,330)
     style=copy.deepcopy(DEFAULT_STYLE)
     if kind in {'button','shape','line'}:style['background']='#147d73'
     if kind=='button':style.update(color='#ffffff',radius=8,textAlign='center',fontWeight='600')
     if kind=='shape':style['radius']=20
-    return {'id':uuid.uuid4().hex,'type':kind,'content':{'text':'Ваш текст' if kind=='text' else 'Открыть' if kind=='button' else '',
-        'image':'','alt':'','link':'#'},'desktop':{'x':80,'y':80,'width':width,'height':height,'fontSize':font,'hidden':False},
+    return {'id':uuid.uuid4().hex,'type':kind,'content':{'text':'Ваш текст' if kind=='text' else 'Открыть' if kind=='button' else 'Ваш вопрос' if kind=='faq' else '',
+        'image':'','alt':'Напишите ответ на вопрос.'if kind=='faq'else'','link':'#'},'desktop':{'x':80,'y':80,'width':width,'height':height,'fontSize':font,'hidden':False},
         'mobile':{'x':30,'y':60,'width':mobile_width,'height':height,'fontSize':min(font,34),'hidden':False},'style':style,'locked':False}
 
 
@@ -38,9 +38,12 @@ def validate(raw,assets,identifier):
         if type(value)is not int or not low<=value<=high:
             raise DocumentError(f'Размер или положение свободного элемента: допустимо от {low} до {high}.')
         return value
-    if not isinstance(raw,dict)or set(raw)!={'height','mobileHeight','elements'}:
+    if not isinstance(raw,dict)or not {'height','mobileHeight','elements'}<=set(raw)or set(raw)-{'height','mobileHeight','elements','template'}:
         raise DocumentError('Некорректный свободный блок.')
     result={'height':number(raw['height'],40,4000),'mobileHeight':number(raw['mobileHeight'],40,6000),'elements':[]}
+    if 'template'in raw:
+        if not isinstance(raw['template'],str)or raw['template']not in {'nav','hero','features','text','image','gallery','quotes','pricing','faq','cta','footer'}:raise DocumentError('Неизвестный шаблон секции.')
+        result['template']=raw['template']
     if not isinstance(raw['elements'],list)or len(raw['elements'])>MAX_ELEMENTS:
         raise DocumentError('В свободном блоке может быть до 60 элементов.')
     for item in raw['elements']:
@@ -49,7 +52,7 @@ def validate(raw,assets,identifier):
         content=item['content'];style=item['style']
         if not isinstance(content,dict)or set(content)!={'text','image','alt','link'}:
             raise DocumentError('Некорректное содержимое свободного элемента.')
-        if any(not isinstance(content[k],str)or len(content[k])>limit or '\0'in content[k]for k,limit in [('text',5000),('alt',300)]):
+        if any(not isinstance(content[k],str)or len(content[k])>limit or '\0'in content[k]for k,limit in [('text',5000),('alt',5000 if item['type']=='faq'else 300)]):
             raise DocumentError('Проверьте текст и описание элемента.')
         if not isinstance(content['image'],str)or content['image']and content['image']not in assets:
             raise DocumentError('Изображение недоступно в этом проекте.')
@@ -103,7 +106,8 @@ def render(props,*,image_url,href,editor=False):
         text=escape(content['text']).replace('\n','<br>')
         if kind=='image':
             body=f'<img src="{val(image_url(content["image"]))}" alt="{val(content["alt"])}" draggable="false">'if content['image']else'<span class="bb-free-placeholder" aria-hidden="true">＋ Изображение</span>'
-        elif kind=='art':body='<div class="bb-art" aria-hidden="true"><div class="bb-art-orbit"></div><div class="bb-art-disc"></div><div class="bb-art-tile">✳</div></div>'
+        elif kind=='art':body='<div class="bb-art" aria-hidden="true"><div class="bb-art-orbit"></div><div class="bb-art-disc"></div><div class="bb-art-tile">✳</div>'+('<span class="bb-art-note">'+text+'</span>'if text else'')+'</div>'
+        elif kind=='faq':body='<details class="bb-faq bb-free-faq" open><summary>'+text+'<span>+</span></summary><p>'+escape(content['alt']).replace('\n','<br>')+'</p></details>'
         elif kind in {'text','button'}:body=f'<span class="bb-free-copy"'+(' data-free-text="true"'if editor else '')+'>'+text+'</span>'
         else:body=''
         if kind=='button'and style.get('trailingIcon'):body+='<span class="bb-free-icon" aria-hidden="true">↗</span>'
@@ -119,6 +123,7 @@ CSS='''
 
 # Conversion-specific values are optional so old free blocks retain their look.
 CSS += '''
+.bb-free-faq{width:100%;margin:0}.bb-free-faq p{font-weight:400;font-size:.875em}
 .bb-free-button{padding:var(--d-py,8px) var(--d-px,12px)}
 .bb-free-has-icon{justify-content:space-between;gap:0}
 .bb-free-has-icon .bb-free-copy{width:auto}

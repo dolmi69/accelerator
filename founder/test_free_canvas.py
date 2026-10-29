@@ -89,6 +89,26 @@ class FreeCanvasSchemaTests(TestCase):
             bad=copy.deepcopy(self.document);bad['pages'][0]['blocks'][0]['props']['elements'][0]['style'][key]=value
             with self.subTest(key=key),self.assertRaises(builder.DocumentError):builder.validate_document(bad)
 
+    def test_template_metadata_and_faq_survive_save_ai_and_public_render(self):
+        self.canvas['props']['template']='faq'
+        faq=free.new_element('faq');faq['content'].update(text='Вопрос <img onerror=alert(1)>',alt='Ответ & подробности\nЕщё строка')
+        self.canvas['props']['elements']=[faq]
+        clean=builder.validate_document(self.document)
+        self.assertEqual(clean,self.document)
+        html=builder.render_document(clean)
+        self.assertIn('<details class="bb-faq bb-free-faq" open>',html)
+        self.assertIn('&lt;img onerror=alert(1)&gt;',html)
+        self.assertIn('Ответ &amp; подробности<br>Ещё строка',html)
+        self.assertNotIn('data-free-id',html)
+        edited=apply_operations(clean,[{'op':'update_element','id':faq['id'],'content':{'text':'Другой вопрос'}}],[])
+        props=edited['pages'][0]['blocks'][0]['props']
+        self.assertEqual(props['template'],'faq');self.assertEqual(props['elements'][0]['content']['alt'],faq['content']['alt'])
+        for value in ['unknown',[],{},True]:
+            bad=copy.deepcopy(clean);bad['pages'][0]['blocks'][0]['props']['template']=value
+            with self.subTest(value=value),self.assertRaises(builder.DocumentError):builder.validate_document(bad)
+        bad=copy.deepcopy(clean);bad['pages'][0]['blocks'][0]['props']['elements'][0]['content']['alt']='x'*5001
+        with self.assertRaises(builder.DocumentError):builder.validate_document(bad)
+
 
 @override_settings(REDIS_URL='',DEBUG=True,BRUNOHOST_BASE_URL='http://localhost:8000',BRUNOHOST_ENGINE='disabled')
 class FreeCanvasLifecycleTests(TestCase):

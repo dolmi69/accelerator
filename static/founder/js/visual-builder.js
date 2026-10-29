@@ -21,6 +21,9 @@
   let imageTarget = null, dragID = null, toastTimer, conflict = false, dialogKind = '', pendingInsertion = null;
   let hostedURL = config.hostedUrl, pasteQueue=Promise.resolve(), pendingPageAnchor='';
   const clipboard=window.BrunoBuilderClipboard;
+  const sectionKind=b=>b.props.template||b.type;
+  const sectionLabel=b=>config.catalog[sectionKind(b)].label;
+  let preparationQueue=Promise.resolve();
   const page = () => documentState.pages.find(p => p.id === currentPage) || documentState.pages[0];
   const block = () => page().blocks.find(b => b.id === selected);
   const isDirty = () => savedJSON !== JSON.stringify(documentState);
@@ -89,9 +92,9 @@
     $('#vb-block-count').textContent = String(p.blocks.length).padStart(2, '0');
     $('#vb-canvas-address').textContent = `${p.title} ${path(p)}`;
     $('#vb-pages').innerHTML = documentState.pages.map((p,i) => `<div class="vb-page ${p.id === currentPage ? 'active' : ''}"><button data-page="${p.id}"><span aria-hidden="true">${i === 0 ? '⌂' : '▤'}</span><span>${esc(p.title)}</span></button><button class="vb-icon" data-page-options="${p.id}" title="Настройки страницы ${esc(p.title)}" aria-label="Настройки страницы ${esc(p.title)}">⋯</button></div>`).join('');
-    $('#vb-layers').innerHTML = p.blocks.map((b,i) => `<div class="vb-layer ${b.id === selected ? 'active' : ''}" draggable="true" data-layer="${b.id}" role="button" tabindex="0" aria-label="${i+1}. ${esc(config.catalog[b.type].label)}"><span class="vb-layer-symbol" aria-hidden="true">${symbols[b.type]}</span><span class="vb-layer-label">${esc(config.catalog[b.type].label)}<small>${esc(b.props.title || b.props.brand || 'Блок страницы')}</small></span><span class="vb-grip" aria-hidden="true">⠿</span></div>${b.type==='canvas'&&b.id===selected?free.layers(b):''}`).join('') || '<p class="vb-control-note" style="padding:10px">Здесь появится структура вашей страницы.</p>';
+    $('#vb-layers').innerHTML = p.blocks.map((b,i) => `<div class="vb-layer ${b.id === selected ? 'active' : ''}" draggable="true" data-layer="${b.id}" role="button" tabindex="0" aria-label="${i+1}. ${esc(sectionLabel(b))}"><span class="vb-layer-symbol" aria-hidden="true">${symbols[sectionKind(b)]}</span><span class="vb-layer-label">${esc(sectionLabel(b))}<small>${esc(b.props.title || b.props.brand || 'Блок страницы')}</small></span><span class="vb-grip" aria-hidden="true">⠿</span></div>${b.type==='canvas'&&b.id===selected?free.layers(b):''}`).join('') || '<p class="vb-control-note" style="padding:10px">Здесь появится структура вашей страницы.</p>';
     $('[data-action=undo]').disabled = !undoStack.length; $('[data-action=redo]').disabled = !redoStack.length;
-    const quick=$('#vf-quick-add');quick.hidden=!free.active()||previewMode;quick.innerHTML=free.active()?free.toolbar():'';
+    const quick=$('#vf-quick-add');quick.hidden=previewMode||!p.blocks.some(b=>b.type==='canvas');quick.style.visibility=free.active()?'visible':'hidden';quick.innerHTML=free.toolbar();
     if (inspect) renderInspector();
     updateSelection();
   }
@@ -111,7 +114,7 @@
       el.querySelector('.vb-block-tools')?.remove();el.querySelector('.vf-floating-bar')?.remove();
       if (el.dataset.blockId === selected && !previewMode) {
         const tools = doc.createElement('div'); tools.className = 'vb-block-tools';
-        tools.innerHTML = `<span>${esc(config.catalog[el.dataset.blockType].label)}</span><button data-tool="up" title="Блок выше" aria-label="Блок выше">↑</button><button data-tool="down" title="Блок ниже" aria-label="Блок ниже">↓</button><button data-tool="duplicate" title="Копировать блок" aria-label="Копировать блок">⧉</button><button data-tool="add-after" title="Добавить блок ниже" aria-label="Добавить блок ниже">＋</button><button data-tool="delete" title="Удалить блок" aria-label="Удалить блок">×</button>`;
+        tools.innerHTML = `<span>${esc(sectionLabel(page().blocks.find(b=>b.id===el.dataset.blockId)))}</span><button data-tool="up" title="Блок выше" aria-label="Блок выше">↑</button><button data-tool="down" title="Блок ниже" aria-label="Блок ниже">↓</button><button data-tool="duplicate" title="Копировать блок" aria-label="Копировать блок">⧉</button><button data-tool="add-after" title="Добавить блок ниже" aria-label="Добавить блок ниже">＋</button><button data-tool="delete" title="Удалить блок" aria-label="Удалить блок">×</button>`;
         tools.addEventListener('click', event => { const action = event.target.closest('button')?.dataset.tool; if (action) {event.stopPropagation(); blockAction(action);} });
         el.append(tools);
       }
@@ -122,11 +125,33 @@
     clearTimeout(renderTimer);
     renderTimer = setTimeout(() => renderCanvas().catch(error => { if (error.name !== 'AbortError') showError(error.message); }), ms);
   }
+  function preparePage(id){
+    const work=async()=>{
+      for(let attempt=0;attempt<3;attempt++){
+        const p=documentState.pages.find(p=>p.id===id);if(!p||p.blocks.every(b=>b.type==='canvas'))return;
+        const source=JSON.stringify(p),copy=clone(documentState);
+        const data=await request(config.urls.preview,{document:copy,page:id});
+        const blocks=await window.BrunoBuilderTemplates.prepare(data.html,copy.pages.find(p=>p.id===id).blocks,{uid,assets:config.assets});
+        const live=documentState.pages.find(p=>p.id===id);if(!live)return;if(JSON.stringify(live)!==source)continue;
+        const candidate=clone(documentState);candidate.pages.find(p=>p.id===id).blocks=blocks;
+        const count=candidate.pages.flatMap(p=>p.blocks).reduce((n,b)=>n+(b.props.elements?.length||0),0);
+        if(count>250||new TextEncoder().encode(JSON.stringify(candidate,null,1)).length>200000)throw new Error('Для свободного размещения не хватает места в документе. Скачайте копию и разделите сайт на несколько проектов.');
+        // A format upgrade keeps user undo/redo intact; content is unchanged.
+        live.blocks=blocks.map(b=>live.blocks.find(old=>old.id===b.id&&old.type==='canvas')||b);refresh();status('Сохраняем редактируемый шаблон…',true);
+        clearTimeout(saveTimer);saveTimer=setTimeout(()=>save().catch(()=>{}),1800);return;
+      }
+      throw new Error('Страница меняется во время подготовки. Подождите и повторите попытку.');
+    };
+    const result=preparationQueue.then(work);preparationQueue=result.catch(()=>{});return result;
+  }
+  async function prepareSite(){for(const p of [...documentState.pages])await preparePage(p.id);}
   async function renderCanvas() {
     // Do not replace the focused text node while someone is typing on the canvas.
     if (frame.contentDocument?.activeElement?.isContentEditable && !previewMode) return;
     renderController?.abort(); renderController = new AbortController();
-    const serial = ++previewSerial;
+    const serial = ++previewSerial, pageID=currentPage;
+    try{await preparePage(pageID);}catch(error){$('#vb-loading').hidden=true;throw error;}
+    if(serial!==previewSerial||pageID!==currentPage)return;
     const data = await request(config.urls.preview, {document: documentState, page: currentPage}, {signal: renderController.signal});
     if (serial !== previewSerial) return;
     const scroll = stage.scrollTop;
@@ -364,7 +389,7 @@
     try {await work();}catch(error){showError(error.message);}finally{if(button){button.disabled=false;button.innerHTML=old;}}
   }
   async function snapshot() {
-    await flushSave();const data=await request(config.urls.snapshot,{revision});config.sourceVersion=data.version;return data;
+    await prepareSite();await flushSave();const data=await request(config.urls.snapshot,{revision});config.sourceVersion=data.version;return data;
   }
   async function publish() {
     const result=await snapshot();const form=new FormData();form.append('version',result.version);form.append('action','publish');
@@ -386,11 +411,11 @@
     if(name==='upload')return $('#vb-upload').click();
     if(name==='backup')return downloadBlob(JSON.stringify(documentState,null,2),'brunolab-draft.json','application/json');
     if(name==='retry')return busy(button,async()=>{await flushSave();await renderCanvas();hideError();});
-    if(name==='download')return busy(button,async()=>{await flushSave();const a=document.createElement('a');a.href=config.urls.download;a.download='brunolab-site.zip';a.click();});
+    if(name==='download')return busy(button,async()=>{await prepareSite();await flushSave();const a=document.createElement('a');a.href=config.urls.download;a.download='brunolab-site.zip';a.click();});
     if(name==='go-bruno')return busy(button,async()=>{const data=await snapshot();location.href=data.url;});
     if(name==='snapshot')return busy(button,async()=>{await snapshot();toast('Версия сохранена в истории лаборатории');});
     if(name==='publish')return busy(button,publish);
-    if(name==='preview'){previewMode=!previewMode;$('#vf-quick-add').hidden=previewMode||!free.active();root.classList.toggle('is-preview',previewMode);root.classList.remove('is-left-open','is-right-open');scheduleRender(0);requestAnimationFrame(fitCanvas);toast(previewMode?'Режим просмотра · Escape — вернуться':'Вернулись в редактор');return;}
+    if(name==='preview'){previewMode=!previewMode;$('#vf-quick-add').hidden=previewMode||!page().blocks.some(b=>b.type==='canvas');root.classList.toggle('is-preview',previewMode);root.classList.remove('is-left-open','is-right-open');scheduleRender(0);requestAnimationFrame(fitCanvas);toast(previewMode?'Режим просмотра · Escape — вернуться':'Вернулись в редактор');return;}
     if(name==='add-item'){const b=block();if(!b||b.props.items.length>=12)return;mutate(()=>b.props.items.push(clone(config.catalog[b.type].props.items[0])),{inspect:true});}
   }
   root.addEventListener('click', event => {
@@ -401,7 +426,7 @@
     if(d.pageOptions)return openPageSettings(d.pageOptions);
     if(d.inspector)return setPanel(d.inspector);
     if(d.device){free.cancel();device=d.device;$$('[data-device]').forEach(b=>{b.classList.toggle('active',b===el);b.setAttribute('aria-pressed',b===el);});if(free.active()){scheduleRender(0);renderInspector();}fitCanvas();return;}
-    if(d.freeSelect){selectBlock(d.freeBlock,{preserveFree:true});free.select(d.freeSelect);return;}
+    if(d.freeSelect){free.select(d.freeSelect,{toggle:event.shiftKey||event.ctrlKey||event.metaKey});return;}
     if(d.freeAdd)return free.add(d.freeAdd);
     if(d.freeAction)return free.action(d.freeAction);
     if(d.freeAlign)return free.align(d.freeAlign);
@@ -444,7 +469,7 @@
   function shortcuts(event) {
     const typing=event.target.matches?.('input,textarea,select,[contenteditable]');
     if(!previewMode&&!dialog.open&&free.keydown(event))return;
-    if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='s'){event.preventDefault();event.stopPropagation();busy(null,async()=>{await flushSave();toast('Черновик сохранён');});return;}
+    if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='s'){event.preventDefault();event.stopPropagation();busy(null,async()=>{await prepareSite();await flushSave();toast('Черновик сохранён');});return;}
     if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='z'&&!typing){event.preventDefault();event.stopPropagation();history(event.shiftKey?'redo':'undo');return;}
     if(event.key==='Escape'){if(dialog.open)return;if(previewMode)action('preview');else root.classList.remove('is-left-open','is-right-open');}
     if(event.key==='Delete'&&!typing&&!dialog.open&&selected&&!previewMode){event.preventDefault();blockAction('delete');}
