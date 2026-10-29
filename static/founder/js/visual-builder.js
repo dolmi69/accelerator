@@ -416,6 +416,13 @@
     if(d.itemMove!==undefined){const i=Number(d.itemMove),j=i+Number(d.dir),items=block().props.items;if(j>=0&&j<items.length)mutate(()=>[items[i],items[j]]=[items[j],items[i]],{inspect:true});return;}
     if(d.copyUrl){navigator.clipboard.writeText(d.copyUrl).then(()=>toast('Ссылка скопирована')).catch(()=>showError('Скопируйте ссылку из адресной строки открытого сайта.'));}
   });
+  $('.vb-canvas').addEventListener('click',event=>{
+    if(previewMode||dialog.open||event.defaultPrevented||!selected)return;
+    // Iframe clicks stay inside its document. Here only the surrounding desk
+    // clears selection; toolbar buttons and other controls keep their actions.
+    if(event.target.closest('button,a,input,textarea,select,[contenteditable],[role="button"],#vf-quick-add'))return;
+    free.clear();selected=null;refresh();
+  });
   $('#vb-layers').addEventListener('click',event=>{const layer=event.target.closest('[data-layer]');if(layer)selectBlock(layer.dataset.layer,{scroll:true});});
   $('#vb-layers').addEventListener('keydown',event=>{const layer=event.target.closest('[data-layer]');if(layer&&['Enter',' '].includes(event.key)){event.preventDefault();selectBlock(layer.dataset.layer,{scroll:true});}});
   $('#vb-layers').addEventListener('dragstart',event=>{dragID=event.target.closest('[data-layer]')?.dataset.layer;if(dragID){event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',dragID);}});
