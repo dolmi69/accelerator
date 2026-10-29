@@ -60,14 +60,8 @@ def new_block(kind):
 
 
 def default_document(startup):
-    blocks = [new_block(t) for t in ('nav', 'hero', 'features', 'text', 'cta', 'footer')]
-    for block in blocks:
-        if 'brand' in block['props']:
-            block['props']['brand'] = startup.name[:100]
-    blocks[1]['props']['title'] = f'{startup.name[:80]}.\nВаша идея обретает форму.'
-    blocks[2]['id'] = 'features'
-    blocks[3]['id'] = 'about'
-    return {'schema': 1, 'theme': dict(THEME), 'pages': [{'id': uuid.uuid4().hex, 'title': 'Главная', 'slug': '', 'description': '', 'blocks': blocks}]}
+    from founder.services.builder_starter import build_document
+    return build_document()
 
 
 def safe_link(value):

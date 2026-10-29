@@ -51,8 +51,47 @@ class VisualBuilderTests(TestCase):
         return self.client.post(self.url('upload'), {'image':SimpleUploadedFile(name,data.getvalue(),content_type='image/png')})
 
     def add_page(self, document):
-        document['pages'].append({'id':'about-page','title':'О проекте','slug':'about','description':'Наша история','blocks':[builder.new_block('text')]})
+        document['pages'].insert(1, {'id':'about-page','title':'О проекте','slug':'about','description':'Наша история','blocks':[builder.new_block('text')]})
         return document
+
+    def test_starter_has_editable_pages_working_local_links_and_no_required_uploads(self):
+        document=builder.validate_document(self.document)
+        self.assertEqual([p['slug'] for p in document['pages']], ['', 'features', 'guide'])
+        self.assertFalse(builder.asset_ids(document))
+        pages={builder.page_path(p):p for p in document['pages']}
+        for page in document['pages']:
+            html=builder.render_document(document,page['id'],editor=True)
+            self.assertNotIn('<script',html)
+            self.assertIn('data-block-type="nav"',html)
+            self.assertIn('data-block-type="footer"',html)
+            for block in page['blocks']:
+                content=[block['props'],*block['props'].get('items',[]),
+                         *(e['content'] for e in block['props'].get('elements',[]))]
+                for item in content:
+                    link=item.get('link','')
+                    if link.startswith(('/', '#')):
+                        path,_,anchor=link.partition('#')
+                        target=pages[path] if path else page
+                        if anchor:
+                            self.assertIn(anchor,[b['id'] for b in target['blocks']])
+        canvas=next(b for p in document['pages'] for b in p['blocks'] if b['type']=='canvas')
+        self.assertEqual({e['type'] for e in canvas['props']['elements']},{'shape','text','button','art'})
+        independent=builder.default_document(self.startup)
+        independent['pages'][1]['blocks'][3]['props']['elements'][0]['style']['background']='#ffffff'
+        self.assertNotEqual(independent['pages'][1]['blocks'][3],canvas)
+
+    def test_opening_editor_keeps_an_existing_custom_draft_instead_of_installing_starter(self):
+        custom=copy.deepcopy(self.document)
+        custom['pages']=[custom['pages'][0]]
+        custom['pages'][0]['blocks'][1]['props']['title']='Мой готовый сайт'
+        response=self.save(custom)
+        self.assertEqual(response.status_code,200,response.content)
+        revision=response.json()['revision']
+        response=self.client.get(self.url(''))
+        self.assertEqual(response.status_code,200)
+        current=self.draft()
+        self.assertEqual(current['document'],custom)
+        self.assertEqual(current['revision'],revision)
 
     def test_editor_loads_with_catalog_and_draft_without_ai_call(self):
         with patch('founder.services.qwen.generate_code') as model:

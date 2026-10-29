@@ -19,7 +19,7 @@
   let savedJSON = JSON.stringify(documentState), savePromise = null, saveTimer, renderTimer, renderController;
   let changeGroup = '', lastChange = 0, previewSerial = 0, resizeObserver, naturalHeight = 1000;
   let imageTarget = null, dragID = null, toastTimer, conflict = false, dialogKind = '', pendingInsertion = null;
-  let hostedURL = config.hostedUrl, pasteQueue=Promise.resolve();
+  let hostedURL = config.hostedUrl, pasteQueue=Promise.resolve(), pendingPageAnchor='';
   const clipboard=window.BrunoBuilderClipboard;
   const page = () => documentState.pages.find(p => p.id === currentPage) || documentState.pages[0];
   const block = () => page().blocks.find(b => b.id === selected);
@@ -78,8 +78,8 @@
     refresh(); scheduleRender(0); status('Есть несохранённые изменения', true);
     clearTimeout(saveTimer); saveTimer = setTimeout(() => save().catch(() => {}), 1800);
   }
-  function switchPage(id) {
-    currentPage = id; selected = null; root.classList.remove('is-left-open');
+  function switchPage(id, anchor='') {
+    currentPage = id; selected = null; pendingPageAnchor=anchor; root.classList.remove('is-left-open');
     refresh(); scheduleRender(0); stage.scrollTop = 0;
   }
   function refresh({inspect = true} = {}) {
@@ -144,7 +144,7 @@
           if (previewMode) {
             const raw = link.getAttribute('href');
             const targetPage = documentState.pages.find(p => path(p) === raw?.split('#')[0]);
-            if (targetPage) switchPage(targetPage.id);
+            if (targetPage) switchPage(targetPage.id,raw.split('#')[1]||'');
             else if (raw?.startsWith('#')) doc.getElementById(raw.slice(1))?.scrollIntoView();
             else if (/^(https:\/\/|mailto:|tel:)/.test(raw || '')) window.open(raw, '_blank', 'noopener,noreferrer');
             return;
@@ -173,6 +173,7 @@
       doc.addEventListener('keydown', shortcuts);
       resizeObserver?.disconnect(); resizeObserver = new ResizeObserver(() => fitCanvas()); resizeObserver.observe(doc.body);
       fitCanvas(); stage.scrollTop = scroll; updateSelection(); $('#vb-loading').hidden = true;
+      if(pendingPageAnchor){doc.getElementById(pendingPageAnchor)?.scrollIntoView();pendingPageAnchor='';}
     };
     frame.srcdoc = data.html;
   }
