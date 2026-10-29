@@ -135,7 +135,7 @@
       const doc = frame.contentDocument;
       if (!doc?.body) return;
       const style = doc.createElement('style');
-      style.textContent = `html{scroll-behavior:auto!important}body{min-height:400px}[data-block-id]{position:relative;outline-offset:-2px}${!previewMode ? '[data-block-id]{cursor:default}[data-block-id]:hover{outline:1px solid #147d7360}[data-bb-text]{cursor:text}[data-bb-text]:hover{box-shadow:inset 0 -1px #147d7350}[contenteditable]:focus{outline:2px solid #147d73!important;outline-offset:6px;min-width:15px}' : ''}.vb-selected{outline:2px solid #147d73!important;z-index:1}.vb-block-tools{position:absolute;top:8px;right:8px;display:flex;gap:2px;background:#147d73;color:#fff;z-index:20;padding:3px;border-radius:6px;box-shadow:0 2px 8px #0001;font:11px/1.4 system-ui;letter-spacing:0;align-items:center}.vb-block-tools>span{padding:0 9px}.vb-block-tools button{border:0;background:transparent;color:#fff;border-radius:3px;padding:4px 7px;cursor:pointer;font:16px/1.4 system-ui}.vb-block-tools button:hover{background:#ffffff25}`;
+      style.textContent = `html{scroll-behavior:auto!important}html,body{overflow:clip!important}body{min-height:400px}[data-block-id]{position:relative;outline-offset:-2px}${!previewMode ? '[data-block-id]{cursor:default}[data-block-id]:hover{outline:1px solid #147d7360}[data-bb-text]{cursor:text}[data-bb-text]:hover{box-shadow:inset 0 -1px #147d7350}[contenteditable]:focus{outline:2px solid #147d73!important;outline-offset:6px;min-width:15px}' : ''}.vb-selected{outline:2px solid #147d73!important;z-index:1}.vb-block-tools{position:absolute;top:8px;right:8px;display:flex;gap:2px;background:#147d73;color:#fff;z-index:20;padding:3px;border-radius:6px;box-shadow:0 2px 8px #0001;font:11px/1.4 system-ui;letter-spacing:0;align-items:center}.vb-block-tools>span{padding:0 9px}.vb-block-tools button{border:0;background:transparent;color:#fff;border-radius:3px;padding:4px 7px;cursor:pointer;font:16px/1.4 system-ui}.vb-block-tools button:hover{background:#ffffff25}`;
       doc.head.append(style);
       doc.addEventListener('click', event => {
         const link = event.target.closest('a');
@@ -183,7 +183,9 @@
     const scale = Math.min(1, Math.max(.15, available / width));
     frame.style.width = width + 'px';
     const body = frame.contentDocument?.body;
-    if (body) naturalHeight = Math.max(500, Math.ceil(body.scrollHeight));
+    // scrollHeight rounds to an integer; at fractional zoom the body can be
+    // slightly taller. Only the outer stage owns scrolling, including on shrink.
+    if (body) naturalHeight = Math.max(500, Math.ceil(Math.max(body.scrollHeight,body.getBoundingClientRect().height)));
     frame.style.height = naturalHeight + 'px'; frame.style.transform = `scale(${scale})`; frame.dataset.scale = scale;
     scaled.style.width = width * scale + 'px'; scaled.style.height = naturalHeight * scale + 'px';
     $('#vb-zoom').textContent = Math.round(scale * 100) + '%';

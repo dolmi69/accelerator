@@ -25,7 +25,7 @@
         <section class="vb-canvas" aria-label="Холст сайта">
             <div class="vb-canvas-label"><span class="vb-live-dot"></span><span id="vb-canvas-address">Главная /</span><button class="vb-icon" data-action="page-settings" aria-label="Настройки страницы" title="Название и адрес страницы">⚙</button></div>
             <div id="vf-quick-add" class="vf-quick-add" hidden></div>
-            <div class="vb-stage" id="vb-stage"><div class="vb-scaled" id="vb-scaled"><iframe id="vb-frame" title="Редактируемая страница сайта" sandbox="allow-same-origin"></iframe></div><div id="vb-loading" class="vb-loading">Готовим ваш холст…</div></div>
+            <div class="vb-stage" id="vb-stage"><div class="vb-scaled" id="vb-scaled"><iframe id="vb-frame" title="Редактируемая страница сайта" scrolling="no" sandbox="allow-same-origin"></iframe></div><div id="vb-loading" class="vb-loading">Готовим ваш холст…</div></div>
             <div class="vb-canvas-bottom"><span>Выберите блок для настройки. В свободном блоке элементы можно перетаскивать.</span><button data-action="catalog">＋ Блок</button></div>
         </section>
         <aside class="vb-right" aria-label="Настройки">
@@ -42,4 +42,4 @@
 </div>
 {{ builder_config|json_script:'visual-builder-config' }}
 {% endblock %}
-{% block scripts %}<script src="{% static 'founder/js/builder-clipboard.js' %}?v=2" defer></script><script src="{% static 'founder/js/free-canvas.js' %}?v=paste-2" defer></script><script src="{% static 'founder/js/visual-builder.js' %}?v=starter-20261029-1" defer></script>{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/builder-clipboard.js' %}?v=2" defer></script><script src="{% static 'founder/js/free-canvas.js' %}?v=paste-2" defer></script><script src="{% static 'founder/js/visual-builder.js' %}?v=scroll-20261029-1" defer></script>{% endblock %}
