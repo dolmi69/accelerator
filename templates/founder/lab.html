@@ -269,31 +269,9 @@
                    role="status"
                    aria-live="polite"></p>
                 <details class="lab-cost-details">
-                    <summary>
-                        {% if usage.measuring %}
-                            Расход текущего теста
-                        {% else %}
-                            Расход AI
-                        {% endif %}
-                        <strong>{{ usage.known_rub|floatformat:2 }} ₽</strong>
-                    </summary>
-                    <p class="muted small">
-                        {% if usage.measuring %}В текущем тесте:{% endif %}
-                        {{ usage.attempts }} запросов. В месячном бюджете учтено {{ usage.monthly_accounted_rub|floatformat:2 }} ₽
-                        {% if usage.limits_disabled %}
-                            . Локальные ограничения расходов и числа запросов временно отключены.
-                        {% else %}
-                            из {{ usage.monthly_limit|floatformat:2 }} ₽, включая резервы.
-                        {% endif %}
-                    </p>
-                    <p class="muted small">
-                        {{ usage.input_tokens }} входных и {{ usage.output_tokens }} выходных токенов. Сумма рассчитана по настроенному тарифу.
-                    </p>
-                    {% if usage.uncertain %}
-                        <p class="muted small">
-                            {{ usage.reserved_rub|floatformat:2 }} ₽ — неподтверждённый резерв для {{ usage.uncertain }} запросов. Он не включён в показанный расход и не означает списание Ofox.
-                        </p>
-                    {% endif %}
+                    <summary>Токены <strong>{{ usage.input_tokens|add:usage.output_tokens }}</strong></summary>
+                    <p class="muted small">{{ usage.attempts }} запросов.</p>
+                    <p class="muted small">{{ usage.input_tokens }} входных и {{ usage.output_tokens }} выходных токенов.</p>
                 </details>
             </div>
         </section>
