@@ -64,6 +64,31 @@ class FreeCanvasSchemaTests(TestCase):
         self.canvas['props']['elements']=[free.new_element('shape')for _ in range(61)]
         with self.assertRaises(builder.DocumentError):builder.validate_document(self.document)
 
+    def test_converted_typography_links_and_short_navigation_roundtrip(self):
+        self.canvas['props']['height']=98
+        self.canvas['props']['elements']=[]
+        link=free.new_element('button')
+        link['content'].update(text='Главная',link='/')
+        link['desktop'].update(x=450,y=35,width=56,height=24,fontSize=13)
+        link['mobile'].update(x=20,y=84,width=56,height=24,fontSize=13)
+        link['style'].update(background='transparent',color='#182b2a',fontFamily='inherit',fontWeight='400',
+            lineHeight=1650,letterSpacing=-40,paddingX=0,paddingY=0,mobilePaddingX=0,mobilePaddingY=0,plainLink=True,trailingIcon=False)
+        self.canvas['props']['elements']=[link]
+        document=builder.validate_document(self.document)
+        self.assertEqual(document,self.document)
+        html=builder.render_document(document)
+        self.assertIn('line-height:1.65',html)
+        self.assertIn('letter-spacing:-0.04em',html)
+        self.assertIn('--d-px:0.000000cqw',html)
+        self.assertIn('bb-free-link',html)
+        changed=apply_operations(document,[{'op':'update_element','id':link['id'],'content':{'text':'Начало'}}],[])
+        self.assertEqual(changed['pages'][0]['blocks'][0]['props']['elements'][0]['style'],link['style'])
+        link['style']['trailingIcon']=True
+        self.assertIn('bb-free-icon',builder.render_document(builder.validate_document(self.document)))
+        for key,value in [('lineHeight','url(evil)'),('letterSpacing',True),('paddingX',999),('plainLink','true')]:
+            bad=copy.deepcopy(self.document);bad['pages'][0]['blocks'][0]['props']['elements'][0]['style'][key]=value
+            with self.subTest(key=key),self.assertRaises(builder.DocumentError):builder.validate_document(bad)
+
 
 @override_settings(REDIS_URL='',DEBUG=True,BRUNOHOST_BASE_URL='http://localhost:8000',BRUNOHOST_ENGINE='disabled')
 class FreeCanvasLifecycleTests(TestCase):

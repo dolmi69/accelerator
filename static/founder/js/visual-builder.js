@@ -373,7 +373,7 @@
   }
   function downloadBlob(content,name,type) {const blob=new Blob([content],{type}), url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
   async function action(name,button) {
-    if(name==='free-convert')return free.convert();
+    if(name==='free-convert')return busy(button,()=>free.convert());
     if(name.startsWith('block-'))return blockAction(name.slice(6));
     if(name==='undo'||name==='redo')return history(name);
     if(name==='catalog'){pendingInsertion=null;return openCatalog();}

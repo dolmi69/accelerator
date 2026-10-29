@@ -92,7 +92,7 @@
       html+=`<div class="vf-add-tools" role="group" aria-label="Добавить свободный элемент">${Object.keys(names).map(k=>`<button data-free-add="${k}" title="Добавить: ${names[k]}"><span>${icons[k]}</span>${names[k]}</button>`).join('')}</div>`;
       html+=`<p class="vb-control-note">Перетащите элемент. Потяните за угол, чтобы изменить размер. Двойной клик по тексту — редактировать. Ctrl/⌘V вставит текст, картинку или ссылку.</p>`;
       if(!e){
-        html+=`<label class="vb-field"><span>Высота блока на ${mobile?'телефоне':'компьютере'}, px</span><input type="number" min="160" max="${mobile?6000:4000}" data-free-height value="${height()}"></label><button class="vb-btn" data-free-action="mobile-stack">Собрать версию для телефона</button><p class="vb-control-note">Тексты, картинки и кнопки встанут друг под другом. Оформление компьютера сохранится.</p>`;
+        html+=`<label class="vb-field"><span>Высота блока на ${mobile?'телефоне':'компьютере'}, px</span><input type="number" min="40" max="${mobile?6000:4000}" data-free-height value="${height()}"></label><button class="vb-btn" data-free-action="mobile-stack">Собрать версию для телефона</button><p class="vb-control-note">Тексты, картинки и кнопки встанут друг под другом. Оформление компьютера сохранится.</p>`;
         html+=`<div class="vb-separator"></div><div class="vf-order"><button class="vb-btn" data-action="block-up">Блок выше</button><button class="vb-btn" data-action="block-down">Блок ниже</button></div><button class="vb-btn" data-action="block-duplicate">Копировать блок</button><button class="vb-btn vb-danger" data-action="block-delete">Удалить блок</button>`;
         return html;
       }
@@ -219,7 +219,7 @@
     function align(value){const e=item();if(!e||e.locked)return;mutate(()=>{const box=e[device()],w=WIDTH[device()],h=height();if(value==='left')box.x=0;if(value==='center')box.x=Math.round((w-box.width)/2);if(value==='right')box.x=w-box.width;if(value==='top')box.y=0;if(value==='middle')box.y=Math.round((h-box.height)/2);if(value==='bottom')box.y=h-box.height;},{inspect:true});}
     function input(el){
       const d=el.dataset,e=item();if(!active())return;
-      if(d.freeHeight!==undefined){const max=device()==='mobile'?6000:4000,n=Number(el.value);if(!el.value||!Number.isInteger(n)||n<160||n>max)return;mutate(()=>{block().props[device()==='mobile'?'mobileHeight':'height']=n;block().props.elements.forEach(i=>{i[device()].height=Math.min(i[device()].height,n);i[device()].y=Math.min(i[device()].y,n-i[device()].height);});},{group:'free-height'});}
+      if(d.freeHeight!==undefined){const max=device()==='mobile'?6000:4000,n=Number(el.value);if(!el.value||!Number.isInteger(n)||n<40||n>max)return;mutate(()=>{block().props[device()==='mobile'?'mobileHeight':'height']=n;block().props.elements.forEach(i=>{i[device()].height=Math.min(i[device()].height,n);i[device()].y=Math.min(i[device()].y,n-i[device()].height);});},{group:'free-height'});}
       if(!e)return;
       if(d.freeContent)mutate(()=>e.content[d.freeContent]=el.value,{group:'free-content:'+e.id+':'+d.freeContent});
       if(d.freeToggle){mutate(()=>{if(d.freeToggle==='locked')e.locked=el.checked;else e[device()].hidden=el.checked;},{inspect:d.freeToggle==='locked'});}
@@ -238,27 +238,62 @@
       if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();if(!e.locked)mutate(()=>{e[device()]=Geometry.move(e[device()],event.key==='ArrowLeft'?-step:event.key==='ArrowRight'?step:0,event.key==='ArrowUp'?-step:event.key==='ArrowDown'?step:0,WIDTH[device()],height());},{group:'free-nudge:'+e.id});return true;}return false;
     }
     function assignImage(target,id){if(!target?.element)return false;const b=api.pages().flatMap(p=>p.blocks).find(b=>b.id===target.block),e=b?.props.elements.find(e=>e.id===target.element);if(e){mutate(()=>{e.content.image=id;e.content.alt=e.content.alt||config.assets.find(a=>a.id===id)?.name||'';},{inspect:true,immediate:true});}return true;}
-    function convert(){
-      const b=block();if(!b||b.type==='canvas')return;if(device()!=='desktop'){toast('Для переноса блока сначала откройте вид «Компьютер».');return;}
-      const section=frame.contentDocument?.querySelector(`[data-block-id="${b.id}"]`);if(!section)return;
-      const bounds=section.getBoundingClientRect(),ratio=1120/bounds.width,elements=[];
-      const nodes=[...section.querySelectorAll('h1,h2,h3,p,.bb-brand,.bb-button,.bb-nav-links a,.bb-footer-links a,.bb-photo,.bb-art')].filter(n=>!n.closest('.vb-block-tools'));
-      for(const node of nodes.slice(0,60)){
-        const rect=node.getBoundingClientRect();if(rect.width<1||rect.height<1)continue;
-        const css=frame.contentWindow.getComputedStyle(node),kind=node.matches('img')?'image':node.matches('.bb-button,a')?'button':node.matches('.bb-art')?'art':'text',e=newElement(kind);
-        const hex=(v,fallback)=>{const m=v.match(/rgba?\((\d+)[, ]+(\d+)[, ]+(\d+)/);return m?'#'+m.slice(1,4).map(n=>Number(n).toString(16).padStart(2,'0')).join(''):fallback;};
-        const w=Math.min(1120,Math.round(rect.width*ratio)),h=Math.min(4000,Math.max(8,Math.round(rect.height*ratio)));
-        e.desktop={x:Math.max(0,Math.min(1120-w,Math.round((rect.left-bounds.left)*ratio))),y:Math.max(0,Math.round((rect.top-bounds.top)*ratio)),width:Math.max(16,w),height:h,fontSize:clamp(Math.round(parseFloat(css.fontSize)*ratio),8,240),hidden:false};
-        e.content.text=node.innerText.replace(/↗\s*$/,'').trim();e.content.link=node.getAttribute('href')||'#';
-        if(kind==='image'){const asset=config.assets.find(a=>node.getAttribute('src')===a.url);if(asset)e.content.image=asset.id;e.content.alt=node.getAttribute('alt')||'';}
-        Object.assign(e.style,{color:hex(css.color,'#122338'),background:css.backgroundColor==='rgba(0, 0, 0, 0)'?'transparent':hex(css.backgroundColor,'transparent'),radius:Math.min(999,Math.round(parseFloat(css.borderRadius)||0)),fontWeight:['400','500','600','700','800'].includes(css.fontWeight)?css.fontWeight:'500',textAlign:['left','center','right'].includes(css.textAlign)?css.textAlign:'left'});
-        if(kind==='art')e.style.background='transparent';elements.push(e);
+    async function convert(){
+      const b=block();if(!b||b.type==='canvas')return;
+      if(device()!=='desktop'){toast('Для переноса блока сначала откройте вид «Компьютер».');return;}
+      const source=JSON.stringify(b),section=frame.contentDocument?.querySelector(`[data-block-id="${b.id}"]`);
+      if(!section)return;
+      const selector='h1,h2,h3,p,.bb-brand,.bb-button,.bb-nav-links a,.bb-footer-links a,.bb-photo,.bb-art';
+      function measure(section,width,limit){
+        const document=section.ownerDocument,view=document.defaultView,bounds=section.getBoundingClientRect(),ratio=width/bounds.width;
+        const height=Math.max(40,Math.ceil(bounds.height*ratio));
+        if(height>limit)throw new Error('Блок слишком высокий для свободного размещения. Сначала разделите его на части.');
+        const bodyFont=view.getComputedStyle(document.body).fontFamily;
+        const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const context=canvas.getContext('2d');
+        const hex=(value,fallback)=>{context.clearRect(0,0,1,1);context.fillStyle=value;context.fillRect(0,0,1,1);const rgba=context.getImageData(0,0,1,1).data;return rgba[3]?'#'+[...rgba].slice(0,3).map(n=>n.toString(16).padStart(2,'0')).join(''):fallback;};
+        const records=new Map();
+        [...section.querySelectorAll(selector)].filter(n=>!n.closest('.vb-block-tools')).forEach((node,index)=>{
+          const rect=node.getBoundingClientRect();if(rect.width<1||rect.height<1)return;
+          const css=view.getComputedStyle(node),kind=node.matches('img')?'image':node.matches('.bb-button,a')?'button':node.matches('.bb-art')?'art':'text';
+          const fontSize=Number.parseFloat(css.fontSize),w=Math.min(width,Math.max(8,Math.ceil(rect.width*ratio))),h=Math.min(height,Math.max(4,Math.ceil(rect.height*ratio)));
+          const box={x:Math.round(clamp((rect.left-bounds.left)*ratio,0,width-w)),y:Math.round(clamp((rect.top-bounds.top)*ratio,0,height-h)),width:w,height:h,fontSize:clamp(Math.round(fontSize*ratio),8,240),hidden:false};
+          let opacity=1;for(let parent=node;parent&&parent!==section;parent=parent.parentElement)opacity*=Number(view.getComputedStyle(parent).opacity);
+          const family=css.fontFamily===bodyFont?'inherit':/Georgia|serif/i.test(css.fontFamily)&&!/sans-serif/i.test(css.fontFamily)?'serif':/monospace/i.test(css.fontFamily)?'mono':'modern';
+          const style={fontFamily:family,color:hex(css.color,'#122338'),background:hex(css.backgroundColor,'transparent'),radius:Math.min(999,Math.round(parseFloat(css.borderRadius)||0)),fontWeight:['400','500','600','700','800'].includes(css.fontWeight)?css.fontWeight:'500',textAlign:css.textAlign==='end'?'right':['left','center','right'].includes(css.textAlign)?css.textAlign:'left',opacity:Math.round(opacity*100),lineHeight:clamp(Math.round((parseFloat(css.lineHeight)/fontSize||1.2)*1000),500,4000),letterSpacing:clamp(Math.round((parseFloat(css.letterSpacing)||0)/fontSize*1000),-200,500)};
+          if(kind==='button')Object.assign(style,{paddingX:Math.round(parseFloat(css.paddingLeft)||0),paddingY:Math.round(parseFloat(css.paddingTop)||0),trailingIcon:node.matches('.bb-button')&&!!node.querySelector('span[aria-hidden]'),plainLink:!node.matches('.bb-button')});
+          if(kind==='art')style.background='transparent';
+          records.set(index,{node,kind,box,style,text:node.innerText.replace(/↗\s*$/,'').trim(),link:node.getAttribute('href')||'#'});
+        });
+        return {height,records};
       }
-      if(!elements.length){toast('В этом блоке нет элементов для переноса. Добавьте свободный блок.');return;}
-      if(total()+elements.length>250){toast('На сайте может быть до 250 свободных элементов.');return;}
-      const h=Math.min(4000,Math.max(160,Math.ceil(bounds.height*ratio),...elements.map(e=>e.desktop.y+e.desktop.height)));
-      for(const e of elements){e.desktop.height=Math.min(e.desktop.height,h);e.desktop.y=Math.min(e.desktop.y,h-e.desktop.height);}
-      mutate(()=>{b.type='canvas';b.props={height:h,mobileHeight:740,elements};stackMobile(b);selected=elements[0].id;owner=b.id;},{inspect:true,immediate:true});toast('Блок переведён в свободный режим. ⌘/Ctrl+Z — отменить.');
+      const desktop=measure(section,1120,4000);
+      // Measure the same unchanged markup at phone width. This keeps the existing
+      // responsive navigation instead of inventing a vertical mobile stack.
+      const phone=document.createElement('iframe');phone.setAttribute('sandbox','allow-same-origin');phone.setAttribute('scrolling','no');
+      phone.setAttribute('aria-hidden','true');phone.tabIndex=-1;
+      phone.style.cssText='position:fixed;left:-10000px;top:0;width:390px;height:6000px;visibility:hidden;pointer-events:none;border:0';
+      const copy=frame.contentDocument.documentElement.cloneNode(true);
+      copy.querySelectorAll('.vb-block-tools,.vf-floating-bar,.vf-handles,.vf-selection-label,.vf-guide').forEach(n=>n.remove());
+      let mobile;
+      try{
+        await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Не удалось измерить мобильный вид. Повторите перенос.')),5000);phone.onload=()=>{clearTimeout(timer);resolve();};phone.srcdoc='<!doctype html>'+copy.outerHTML;document.body.append(phone);});
+        mobile=measure(phone.contentDocument.querySelector(`[data-block-id="${b.id}"]`),390,6000);
+        const elements=[],indices=new Set([...desktop.records.keys(),...mobile.records.keys()]);
+        if(indices.size>60||total()+indices.size>250)throw new Error('Для переноса нужно больше свободных элементов, чем доступно. Разделите блок на части.');
+        for(const index of indices){
+          const d=desktop.records.get(index),m=mobile.records.get(index),record=d||m,e=newElement(record.kind);
+          e.desktop=d?.box||{...e.desktop,x:0,y:0,width:8,height:4,hidden:true};
+          e.mobile=m?.box||{...e.mobile,x:0,y:0,width:8,height:4,hidden:true};
+          e.content.text=record.text;e.content.link=record.link;Object.assign(e.style,record.style);
+          if(record.kind==='button')Object.assign(e.style,{mobilePaddingX:m?.style.paddingX||0,mobilePaddingY:m?.style.paddingY||0});
+          if(record.kind==='image'){const asset=config.assets.find(a=>record.node.getAttribute('src')===a.url);if(!asset)throw new Error('Не удалось найти изображение блока в библиотеке проекта.');e.content.image=asset.id;e.content.alt=record.node.getAttribute('alt')||'';}
+          elements.push(e);
+        }
+        if(!elements.length){toast('В этом блоке нет элементов для переноса. Добавьте свободный блок.');return;}
+        if(!api.pages().some(p=>p.blocks.includes(b))||JSON.stringify(b)!==source)throw new Error('Блок изменился во время переноса. Повторите преобразование.');
+        mutate(()=>{b.type='canvas';b.props={height:desktop.height,mobileHeight:mobile.height,elements};if(api.block()?.id===b.id){selected=elements[0].id;owner=b.id;}},{inspect:true,immediate:true});
+        toast('Блок переведён в свободный режим. ⌘/Ctrl+Z — отменить.');
+      }finally{phone.remove();}
     }
     return {active,current,item,layers,select,inspectorHTML,toolbar,updateSelection,bind,add,action,align,input,keydown,assignImage,convert,pastePoint,insertClipboard,clear(){selected=null;owner=null;endGesture(true);},cancel(){endGesture(true);}};
   };

@@ -10,6 +10,11 @@ TYPES = {'text', 'image', 'button', 'shape', 'line', 'art'}
 DEFAULT_STYLE = {'color':'#122338','background':'transparent','borderColor':'#147d73','borderWidth':0,
     'radius':0,'fontWeight':'500','fontFamily':'inherit','textAlign':'left','opacity':100,'rotation':0,'objectFit':'cover'}
 DEFAULT_PROPS = {'height':620,'mobileHeight':740,'elements':[]}
+# Optional fields preserve measured typography during block conversion without
+# invalidating existing schema-1 documents or accepting arbitrary CSS.
+EXTRA_STYLE_NUMBERS = {'lineHeight':(500,4000),'letterSpacing':(-200,500),
+    'paddingX':(0,200),'paddingY':(0,200),'mobilePaddingX':(0,200),'mobilePaddingY':(0,200)}
+EXTRA_STYLE_FLAGS = {'trailingIcon','plainLink'}
 
 
 def new_element(kind):
@@ -35,7 +40,7 @@ def validate(raw,assets,identifier):
         return value
     if not isinstance(raw,dict)or set(raw)!={'height','mobileHeight','elements'}:
         raise DocumentError('Некорректный свободный блок.')
-    result={'height':number(raw['height'],160,4000),'mobileHeight':number(raw['mobileHeight'],160,6000),'elements':[]}
+    result={'height':number(raw['height'],40,4000),'mobileHeight':number(raw['mobileHeight'],40,6000),'elements':[]}
     if not isinstance(raw['elements'],list)or len(raw['elements'])>MAX_ELEMENTS:
         raise DocumentError('В свободном блоке может быть до 60 элементов.')
     for item in raw['elements']:
@@ -49,13 +54,18 @@ def validate(raw,assets,identifier):
         if not isinstance(content['image'],str)or content['image']and content['image']not in assets:
             raise DocumentError('Изображение недоступно в этом проекте.')
         cleaned={'id':identifier(item['id']),'type':item['type'],'content':{**content,'link':safe_link(content['link'])}}
-        if not isinstance(style,dict)or set(style)!=set(DEFAULT_STYLE):raise DocumentError('Некорректное оформление свободного элемента.')
+        if not isinstance(style,dict)or not set(DEFAULT_STYLE)<=set(style)or set(style)-set(DEFAULT_STYLE)-set(EXTRA_STYLE_NUMBERS)-EXTRA_STYLE_FLAGS:
+            raise DocumentError('Некорректное оформление свободного элемента.')
         for key in ('color','background','borderColor'):
             if not isinstance(style[key],str)or not(COLOR.fullmatch(style[key])or key=='background'and style[key]=='transparent'):
                 raise DocumentError('Выберите цвет в формате #147d73.')
         for key,choices in [('fontWeight',{'400','500','600','700','800'}),('fontFamily',{'inherit','modern','serif','mono'}),('textAlign',{'left','center','right'}),('objectFit',{'cover','contain'})]:
             if not isinstance(style[key],str)or style[key]not in choices:raise DocumentError('Неизвестная настройка элемента.')
         for key,low,high in [('borderWidth',0,20),('radius',0,999),('opacity',0,100),('rotation',-180,180)]:number(style[key],low,high)
+        for key,(low,high)in EXTRA_STYLE_NUMBERS.items():
+            if key in style:number(style[key],low,high)
+        for key in EXTRA_STYLE_FLAGS:
+            if key in style and type(style[key])is not bool:raise DocumentError('Некорректное оформление ссылки.')
         if type(item['locked'])is not bool:raise DocumentError('Некорректная блокировка элемента.')
         cleaned.update(style=dict(style),locked=item['locked'])
         for device,width,height in [('desktop',WIDTH,result['height']),('mobile',MOBILE_WIDTH,result['mobileHeight'])]:
@@ -83,6 +93,12 @@ def render(props,*,image_url,href,editor=False):
         variables.extend([f'color:{style["color"]}',f'background:{style["background"]}',f'border:{style["borderWidth"]}px solid {style["borderColor"]}',
             f'border-radius:{style["radius"]}px',f'font-family:{font}',f'font-weight:{style["fontWeight"]}',f'text-align:{style["textAlign"]}',
             f'opacity:{style["opacity"]/100}',f'transform:rotate({style["rotation"]}deg)',f'z-index:{index+1}',f'--free-fit:{style["objectFit"]}'])
+        if 'lineHeight'in style:variables.append(f'line-height:{style["lineHeight"]/1000}')
+        if 'letterSpacing'in style:variables.append(f'letter-spacing:{style["letterSpacing"]/1000}em')
+        for device,prefix,width in [('desktop','d',WIDTH),('mobile','m',MOBILE_WIDTH)]:
+            for axis in ('X','Y'):
+                key=('mobilePadding'+axis)if device=='mobile'else('padding'+axis)
+                if key in style:variables.append(f'--{prefix}-p{axis.lower()}:{style[key]/width*100:.6f}cqw')
         marker=f' data-free-id="{item["id"]}" data-free-type="{kind}" data-free-d-hidden="{str(item["desktop"]["hidden"]).lower()}" data-free-m-hidden="{str(item["mobile"]["hidden"]).lower()}"'if editor else ''
         text=escape(content['text']).replace('\n','<br>')
         if kind=='image':
@@ -90,11 +106,23 @@ def render(props,*,image_url,href,editor=False):
         elif kind=='art':body='<div class="bb-art" aria-hidden="true"><div class="bb-art-orbit"></div><div class="bb-art-disc"></div><div class="bb-art-tile">✳</div></div>'
         elif kind in {'text','button'}:body=f'<span class="bb-free-copy"'+(' data-free-text="true"'if editor else '')+'>'+text+'</span>'
         else:body=''
+        if kind=='button'and style.get('trailingIcon'):body+='<span class="bb-free-icon" aria-hidden="true">↗</span>'
         tag='a'if kind=='button'else'div';link=f' href="{href(content["link"])}"'if tag=='a'else''
-        parts.append(f'<{tag} id="{item["id"]}" class="bb-free-element bb-free-{kind}"{marker}{link} style="{val(";".join(variables))}">{body}</{tag}>')
+        classes=f'bb-free-element bb-free-{kind}'+(' bb-free-has-icon'if kind=='button'and style.get('trailingIcon')else'')+(' bb-free-link'if kind=='button'and style.get('plainLink')else'')
+        parts.append(f'<{tag} id="{item["id"]}" class="{classes}"{marker}{link} style="{val(";".join(variables))}">{body}</{tag}>')
     return f'<div class="bb-free-container"><div class="bb-free-canvas" style="--free-height:{props["height"]/WIDTH*100:.6f}cqw;--free-mobile-height:{props["mobileHeight"]/MOBILE_WIDTH*100:.6f}cqw">'+''.join(parts)+'</div></div>'
 
 
 CSS='''
 .bb-kind-canvas.bb-section{padding:0!important}.bb-kind-canvas>.bb-wrap{width:100%;max-width:none}.bb-free-container{width:min(1120px,100%);margin:auto;container-type:inline-size}.bb-free-canvas{position:relative;height:var(--free-height);isolation:isolate;overflow:clip}.bb-free-element{position:absolute;left:var(--d-x);top:var(--d-y);width:var(--d-w);height:var(--d-h);font-size:var(--d-fs);display:var(--d-display);line-height:1.2;box-sizing:border-box;min-width:0;overflow-wrap:anywhere;transform-origin:center}.bb-free-copy{width:100%;white-space:pre-wrap;line-height:inherit}.bb-free-text{align-items:flex-start}.bb-free-button{align-items:center;justify-content:center;text-decoration:none;padding:8px 12px}.bb-free-button:hover{text-decoration:none;filter:brightness(.96)}.bb-free-image{overflow:hidden}.bb-free-image img{display:block;width:100%;height:100%;object-fit:var(--free-fit)}.bb-free-placeholder{display:grid;place-items:center;width:100%;height:100%;background:color-mix(in srgb,var(--bb-accent) 8%,var(--bb-bg));color:var(--bb-accent);font:14px/1.4 system-ui,sans-serif;border:1px dashed currentColor}.bb-free-art>.bb-art{width:100%;height:100%;min-height:0;aspect-ratio:auto}.bb-free-shape,.bb-free-line{pointer-events:none}@media(max-width:650px){.bb-free-canvas{height:var(--free-mobile-height)}.bb-free-element{left:var(--m-x);top:var(--m-y);width:var(--m-w);height:var(--m-h);font-size:var(--m-fs);display:var(--m-display)}}
+'''
+
+# Conversion-specific values are optional so old free blocks retain their look.
+CSS += '''
+.bb-free-button{padding:var(--d-py,8px) var(--d-px,12px)}
+.bb-free-has-icon{justify-content:space-between;gap:0}
+.bb-free-has-icon .bb-free-copy{width:auto}
+.bb-free-icon{font-size:20px;flex:none}
+.bb-free-link:hover{text-decoration:underline;filter:none}
+@media(max-width:650px){.bb-free-button{padding:var(--m-py,var(--d-py,8px)) var(--m-px,var(--d-px,12px))}}
 '''
