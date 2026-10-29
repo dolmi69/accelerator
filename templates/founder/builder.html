@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% load static %}
 {% block title %}Конструктор · {{ startup.name }} · BrunoLab{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'founder/css/visual-builder.css' %}?v=free-20261029-6"><link rel="stylesheet" href="{% static 'founder/css/free-canvas.css' %}?v=4">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'founder/css/visual-builder.css' %}?v=paste-20261029-2"><link rel="stylesheet" href="{% static 'founder/css/free-canvas.css' %}?v=4">{% endblock %}
 {% block content %}
 <div id="visual-builder" class="vb" data-panel="content">
     <header class="vb-top">
@@ -20,7 +20,7 @@
             <div id="vb-pages" class="vb-pages"></div>
             <div class="vb-outline-head"><span>БЛОКИ СТРАНИЦЫ</span><span id="vb-block-count"></span></div>
             <div id="vb-layers" class="vb-layers"></div>
-            <div class="vb-left-bottom"><button type="button" class="vb-btn vb-add-block" data-action="catalog">＋ Добавить блок</button><p>Перетаскивайте блоки,<br>чтобы менять их порядок</p><div class="vb-shortcuts"><kbd>⌘ Z</kbd> Отменить <span>·</span> <kbd>⌘ S</kbd> Сохранить</div></div>
+            <div class="vb-left-bottom"><button type="button" class="vb-btn vb-add-block" data-action="catalog">＋ Добавить блок</button><p>Ctrl/⌘V — вставить<br>текст, картинку или ссылку</p><div class="vb-shortcuts"><kbd>⌘ Z</kbd> Отменить <span>·</span> <kbd>⌘ S</kbd> Сохранить</div></div>
         </aside>
         <section class="vb-canvas" aria-label="Холст сайта">
             <div class="vb-canvas-label"><span class="vb-live-dot"></span><span id="vb-canvas-address">Главная /</span><button class="vb-icon" data-action="page-settings" aria-label="Настройки страницы" title="Название и адрес страницы">⚙</button></div>
@@ -42,4 +42,4 @@
 </div>
 {{ builder_config|json_script:'visual-builder-config' }}
 {% endblock %}
-{% block scripts %}<script src="{% static 'founder/js/free-canvas.js' %}?v=6" defer></script><script src="{% static 'founder/js/visual-builder.js' %}?v=free-20261029-6" defer></script>{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/builder-clipboard.js' %}?v=2" defer></script><script src="{% static 'founder/js/free-canvas.js' %}?v=paste-2" defer></script><script src="{% static 'founder/js/visual-builder.js' %}?v=paste-20261029-2" defer></script>{% endblock %}

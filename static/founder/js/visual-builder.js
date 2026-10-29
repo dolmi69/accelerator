@@ -19,7 +19,8 @@
   let savedJSON = JSON.stringify(documentState), savePromise = null, saveTimer, renderTimer, renderController;
   let changeGroup = '', lastChange = 0, previewSerial = 0, resizeObserver, naturalHeight = 1000;
   let imageTarget = null, dragID = null, toastTimer, conflict = false, dialogKind = '', pendingInsertion = null;
-  let hostedURL = config.hostedUrl;
+  let hostedURL = config.hostedUrl, pasteQueue=Promise.resolve();
+  const clipboard=window.BrunoBuilderClipboard;
   const page = () => documentState.pages.find(p => p.id === currentPage) || documentState.pages[0];
   const block = () => page().blocks.find(b => b.id === selected);
   const isDirty = () => savedJSON !== JSON.stringify(documentState);
@@ -38,7 +39,7 @@
     if (!response.ok) { const error = new Error(data.error || 'Не удалось сохранить изменения.'); error.status = response.status; throw error; }
     return data;
   }
-  const free=window.BrunoFreeCanvas({esc,uid,clone,mutate,toast,frame,inspector,config,block,page,pages:()=>documentState.pages,theme:()=>documentState.theme,device:()=>device,refresh,scheduleRender,openMedia,selectBlock:(id)=>selectBlock(id,{preserveFree:true})});
+  const free=window.BrunoFreeCanvas({esc,uid,clone,mutate,toast,frame,stage,inspector,config,block,page,pages:()=>documentState.pages,theme:()=>documentState.theme,device:()=>device,refresh,scheduleRender,openMedia,selectBlock:(id)=>selectBlock(id,{preserveFree:true})});
   function mutate(action, {group = '', inspect = false, immediate = false} = {}) {
     const before = clone(documentState), now = Date.now();
     action();
@@ -167,10 +168,11 @@
         });
         el.addEventListener('blur', () => { scheduleRender(0); renderInspector(); });
       });
+      doc.addEventListener('paste',handlePaste);
       free.bind(doc,previewMode);
       doc.addEventListener('keydown', shortcuts);
       resizeObserver?.disconnect(); resizeObserver = new ResizeObserver(() => fitCanvas()); resizeObserver.observe(doc.body);
-      fitCanvas(); updateSelection(); stage.scrollTop = scroll; $('#vb-loading').hidden = true;
+      fitCanvas(); stage.scrollTop = scroll; updateSelection(); $('#vb-loading').hidden = true;
     };
     frame.srcdoc = data.html;
   }
@@ -308,14 +310,50 @@
     if (!b) return;
     mutate(()=>{const props=target.item===null?b.props:b.props.items[target.item];props.image=id;if(!props.alt)props.alt=config.assets.find(a=>a.id===id)?.name.replace(/\.[^.]+$/,'')||'';},{inspect:true,immediate:true});closeDialog();toast('Изображение добавлено');
   }
+  async function storeImage(file){
+    if(file.size>5*1024*1024)throw new Error('Выберите изображение размером до 5 МБ.');
+    const form=new FormData();form.append('image',file);
+    const asset=await request(config.urls.upload,form,{form:true});
+    if(!config.assets.some(a=>a.id===asset.id))config.assets.unshift(asset);
+    return asset;
+  }
   async function uploadImage(file) {
     if (!file) return;
-    if(file.size>5*1024*1024){showError('Выберите изображение размером до 5 МБ.');return;}
     const uploadButton=$('[data-action=upload]');if(uploadButton){uploadButton.disabled=true;uploadButton.textContent='Загружаем…';}
-    const form=new FormData();form.append('image',file);
-    try {const data=await request(config.urls.upload,form,{form:true});if(!config.assets.some(a=>a.id===data.id))config.assets.unshift(data);if(imageTarget)useAsset(data.id);else{openMedia();toast('Изображение загружено');}}
+    try {const data=await storeImage(file);if(imageTarget)useAsset(data.id);else{openMedia();toast('Изображение загружено');}}
     catch(error){showError(error.message);if(uploadButton){uploadButton.disabled=false;uploadButton.textContent='↑ Загрузить';}}
     finally{$('#vb-upload').value='';}
+  }
+  function handlePaste(event){
+    if(previewMode||dialog.open||event.defaultPrevented)return;
+    if(event.target.ownerDocument===document&&event.target!==document.body&&!root.contains(event.target))return;
+    if(clipboard.editing(event.target))return;
+    const plan=clipboard.inspect(event.clipboardData,event.target.ownerDocument||document);if(!plan)return;
+    event.preventDefault();event.stopPropagation();
+    if(plan.error){showError(plan.error);return;}
+    const target={page:currentPage,block:selected,device,point:free.pastePoint()};
+    pasteQueue=pasteQueue.then(async()=>{
+      const items=[];
+      if(plan.type==='image'){
+        toast(plan.files.length>1?'Добавляем изображения…':'Добавляем изображение…');
+        // Preserve the initiating page/position even if the user switches pages
+        // while the upload runs. An upload never reuses the media dialog target.
+        for(const file of plan.files){const asset=await storeImage(file);items.push({type:'image',asset});}
+      }else items.push(plan);
+      const p=documentState.pages.find(p=>p.id===target.page);
+      if(!p)throw new Error('Страница для вставки удалена. Картинки остались в библиотеке проекта.');
+      let b=p.blocks.find(b=>b.id===target.block&&b.type==='canvas');const create=!b;
+      if(!b)b={id:uid(),type:'canvas',props:clone(config.catalog.canvas.props),style:{surface:'base',align:'left',spacing:'normal',variant:'split'}};
+      if(create&&documentState.pages.reduce((n,p)=>n+p.blocks.length,0)>=100)throw new Error('На сайте уже 100 блоков. Выберите существующий свободный блок.');
+      const count=documentState.pages.reduce((n,p)=>n+p.blocks.reduce((n,b)=>n+(b.props.elements?.length||0),0),0);
+      if(b.props.elements.length+items.length>60||count+items.length>250)throw new Error('Недостаточно места для вставки: до 60 элементов в блоке и 250 на сайте.');
+      free.insertClipboard(b,items,target,()=>{
+        if(create){const index=p.blocks.findIndex(b=>b.id===target.block);p.blocks.splice(index<0?p.blocks.length:index+1,0,b);}
+        if(currentPage===p.id)selected=b.id;
+      });
+      if(currentPage===p.id){root.classList.remove('is-left-open');if(panel==='theme')setPanel('content');}
+      hideError();toast(currentPage!==p.id?'Добавлено на страницу «'+p.title+'»':create?'Добавлено в новый свободный блок':items.length>1?'Изображения вставлены':plan.type==='image'?'Изображение вставлено':plan.type==='button'?'Ссылка вставлена как кнопка':'Текст вставлен');
+    }).catch(error=>showError(error.message));
   }
   async function busy(button, work) {
     const old=button?.innerHTML;
@@ -401,6 +439,7 @@
     if(event.key==='Escape'){if(dialog.open)return;if(previewMode)action('preview');else root.classList.remove('is-left-open','is-right-open');}
     if(event.key==='Delete'&&!typing&&!dialog.open&&selected&&!previewMode){event.preventDefault();blockAction('delete');}
   }
+  document.addEventListener('paste',handlePaste);
   window.addEventListener('keydown',shortcuts);
   window.addEventListener('beforeunload',event=>{if(isDirty()){event.preventDefault();event.returnValue='';}});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&isDirty()&&!conflict)save().catch(()=>{});});

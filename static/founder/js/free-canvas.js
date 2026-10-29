@@ -4,6 +4,19 @@
   const WIDTH={desktop:1120,mobile:390};
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   const Geometry={
+    pasteBox(type,text,asset,width,limit,point){
+      let w,h,fontSize=20;
+      if(type==='image'){
+        const ratio=Math.min(1,Math.min(420,width-48)/asset.width,Math.min(960,limit-48)/asset.height);
+        w=Math.max(8,Math.round(asset.width*ratio));h=Math.max(4,Math.round(asset.height*ratio));
+      }else{
+        fontSize=type==='button'?16:text.length<90&&!text.includes('\n')?32:20;
+        w=Math.min(type==='button'?280:560,width-48);
+        const columns=Math.max(1,Math.floor(w/(fontSize*.56))),lines=text.split('\n').reduce((n,line)=>n+Math.max(1,Math.ceil(line.length/columns)),0);
+        h=Math.min(limit-48,Math.max(type==='button'?56:48,Math.ceil(lines*fontSize*1.3+(type==='button'?24:8))));
+      }
+      return {x:Math.round(clamp(point.x,0,width-w)),y:Math.round(clamp(point.y,0,limit-h-24)),width:w,height:h,fontSize,hidden:false};
+    },
     mobileLayout(elements){
       const boxes={},content=elements.filter(e=>!['shape','line'].includes(e.type)).sort((a,b)=>a.desktop.y-b.desktop.y||a.desktop.x-b.desktop.x);
       let y=28;
@@ -51,7 +64,7 @@
     const {esc,uid,clone,mutate,toast,frame,inspector,config}=api;
     const names={text:'Текст',image:'Изображение',button:'Кнопка',shape:'Фигура',line:'Линия',art:'Иллюстрация'};
     const icons={text:'T',image:'▧',button:'↗',shape:'□',line:'—',art:'✳'};
-    let selected=null,owner=null,gesture=null,doc=null,readonly=false;
+    let selected=null,owner=null,gesture=null,doc=null,readonly=false,lastPoint=null,pendingReveal=null;
     const block=()=>api.block(),device=()=>api.device();
     const active=()=>block()?.type==='canvas';
     const item=()=>active()?block().props.elements.find(e=>e.id===selected):null;
@@ -77,7 +90,7 @@
       current();const e=item(),b=block(),mobile=device()==='mobile';
       let html=`<div class="vf-heading"><span class="vf-badge">Свободный блок</span><strong>${mobile?'Телефон · 390 px':'Компьютер · 1120 px'}</strong></div>`;
       html+=`<div class="vf-add-tools" role="group" aria-label="Добавить свободный элемент">${Object.keys(names).map(k=>`<button data-free-add="${k}" title="Добавить: ${names[k]}"><span>${icons[k]}</span>${names[k]}</button>`).join('')}</div>`;
-      html+=`<p class="vb-control-note">Перетащите элемент. Потяните за угол, чтобы изменить размер. Двойной клик по тексту — редактировать.</p>`;
+      html+=`<p class="vb-control-note">Перетащите элемент. Потяните за угол, чтобы изменить размер. Двойной клик по тексту — редактировать. Ctrl/⌘V вставит текст, картинку или ссылку.</p>`;
       if(!e){
         html+=`<label class="vb-field"><span>Высота блока на ${mobile?'телефоне':'компьютере'}, px</span><input type="number" min="160" max="${mobile?6000:4000}" data-free-height value="${height()}"></label><button class="vb-btn" data-free-action="mobile-stack">Собрать версию для телефона</button><p class="vb-control-note">Тексты, картинки и кнопки встанут друг под другом. Оформление компьютера сохранится.</p>`;
         html+=`<div class="vb-separator"></div><div class="vf-order"><button class="vb-btn" data-action="block-up">Блок выше</button><button class="vb-btn" data-action="block-down">Блок ниже</button></div><button class="vb-btn" data-action="block-duplicate">Копировать блок</button><button class="vb-btn vb-danger" data-action="block-delete">Удалить блок</button>`;
@@ -102,6 +115,7 @@
     function updateSelection(){
       current();if(!doc?.body)return;
       doc.querySelectorAll('.vf-handles,.vf-selection-label').forEach(n=>n.remove());if(readonly)return;
+      if(pendingReveal){const pasted=doc.querySelector(`[data-free-id="${pendingReveal}"]`);if(pasted){const section=pasted.closest('[data-block-id]'),scale=Number(frame.dataset.scale||1);api.stage.scrollTop=Math.max(0,(section.offsetTop+pasted.offsetTop)*scale-100);pendingReveal=null;}}
       doc.querySelectorAll('[data-free-id]').forEach(n=>{n.classList.toggle('vf-selected',active()&&n.dataset.freeId===selected);n.classList.toggle('vf-locked',active()&&block().props.elements.find(e=>e.id===n.dataset.freeId)?.locked);});
       const e=item(),el=e&&doc.querySelector(`[data-free-id="${e.id}"]`);if(!el)return;
       const label=doc.createElement('span');label.className='vf-selection-label';label.textContent=`${names[e.type]} · ${e[device()].width} × ${e[device()].height}${e.locked?' · закреплён':''}`;el.append(label);
@@ -119,6 +133,11 @@
       doc=document;readonly=preview;if(preview)return;
       const style=doc.createElement('style');style.textContent=EDITOR_CSS;doc.head.append(style);
       doc.querySelectorAll('.bb-free-canvas').forEach(c=>{if(!c.querySelector('[data-free-id]'))c.dataset.freeEmpty='true';});
+      doc.addEventListener('pointerdown',event=>{
+        const canvas=event.target.closest('.bb-free-canvas');if(!canvas)return;
+        const rect=canvas.getBoundingClientRect(),ratio=WIDTH[device()]/rect.width;
+        lastPoint={block:canvas.closest('[data-block-id]').dataset.blockId,device:device(),x:Math.round((event.clientX-rect.left)*ratio),y:Math.round((event.clientY-rect.top)*ratio)};
+      },true);
       doc.addEventListener('pointerdown',event=>{
         if(event.button!==0||event.target.closest('[contenteditable],.vb-block-tools'))return;
         const el=event.target.closest('[data-free-id]');if(!el)return;
@@ -153,6 +172,28 @@
       for(const d of ['desktop','mobile']){const h=block().props[d==='mobile'?'mobileHeight':'height'];e[d].y=Math.min(60+(n%8)*24,Math.max(0,h-e[d].height));e[d].height=Math.min(e[d].height,h);}
       mutate(()=>{block().props.elements.push(e);selected=e.id;owner=block().id;},{inspect:true,immediate:true});
       if(type==='image')api.openMedia({block:block().id,element:e.id});
+    }
+    function pastePoint(){
+      if(!active())return null;
+      if(lastPoint?.block===block().id&&lastPoint.device===device())return {...lastPoint};
+      const selected=item();return {block:block().id,device:device(),x:selected?selected[device()].x+24:48,y:selected?selected[device()].y+24:64};
+    }
+    function insertClipboard(b,plans,target,commit){
+      const props=clone(b.props),elements=[];
+      for(const [index,plan]of plans.entries()){
+        const e=newElement(plan.type);e.content.text=plan.text||'';
+        if(plan.type==='image'){e.content.image=plan.asset.id;e.content.alt=plan.asset.name||'Изображение из буфера';}
+        if(plan.type==='button')e.content.link=plan.url;
+        if(plan.type==='text')e.style.color=api.theme().ink;
+        for(const d of ['desktop','mobile']){
+          const key=d==='mobile'?'mobileHeight':'height',limit=d==='mobile'?6000:4000;
+          const point=target.point?.block===b.id&&target.point.device===d?{x:target.point.x+index*24,y:target.point.y+index*24}:{x:d==='mobile'?24:48,y:props.elements.length?Math.max(...props.elements.map(e=>e[d].y+e[d].height))+24:48};
+          e[d]=Geometry.pasteBox(plan.type,plan.text||'',plan.asset,WIDTH[d],limit,point);
+          props[key]=Math.max(props[key],e[d].y+e[d].height+24);
+        }
+        props.elements.push(e);elements.push(e);
+      }
+      mutate(()=>{b.props=props;commit();if(api.block()?.id===b.id){selected=elements.at(-1).id;owner=b.id;pendingReveal=selected;lastPoint=null;}},{inspect:true,immediate:true});
     }
     function stackMobile(b){
       const layout=Geometry.mobileLayout(b.props.elements);if(!layout)return false;
@@ -219,6 +260,6 @@
       for(const e of elements){e.desktop.height=Math.min(e.desktop.height,h);e.desktop.y=Math.min(e.desktop.y,h-e.desktop.height);}
       mutate(()=>{b.type='canvas';b.props={height:h,mobileHeight:740,elements};stackMobile(b);selected=elements[0].id;owner=b.id;},{inspect:true,immediate:true});toast('Блок переведён в свободный режим. ⌘/Ctrl+Z — отменить.');
     }
-    return {active,current,item,layers,select,inspectorHTML,toolbar,updateSelection,bind,add,action,align,input,keydown,assignImage,convert,clear(){selected=null;owner=null;endGesture(true);},cancel(){endGesture(true);}};
+    return {active,current,item,layers,select,inspectorHTML,toolbar,updateSelection,bind,add,action,align,input,keydown,assignImage,convert,pastePoint,insertClipboard,clear(){selected=null;owner=null;endGesture(true);},cancel(){endGesture(true);}};
   };
 })();
