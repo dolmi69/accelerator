@@ -4,7 +4,7 @@ import json
 from dataclasses import replace
 
 from django.conf import settings
-from founder.services import visual_builder as builder
+from founder.services import visual_builder as builder, free_canvas
 from founder.services.ai_costs import reject_output
 from founder.services.lab_bruno import LabRequestRejected, protect_service_secrets
 from founder.services.lab_recovery import aggregate, attempt_limit, exhausted
@@ -23,6 +23,16 @@ SYSTEM = '''Вы редактор визуального конструктор�
 {"op":"update_page","id":"id страницы","title":"...","description":"...","slug":"..."};
 {"op":"add_page","title":"...","slug":"about","description":"..."} — новая пустая страница;
 {"op":"theme","values":{"accent":"#147d73"}} — только при запросе изменить весь сайт.
+Свободный блок type=canvas содержит props {height:620,mobileHeight:740,elements:[]}.
+Для него доступны операции:
+{"op":"add_element","block":"id свободного блока","type":"text|image|button|shape|line|art","content":{"text":"..."},"desktop":{"x":40,"y":40,"width":400,"height":100,"fontSize":40},"mobile":{"x":24,"y":24,"width":342,"height":100,"fontSize":28},"style":{"color":"#122338"}};
+{"op":"update_element","id":"id элемента","content":{...},"desktop":{...},"mobile":{...},"style":{...},"locked":false};
+{"op":"delete_element","id":"id элемента"}.
+Координаты целыми px: desktop ширина 1120, mobile 390. Элемент должен помещаться в высоту блока.
+У элемента content {text,image,alt,link}, style {color,background,borderColor,borderWidth,radius,fontWeight,fontFamily,textAlign,opacity,rotation,objectFit}.
+fontFamily: inherit/modern/serif/mono; background: #hex или transparent; opacity 0–100, rotation -180–180; hidden в desktop/mobile.
+Расположение для компьютера и телефона независимо. Не меняйте второе, если пользователь просит поправить только одно.
+Закреплённые (locked) элементы не перемещайте без явной просьбы. Порядок elements задаёт слои снизу вверх.
 Используйте точные существующие id, названия и поля из каталога. Новым блокам id назначает сервер.
 В изображениях — только переданные идентификаторы библиотеки или пустая строка. Не придумывайте фото и отзывы.
 Для переходов по страницам: /about/, для секций: #id. Ссылки допускаются только https, mailto, tel или относительные.
@@ -55,12 +65,30 @@ def apply_operations(document, operations, asset_ids):
         'delete_block': {'op','id'}, 'move_block': {'op','id','index'},
         'update_page': {'op','id','title','description','slug'}, 'add_page': {'op','title','description','slug'},
         'theme': {'op','values'},
+        'add_element': {'op','block','type','content','desktop','mobile','style'},
+        'update_element': {'op','id','content','desktop','mobile','style','locked'},
+        'delete_element': {'op','id'},
     }
     for operation in operations:
         if not isinstance(operation, dict) or not isinstance(operation.get('op'), str) or operation['op'] not in allowed or set(operation) - allowed[operation['op']]:
             raise builder.DocumentError('Неизвестная операция конструктора.')
         op = operation['op']
-        if op == 'theme':
+        if op in {'add_element','update_element','delete_element'}:
+            if op == 'add_element':
+                _,_,target=find_block(operation.get('block'))
+                if target['type']!='canvas' or operation.get('type')not in free_canvas.TYPES:
+                    raise builder.DocumentError('Выберите свободный блок и допустимый элемент.')
+                item=free_canvas.new_element(operation['type'])
+                target['props']['elements'].append(item)
+            else:
+                found=next(((b,e)for p in result['pages']for b in p['blocks']if b['type']=='canvas'for e in b['props']['elements']if e['id']==operation.get('id')),None)
+                if not found:raise builder.DocumentError('Свободный элемент не найден.')
+                target,item=found
+                if op=='delete_element':target['props']['elements'].remove(item);continue
+            for key in ('content','desktop','mobile','style'):
+                if key in operation:merge(item[key],operation[key])
+            if 'locked'in operation:item['locked']=operation['locked']
+        elif op == 'theme':
             merge(result['theme'], operation.get('values'))
         elif op in {'update_block','delete_block','move_block'}:
             page, index, block = find_block(operation.get('id'))

@@ -11,6 +11,7 @@ from html import escape
 from urllib.parse import urlsplit
 
 from django.urls import reverse
+from founder.services import free_canvas
 
 MAX_DOCUMENT_BYTES = 200_000
 MAX_PAGES = 20
@@ -21,6 +22,7 @@ THEME = {'accent': '#147d73', 'background': '#faf9f6', 'ink': '#182b2a', 'font':
 # Fields are shared with the inspector. A block's structure is explicit rather
 # than arbitrary HTML, so editing text cannot accidentally rewrite a server.
 CATALOG = {
+    'canvas': {'label': 'Свободный блок', 'group': 'Свобода', 'caption': 'Размещайте текст, картинки и кнопки в любом месте', 'fields': [], 'props': free_canvas.DEFAULT_PROPS},
     'nav': {'label': 'Навигация', 'group': 'Основное', 'caption': 'Логотип и переходы по страницам', 'fields': ['brand', 'button', 'link'], 'items': True,
         'props': {'brand': 'Новая история', 'button': 'Связаться', 'link': 'mailto:hello@example.com', 'items': [{'title': 'О нас', 'link': '#about'}, {'title': 'Возможности', 'link': '#features'}]}},
     'hero': {'label': 'Первый экран', 'group': 'Основное', 'caption': 'Большая идея с первого взгляда', 'fields': ['eyebrow', 'title', 'text', 'button', 'link', 'image', 'alt'],
@@ -150,10 +152,10 @@ def validate_document(raw, asset_ids=()):
             rawprops = block['props']
             if not isinstance(rawprops, dict):
                 raise DocumentError('Некорректное содержимое блока.')
-            allowed = definition['fields'] + (['items'] if definition.get('items') else [])
+            allowed = list(free_canvas.DEFAULT_PROPS) if block['type'] == 'canvas' else definition['fields'] + (['items'] if definition.get('items') else [])
             if set(rawprops) - set(allowed):
                 raise DocumentError('Неизвестное поле блока.')
-            props = _props({k: v for k, v in rawprops.items() if k != 'items'}, definition['fields'], assets)
+            props = free_canvas.validate(rawprops, assets, identifier) if block['type'] == 'canvas' else _props({k: v for k, v in rawprops.items() if k != 'items'}, definition['fields'], assets)
             if definition.get('items'):
                 items = rawprops.get('items', [])
                 if not isinstance(items, list) or len(items) > 12:
@@ -165,6 +167,8 @@ def validate_document(raw, asset_ids=()):
                 raise DocumentError('Некорректное оформление блока.')
             out['blocks'].append({'id': identifier(block['id']), 'type': block['type'], 'props': props, 'style': dict(style)})
         clean.append(out)
+    if sum(len(b['props'].get('elements',[]))for p in clean for b in p['blocks'])>250:
+        raise DocumentError('На сайте может быть до 250 свободных элементов.')
     return {'schema': 1, 'theme': dict(theme), 'pages': clean}
 
 
@@ -175,6 +179,7 @@ def asset_ids(document):
             if block['props'].get('image'):
                 ids.add(block['props']['image'])
             ids.update(item['image'] for item in block['props'].get('items', []) if item.get('image'))
+            ids.update(item['content']['image'] for item in block['props'].get('elements', []) if item['content'].get('image'))
     return ids
 
 
@@ -212,7 +217,9 @@ def render_document(document, page_id=None, *, image_url=None, page_url=None, ed
         props, kind, style = block['props'], block['type'], block['style']
         heading = txt(props, 'eyebrow', 'p', 'bb-eyebrow') + txt(props, 'title', 'h1' if kind == 'hero' else 'h2') + txt(props, 'text', 'p', 'bb-description')
         items = props.get('items', [])
-        if kind == 'nav':
+        if kind == 'canvas':
+            body = free_canvas.render(props, image_url=image_url, href=href, editor=editor)
+        elif kind == 'nav':
             body = f'<nav class="bb-nav">{txt(props, "brand", "span", "bb-brand")}<div class="bb-nav-links">' + ''.join(f'<a href="{href(i.get("link", ""))}">{escape(i["title"])}</a>' for i in items) + '</div>' + button(props, 'bb-small') + '</nav>'
         elif kind == 'hero':
             body = f'<div class="bb-hero"><div class="bb-hero-copy">{heading}{button(props)}<div class="bb-hero-rule"><span></span> Ваша идея. Ваши правила.</div></div><div class="bb-hero-visual">{image(props)}</div></div>'
@@ -244,7 +251,7 @@ def render_document(document, page_id=None, *, image_url=None, page_url=None, ed
     fonts = {'modern': 'Inter,system-ui,-apple-system,sans-serif', 'editorial': 'Georgia,serif', 'classic': 'Arial,sans-serif'}
     radius = {'sharp': '0px', 'soft': '18px', 'round': '32px'}[theme['radius']]
     variables = f':root{{--bb-accent:{theme["accent"]};--bb-bg:{theme["background"]};--bb-ink:{theme["ink"]};--bb-font:{fonts[theme["font"]]};--bb-radius:{radius}}}'
-    return '<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + escape(page['title']) + '</title><meta name="description" content="' + escape(page['description'], quote=True) + '"><style>' + variables + SITE_CSS + '</style></head><body>' + ''.join(parts) + ('<div class="bb-empty">Добавьте первый блок — с него начнётся ваша страница.</div>' if not parts else '') + '</body></html>'
+    return '<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + escape(page['title']) + '</title><meta name="description" content="' + escape(page['description'], quote=True) + '"><style>' + variables + SITE_CSS + free_canvas.CSS + '</style></head><body>' + ''.join(parts) + ('<div class="bb-empty">Добавьте первый блок — с него начнётся ваша страница.</div>' if not parts else '') + '</body></html>'
 
 
 SITE_CSS = '''

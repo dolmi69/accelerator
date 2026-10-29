@@ -12,9 +12,9 @@
   const frame = $('#vb-frame'), stage = $('#vb-stage'), scaled = $('#vb-scaled');
   const dialog = $('#vb-dialog'), inspector = $('#vb-inspector');
   const csrf = $('input[name=csrfmiddlewaretoken]').value;
-  const symbols = {nav:'☰',hero:'◩',text:'T',features:'▦',image:'▧',gallery:'▥',quotes:'❝',pricing:'₽',faq:'?',cta:'↗',footer:'⊟'};
+  const symbols = {nav:'☰',hero:'◩',text:'T',features:'▦',image:'▧',gallery:'▥',quotes:'❝',pricing:'₽',faq:'?',cta:'↗',footer:'⊟',canvas:'◇'};
   let documentState = clone(config.document), revision = config.revision;
-  let currentPage = documentState.pages[0].id, selected = documentState.pages[0].blocks[1]?.id || null;
+  let currentPage = documentState.pages[0].id, selected = documentState.pages[0].blocks[1]?.id || documentState.pages[0].blocks[0]?.id || null;
   let panel = 'content', device = innerWidth <= 680 ? 'mobile' : 'desktop', previewMode = false, undoStack = [], redoStack = [];
   let savedJSON = JSON.stringify(documentState), savePromise = null, saveTimer, renderTimer, renderController;
   let changeGroup = '', lastChange = 0, previewSerial = 0, resizeObserver, naturalHeight = 1000;
@@ -38,6 +38,7 @@
     if (!response.ok) { const error = new Error(data.error || 'Не удалось сохранить изменения.'); error.status = response.status; throw error; }
     return data;
   }
+  const free=window.BrunoFreeCanvas({esc,uid,clone,mutate,toast,frame,inspector,config,block,page,pages:()=>documentState.pages,theme:()=>documentState.theme,device:()=>device,refresh,scheduleRender,openMedia,selectBlock:(id)=>selectBlock(id,{preserveFree:true})});
   function mutate(action, {group = '', inspect = false, immediate = false} = {}) {
     const before = clone(documentState), now = Date.now();
     action();
@@ -81,19 +82,20 @@
     refresh(); scheduleRender(0); stage.scrollTop = 0;
   }
   function refresh({inspect = true} = {}) {
-    const p = page(); currentPage = p.id;
+    const p = page(); currentPage = p.id; free.current();
     $('#vb-page-title').textContent = p.title;
     $('#vb-page-count').textContent = documentState.pages.length;
     $('#vb-block-count').textContent = String(p.blocks.length).padStart(2, '0');
     $('#vb-canvas-address').textContent = `${p.title} ${path(p)}`;
     $('#vb-pages').innerHTML = documentState.pages.map((p,i) => `<div class="vb-page ${p.id === currentPage ? 'active' : ''}"><button data-page="${p.id}"><span aria-hidden="true">${i === 0 ? '⌂' : '▤'}</span><span>${esc(p.title)}</span></button><button class="vb-icon" data-page-options="${p.id}" title="Настройки страницы ${esc(p.title)}" aria-label="Настройки страницы ${esc(p.title)}">⋯</button></div>`).join('');
-    $('#vb-layers').innerHTML = p.blocks.map((b,i) => `<div class="vb-layer ${b.id === selected ? 'active' : ''}" draggable="true" data-layer="${b.id}" role="button" tabindex="0" aria-label="${i+1}. ${esc(config.catalog[b.type].label)}"><span class="vb-layer-symbol" aria-hidden="true">${symbols[b.type]}</span><span class="vb-layer-label">${esc(config.catalog[b.type].label)}<small>${esc(b.props.title || b.props.brand || 'Блок страницы')}</small></span><span class="vb-grip" aria-hidden="true">⠿</span></div>`).join('') || '<p class="vb-control-note" style="padding:10px">Здесь появится структура вашей страницы.</p>';
+    $('#vb-layers').innerHTML = p.blocks.map((b,i) => `<div class="vb-layer ${b.id === selected ? 'active' : ''}" draggable="true" data-layer="${b.id}" role="button" tabindex="0" aria-label="${i+1}. ${esc(config.catalog[b.type].label)}"><span class="vb-layer-symbol" aria-hidden="true">${symbols[b.type]}</span><span class="vb-layer-label">${esc(config.catalog[b.type].label)}<small>${esc(b.props.title || b.props.brand || 'Блок страницы')}</small></span><span class="vb-grip" aria-hidden="true">⠿</span></div>${b.type==='canvas'&&b.id===selected?free.layers(b):''}`).join('') || '<p class="vb-control-note" style="padding:10px">Здесь появится структура вашей страницы.</p>';
     $('[data-action=undo]').disabled = !undoStack.length; $('[data-action=redo]').disabled = !redoStack.length;
+    const quick=$('#vf-quick-add');quick.hidden=!free.active()||previewMode;quick.innerHTML=free.active()?free.toolbar():'';
     if (inspect) renderInspector();
     updateSelection();
   }
-  function selectBlock(id, {scroll = false} = {}) {
-    selected = id;
+  function selectBlock(id, {scroll = false, preserveFree = false} = {}) {
+    if(!preserveFree)free.clear(); selected = id;
     if (panel === 'theme') setPanel('content'); else refresh();
     if (scroll) {
       const el = frame.contentDocument?.querySelector(`[data-block-id="${id}"]`);
@@ -105,7 +107,7 @@
     if (!doc?.body) return;
     doc.querySelectorAll('[data-block-id]').forEach(el => {
       el.classList.toggle('vb-selected', !previewMode && el.dataset.blockId === selected);
-      el.querySelector('.vb-block-tools')?.remove();
+      el.querySelector('.vb-block-tools')?.remove();el.querySelector('.vf-floating-bar')?.remove();
       if (el.dataset.blockId === selected && !previewMode) {
         const tools = doc.createElement('div'); tools.className = 'vb-block-tools';
         tools.innerHTML = `<span>${esc(config.catalog[el.dataset.blockType].label)}</span><button data-tool="up" title="Блок выше" aria-label="Блок выше">↑</button><button data-tool="down" title="Блок ниже" aria-label="Блок ниже">↓</button><button data-tool="duplicate" title="Копировать блок" aria-label="Копировать блок">⧉</button><button data-tool="add-after" title="Добавить блок ниже" aria-label="Добавить блок ниже">＋</button><button data-tool="delete" title="Удалить блок" aria-label="Удалить блок">×</button>`;
@@ -113,6 +115,7 @@
         el.append(tools);
       }
     });
+    free.updateSelection();
   }
   function scheduleRender(ms = 450) {
     clearTimeout(renderTimer);
@@ -146,7 +149,7 @@
             return;
           }
         }
-        if (!previewMode && !event.target.closest('.vb-block-tools') && !event.target.isContentEditable) {
+        if (!previewMode && !event.target.closest('.vb-block-tools,.vf-floating-bar,[data-free-id]') && !event.target.isContentEditable) {
           const el = event.target.closest('[data-block-id]'); if (el) selectBlock(el.dataset.blockId);
         }
       });
@@ -164,6 +167,7 @@
         });
         el.addEventListener('blur', () => { scheduleRender(0); renderInspector(); });
       });
+      free.bind(doc,previewMode);
       doc.addEventListener('keydown', shortcuts);
       resizeObserver?.disconnect(); resizeObserver = new ResizeObserver(() => fitCanvas()); resizeObserver.observe(doc.body);
       fitCanvas(); updateSelection(); stage.scrollTop = scroll; $('#vb-loading').hidden = true;
@@ -208,6 +212,7 @@
     }
     const def = config.catalog[b.type];
     let html = `<h2>${esc(def.label)}</h2><p class="vb-subtitle">${esc(def.caption)}</p>`;
+    if (b.type==='canvas'){inspector.innerHTML=free.inspectorHTML();return;}
     if (panel === 'style') {
       html += select('surface','Цвет секции',b.style.surface,[['base','Фон сайта'],['white','Белый'],['accent','Акцентный'],['dark','Тёмный']]);
       html += select('align','Выравнивание заголовка',b.style.align,[['left','По левому краю'],['center','По центру']]);
@@ -224,7 +229,7 @@
       if (def.fields.includes('link') || def.items) html += '<p class="vb-control-note">Для перехода на страницу используйте её адрес: /about/. Для секции — #идентификатор.</p>';
       if (b.type === 'pricing') html += '<p class="vb-control-note">Кнопки тарифов ведут по указанным ссылкам. Приём платежей подключается отдельно.</p>';
     }
-    html += `<div class="vb-separator"></div><div class="vb-block-actions"><button class="vb-btn" data-action="block-up" aria-label="Переместить блок выше">↑</button><button class="vb-btn" data-action="block-down" aria-label="Переместить блок ниже">↓</button><button class="vb-btn" data-action="block-duplicate">⧉ Копия</button><button class="vb-btn vb-danger" data-action="block-delete">Удалить</button></div><p class="vb-control-note">Якорь секции: <code>#${b.id}</code></p>`;
+    html += `<div class="vb-separator"></div><button class="vb-btn vf-convert" data-action="free-convert">◇ Свободное размещение</button><p class="vb-control-note">Перенести содержимое в свободный блок, чтобы двигать каждый элемент. Отмена доступна через ⌘/Ctrl+Z.</p><div class="vb-block-actions"><button class="vb-btn" data-action="block-up" aria-label="Переместить блок выше">↑</button><button class="vb-btn" data-action="block-down" aria-label="Переместить блок ниже">↓</button><button class="vb-btn" data-action="block-duplicate">⧉ Копия</button><button class="vb-btn vb-danger" data-action="block-delete">Удалить</button></div><p class="vb-control-note">Якорь секции: <code>#${b.id}</code></p>`;
     inspector.innerHTML = html;
   }
   function blockAction(action) {
@@ -232,10 +237,11 @@
     const blocks = page().blocks, index = blocks.indexOf(b);
     if (action === 'add-after') { pendingInsertion = index + 1; openCatalog(); return; }
     if (action === 'duplicate' && documentState.pages.reduce((n,p) => n+p.blocks.length,0) >= 100) {toast('На сайте может быть до 100 блоков.');return;}
+    if(action==='duplicate'&&documentState.pages.reduce((n,p)=>n+p.blocks.reduce((n,b)=>n+(b.props.elements?.length||0),0),0)+(b.props.elements?.length||0)>250){toast('На сайте может быть до 250 свободных элементов.');return;}
     mutate(() => {
       if (action === 'up' && index > 0) [blocks[index-1],blocks[index]] = [blocks[index],blocks[index-1]];
       if (action === 'down' && index < blocks.length-1) [blocks[index+1],blocks[index]] = [blocks[index],blocks[index+1]];
-      if (action === 'duplicate') {const copy = clone(b); copy.id = uid(); blocks.splice(index+1,0,copy);selected=copy.id;}
+      if (action === 'duplicate') {const copy = clone(b); copy.id = uid();if(copy.type==='canvas')copy.props.elements.forEach(e=>e.id=uid()); blocks.splice(index+1,0,copy);selected=copy.id;}
       if (action === 'delete') {blocks.splice(index,1);selected=blocks[Math.min(index,blocks.length-1)]?.id || null;}
     }, {inspect:true,immediate:true});
     if (action === 'delete') toast('Блок удалён. ⌘Z — отменить.');
@@ -275,7 +281,7 @@
         const target=documentState.pages.find(p=>p.id===id), oldPath=path(target);
         Object.assign(target,{title,slug,description});
         const newPath=path(target);
-        if(oldPath!==newPath) documentState.pages.forEach(p=>p.blocks.forEach(b=>[b.props,...(b.props.items||[])].forEach(props=>{
+        if(oldPath!==newPath) documentState.pages.forEach(p=>p.blocks.forEach(b=>[b.props,...(b.props.items||[]),...(b.props.elements||[]).map(e=>e.content)].forEach(props=>{
           if(typeof props.link==='string' && props.link.split('#')[0]===oldPath) props.link=newPath+(props.link.includes('#')?'#'+props.link.split('#').slice(1).join('#'):'');
         })));
       }
@@ -288,13 +294,15 @@
     if (documentState.pages.length>=20){toast('На сайте может быть до 20 страниц.');return;}
     const original = documentState.pages.find(p=>p.id===id);
     if(documentState.pages.reduce((n,p)=>n+p.blocks.length,0)+original.blocks.length>100){toast('На сайте может быть до 100 блоков.');return;}
-    mutate(()=>{const copy=clone(original);copy.id=uid();copy.slug=uniqueSlug(original.slug||'home');copy.title=(original.title+' · копия').slice(0,100);const ids=new Map();copy.blocks.forEach(b=>{const old=b.id;b.id=uid();ids.set(old,b.id);});copy.blocks.forEach(b=>[b.props,...(b.props.items||[])].forEach(props=>{if(typeof props.link==='string'&&props.link.startsWith('#')&&ids.has(props.link.slice(1)))props.link='#'+ids.get(props.link.slice(1));}));documentState.pages.push(copy);currentPage=copy.id;selected=null;},{inspect:true,immediate:true});closeDialog();
+    if(documentState.pages.reduce((n,p)=>n+p.blocks.reduce((n,b)=>n+(b.props.elements?.length||0),0),0)+original.blocks.reduce((n,b)=>n+(b.props.elements?.length||0),0)>250){toast('На сайте может быть до 250 свободных элементов.');return;}
+    mutate(()=>{const copy=clone(original);copy.id=uid();copy.slug=uniqueSlug(original.slug||'home');copy.title=(original.title+' · копия').slice(0,100);const ids=new Map();copy.blocks.forEach(b=>{const old=b.id;b.id=uid();ids.set(old,b.id);if(b.type==='canvas')b.props.elements.forEach(e=>{const old=e.id;e.id=uid();ids.set(old,e.id);});});copy.blocks.forEach(b=>[b.props,...(b.props.items||[]),...(b.props.elements||[]).map(e=>e.content)].forEach(props=>{if(typeof props.link==='string'&&props.link.startsWith('#')&&ids.has(props.link.slice(1)))props.link='#'+ids.get(props.link.slice(1));}));documentState.pages.push(copy);currentPage=copy.id;selected=null;},{inspect:true,immediate:true});closeDialog();
   }
   function openMedia(target = null) {
     imageTarget = target;
     openDialog('Ваши изображения', 'БИБЛИОТЕКА ПРОЕКТА', `<div class="vb-media-top"><p>JPG, PNG или WebP · до 5 МБ<br>Используйте свои фотографии и иллюстрации.</p><button class="vb-btn vb-primary" data-action="upload">↑ Загрузить</button></div>${config.assets.length ? `<div class="vb-media-grid">${config.assets.map(a=>`<button class="vb-media-card" data-asset="${a.id}"><img src="${esc(a.url)}" alt="${esc(a.name)}" loading="lazy"><span>${esc(a.name)}</span><small>${a.width} × ${a.height} · ${Math.round(a.size/1024)} КБ</small></button>`).join('')}</div>` : '<div class="vb-media-empty">Здесь пока пусто.<br>Загрузите первое изображение — оно останется в библиотеке проекта.</div>'}`, 'media');
   }
   function useAsset(id) {
+    if (free.assignImage(imageTarget,id)){closeDialog();toast('Изображение добавлено');return;}
     if (!imageTarget) {toast('Выберите блок с изображением, чтобы вставить файл.');return;}
     const target=imageTarget, b=documentState.pages.flatMap(p=>p.blocks).find(b=>b.id===target.block);
     if (!b) return;
@@ -324,6 +332,7 @@
   }
   function downloadBlob(content,name,type) {const blob=new Blob([content],{type}), url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
   async function action(name,button) {
+    if(name==='free-convert')return free.convert();
     if(name.startsWith('block-'))return blockAction(name.slice(6));
     if(name==='undo'||name==='redo')return history(name);
     if(name==='catalog'){pendingInsertion=null;return openCatalog();}
@@ -340,7 +349,7 @@
     if(name==='go-bruno')return busy(button,async()=>{const data=await snapshot();location.href=data.url;});
     if(name==='snapshot')return busy(button,async()=>{await snapshot();toast('Версия сохранена в истории лаборатории');});
     if(name==='publish')return busy(button,publish);
-    if(name==='preview'){previewMode=!previewMode;root.classList.toggle('is-preview',previewMode);root.classList.remove('is-left-open','is-right-open');scheduleRender(0);requestAnimationFrame(fitCanvas);toast(previewMode?'Режим просмотра · Escape — вернуться':'Вернулись в редактор');return;}
+    if(name==='preview'){previewMode=!previewMode;$('#vf-quick-add').hidden=previewMode||!free.active();root.classList.toggle('is-preview',previewMode);root.classList.remove('is-left-open','is-right-open');scheduleRender(0);requestAnimationFrame(fitCanvas);toast(previewMode?'Режим просмотра · Escape — вернуться':'Вернулись в редактор');return;}
     if(name==='add-item'){const b=block();if(!b||b.props.items.length>=12)return;mutate(()=>b.props.items.push(clone(config.catalog[b.type].props.items[0])),{inspect:true});}
   }
   root.addEventListener('click', event => {
@@ -350,7 +359,11 @@
     if(d.page)return switchPage(d.page);
     if(d.pageOptions)return openPageSettings(d.pageOptions);
     if(d.inspector)return setPanel(d.inspector);
-    if(d.device){device=d.device;$$('[data-device]').forEach(b=>{b.classList.toggle('active',b===el);b.setAttribute('aria-pressed',b===el);});fitCanvas();return;}
+    if(d.device){free.cancel();device=d.device;$$('[data-device]').forEach(b=>{b.classList.toggle('active',b===el);b.setAttribute('aria-pressed',b===el);});if(free.active()){scheduleRender(0);renderInspector();}fitCanvas();return;}
+    if(d.freeSelect){selectBlock(d.freeBlock,{preserveFree:true});free.select(d.freeSelect);return;}
+    if(d.freeAdd)return free.add(d.freeAdd);
+    if(d.freeAction)return free.action(d.freeAction);
+    if(d.freeAlign)return free.align(d.freeAlign);
     if(d.catalogFilter)return openCatalog(d.catalogFilter);
     if(d.addBlock)return addBlock(d.addBlock);
     if(d.duplicatePage)return duplicatePage(d.duplicatePage);
@@ -371,6 +384,7 @@
   $('.vb-inspector-tabs').addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const tabs=$$('[data-inspector]'),at=tabs.indexOf(event.target);if(at<0)return;const next=tabs[(at+(event.key==='ArrowRight'?1:tabs.length-1))%tabs.length];setPanel(next.dataset.inspector);next.focus();});
   inspector.addEventListener('input',event=>{
     const el=event.target,d=el.dataset,b=block();
+    if(Object.keys(d).some(k=>k.startsWith('free'))){free.input(el);return;}
     if(d.prop&&b){mutate(()=>{const props=d.item===undefined?b.props:b.props.items[Number(d.item)];props[d.prop]=el.value;},{group:`prop:${b.id}:${d.item||''}:${d.prop}`});}
     if(d.theme){mutate(()=>documentState.theme[d.theme]=el.value,{group:`theme:${d.theme}`});const other=inspector.querySelector(`[data-color-text="${d.theme}"]`);if(other)other.value=el.value;}
     if(d.colorText&&/^#[0-9a-fA-F]{6}$/.test(el.value)){mutate(()=>documentState.theme[d.colorText]=el.value,{group:`theme:${d.colorText}`});inspector.querySelector(`[data-theme="${d.colorText}"]`).value=el.value;}
@@ -381,6 +395,7 @@
   $('#vb-upload').addEventListener('change',event=>uploadImage(event.target.files[0]));
   function shortcuts(event) {
     const typing=event.target.matches?.('input,textarea,select,[contenteditable]');
+    if(!previewMode&&!dialog.open&&free.keydown(event))return;
     if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='s'){event.preventDefault();event.stopPropagation();busy(null,async()=>{await flushSave();toast('Черновик сохранён');});return;}
     if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='z'&&!typing){event.preventDefault();event.stopPropagation();history(event.shiftKey?'redo':'undo');return;}
     if(event.key==='Escape'){if(dialog.open)return;if(previewMode)action('preview');else root.classList.remove('is-left-open','is-right-open');}
