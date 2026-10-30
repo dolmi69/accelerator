@@ -56,3 +56,13 @@ must not replace a cloud database that already contains new data.
   Telegram API. Existing local accounts/projects have not been migrated.
 - Initial trial balance: 110 RUB. Web + bot cost roughly 1.08 RUB/hour,
   approximately 181 RUB/week, excluding AI calls and storage above quota.
+
+## Update 2026-10-30
+
+Deployed source snapshot `6caea20` plus pre-migration SQLite backup to both Amvera
+repositories as `7f13dfb`. Existing `/data` was preserved. Website build succeeded;
+public `/about/` returned 200 with the new text and author credit, authenticated
+project listing retained existing projects. Both services show Running.
+64 targeted lab/hosting/builder tests passed locally. GitHub was not pushed.
+BrunoHost still needs its separate public origin/runtime configuration; source
+updates alone do not enable hosted application execution in Amvera.

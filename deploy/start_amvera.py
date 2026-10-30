@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import sqlite3
+from datetime import datetime, timezone
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.amvera")
 os.environ.setdefault("DJANGO_DEBUG", "0")
@@ -12,5 +14,15 @@ if role == "bot":
 if role != "web":
     raise SystemExit("BRUNOLAB_SERVICE must be web or bot")
 Path(os.environ.get("AMVERA_DATA_DIR", "/data")).mkdir(parents=True, exist_ok=True)
+# A consistent SQLite snapshot before schema updates; existing cloud data stays in /data.
+data_dir = Path(os.environ.get("AMVERA_DATA_DIR", "/data"))
+database = data_dir / "db.sqlite3"
+if not os.environ.get("DATABASE_URL") and database.exists():
+    backup_dir = data_dir / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    with sqlite3.connect(str(database)) as source, sqlite3.connect(str(backup_dir / f"before-migrate-{stamp}.sqlite3")) as target:
+        source.backup(target)
+    print("Database backup saved before migrations.", flush=True)
 subprocess.run([sys.executable, "manage.py", "migrate", "--noinput"], check=True)
 os.execvp("daphne", ["daphne", "-b", "0.0.0.0", "-p", "8080", "config.asgi:application"])
