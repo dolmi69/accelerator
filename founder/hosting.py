@@ -61,6 +61,8 @@ def site_url(site):
     base = base_url()
     if not base:
         return ''
+    if settings.BRUNOHOST_PATH_MODE:
+        return f'{base.scheme}://{base.netloc}/sites/{site.slug}/'
     port = f':{base.port}' if base.port else ''
     return f'{base.scheme}://{site.slug}.{base.hostname}{port}/'
 
@@ -79,6 +81,8 @@ def context(startup, selected):
     reason = ''
     if not base_url():
         reason = 'Для публикации подключите отдельный домен BrunoHost.'
+    elif settings.BRUNOHOST_PATH_MODE and selected and selected.kind != 'static':
+        reason = 'По временным ссылкам доступны сайты без собственного сервера.'
     elif selected and selected.kind == 'django':
         reason = 'Публикация готовых Django-модулей ещё не подключена. Сейчас поддерживаются HTML-сайты и сайты с сервером модели.'
     elif selected and selected.kind == 'generated' and not hosting_runtime.enabled():
@@ -234,6 +238,8 @@ class HostedSiteMiddleware:
         base = base_url()
         if not base:
             return self.get_response(request)
+        if settings.BRUNOHOST_PATH_MODE:
+            return self.serve_path(request, base)
         raw = request.META.get('HTTP_HOST', '')
         try:
             incoming = urlsplit('http://' + raw)
@@ -261,6 +267,47 @@ class HostedSiteMiddleware:
             logger.exception('Hosted request failed: %s', slug)
             return error_response(503, 'Сайт временно недоступен. Попробуйте позже.')
 
+    def serve_path(self, request, base):
+        """Static-only path hosting: no sessions, no authenticated routes, opaque JS origin."""
+        if not request.path.startswith('/sites/'):
+            return self.get_response(request)
+        if request.get_host() != base.netloc or (base.scheme == 'https' and not request.is_secure()):
+            return error_response(404, 'Сайт не найден.')
+        match = re.fullmatch(r'/sites/(h[a-z0-9]{13})(/.*)?', request.path)
+        if not match:
+            return error_response(404, 'Сайт не найден.')
+        slug, path = match.groups()
+        if not path:
+            return secured(redirect(f'/sites/{slug}/'))
+        if request.method not in {'GET', 'HEAD'}:
+            return error_response(405, 'Это статический сайт.')
+        if not HostedSite.objects.filter(slug=slug, active=True, version__kind='static').exists():
+            return error_response(404, 'Статический сайт не опубликован.')
+        request.brunohost_prefix = f'/sites/{slug}'
+        original = request.path
+        request.path = path
+        try:
+            response = self.serve(request, slug)
+        except RequestLimitExceeded as error:
+            response = error_response(429, str(error))
+        except Exception:
+            logger.exception('Static path hosting failed: %s', slug)
+            response = error_response(503, 'Сайт временно недоступен.')
+        finally:
+            request.path = original
+        prefix = request.brunohost_prefix
+        if response.status_code in {301, 302} and response.get('Location', '').startswith('/'):
+            response['Location'] = prefix + response['Location']
+        response['Content-Security-Policy'] = (
+            "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox; "
+            "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+            f"img-src data: {base.scheme}://{base.netloc}{prefix}/assets/; "
+            "font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; "
+            "frame-ancestors 'none'; worker-src 'none'; object-src 'none'"
+        )
+        response['Cross-Origin-Resource-Policy'] = 'cross-origin'
+        return response
+
     def serve_builder(self, request, site):
         from founder.services import visual_builder as builder
         from founder.builder_views import asset_response
@@ -281,7 +328,10 @@ class HostedSiteMiddleware:
         page = next((p for p in document['pages'] if request.path in {builder.page_path(p), builder.page_path(p) + 'index.html'}), None)
         if not page:
             return error_response(404, 'Страница не найдена.')
-        response = HttpResponse(builder.render_document(document, page['id']), content_type='text/html; charset=utf-8')
+        prefix = getattr(request, 'brunohost_prefix', '')
+        response = HttpResponse(builder.render_document(document, page['id'],
+            image_url=lambda key: f'{prefix}/assets/uploads/{key}.webp',
+            page_url=lambda p: prefix + builder.page_path(p)), content_type='text/html; charset=utf-8')
         add_branding(response)
         response['Content-Length'] = len(response.content)
         if request.method == 'HEAD':
@@ -323,7 +373,11 @@ class HostedSiteMiddleware:
                 return self.serve_builder(request, site)
             if request.path not in {'/', '/index.html'}:
                 return error_response(404, 'Страница не найдена.')
-            content = site.version.html.encode()
+            html = site.version.html
+            prefix = getattr(request, 'brunohost_prefix', '')
+            if prefix:
+                html = html.replace('/assets/bruno-images/', prefix + '/assets/bruno-images/')
+            content = html.encode()
             response = HttpResponse(content, content_type='text/html; charset=utf-8')
             if request.headers.get('Sec-Fetch-Dest', 'document') in {'document', 'iframe'}:
                 add_branding(response)

@@ -58,6 +58,8 @@ ROOT_URLCONF = "config.urls"
 # A separate wildcard origin for user applications. Never use a path on the
 # platform's origin: generated JavaScript must not access platform sessions.
 BRUNOHOST_BASE_URL = os.getenv('BRUNOHOST_BASE_URL', 'http://localhost:8000' if DEBUG else '').rstrip('/')
+# Optional static-only, opaque-origin sandbox for temporary path publication.
+BRUNOHOST_PATH_MODE = os.getenv('BRUNOHOST_PATH_MODE', '0') == '1'
 BRUNOHOST_PLATFORM_URL = os.getenv('BRUNOHOST_PLATFORM_URL', '').strip()
 BRUNOHOST_ROOT = Path(os.getenv('BRUNOHOST_ROOT', str(BASE_DIR / '.runtime' / 'hosting')))
 BRUNOHOST_ENGINE = os.getenv('BRUNOHOST_ENGINE', 'sandbox' if DEBUG and sys.platform == 'darwin' else 'disabled')

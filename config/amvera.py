@@ -40,3 +40,8 @@ LAB_UNRESTRICTED_TEST_MODE = False
 PAYMENTS_ENABLED = False
 
 GIGACHAT_CA_BUNDLE = str(BASE_DIR / "certs" / "russian_trusted_root_ca_pem.crt")
+
+# Temporary static-only publication, isolated by response-level CSP sandbox.
+BRUNOHOST_PATH_MODE = True
+if not BRUNOHOST_BASE_URL:
+    BRUNOHOST_BASE_URL = TELEGRAM_MINI_APP_URL.rstrip('/')
