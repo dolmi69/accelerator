@@ -66,3 +66,16 @@ project listing retained existing projects. Both services show Running.
 64 targeted lab/hosting/builder tests passed locally. GitHub was not pushed.
 BrunoHost still needs its separate public origin/runtime configuration; source
 updates alone do not enable hosted application execution in Amvera.
+
+## Custom domain preparation 2026-10-30
+
+REG.RU brunolab.ru switched from hosting NS to ns1.reg.ru/ns2.reg.ru.
+Saved A @ = 82.40.62.35 and TXT _amvera = brunolab-brunolab (values supplied
+by Amvera's custom HTTPS domain dialog). Both records verified on ns1.reg.ru.
+Amvera DJANGO_ALLOWED_HOSTS now includes brunolab.ru plus the existing technical
+origin/localhost; DJANGO_CSRF_TRUSTED_ORIGINS includes both HTTPS origins.
+Web container restarted. Existing technical origin returned 200.
+Pending: RU parent zone delegation still absent at last check; Amvera custom
+HTTPS domain not yet created/verified. After propagation apply the open custom
+domain dialog, verify valid HTTPS and login/CSRF before changing Telegram URL.
+Telegram URL and bot launcher remain on the working technical origin.
