@@ -45,10 +45,19 @@
     clip.append(clipPath);
     const defs = make('defs', {});
     defs.append(clip);
+    // Remove background specks and the one-pixel matte only around the walking cutout.
+    const walkFilter = make('filter', {id: `bruno-walk-edge-${uid}`, x: 990, y: 738,
+      width: 236, height: 256, filterUnits: 'userSpaceOnUse', 'color-interpolation-filters': 'sRGB'});
+    const alpha = make('feComponentTransfer', {in: 'SourceAlpha', result: 'solid-alpha'});
+    alpha.append(make('feFuncA', {type: 'linear', slope: 1.25, intercept: -0.15}));
+    walkFilter.append(alpha,
+      make('feMorphology', {in: 'solid-alpha', operator: 'erode', radius: 1, result: 'clean-alpha'}),
+      make('feComposite', {in: 'SourceGraphic', in2: 'clean-alpha', operator: 'in'}));
+    defs.append(walkFilter);
     poseSvg.prepend(defs);
     const lids = make('g', {class: 'bruno-lids'});
     poseSvg.append(lids);
-    const state = {art, poseSvg, image, clip, clipPath, lids, base, current: null};
+    const state = {art, poseSvg, image, clip, clipPath, walkFilter, lids, base, current: null};
     apply(state, base);
     return state;
   }
@@ -60,6 +69,8 @@
     const [vx, vy, vw, vh] = pose.view.split(' ').map(Number);
     state.clipPath.setAttribute('d', pose.clip || `M${vx} ${vy} H${vx + vw} V${vy + vh} H${vx} Z`);
     state.image.setAttribute('clip-path', `url(#${state.clip.id})`);
+    if (name === 'walk') state.image.setAttribute('filter', `url(#${state.walkFilter.id})`);
+    else state.image.removeAttribute('filter');
     state.lids.replaceChildren(...(pose.eyes || []).map(eye => eyelid(eye, pose.lid)));
     state.current = name;
     state.target = name;
