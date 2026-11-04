@@ -126,15 +126,16 @@
  .priority-heading h2 { font-size:20px; }
  .priority-heading-actions { gap:10px; }
  .priority-table-head { display:none; }
- .priority-row { grid-template-columns:24px minmax(0,1fr) 74px; gap:10px 12px; padding-top:16px; padding-bottom:16px; }
- .priority-place { grid-row:1/4; }
- .priority-feature { grid-column:2; }
- .priority-decision { grid-column:3; grid-row:1; }
- .priority-row>.priority-number { grid-row:2; text-align:left; font-size:16px; display:flex; align-items:center; gap:7px; }
+ /* Название задачи на всю ширину; решение строкой под ним, баллы и действия ниже. */
+ .priority-row { grid-template-columns:24px minmax(0,1fr) minmax(0,1fr); gap:10px 12px; padding-top:16px; padding-bottom:16px; }
+ .priority-place { grid-row:1/5; align-self:start; padding-top:3px; }
+ .priority-feature { grid-column:2/4; grid-row:1; }
+ .priority-decision { grid-column:2/4; grid-row:2; flex-direction:row; flex-wrap:wrap; align-items:center; gap:8px; }
+ .priority-row>.priority-number { grid-row:3; text-align:left; font-size:16px; display:flex; align-items:center; gap:7px; }
  .priority-row>.priority-number:nth-of-type(3) { grid-column:2; }
  .priority-row>.priority-number:nth-of-type(4) { grid-column:3; }
  .priority-mobile-label { display:inline; color:var(--muted); font-size:13px; font-weight:400; }
- .priority-row-actions { grid-column:2/4; flex-direction:row; gap:16px; flex-wrap:wrap; }
+ .priority-row-actions { grid-column:2/4; grid-row:4; flex-direction:row; gap:16px; flex-wrap:wrap; }
  .priority-feature p { white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
  .priority-toolbar { align-items:flex-start; }
  .priority-stats { font-size:13px; justify-content:flex-end; gap:5px; }

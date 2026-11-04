@@ -3,12 +3,7 @@
          aria-label="Коротко о состоянии проекта">
     <p>
         <strong>{{ readiness.title }}.</strong>
-        {% if readiness.manual_focus %}
-            Ваш фокус
-        {% else %}
-            Следующий шаг
-        {% endif %}
-        : {{ readiness.focus_label|lower }}.
+        {% if readiness.manual_focus %}Ваш фокус{% else %}Следующий шаг{% endif %}: {{ readiness.focus_label|lower }}.
     </p>
     {% if history_selected.assessment_notes %}
         <details class="radar-summary-details">

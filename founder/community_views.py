@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
-from founder.community_forms import CARD_FIELDS, CardRefineForm, ProjectCardForm
+from founder.community_forms import CardRefineForm, ProjectCardForm
 from founder.forms import JoinRequestForm
 from founder.models import (CardReport, DirectAttachment, DirectConversation, DirectMessage, LabPublication,
     ProjectBookmark, ProjectCard, ProjectMember, Promotion, StartupProfile, TestBounty, UserBlock)

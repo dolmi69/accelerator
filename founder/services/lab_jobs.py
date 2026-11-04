@@ -7,7 +7,6 @@ only the worker winning the database claim can execute a job.
 import json
 import logging
 import os
-from pathlib import Path
 import subprocess
 import sys
 import threading

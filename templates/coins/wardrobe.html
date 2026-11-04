@@ -19,11 +19,8 @@
             {% if hidden_now %}
                 <p class="work-notice">
                     Сейчас Бруно читает, и книга закрывает шею. Под книгой:
-                    {% for item in hidden_now %}
-                        {{ item.title|lower }}
-                        {% if not forloop.last %},{% endif %}
-                    {% endfor %}
-                    . Их снова будет видно, когда Бруно сменит позу.
+                    {% for item in hidden_now %}{{ item.title|lower }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+                    Их снова будет видно, когда Бруно сменит позу.
                 </p>
             {% endif %}
             <details class="project-fold">

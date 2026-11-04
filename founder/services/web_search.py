@@ -53,7 +53,7 @@ class SearchResult:
         return {**asdict(self), "domain": self.domain}
 
 
-CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f​-‏ -‮﻿]")
+CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u200b-\u200f\u2028-\u202e\ufeff]")
 TAG_RE = re.compile(r"<[^>]+>")
 
 

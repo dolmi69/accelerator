@@ -201,13 +201,18 @@
     toggle.textContent = collapsed ? 'Бруно' : '−';
   };
   // On a phone Bruno starts folded into a small button so he never covers the page; on a computer he is visible.
-  setCollapsed(window.matchMedia('(max-width:680px)').matches);
+  // A choice made with the toggle is remembered, otherwise a folded Bruno unfolds again on every page.
+  const remembered = (() => {
+    try { return localStorage.getItem('bl-pet-collapsed'); } catch (_) { return null; }
+  })();
+  setCollapsed(remembered === null ? window.matchMedia('(max-width:680px)').matches : remembered === '1');
   toggle.hidden = false;
   toggle.addEventListener('click', () => {
     const collapsed = !pet.classList.contains('is-collapsed');
     pet.classList.add('is-toggling');
     setTimeout(() => pet.classList.remove('is-toggling'), 320);
     setCollapsed(collapsed);
+    try { localStorage.setItem('bl-pet-collapsed', collapsed ? '1' : '0'); } catch (_) {}
     if (pet.style.left) moveTo(parseFloat(pet.style.left), parseFloat(pet.style.top));
   });
 

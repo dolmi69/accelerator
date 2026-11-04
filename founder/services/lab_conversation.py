@@ -7,7 +7,7 @@ from django.conf import settings
 from founder.services.lab_bruno import protect_service_secrets
 from founder.services.lab_design import design_context
 from founder.services.lab_reply import saved_reply
-from founder.services.qwen import QwenError, QwenOutputError, generate_code
+from founder.services.qwen import QwenOutputError, generate_code
 from founder.services.ai_costs import reject_output
 from founder.services.model_json import load_model_json
 

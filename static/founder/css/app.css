@@ -123,7 +123,8 @@ button { cursor:pointer; }
 }
 .eyebrow { display:block; color:var(--muted); font-size:13px; line-height:1.4; letter-spacing:0; font-weight:600; }
 h1,h2,h3,p { margin-top:0; }
-h1,h2,h3 { font-family:Manrope,sans-serif; letter-spacing:-.02em; }
+/* Сброс Tailwind делает заголовки без явного веса тонкими (400); в утверждённом макете они 700. */
+h1,h2,h3 { font-family:Manrope,sans-serif; font-weight:700; letter-spacing:-.02em; }
 h1 { font-size:clamp(25px,2.4vw,31px); line-height:1.2; margin-bottom:12px; }
 h2 { font-size:20px; line-height:1.3; margin-bottom:0; }
 h3 { font-size:16px; }
@@ -150,17 +151,6 @@ p { line-height:1.6; }
 .page-heading p { color:var(--muted); margin-bottom:0; }
 .page-heading .account-link { display:inline-block; margin-top:8px; color:var(--teal-dark); font-size:13px; font-weight:700; text-decoration:underline; text-underline-offset:3px; }
 .page-heading.narrow { display:block; max-width:690px; }
-.about-page { max-width:1080px; margin:0 auto; }
-.about-intro { padding:clamp(26px,4vw,46px); }
-.about-intro h2 { max-width:760px; margin:0 0 18px; font-size:clamp(25px,2.4vw,31px); line-height:1.2; }
-.about-intro p { max-width:780px; color:var(--muted); line-height:1.7; margin:0 0 13px; }
-.about-intro p:last-child { margin-bottom:0; }
-.about-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:18px; }
-.about-feature { padding:27px; }
-.about-feature h3 { margin:11px 0; font-size:20px; }
-.about-feature p { margin:0; color:var(--muted); font-size:16px; line-height:1.65; }
-.about-outro { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; margin-top:24px; }
-.about-outro p { max-width:650px; color:var(--muted); line-height:1.65; }
 .profile-table-card { padding:26px 28px; margin-bottom:20px; }
 .profile-table-card > p { margin:12px 0 17px; }
 .profile-table-wrap { overflow-x:auto; }
@@ -283,6 +273,7 @@ p { line-height:1.6; }
 .message-user { align-self:flex-end; flex-direction:row-reverse; }
 .message-avatar { width:32px; height:32px; flex:none; display:grid; place-items:center; border-radius:8px; color:var(--cocoa); background:var(--cream); font-weight:800; font-size:13px; }
 .message-user .message-avatar { background:var(--navy); color:var(--on-navy); }
+.message-avatar img { display:block; width:26px; height:26px; object-fit:contain; }
 .message-body { background:var(--surface-2); border-radius:3px 10px 10px 10px; padding:13px 16px; min-width:140px; }
 .message-user .message-body { background:var(--tint); border-radius:10px 3px 10px 10px; }
 .message-meta { display:flex; justify-content:space-between; gap:25px; color:var(--teal-dark); font-size:13px; font-weight:800; margin-bottom:7px; }
@@ -417,9 +408,6 @@ p { line-height:1.6; }
 @media(max-width:680px) {
   .topbar { height:auto; padding:11px 14px; }
   .topnav { gap:9px 14px; }
-  .about-grid { grid-template-columns:1fr; }
-  .about-feature { padding:23px; }
-  .about-outro { align-items:flex-start; }
 }
 
 .work-heading h1 { font-size:clamp(25px,2.4vw,31px); line-height:1.2; margin:10px 0; }
@@ -1030,7 +1018,7 @@ mark.chat-search-hit.is-current { background:color-mix(in srgb,var(--warn) 35%,v
   .js-topnav .topbar { flex-wrap:nowrap; min-height:64px; padding:10px 14px; gap:8px; }
   .js-topnav .topnav { flex:0 0 auto; flex-wrap:nowrap; gap:8px; }
   .js-topnav .account-profile-link { display:none; }
-  .js-topnav .account-menu-toggle { position:relative; display:grid; place-items:center; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:none; }
+  .js-topnav .account-menu-toggle { order:3; position:relative; display:grid; place-items:center; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:none; }
   .js-topnav .topnav:has(.topnav-links .unread-badge:not([hidden])) .account-menu-toggle::after { content:""; position:absolute; top:3px; right:3px; width:11px; height:11px; border:2px solid var(--line); border-radius:50%; background:#c8372d; }
   .js-topnav .topnav-links { position:absolute; top:calc(100% + 6px); right:14px; z-index:70; display:grid; gap:2px; width:min(280px,calc(100vw - 28px)); padding:8px; border:1px solid var(--line); border-radius:10px; background:var(--surface); box-shadow:var(--shadow-pop); opacity:0; visibility:hidden; transform:translateY(-4px); transition:opacity .15s ease-out,transform .15s ease-out,visibility 0s linear .15s; }
   .js-topnav .topnav.is-open .topnav-links { opacity:1; visibility:visible; transform:none; transition-delay:0s; }
@@ -1234,6 +1222,13 @@ html.theme-switching *, html.theme-switching *::before, html.theme-switching *::
   .project-row-note { grid-column:1/-1; padding:16px 0 0; border-left:0; border-top:1px solid var(--line-teal); }
 }
 .project-row-radar .radar-grid,.project-row-radar .radar-axis { stroke:var(--line-strong); }
+/* Узкий телефон: мини-радар уходит в угол карточки, текст и кнопки получают всю ширину. */
+@media (max-width:480px) {
+  .project-row { position:relative; grid-template-columns:minmax(0,1fr); }
+  .project-row-radar { position:absolute; top:16px; right:16px; width:52px; }
+  .project-row-meta,.project-row h2 { padding-right:60px; }
+  .project-row-actions .button { flex:1 1 140px; }
+}
 /* Иконки вместо эмодзи: оценка ответа Бруно, галочки, монеты в тексте. */
 .feedback-button { display:inline-grid; place-items:center; min-width:36px; min-height:32px; color:var(--muted); }
 .feedback-button .icon { width:18px; height:18px; }
@@ -1273,3 +1268,17 @@ html.intro-skip .intro { animation:intro-out .2s ease-in forwards; }
 @keyframes intro-step { from { translate:0 0; rotate:-3deg; } to { translate:0 -7px; rotate:3deg; } }
 @keyframes intro-bubble { from { opacity:0; transform:scale(.5); } }
 @keyframes intro-out { to { opacity:0; visibility:hidden; } }
+
+/* Полировка 2026-11-04. Приёмы сильных продуктов в рамках бренда:
+   навигация не спорит за внимание с содержимым (Linear), цифры стоят ровным столбцом (Stripe, Vercel),
+   заголовки переносятся без висячих слов, а абзацы без одиночного слова в последней строке. */
+h1,h2,h3,.daily-focus-empty-title { text-wrap:balance; }
+p,li,dd,figcaption,blockquote { text-wrap:pretty; }
+.coin-chip,.wallet-chip,.score-badge,.score-change,.radar-axis-score,.radar-popover-score,.module-status,.projects-count,.unread-badge,time,td { font-variant-numeric:tabular-nums; }
+/* Ссылки разделов в шапке на компьютере, как в утверждённом макете: обычный вес 500, текущий раздел на мятной плашке.
+   Насыщенность не спорит за внимание с заголовком страницы, а плашка сразу показывает, где вы. */
+@media (min-width:681px) {
+  .topnav-links>a:not([class]) { display:inline-flex; align-items:center; gap:6px; min-height:40px; padding:0 12px; margin:0 -6px; border-radius:8px; font-weight:500; transition:color .15s ease-out,background-color .15s ease-out; }
+  .topnav-links>a:not([class]):hover { color:var(--teal-dark); }
+  .topnav-links>a:not([class])[aria-current="page"] { background:var(--tint); color:var(--teal-dark); }
+}

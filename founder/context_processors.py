@@ -45,6 +45,8 @@ def bruno_pet(request):
         'project': project,
         'mascot': mascot or MascotState(mood=MascotState.Mood.CURIOUS),
         'chat': chat,
+        # Inside this very project an invitation «К вашему проекту?» leads nowhere new.
+        'here': bool(project and current_id and str(project.pk) == str(current_id)),
     }}
 
 

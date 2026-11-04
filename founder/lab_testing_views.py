@@ -204,7 +204,7 @@ def lab_test_events(request, startup_id, session_id):
         if set(payload) != {'events'} or not isinstance(payload['events'], list) or not 1 <= len(payload['events']) <= 25:
             raise ValueError('Неверный список событий.')
         items = [_event(raw) for raw in payload['events']]
-    except (ValueError, UnicodeError, TypeError, RecursionError) as exc:
+    except (ValueError, UnicodeError, TypeError, RecursionError):
         return JsonResponse({'error': 'События не прошли проверку.'}, status=400)
     with transaction.atomic():
         session = LabTestSession.objects.select_for_update().get(pk=session.pk)

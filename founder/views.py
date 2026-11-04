@@ -14,14 +14,13 @@ from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.cache import never_cache
 
 from founder.forms import ChatSendForm, EvidenceForm, IdeaCardForm, MetricsForm, RegisterForm, StartupForm
 from founder.models import (
     BrunoTask, BusinessAxis, ChatAttachment, ChatMessage, ChatSession, EvidenceConversation, IdeaRound, MascotState, MentorIdea, MessageFeedback,
-    PanelVerdict, PitchReport, ProjectPicture, StartupProfile, CoinTransaction,
+    PanelVerdict, PitchReport, ProjectPicture, CoinTransaction,
 )
 from founder.services import ideas as idea_service, mentor
 from founder.services.access import get_startup, has_team, join_requests_for, pending_invites
@@ -55,9 +54,38 @@ def register(request):
     return render(request, "registration/register.html", {"form": form})
 
 
+# Пример для «О проекте»: радар дорисовывается от первой оценки к текущей. Меняются только направления,
+# по которым в журнале есть доказательство, как и в настоящем проекте. Данные подписаны на странице как пример.
+ABOUT_RADAR_FIRST = {"product": 22, "market": 18, "finance": 10, "team": 30, "pitch": 26}
+ABOUT_RADAR_NOW = {"product": 48, "market": 41, "finance": 24, "team": 30, "pitch": 26}
+
+
+def _about_radar():
+    class Scores:
+        def __init__(self, values):
+            self.__dict__.update(values)
+
+    label_positions = [(110, 8, "middle"), (203, 82, "start"),
+                       (169, 196, "middle"), (51, 196, "middle"), (17, 82, "end")]
+    axes = []
+    for (key, label), (x, y, anchor) in zip(AXES, label_positions):
+        lines = label.split(" ", 1) if anchor != "middle" else [label]
+        axes.append({"key": key, "label_x": x, "label_y": y, "label_anchor": anchor, "label_lines": lines,
+                     "first": ABOUT_RADAR_FIRST[key], "now": ABOUT_RADAR_NOW[key],
+                     "delta": ABOUT_RADAR_NOW[key] - ABOUT_RADAR_FIRST[key]})
+    return {
+        **{f"radar_grid_{size}": radar_grid(size) for size in (25, 50, 75, 100)},
+        "first_points": radar_points(Scores(ABOUT_RADAR_FIRST)),
+        "now_points": radar_points(Scores(ABOUT_RADAR_NOW)),
+        "first_score": round(sum(ABOUT_RADAR_FIRST.values()) / len(AXES)),
+        "now_score": round(sum(ABOUT_RADAR_NOW.values()) / len(AXES)),
+        "axes": axes,
+    }
+
+
 @require_GET
 def about(request):
-    return render(request, "founder/about.html")
+    return render(request, "founder/about.html", {"about_radar": _about_radar()})
 
 
 def home(request):

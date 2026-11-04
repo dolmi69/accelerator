@@ -7,7 +7,6 @@ from dataclasses import replace
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 
 from django.conf import settings

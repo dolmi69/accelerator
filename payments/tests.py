@@ -76,6 +76,13 @@ class TopUpViewTests(TestCase):
         self.assertContains(resp, "wallet-chip")
         self.assertContains(resp, "USDT:")
 
+    def test_header_hides_empty_wallet_when_payments_are_disabled(self):
+        with self.settings(PAYMENTS_ENABLED=False):
+            self.assertNotContains(self.client.get("/community/"), "wallet-chip")
+            self.assertFalse(Balance.objects.filter(user=self.user).exists())
+            Balance.objects.create(user=self.user, amount=Decimal("3"))
+            self.assertContains(self.client.get("/community/"), "USDT: 3")
+
     def test_topup_uses_main_address(self):
         resp = self.client.post("/pay/topup/new/", {"amount": "10"})
         self.assertEqual(resp.status_code, 302)
@@ -94,6 +101,17 @@ class TopUpViewTests(TestCase):
         resp = self.client.post("/pay/topup/new/", {"amount": "100000"})
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(Invoice.objects.count(), 0)
+
+    def test_other_users_invoice_is_hidden(self):
+        other = User.objects.create_user(username="stranger", email="stranger@example.com", password="x")
+        invoice = Invoice.objects.create(
+            user=other, order_id="top_other", amount_expected=Decimal("5"), address=TEST_ADDRESS,
+            status=Invoice.Status.PENDING, expires_at=timezone.now() + timedelta(minutes=30),
+        )
+        for suffix in ("", "status/", "qr.png"):
+            with self.subTest(suffix=suffix):
+                url = f"/pay/{invoice.id}/{suffix}"
+                self.assertEqual(self.client.get(url).status_code, 404)
 
 
 @override_settings(

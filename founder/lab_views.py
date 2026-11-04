@@ -13,6 +13,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.cache import never_cache
 from django.db import OperationalError, transaction
@@ -696,7 +697,6 @@ def _local_runtime(request):
 
 
 def reverse_lab_version(startup, version):
-    from django.urls import reverse
     return reverse("lab", args=[startup.pk]) + f"?version={version.pk}"
 
 

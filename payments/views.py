@@ -82,7 +82,7 @@ def topup_create(request):
 @login_required
 @require_GET
 def invoice_detail(request, invoice_id):
-    invoice = get_object_or_404(Invoice, pk=invoice_id)
+    invoice = get_object_or_404(Invoice, pk=invoice_id, user=request.user)
     return render(
         request,
         "payments/pay.html",
@@ -93,7 +93,7 @@ def invoice_detail(request, invoice_id):
 @login_required
 @require_GET
 def invoice_status(request, invoice_id):
-    invoice = get_object_or_404(Invoice, pk=invoice_id)
+    invoice = get_object_or_404(Invoice, pk=invoice_id, user=request.user)
     return JsonResponse(
         {
             "status": invoice.status,
@@ -110,7 +110,7 @@ def invoice_qr(request, invoice_id):
     import qrcode
     from io import BytesIO
 
-    invoice = get_object_or_404(Invoice, pk=invoice_id)
+    invoice = get_object_or_404(Invoice, pk=invoice_id, user=request.user)
     image = qrcode.make(invoice.address)
     buffer = BytesIO()
     image.save(buffer, format="PNG")

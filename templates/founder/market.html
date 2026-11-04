@@ -65,9 +65,8 @@
                 <div class="project-fold-body">
                     <p>{{ data.relevance_reason }}</p>
                     <p class="muted small">
-                        Анализ от {{ report.created_at|date:'d.m.Y H:i' }}
-                        {% if report.queries %}по запросам: {{ report.queries|join:'; ' }}{% endif %}
-                        . Бруно читал только найденные страницы и мог что-то упустить. Цены и цифры проверьте по ссылкам: числа [1], [2] указывают на источник внизу страницы.
+                        Анализ от {{ report.created_at|date:'d.m.Y H:i' }}{% if report.queries %} по запросам: {{ report.queries|join:'; ' }}{% endif %}.
+                        Бруно читал только найденные страницы и мог что-то упустить. Цены и цифры проверьте по ссылкам на сайты конкурентов.
                     </p>
                 </div>
             </details>

@@ -85,8 +85,7 @@
                 <p class="muted small">
                     Ваши проекты:
                     {% for item in my_projects %}
-                        <a class="evidence-link" href="{% url 'promote' item.id %}">{{ item.name }}</a>
-                        {% if not forloop.last %},{% endif %}
+                        <a class="evidence-link" href="{% url 'promote' item.id %}">{{ item.name }}</a>{% if not forloop.last %},{% endif %}
                     {% endfor %}
                 </p>
             {% endif %}

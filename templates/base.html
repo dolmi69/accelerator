@@ -101,9 +101,9 @@
         <link rel="stylesheet"
               href="{% static 'founder/css/tailwind.css' %}?v=frontend-5">
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=redesign-2">
+              href="{% static 'founder/css/app.css' %}?v=polish-20261104">
         <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=redesign-2">
-        <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=redesign-1">
+        <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=polish-20261104">
         <link rel="stylesheet"
               href="{% static 'founder/css/coins.css' %}?v=redesign-1">
         <link rel="stylesheet"
@@ -167,16 +167,19 @@
                         <div class="topnav-links" id="topnav-links">
                             <a href="{% url 'about' %}"
                                {% if request.resolver_match.url_name == 'about' %}aria-current="page"{% endif %}>О проекте</a>
-                            <a href="{% url 'home' %}">Мои проекты
+                            <a href="{% url 'home' %}"
+                               {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %}>Мои проекты
                                 {% if project_invites_count %}
                                     <span class="unread-badge"
                                           aria-label="приглашений: {{ project_invites_count }}">{{ project_invites_count }}</span>
                                 {% endif %}
                             </a>
-                            <a href="{% url 'community' %}">Сообщество</a>
+                            <a href="{% url 'community' %}"
+                               {% if request.resolver_match.url_name in 'community card_detail member_directory user_profile' %}aria-current="page"{% endif %}>Сообщество</a>
                             <a href="{% url 'tariffs' %}"
                                {% if request.resolver_match.url_name == 'tariffs' %}aria-current="page"{% endif %}>Тарифы</a>
-                            <a href="{% url 'inbox' %}">Сообщения <span class="unread-badge"
+                            <a href="{% url 'inbox' %}"
+                               {% if request.resolver_match.url_name in 'inbox conversation' %}aria-current="page"{% endif %}>Сообщения <span class="unread-badge"
        data-unread-count
        {% if not direct_unread %}hidden{% endif %}>{{ direct_unread }}</span></a>
                             {% if wallet_balance %}
@@ -254,7 +257,7 @@
         {% if request.telegram_miniapp %}
             <script src="{% static 'founder/js/telegram.js' %}?v=redesign-1" defer></script>
         {% endif %}
-        <script src="{% static 'founder/js/bruno.js' %}?v=11" defer></script>
+        <script src="{% static 'founder/js/bruno.js' %}?v=12" defer></script>
         <script src="{% static 'founder/js/copy.js' %}?v=1" defer></script>
         <script src="{% static 'founder/js/theme.js' %}?v=redesign-1" defer></script>
         {% if request.user.is_authenticated and workspace_tab != 'lab' %}

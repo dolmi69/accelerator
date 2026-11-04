@@ -1,4 +1,3 @@
-from datetime import timedelta
 import uuid
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required

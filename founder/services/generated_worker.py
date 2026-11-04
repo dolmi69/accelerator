@@ -10,7 +10,6 @@ try:
 except ImportError:
     resource = None
 import runpy
-import sys
 import socket
 import socketserver
 from urllib.parse import unquote
