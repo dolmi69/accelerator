@@ -14,6 +14,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from payments.models import Balance, Invoice
 from payments.services import hd
+from payments.services.checker import AMOUNT_STEP, unique_amount
 
 
 @login_required
@@ -55,24 +56,36 @@ def topup_create(request):
         amount = Decimal(raw)
     except (InvalidOperation, ValueError):
         return _topup_error(request, "Некорректная сумма.", 400)
+    # «NaN» и «Infinity» Decimal принимает, а сравнение с NaN бросает исключение (раньше это была ошибка 500).
+    if not amount.is_finite():
+        return _topup_error(request, "Некорректная сумма.", 400)
     if amount <= 0:
         return _topup_error(request, "Сумма должна быть больше нуля.", 400)
 
+    min_amount = Decimal(settings.PAYMENTS_MIN_INVOICE_AMOUNT)
+    if amount < min_amount:
+        return _topup_error(request, f"Минимальная сумма: {min_amount} USDT.", 400)
     max_amount = Decimal(settings.PAYMENTS_MAX_INVOICE_AMOUNT)
     if amount > max_amount:
         return _topup_error(request, f"Максимальная сумма — {max_amount} USDT.", 400)
+    if amount != amount.quantize(AMOUNT_STEP):
+        return _topup_error(request, "Укажите сумму не больше чем с двумя знаками после запятой.", 400)
 
     try:
         address = hd.receiving_address()
     except ImproperlyConfigured:
         return _topup_error(request, "Кошелёк не настроен: задайте PAYMENTS_XPUB в .env.", 503)
 
+    amount_expected = unique_amount(amount)
+    if amount_expected is None:
+        return _topup_error(request, "Сейчас слишком много открытых пополнений на эту сумму. Попробуйте через минуту.", 503)
+
     invoice = Invoice.objects.create(
         user=request.user,
         order_id=f"top_{uuid.uuid4().hex[:12]}",
         description="Пополнение баланса",
         address=address,
-        amount_expected=amount,
+        amount_expected=amount_expected,
         status=Invoice.Status.PENDING,
         expires_at=timezone.now() + timedelta(minutes=settings.PAYMENTS_INVOICE_TTL_MINUTES),
     )

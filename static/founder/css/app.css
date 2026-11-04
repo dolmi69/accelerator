@@ -195,8 +195,9 @@ p { line-height:1.6; }
 .bruno-art { position:relative; width:235px; max-width:100%; margin:8px auto 0; }
 .bruno-stage { display:block; width:100%; overflow:visible; }
 .bruno-stage svg { overflow:hidden; }
-.bruno-character { transform-origin:150px 285px; animation:bruno-breathe 4.8s ease-in-out infinite; }
-.bruno-sleepy .bruno-character { animation:bruno-sleep 6s ease-in-out infinite; }
+/* Дыхание: медленный «вдох» от лап вверх по синусоиде; фаза у каждого Бруно своя (--bruno-phase, bruno.js). */
+.bruno-character { transform-origin:150px 285px; animation:bruno-breathe 4.8s cubic-bezier(.45,0,.55,1) var(--bruno-phase,0s) infinite; }
+.bruno-sleepy .bruno-character { animation:bruno-sleep 6s cubic-bezier(.45,0,.55,1) var(--bruno-phase,0s) infinite; }
 .bruno-confident .bruno-character { animation:bruno-bounce 4s ease-in-out infinite; }
 .bruno-investor .bruno-character { animation-duration:7s; }
 .bruno-greet { position:absolute; bottom:5px; right:0; width:36px; height:36px; border-radius:50%; border:1px solid var(--line-strong); background:var(--surface); color:var(--teal); box-shadow:0 3px 10px #163a2910; font-size:20px; transition:transform .2s ease-out; }
@@ -204,7 +205,7 @@ p { line-height:1.6; }
 .bruno-greeting .bruno-character { animation:bruno-hello 1.4s ease-in-out; }
 .bruno-greeting .bruno-greet { background:var(--tint); transform:scale(1.12); }
 .bruno-art[data-paused] * { animation-play-state:paused !important; }
-@keyframes bruno-breathe { 0%,100% { transform:translateY(0) rotate(0); } 50% { transform:translateY(-3px) rotate(-1deg); } }
+@keyframes bruno-breathe { 0%,100% { transform:translateY(0) scale(1,1) rotate(0); } 50% { transform:translateY(-2px) scale(1.006,1.014) rotate(-.6deg); } }
 @keyframes bruno-sleep { 0%,100% { transform:scaleY(1); } 50% { transform:scaleY(1.035); } }
 @keyframes bruno-bounce { 0%,65%,100% { transform:translateY(0); } 75% { transform:translateY(-9px) rotate(-2deg); } 87% { transform:translateY(-3px) rotate(2deg); } }
 @keyframes bruno-hello { 0%,100% { transform:rotate(0); } 20%,55% { transform:translateY(-5px) rotate(5deg); } 38%,74% { transform:translateY(-3px) rotate(-4deg); } }
@@ -1142,31 +1143,31 @@ details.is-opening>:not(summary) { animation:fold-in .24s cubic-bezier(.22,1,.36
 /* Бруно оживает (bruno.js): смена позы, моргание, реакции, дремота плавающего Бруно, взгляд на вводе. */
 /* rotate только по запросу: любое значение, кроме none, отделяет слой, и белый фон PNG перестаёт растворяться (multiply). */
 .bruno-art { rotate:var(--bruno-look,none); transform-origin:50% 90%; transition:rotate .3s ease-out; }
-.bruno-stage { transform-origin:50% 95%; transition:opacity .11s ease-in,transform .11s ease-in; }
-.bruno-art.is-swapping .bruno-stage { opacity:0; transform:scale(.94); }
-.bruno-art.is-popping .bruno-stage { animation:bruno-pop .34s cubic-bezier(.2,.9,.3,1.15); }
+/* Смена позы — наложение кадров в bruno.js (Web Animations): прежняя поза растворяется под новой, сцена чуть приседает. */
+.bruno-stage { transform-origin:50% 95%; }
 .bruno-lid { transform-box:fill-box; transform-origin:50% 0; transform:scaleY(0); }
 .bruno-lash { opacity:0; }
-.bruno-art.is-blinking .bruno-lid { animation:bruno-blink .24s ease-in-out; }
-.bruno-art.is-blinking .bruno-lash { animation:bruno-lash .24s ease-in-out; }
+.bruno-art.is-blinking .bruno-lid { animation:bruno-blink .26s linear; }
+.bruno-art.is-blinking .bruno-lash { animation:bruno-lash .26s linear; }
 .bruno-art.eyes-closed .bruno-lid { transform:scaleY(1); transition:transform .16s ease-out; }
 .bruno-art.eyes-closed .bruno-lash { opacity:1; transition:opacity .08s ease-out .1s; }
+.bruno-accessories { transition:opacity .24s cubic-bezier(.4,0,.2,1); }
 .bruno-art[data-pose-temp] .bruno-accessories { opacity:0; }
 .bruno-art.is-thinking .bruno-character { animation:bruno-read 1.8s ease-in-out infinite; }
 .bruno-art.is-talking .bruno-character { animation:bruno-talk .42s ease-in-out infinite alternate; }
 .bruno-art.is-waking .bruno-character { animation:bruno-stretch .8s ease-out; }
 .pet-project:hover .bruno-stage,.bruno-art:has(.bruno-greet:not([hidden])):hover .bruno-stage { animation:bruno-hop .5s cubic-bezier(.3,.7,.4,1); }
 .bruno-greet .icon { width:20px; height:20px; margin:auto; }
-@keyframes bruno-pop { from { opacity:.3; transform:scale(.92,1.05); } 60% { transform:scale(1.02,.98); } }
-@keyframes bruno-blink { 35%,60% { transform:scaleY(1); } }
-@keyframes bruno-lash { 35%,60% { opacity:1; } }
+/* Веко закрывается быстро и открывается медленнее, как у живых. */
+@keyframes bruno-blink { 0% { transform:scaleY(0); animation-timing-function:cubic-bezier(.5,0,1,1); } 34%,48% { transform:scaleY(1); animation-timing-function:cubic-bezier(0,0,.3,1); } 100% { transform:scaleY(0); } }
+@keyframes bruno-lash { 0%,22% { opacity:0; } 30%,52% { opacity:1; } 68%,100% { opacity:0; } }
 @keyframes bruno-read { 0%,100% { transform:rotate(-1.2deg); } 50% { transform:translateY(-2px) rotate(1.2deg); } }
 @keyframes bruno-talk { to { transform:translateY(-3px) rotate(.8deg); } }
 @keyframes bruno-stretch { 35% { transform:scale(1.05,.95); } 65% { transform:scale(.98,1.03); } }
 @keyframes bruno-hop { 40% { translate:0 -8px; } 70% { translate:0 1px; } }
 /* Плавающий Бруно качается на «загривке», пока его несут, и успокаивается после броска. */
-.bruno-pet .bruno-art { --swing:0deg; rotate:var(--swing); transform-origin:50% 0; transition:rotate .7s cubic-bezier(.25,1.6,.45,1); }
-.bruno-pet.is-dragging .bruno-art { transition-duration:.12s; }
+/* Качание — пружина в bruno.js (requestAnimationFrame), поэтому без CSS-перехода: он спорил бы с каждым кадром. */
+.bruno-pet .bruno-art { --swing:0deg; rotate:var(--swing); transform-origin:50% 0; transition:none; }
 .bruno-pet.is-dozing .pet-bubble { opacity:0; }
 .pet-bubble { transition:opacity .3s ease-out; }
 .pet-zzz { position:absolute; top:46px; right:14px; width:30px; height:40px; pointer-events:none; display:none; }
@@ -1267,7 +1268,7 @@ html.intro-skip .intro { animation:intro-out .2s ease-in forwards; }
 .intro-scene { position:relative; width:min(520px,calc(100% - 32px)); height:250px; display:flex; align-items:flex-end; justify-content:center; }
 .intro-ground { position:absolute; left:-16px; right:-16px; bottom:12px; height:1px; background:var(--line-teal); transform-origin:0 50%; animation:intro-rule .6s cubic-bezier(.2,.7,.2,1) both; }
 .intro-bear { position:relative; width:220px; animation:intro-walk .8s cubic-bezier(.22,.61,.36,1) both; }
-.intro-bear .bruno-art { width:100%; margin:0; transform-origin:50% 100%; animation:intro-step .2s ease-in-out 4 alternate both; }
+.intro-bear .bruno-art { width:100%; margin:0; transform-origin:50% 100%; animation:intro-step .4s cubic-bezier(.45,0,.55,1) 2 both; }
 .intro-bubble { position:absolute; top:14px; left:calc(50% + 64px); margin:0; padding:10px 14px; border:1px solid var(--line); border-radius:10px 10px 10px 4px; background:var(--surface); color:var(--ink); font-size:16px; font-weight:600; line-height:1.35; white-space:nowrap; transform-origin:0 100%; animation:intro-bubble .32s cubic-bezier(.2,.8,.2,1) .9s both; }
 @media (max-width:480px) {
   .intro-scene { height:210px; }
@@ -1276,7 +1277,8 @@ html.intro-skip .intro { animation:intro-out .2s ease-in forwards; }
 }
 @keyframes intro-rule { from { transform:scaleX(0); } }
 @keyframes intro-walk { from { transform:translateX(calc(-50vw - 150px)); } }
-@keyframes intro-step { from { translate:0 0; rotate:-3deg; } to { translate:0 -7px; rotate:3deg; } }
+/* Два шага вперевалку за 0,8 с входа: тело приподнимается на каждом шаге, на последнем кадре Бруно стоит прямо. */
+@keyframes intro-step { 0%,50%,100% { translate:0 0; rotate:0deg; } 25% { translate:0 -5px; rotate:-2.5deg; } 75% { translate:0 -5px; rotate:2.5deg; } }
 @keyframes intro-bubble { from { opacity:0; transform:scale(.5); } }
 @keyframes intro-out { to { opacity:0; visibility:hidden; } }
 

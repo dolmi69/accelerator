@@ -73,6 +73,26 @@ class TelegramWebsiteTests(TestCase):
         response = handler(RequestFactory().get("/admin/"))
         self.assertEqual(response["X-Frame-Options"], "DENY")
 
+    def test_telegram_framing_keeps_the_sandbox_of_generated_previews(self):
+        # В облаке middleware раньше заменял весь CSP: превью сайта из лаборатории теряло sandbox
+        # и connect-src 'none', и код прототипа выполнялся с сессией смотрящего.
+        from django.test import RequestFactory
+        from founder.lab_views import preview_response
+        from founder.telegram_middleware import TelegramFrameMiddleware
+        handler = TelegramFrameMiddleware(lambda request: preview_response("<html><head></head><body>x</body></html>"))
+        policy = handler(RequestFactory().get("/community/x/lab/y/preview/"))["Content-Security-Policy"]
+        self.assertIn("sandbox allow-scripts", policy)
+        self.assertIn("connect-src 'none'", policy)
+        self.assertIn("frame-ancestors 'self' https://web.telegram.org", policy)
+        self.assertNotIn("frame-ancestors 'self';", policy)
+
+    def test_telegram_framing_never_widens_a_page_that_forbids_framing(self):
+        from founder.telegram_middleware import allow_telegram_framing
+        self.assertEqual(allow_telegram_framing("default-src 'none'; frame-ancestors 'none'"),
+                         "default-src 'none'; frame-ancestors 'none'")
+        self.assertEqual(allow_telegram_framing("default-src 'none'; sandbox"),
+                         "default-src 'none'; sandbox; frame-ancestors 'self' https://web.telegram.org")
+
     def test_password_change_requires_login_and_keeps_current_session(self):
         url = reverse("password_change")
         self.assertEqual(self.client.get(url).status_code, 302)

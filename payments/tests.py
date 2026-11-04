@@ -1,6 +1,7 @@
 """Тесты кошелька: деривация, баланс, пополнение и сверка оплаты."""
 
 import time
+import uuid
 from datetime import timedelta
 from decimal import Decimal
 from unittest import mock
@@ -88,13 +89,28 @@ class TopUpViewTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         invoice = Invoice.objects.get()
         self.assertEqual(invoice.address, TEST_ADDRESS)
-        self.assertEqual(invoice.amount_expected, Decimal("10"))
+        # Один адрес на всех: сумму делает уникальной хвост в миллионных долях.
+        self.assertGreater(invoice.amount_expected, Decimal("10"))
+        self.assertLess(invoice.amount_expected, Decimal("10.01"))
         self.assertEqual(invoice.user, self.user)
         self.assertContains(self.client.get(resp["Location"]), TEST_ADDRESS)
 
     def test_bad_amount_rejected(self):
         resp = self.client.post("/pay/topup/new/", {"amount": "not-a-number"})
         self.assertEqual(resp.status_code, 400)
+        self.assertEqual(Invoice.objects.count(), 0)
+
+    def test_same_amount_invoices_get_different_tails(self):
+        for _ in range(5):
+            self.client.post("/pay/topup/new/", {"amount": "10"})
+        amounts = list(Invoice.objects.values_list("amount_expected", flat=True))
+        self.assertEqual(len(amounts), 5)
+        self.assertEqual(len(set(amounts)), 5)
+
+    def test_invalid_amounts_are_rejected_without_server_error(self):
+        for raw in ("NaN", "Infinity", "-1", "0.5", "10.555"):
+            with self.subTest(raw=raw):
+                self.assertEqual(self.client.post("/pay/topup/new/", {"amount": raw}).status_code, 400)
         self.assertEqual(Invoice.objects.count(), 0)
 
     def test_amount_over_max_rejected(self):
@@ -123,44 +139,99 @@ class CheckerTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="u1", email="u1@example.com", password="x")
 
-    def _make_invoice(self, amount="10"):
+    def _make_invoice(self, amount="10", *, user=None, created_minutes_ago=10, expires_in_minutes=20, status=None):
+        now = timezone.now()
         return Invoice.objects.create(
-            user=self.user,
-            order_id=f"top_{amount}",
+            user=user or self.user,
+            order_id=f"top_{uuid.uuid4().hex[:12]}",
             amount_expected=Decimal(amount),
             address=TEST_ADDRESS,
-            status=Invoice.Status.PENDING,
-            expires_at=timezone.now() + timedelta(minutes=30),
+            status=status or Invoice.Status.PENDING,
+            created_at=now - timedelta(minutes=created_minutes_ago),
+            expires_at=now + timedelta(minutes=expires_in_minutes),
         )
 
-    def _patch(self, *, value, age_seconds):
-        ts = int(time.time() * 1000) - age_seconds * 1000
-        return mock.patch.object(
-            checker.tron,
-            "fetch_incoming_usdt",
-            return_value=[
-                {"to": TEST_ADDRESS, "value": str(value), "transaction_id": "tx1", "block_timestamp": ts}
-            ],
-        )
+    def _patch(self, *transfers):
+        """transfers: (value в USDT, возраст перевода в секундах, txid)."""
+        now_ms = int(time.time() * 1000)
+        data = [
+            {"to": TEST_ADDRESS, "value": str(int(Decimal(value) * 10**6)), "transaction_id": txid,
+             "block_timestamp": now_ms - age_seconds * 1000}
+            for value, age_seconds, txid in reversed(transfers)  # TronGrid отдаёт новые первыми
+        ]
+        return mock.patch.object(checker.tron, "fetch_incoming_usdt", return_value=data)
 
     def test_credits_balance_after_enough_confirmations(self):
-        invoice = self._make_invoice()
-        with self._patch(value=10 * 10**6, age_seconds=120):
+        invoice = self._make_invoice("10.004213")
+        with self._patch(("10.004213", 120, "tx1")):
             stats = checker.check_all()
         invoice.refresh_from_db()
         self.assertEqual(invoice.status, Invoice.Status.PAID)
-        self.assertEqual(Balance.for_user(self.user).amount, Decimal("10"))
+        self.assertEqual(invoice.txid, "tx1")
+        self.assertEqual(Balance.for_user(self.user).amount, Decimal("10.004213"))
         self.assertEqual(stats["paid"], 1)
 
     def test_no_credit_before_confirmations(self):
-        self._make_invoice()
-        with self._patch(value=10 * 10**6, age_seconds=10):
+        self._make_invoice("10.004213")
+        with self._patch(("10.004213", 10, "tx1")):
             checker.check_all()
         self.assertEqual(Balance.for_user(self.user).amount, Decimal("0"))
 
     def test_no_double_credit(self):
-        self._make_invoice()
-        with self._patch(value=10 * 10**6, age_seconds=200):
+        self._make_invoice("10.004213")
+        with self._patch(("10.004213", 200, "tx1")):
             checker.check_all()
             checker.check_all()
-        self.assertEqual(Balance.for_user(self.user).amount, Decimal("10"))
+        self.assertEqual(Balance.for_user(self.user).amount, Decimal("10.004213"))
+
+    def test_older_small_invoice_does_not_capture_someone_elses_payment(self):
+        # Раньше перевод уходил самому старому счёту с суммой не больше перевода,
+        # и копеечный счёт забирал чужие 10 USDT целиком.
+        attacker = User.objects.create_user(username="u2", email="u2@example.com", password="x")
+        dust = self._make_invoice("1.000001", user=attacker, created_minutes_ago=20)
+        victim = self._make_invoice("10.004213")
+        with self._patch(("10.004213", 120, "tx1")):
+            checker.check_all()
+        dust.refresh_from_db()
+        victim.refresh_from_db()
+        self.assertEqual(dust.status, Invoice.Status.PENDING)
+        self.assertEqual(victim.status, Invoice.Status.PAID)
+        self.assertEqual(Balance.for_user(attacker).amount, Decimal("0"))
+        self.assertEqual(Balance.for_user(self.user).amount, Decimal("10.004213"))
+
+    def test_transfer_sent_before_the_invoice_existed_is_not_credited(self):
+        # Адрес и переводы видны в блокчейне всем: старый незачисленный перевод нельзя присвоить новым счётом.
+        invoice = self._make_invoice("10.004213", created_minutes_ago=1)
+        with self._patch(("10.004213", 60 * 60, "old-tx")):
+            checker.check_all()
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, Invoice.Status.PENDING)
+        self.assertEqual(Balance.for_user(self.user).amount, Decimal("0"))
+
+    def test_ambiguous_amount_is_left_for_manual_review(self):
+        other = User.objects.create_user(username="u3", email="u3@example.com", password="x")
+        first = self._make_invoice("10.004213")
+        second = self._make_invoice("10.004213", user=other)
+        with self._patch(("10.004213", 120, "tx1")):
+            stats = checker.check_all()
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(stats["ambiguous"], 1)
+        self.assertEqual({first.status, second.status}, {Invoice.Status.PENDING})
+        self.assertEqual(Balance.objects.filter(amount__gt=0).count(), 0)
+
+    def test_payment_sent_in_time_but_confirmed_after_expiry_is_credited(self):
+        invoice = self._make_invoice("10.004213", created_minutes_ago=31, expires_in_minutes=-1)
+        with self._patch(("10.004213", 120, "tx1")):
+            checker.check_all()
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, Invoice.Status.PAID)
+        self.assertEqual(Balance.for_user(self.user).amount, Decimal("10.004213"))
+
+    def test_payment_sent_after_expiry_is_not_credited(self):
+        invoice = self._make_invoice("10.004213", created_minutes_ago=40, expires_in_minutes=-10)
+        with self._patch(("10.004213", 120, "tx1")):
+            checker.check_all()
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, Invoice.Status.EXPIRED)
+        self.assertEqual(Balance.for_user(self.user).amount, Decimal("0"))

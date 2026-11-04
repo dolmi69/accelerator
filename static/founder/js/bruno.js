@@ -54,23 +54,42 @@
       make('feMorphology', {in: 'solid-alpha', operator: 'erode', radius: 1, result: 'clean-alpha'}),
       make('feComposite', {in: 'SourceGraphic', in2: 'clean-alpha', operator: 'in'}));
     defs.append(walkFilter);
+    // «След» прежней позы под текущей: при смене позы старый кадр растворяется, новый проявляется поверх.
+    const ghostClip = make('clipPath', {id: `bruno-ghost-${uid}`});
+    const ghostClipPath = make('path', {});
+    ghostClip.append(ghostClipPath);
+    defs.append(ghostClip);
     poseSvg.prepend(defs);
+    const ghost = make('svg', {class: 'bruno-ghost', overflow: 'hidden', opacity: 0, 'aria-hidden': 'true'});
+    const ghostImage = make('image', {href: image.getAttribute('href'), width: image.getAttribute('width'),
+      height: image.getAttribute('height')});
+    ghost.append(ghostImage);
+    poseSvg.before(ghost);
     const lids = make('g', {class: 'bruno-lids'});
     poseSvg.append(lids);
-    const state = {art, poseSvg, image, clip, clipPath, walkFilter, lids, base, current: null};
+    // Дыхание разных Бруно на одной странице не совпадает по фазе.
+    art.style.setProperty('--bruno-phase', `${(-Math.random() * 4.8).toFixed(2)}s`);
+    const state = {art, stage: art.querySelector('.bruno-stage'), poseSvg, image, clip, clipPath, walkFilter, lids,
+      ghost, ghostImage, ghostClip, ghostClipPath, fades: [], base, current: null};
     apply(state, base);
     return state;
   }
 
-  function apply(state, name) {
+  // Рамка, область листа и вырез позы на любом слое: текущем или «следе».
+  function paint(svg, clip, clipPath, image, walkFilter, name) {
     const pose = POSES[name];
     const [x, y, width, height] = pose.frame;
-    Object.entries({x, y, width, height, viewBox: pose.view}).forEach(([key, value]) => state.poseSvg.setAttribute(key, value));
+    Object.entries({x, y, width, height, viewBox: pose.view}).forEach(([key, value]) => svg.setAttribute(key, value));
     const [vx, vy, vw, vh] = pose.view.split(' ').map(Number);
-    state.clipPath.setAttribute('d', pose.clip || `M${vx} ${vy} H${vx + vw} V${vy + vh} H${vx} Z`);
-    state.image.setAttribute('clip-path', `url(#${state.clip.id})`);
-    if (name === 'walk') state.image.setAttribute('filter', `url(#${state.walkFilter.id})`);
-    else state.image.removeAttribute('filter');
+    clipPath.setAttribute('d', pose.clip || `M${vx} ${vy} H${vx + vw} V${vy + vh} H${vx} Z`);
+    image.setAttribute('clip-path', `url(#${clip.id})`);
+    if (name === 'walk') image.setAttribute('filter', `url(#${walkFilter.id})`);
+    else image.removeAttribute('filter');
+  }
+
+  function apply(state, name) {
+    const pose = POSES[name];
+    paint(state.poseSvg, state.clip, state.clipPath, state.image, state.walkFilter, name);
     state.lids.replaceChildren(...(pose.eyes || []).map(eye => eyelid(eye, pose.lid)));
     state.current = name;
     state.target = name;
@@ -79,24 +98,31 @@
     state.art.toggleAttribute('data-pose-temp', name !== state.base);
   }
 
-  // Смена позы: Бруно на миг приседает, поза меняется, он распрямляется.
+  // Смена позы без мигания: новая поза проявляется поверх прежней, а прежняя уходит чуть позже,
+  // поэтому фигура не просвечивает посередине. Бруно при этом мягко приседает и распрямляется.
+  // Раньше вся фигура гасла до 30% и «выпрыгивала».
+  const FADE_IN = {duration: 180, easing: 'cubic-bezier(0,0,.2,1)'};
+  const FADE_OUT = {duration: 200, delay: 40, easing: 'cubic-bezier(.4,0,1,1)', fill: 'both'};
+  const SETTLE = {duration: 380, easing: 'ease-in-out'};
+  const stopFades = state => {
+    state.fades.forEach(animation => animation.cancel());
+    state.fades = [];
+  };
+
   function pose(state, name, animate = true) {
-    // Сравниваем с позой, к которой Бруно уже идёт: иначе быстрый «туда и обратно» застревает в первой.
     if (!state || !POSES[name] || state.target === name) return;
-    clearTimeout(state.swapTimer);
     state.target = name;
-    state.art.classList.remove('is-swapping');
     if (state.current === name) return;
-    if (!animate || reduce.matches) { apply(state, name); return; }
-    state.art.classList.remove('is-popping');
-    state.art.classList.add('is-swapping');
-    state.swapTimer = setTimeout(() => {
-      apply(state, name);
-      state.art.classList.remove('is-swapping');
-      void state.art.offsetWidth;
-      state.art.classList.add('is-popping');
-      state.swapTimer = setTimeout(() => state.art.classList.remove('is-popping'), 340);
-    }, 110);
+    stopFades(state);
+    const from = state.current;
+    if (!animate || reduce.matches || !from || typeof state.poseSvg.animate !== 'function') { apply(state, name); return; }
+    paint(state.ghost, state.ghostClip, state.ghostClipPath, state.ghostImage, state.walkFilter, from);
+    apply(state, name);
+    state.fades = [
+      state.ghost.animate([{opacity: 1}, {opacity: 0}], FADE_OUT),
+      state.poseSvg.animate([{opacity: 0}, {opacity: 1}], FADE_IN),
+      state.stage.animate([{transform: 'none'}, {transform: 'scale(.975, 1.02)', offset: 0.3}, {transform: 'none'}], SETTLE),
+    ];
   }
 
   function react(state, name, duration) {
@@ -226,6 +252,33 @@
   };
 
   // Бруно, которого несут, радуется и раскачивается против движения; после броска качается и успокаивается.
+  // Качание — затухающая пружина в requestAnimationFrame: угол следует за скоростью руки без рывков
+  // и сам возвращается к нулю. Шаг считается по реальному времени кадра, поэтому одинаков при 60 и 120 Гц.
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const swing = {angle: 0, velocity: 0, target: 0, frame: 0, last: 0};
+  // Маятник с периодом ~0,6 с и затуханием ζ≈0,3: после броска два заметных качания (12° → −4,7° → +1,9°), покой за 1,5 с.
+  const STIFFNESS = 1.4e-4, DAMPING = 4e-4, MAX_SWING = 16;
+  const swingStep = now => {
+    const dt = Math.min(48, now - (swing.last || now - 16));
+    swing.last = now;
+    // Пока Бруно держат на месте, он повисает ровно.
+    swing.target *= Math.pow(0.9, dt / 16);
+    swing.velocity += ((swing.target - swing.angle) * STIFFNESS - swing.velocity * DAMPING * 16) * dt;
+    swing.angle += swing.velocity * dt;
+    const resting = Math.abs(swing.angle) < 0.05 && Math.abs(swing.velocity) < 0.0005 && Math.abs(swing.target) < 0.05;
+    if (resting) {
+      swing.angle = swing.velocity = swing.target = 0;
+      swing.frame = 0;
+      swing.last = 0;
+    }
+    art?.style.setProperty('--swing', `${swing.angle.toFixed(2)}deg`);
+    if (!resting) swing.frame = requestAnimationFrame(swingStep);
+  };
+  const push = target => {
+    if (reduceMotion.matches) return;
+    swing.target = Math.max(-MAX_SWING, Math.min(MAX_SWING, target));
+    if (!swing.frame) swing.frame = requestAnimationFrame(swingStep);
+  };
   let drag = null;
   let suppressClick = false;
   projectLink.addEventListener('pointerdown', event => {
@@ -244,7 +297,7 @@
     if (!drag.moved) window.Bruno?.pose('happy', art);
     drag.moved = true;
     pet.classList.add('is-dragging');
-    art?.style.setProperty('--swing', `${Math.max(-16, Math.min(16, (drag.lastX - event.clientX) * 1.4))}deg`);
+    push((drag.lastX - event.clientX) * 1.4);
     drag.lastX = event.clientX;
     moveTo(drag.left + dx, drag.top + dy);
   });
@@ -254,7 +307,8 @@
     suppressClick = drag.moved && event.type === 'pointerup';
     drag = null;
     pet.classList.remove('is-dragging');
-    art?.style.setProperty('--swing', '0deg');
+    // Отпустили: пружина сама докачает Бруно до покоя.
+    push(0);
     if (suppressClick) window.setTimeout(() => { suppressClick = false; }, 300);
   };
   projectLink.addEventListener('pointerup', finishDrag);

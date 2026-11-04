@@ -29,7 +29,7 @@
 @media (prefers-reduced-motion:no-preference) {
   html:not(.welcome-static) .welcome-ground { animation:welcome-rule .6s cubic-bezier(.2,.7,.2,1) both; }
   html:not(.welcome-static) .welcome-bear { animation:welcome-walk-in .8s cubic-bezier(.22,.61,.36,1) both; }
-  html:not(.welcome-static) .welcome-bear .bruno-art { animation:welcome-step .2s ease-in-out 4 alternate both; }
+  html:not(.welcome-static) .welcome-bear .bruno-art { animation:welcome-step .4s cubic-bezier(.45,0,.55,1) 2 both; }
   html:not(.welcome-static) .welcome-bubble { animation:welcome-bubble .32s cubic-bezier(.2,.8,.2,1) .9s both; }
   html:not(.welcome-static) .welcome-brand { animation:welcome-fade .25s ease-out 1s both; }
   html:not(.welcome-static) .welcome-title { animation:welcome-ink .5s cubic-bezier(.4,.1,.2,1) 1.05s both; }
@@ -39,8 +39,8 @@
 /* Линейка тетради прочерчивается, по ней Бруно и приходит. */
 @keyframes welcome-rule { from { transform:scaleX(0); } }
 @keyframes welcome-walk-in { from { transform:translateX(calc(-50vw - 150px)); } }
-/* Шаг вперевалку: четыре полушага за время входа. */
-@keyframes welcome-step { from { translate:0 0; rotate:-3deg; } to { translate:0 -7px; rotate:3deg; } }
+/* Шаг вперевалку: два шага за время входа, тело приподнимается на каждом; последний кадр ровный (раньше Бруно оставался наклонён на −3°). */
+@keyframes welcome-step { 0%,50%,100% { translate:0 0; rotate:0deg; } 25% { translate:0 -5px; rotate:-2.5deg; } 75% { translate:0 -5px; rotate:2.5deg; } }
 @keyframes welcome-bubble { from { opacity:0; transform:scale(.5); } }
 @keyframes welcome-fade { from { opacity:0; } }
 /* Заголовок проявляется слева направо, как строка, которую пишут в тетради. */
