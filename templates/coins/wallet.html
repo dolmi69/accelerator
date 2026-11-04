@@ -3,7 +3,6 @@
 {% block content %}
     <div class="page-heading">
         <div>
-            <span class="eyebrow">Внутренняя валюта</span>
             <h1>Монеты</h1>
             <p>
                 Монеты начисляются за работу над проектом: разговоры с Бруно, проверки гипотез и помощь другим основателям. Их можно потратить на продвижение проекта, награды тестировщикам и гардероб Бруно.
@@ -99,8 +98,7 @@
                 <div>
                     <strong>{{ tx.get_kind_display }}</strong>
                     <p class="muted small">
-                        {{ tx.created_at|date:'d.m.Y H:i' }}
-                        {% if tx.note %}· {{ tx.note }}{% endif %}
+                        {% if tx.note and tx.note != tx.get_kind_display %}{{ tx.note }}, {% endif %}{{ tx.created_at|date:'j E, H:i' }}
                     </p>
                 </div>
                 <span class="coin-amount {% if tx.amount < 0 %}negative{% endif %}">

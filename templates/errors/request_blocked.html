@@ -11,7 +11,6 @@
 <body>
   <main class="main-content">
     <section class="card auth-card">
-      <span class="eyebrow">BrunoLab</span>
       <h1>{% if wait_for_bruno %}Бруно ещё работает{% else %}{{ title }}{% endif %}</h1>
       <p role="alert">{{ error_message }}</p>
       {% if wait_for_bruno %}

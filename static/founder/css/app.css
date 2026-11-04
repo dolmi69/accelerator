@@ -127,6 +127,8 @@ h1,h2,h3,p { margin-top:0; }
 h1,h2,h3 { font-family:Manrope,sans-serif; font-weight:700; letter-spacing:-.02em; }
 h1 { font-size:clamp(25px,2.4vw,31px); line-height:1.2; margin-bottom:12px; }
 h2 { font-size:20px; line-height:1.3; margin-bottom:0; }
+/* Заголовок h3 без своего интервала наследовал 1,5 от текста: у многострочного заголовка строки разваливались. */
+h3 { line-height:1.35; }
 h3 { font-size:16px; }
 p { line-height:1.6; }
 .muted { color:var(--muted); }
@@ -248,10 +250,18 @@ p { line-height:1.6; }
 .history-icon { display:grid; place-items:center; width:34px; height:34px; border-radius:8px; background:var(--tint); color:var(--teal-dark); }
 .history-row strong { display:block; font-size:13px; }
 .history-row small { display:block; margin-top:4px; color:var(--muted); font-size:13px; }
-.auth-wrap { display:grid; grid-template-columns:1fr 420px; gap:70px; align-items:center; max-width:1070px; margin:70px auto; }
-.auth-intro h1 { margin:16px 0; }
-.auth-intro em { color:var(--teal); font-style:normal; }
-.auth-intro p { color:var(--muted); max-width:410px; }
+.auth-wrap { display:grid; grid-template-columns:1fr 420px; gap:72px; align-items:start; max-width:1070px; margin:56px auto; }
+.auth-intro { padding-top:8px; }
+.auth-intro h1 { max-width:16ch; margin:16px 0; font-size:31px; line-height:1.2; }
+.auth-intro>p { color:var(--muted); max-width:42ch; font-size:16px; line-height:1.6; }
+/* Что будет дальше: шаги на полях тетради, та же бирюзовая линия, что у заметок Бруно. */
+.auth-steps { display:grid; gap:16px; margin:32px 0 0; padding:0 0 0 20px; border-left:1px solid var(--line-teal); list-style:none; counter-reset:auth-step; }
+.auth-steps li { display:grid; gap:4px; counter-increment:auth-step; }
+.auth-steps b { font-weight:600; }
+.auth-steps b::before { content:counter(auth-step,decimal-leading-zero); margin-right:10px; color:var(--teal-dark); font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; }
+.auth-steps span { color:var(--muted); font-size:13px; line-height:1.5; }
+/* Телефон: форма сразу под заголовком, шаги не отодвигают её за первый экран. */
+@media (max-width:950px) { .auth-intro h1 { font-size:25px; max-width:none; } .auth-steps { display:none; } }
 .auth-card { padding:32px; }
 .auth-card h2 { margin-bottom:22px; }
 .form-stack { display:grid; gap:16px; }
@@ -467,7 +477,8 @@ body:has(#lab-start-form) .bruno-pet { display:none; }
 @media(max-width:680px) { body:has(.lab-field textarea:focus) .bruno-pet { visibility:hidden; } }
 .work-heading p { max-width:680px; }
 
-.investor-quote { border-left:3px solid var(--line-teal); padding:10px 14px; margin:16px 0; background:var(--tint-soft); font-size:13px; line-height:1.6; }
+/* Цитата как пометка на полях: тонкая бирюзовая линия без цветной плашки (полоса на подложке читается как шаблон ИИ). */
+.investor-quote { border-left:1px solid var(--line-teal); padding:4px 0 4px 16px; margin:16px 0; font-size:13px; line-height:1.6; }
 /* Разбор и план */
 .work-grid.review-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .review-summary h2 { font-size:25px; }
@@ -559,7 +570,7 @@ body:has(#lab-start-form) .bruno-pet { display:none; }
 .vote-pass { color:var(--danger); background:var(--danger-bg); }
 .vote-reason,.vote-quote { margin:0; }
 .vote-quote { color:var(--muted); font-size:13px; }
-.vote-condition { padding:10px 12px; border-left:3px solid var(--shark); border-radius:0 8px 8px 0; background:var(--surface-2); }
+.vote-condition { padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); }
 .vote-condition strong { display:block; font-size:13px; }
 .vote-condition p { margin:2px 0 0; }
 .vote-card > form,.vote-card > .evidence-link,.vote-card > .muted { margin-top:auto; }
@@ -1273,6 +1284,9 @@ html.intro-skip .intro { animation:intro-out .2s ease-in forwards; }
    навигация не спорит за внимание с содержимым (Linear), цифры стоят ровным столбцом (Stripe, Vercel),
    заголовки переносятся без висячих слов, а абзацы без одиночного слова в последней строке. */
 h1,h2,h3,.daily-focus-empty-title { text-wrap:balance; }
+/* Строка абзаца не длиннее 75 знаков (Baymard: 50–75): длинные строки пропускают, не дочитав. :where() не спорит с правилами компонентов. */
+:where(.main-content) :where(p) { max-width:75ch; }
+.work-notice,.flash,.form-error { max-width:none; }
 p,li,dd,figcaption,blockquote { text-wrap:pretty; }
 .coin-chip,.wallet-chip,.score-badge,.score-change,.radar-axis-score,.radar-popover-score,.module-status,.projects-count,.unread-badge,time,td { font-variant-numeric:tabular-nums; }
 /* Ссылки разделов в шапке на компьютере, как в утверждённом макете: обычный вес 500, текущий раздел на мятной плашке.

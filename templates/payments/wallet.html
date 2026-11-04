@@ -4,7 +4,6 @@
 <section class="pay-wrap">
   <div class="pay-head">
     <div>
-      <span class="eyebrow">Кошелёк</span>
       <h1>Баланс</h1>
       <p class="pay-balance">{{ balance.amount_text }} USDT</p>
     </div>
@@ -44,10 +43,10 @@
   .pay-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
   .pay-head h1 { margin: .1em 0; }
   .pay-balance { font-size:25px; font-weight: 700; color:var(--ink); margin: 0; }
-  .pay-button { display: inline-block; background:var(--teal); color:var(--on-accent); border:0; border-radius:10px;
+  .pay-button { display: inline-block; background:var(--teal); color:var(--on-accent); border:0; border-radius:8px;
                 padding:12px 20px; font-weight:600; cursor:pointer; text-decoration:none; }
   .pay-subtitle { margin: 24px 0 10px; }
-  .pay-table { width: 100%; border-collapse: collapse; background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .pay-table { width: 100%; border-collapse: collapse; background:var(--surface); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
   .pay-table th, .pay-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); font-size:13px; }
   .pay-table th { background:var(--surface-2); color:var(--muted); font-weight:600; }
   .pay-hint { color:var(--muted); }

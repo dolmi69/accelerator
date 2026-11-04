@@ -13,10 +13,8 @@
                 <h1>
                     {% block work_title %}{% endblock %}
                 </h1>
-                <p>
-                    {{ startup.name }} ·
-                    {% block work_description %}{% endblock %}
-                </p>
+                {# Название проекта уже в переключателе и меню проекта, в подзаголовке оно повторялось бы через «·». #}
+                <p>{% block work_description %}{% endblock %}</p>
             </div>
             <div class="work-shell-actions">
                 {% block work_actions %}{% endblock %}

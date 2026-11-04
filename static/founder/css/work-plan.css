@@ -44,7 +44,7 @@
 .priority-place { color:var(--muted); font-variant-numeric:tabular-nums; font-size:13px; display:flex; flex-direction:column; align-items:flex-start; gap:8px; }
 .priority-place .mvp-checkbox { width:15px; height:15px; margin:0; }
 .priority-feature { min-width:0; }
-.priority-feature h3 { font-size:16px; letter-spacing:-.01em; font-weight:600; margin:0; line-height:1.5; }
+.priority-feature h3 { font-size:16px; letter-spacing:-.01em; font-weight:600; margin:0; line-height:1.35; }
 .priority-feature p { font-size:13px; color:var(--muted); margin:5px 0 0; line-height:1.5; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
 .priority-feature-meta { display:flex; flex-wrap:wrap; gap:9px; font-size:13px; margin:5px 0 0; color:var(--muted); }
 .priority-feature-meta:empty { display:none; }
