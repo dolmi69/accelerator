@@ -34,7 +34,7 @@ SESSION_COOKIE_SAMESITE = "None"
 CSRF_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
-# Generated backend execution currently requires the isolated macOS runtime.
+# Laboratory preview uses a separate, local-only runtime.
 LAB_BACKEND_RUNTIME_ENABLED = False
 LAB_UNRESTRICTED_TEST_MODE = False
 PAYMENTS_ENABLED = False
@@ -42,6 +42,6 @@ PAYMENTS_ENABLED = False
 GIGACHAT_CA_BUNDLE = str(BASE_DIR / "certs" / "russian_trusted_root_ca_pem.crt")
 
 # Temporary static-only publication, isolated by response-level CSP sandbox.
-BRUNOHOST_PATH_MODE = True
-if not BRUNOHOST_BASE_URL:
+BRUNOHOST_PATH_MODE = os.getenv("BRUNOHOST_PATH_MODE", "1") == "1"
+if BRUNOHOST_PATH_MODE and not BRUNOHOST_BASE_URL:
     BRUNOHOST_BASE_URL = TELEGRAM_MINI_APP_URL.rstrip('/')

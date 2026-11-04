@@ -27,6 +27,7 @@ wildcard DNS `*.brunohost.example` на сервер и wildcard HTTPS-серт�
 
 ```
 BRUNOHOST_BASE_URL=https://brunohost.example
+BRUNOHOST_PATH_MODE=0
 BRUNOHOST_ROOT=/data/brunohost
 BRUNOHOST_ENGINE=docker
 BRUNOHOST_DOCKER_IMAGE=brunohost-worker:1
@@ -97,6 +98,10 @@ Secure на HTTPS. Изменяющие запросы требуют точно
 `BRUNOHOST_PATH_MODE=1` включает только статические сайты по
 `BRUNOHOST_BASE_URL/sites/<slug>/`. В config.amvera режим включён, базовый URL
 берётся из TELEGRAM_MINI_APP_URL при отсутствии отдельного домена.
+Для серверной беты используйте один Linux-сервер с доступом к Docker и укажите
+`BRUNOHOST_PATH_MODE=0` и отдельный `BRUNOHOST_BASE_URL`. На текущем
+контейнере Amvera оставьте временный режим. При выключенном режиме пути
+адрес платформы не подставляется как домен публикации.
 Запросы перехватываются до sessions/auth/CSRF, неизвестные пути не попадают
 в маршруты платформы. HTML имеет CSP sandbox без allow-same-origin, connect-src
 и form-action none, workers/frames/внешние скрипты запрещены. Это отдельный
