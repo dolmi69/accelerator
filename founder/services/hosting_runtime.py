@@ -141,8 +141,11 @@ def ensure(site):
         _stop(site)
         running = 0
         from founder.models import HostedSite
-        live = set(HostedSite.objects.filter(active=True, version__kind='generated',
-                   startup__owner__is_active=True).values_list('slug', flat=True))
+        live_sites = HostedSite.objects.filter(active=True, version__kind='generated',
+                                              startup__owner__is_active=True)
+        if settings.BRUNOHOST_BACKEND_PROJECTS:
+            live_sites = live_sites.filter(startup_id__in=settings.BRUNOHOST_BACKEND_PROJECTS)
+        live = set(live_sites.values_list('slug', flat=True))
         for path in root.glob('h*/state.json'):
             try:
                 other = json.loads(path.read_text())

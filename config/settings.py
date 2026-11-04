@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from uuid import UUID
 
 import dj_database_url
 from dotenv import load_dotenv
@@ -65,6 +66,11 @@ BRUNOHOST_ROOT = Path(os.getenv('BRUNOHOST_ROOT', str(BASE_DIR / '.runtime' / 'h
 BRUNOHOST_ENGINE = os.getenv('BRUNOHOST_ENGINE', 'sandbox' if DEBUG and sys.platform == 'darwin' else 'disabled')
 BRUNOHOST_DOCKER_IMAGE = os.getenv('BRUNOHOST_DOCKER_IMAGE', 'brunohost-worker:1')
 BRUNOHOST_MAX_RUNNING = int(os.getenv('BRUNOHOST_MAX_RUNNING', '5'))
+# Restrict generated backend publishing to reviewed projects during a beta.
+BRUNOHOST_BACKEND_PROJECTS = frozenset(
+    str(UUID(project.strip())) for project in os.getenv('BRUNOHOST_BACKEND_PROJECTS', '').split(',')
+    if project.strip()
+)
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",

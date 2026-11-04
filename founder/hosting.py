@@ -75,6 +75,11 @@ def site_lock(site):
         yield
 
 
+def backend_allowed(startup_id):
+    allowed = settings.BRUNOHOST_BACKEND_PROJECTS
+    return not allowed or str(startup_id) in allowed
+
+
 def context(startup, selected):
     site = HostedSite.objects.filter(startup=startup).select_related('version').first()
     supported = selected and selected.kind in {'static', 'generated'}
@@ -85,6 +90,8 @@ def context(startup, selected):
         reason = 'По временным ссылкам доступны сайты без собственного сервера.'
     elif selected and selected.kind == 'django':
         reason = 'Публикация готовых Django-модулей ещё не подключена. Сейчас поддерживаются HTML-сайты и сайты с сервером модели.'
+    elif selected and selected.kind == 'generated' and not backend_allowed(startup.pk):
+        reason = 'Публикация сайтов с сервером пока доступна только выбранным проектам беты.'
     elif selected and selected.kind == 'generated' and not hosting_runtime.enabled():
         reason = 'Для серверных сайтов ещё не подключён изолированный исполнитель BrunoHost.'
     return {'site': site, 'url': site_url(site) if site else '', 'can_publish': bool(supported and not reason),
@@ -394,6 +401,8 @@ class HostedSiteMiddleware:
                 return error_response(404, 'Сайт снят с публикации.')
             if site.version.kind != 'generated':
                 return error_response(503, 'Сайт обновляется. Перезагрузите страницу.')
+            if not backend_allowed(site.startup_id):
+                return error_response(404, 'Сайт не опубликован.')
             state = hosting_runtime.ensure(site)
             headers = {'Host': state['host'], 'Origin': 'http://' + state['host'],
                        'Content-Type': request.headers.get('Content-Type', 'application/octet-stream')}

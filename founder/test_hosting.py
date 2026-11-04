@@ -187,8 +187,11 @@ class HostingTests(TestCase):
         self.assertFalse(HostedSite.objects.exists())
 
 
-@skipUnless(available(), 'Requires macOS OS sandbox')
-@override_settings(DEBUG=True, BRUNOHOST_BASE_URL='http://localhost:8000', BRUNOHOST_ENGINE='sandbox')
+HOST_TEST_ENGINE = 'docker' if os.getenv('BRUNOHOST_TEST_DOCKER') == '1' else 'sandbox'
+
+
+@skipUnless(HOST_TEST_ENGINE == 'docker' or available(), 'Requires an isolated runtime')
+@override_settings(DEBUG=True, BRUNOHOST_BASE_URL='http://localhost:8000', BRUNOHOST_ENGINE=HOST_TEST_ENGINE)
 class HostedRuntimeTests(TestCase):
     setUp = HostingTests.setUp
     publish = HostingTests.publish
@@ -223,6 +226,25 @@ def application(environ, start_response):
         self.assertTrue(response.cookies['lab_session']['httponly'])
         self.assertEqual(response.cookies['lab_session']['samesite'], 'Lax')
         self.assertFalse(response.cookies['lab_session']['domain'])
+
+    def test_backend_beta_allowlist_blocks_publish_and_existing_guest_access(self):
+        self.version.kind = 'generated'
+        self.version.backend_files = FILES
+        self.version.save()
+        other = StartupProfile.objects.create(owner=self.user, name='Other beta project')
+        with override_settings(BRUNOHOST_BACKEND_PROJECTS={str(other.pk)}):
+            response = self.client.post(self.url, {'version': self.version.pk}, HTTP_ACCEPT='application/json')
+            self.assertEqual(response.status_code, 400)
+            self.assertFalse(HostedSite.objects.exists())
+
+        with override_settings(BRUNOHOST_BACKEND_PROJECTS={str(self.startup.pk)}):
+            self.publish()
+            site = HostedSite.objects.get(startup=self.startup)
+            self.addCleanup(hosting_runtime.stop, site)
+            self.assertEqual(self.guest('/api/items').status_code, 200)
+
+        with override_settings(BRUNOHOST_BACKEND_PROJECTS={str(other.pk)}):
+            self.assertEqual(self.guest('/api/items').status_code, 404)
 
     def test_failed_server_update_restores_database_and_previous_code(self):
         self.version.kind = 'generated'
