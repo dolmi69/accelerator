@@ -28,7 +28,7 @@
                     try { internal = new URL(document.referrer).origin === location.origin; } catch (_) {}
                     const nav = performance.getEntriesByType('navigation')[0];
                     if (!internal && (!nav || nav.type === 'navigate') && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                        document.documentElement.classList.add('intro-on');
+                        document.documentElement.classList.add('intro-on', 'intro-hold');
                     }
                 })();
             </script>
@@ -67,8 +67,8 @@
                     const url = new URL(link.href, location.href);
                     if (url.origin !== location.origin || url.pathname + url.search === location.pathname + location.search) return;
                     if (document.body.classList.contains('lab-shell')) return;
-                    // Внутри проекта страницы сменяет View Transition (project-work.css): своё затухание ему мешает.
-                    if (viewTransitions && location.pathname.startsWith('/startups/') && url.pathname.startsWith('/startups/')) return;
+                    // Где браузер умеет View Transitions (app.css), страницы сменяет он: своё затухание ему мешает.
+                    if (viewTransitions) return;
                     root.classList.remove('page-enter', 'page-entered');
                     root.classList.add('page-leaving');
                     setTimeout(() => root.classList.remove('page-leaving'), 1500);
@@ -101,7 +101,7 @@
         <link rel="stylesheet"
               href="{% static 'founder/css/tailwind.css' %}?v=frontend-5">
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=anim-20261104">
+              href="{% static 'founder/css/app.css' %}?v=smooth-20261105">
         <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=front-20261104">
         <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=polish-20261104">
         <link rel="stylesheet"
@@ -110,7 +110,7 @@
               href="{% static 'founder/css/project-workspace.css' %}?v=redesign-1">
         {% if startup %}
             <link rel="stylesheet"
-                  href="{% static 'founder/css/project-work.css' %}?v=merge-20261028">
+                  href="{% static 'founder/css/project-work.css' %}?v=smooth-20261105">
         {% endif %}
         {% block extra_css %}{% endblock %}
         <link rel="stylesheet"
@@ -261,7 +261,7 @@
         <script src="{% static 'founder/js/copy.js' %}?v=1" defer></script>
         <script src="{% static 'founder/js/theme.js' %}?v=redesign-1" defer></script>
         {% if request.user.is_authenticated and workspace_tab != 'lab' %}
-            <script src="{% static 'founder/js/intro.js' %}?v=1" defer></script>
+            <script src="{% static 'founder/js/intro.js' %}?v=2" defer></script>
         {% endif %}
         {% if request.user.is_authenticated %}
             <script src="{% static 'founder/js/drafts.js' %}?v=1"></script><script src="{% static 'founder/js/direct-attachments.js' %}?v=1" defer></script><script src="{% static 'founder/js/messages.js' %}?v=6" defer></script><script src="{% static 'founder/js/coins.js' %}?v=3" defer></script><script src="{% static 'founder/js/chat-search.js' %}?v=1" defer></script><script src="{% static 'founder/js/card-reports.js' %}?v=2" defer></script>

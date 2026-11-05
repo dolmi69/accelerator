@@ -27,21 +27,22 @@
 }
 
 @media (prefers-reduced-motion:no-preference) {
-  html:not(.welcome-static) .welcome-ground { animation:welcome-rule .6s cubic-bezier(.2,.7,.2,1) both; }
-  html:not(.welcome-static) .welcome-bear { animation:welcome-walk-in .8s cubic-bezier(.22,.61,.36,1) both; }
-  html:not(.welcome-static) .welcome-bear .bruno-art { animation:welcome-step .4s cubic-bezier(.45,0,.55,1) 2 both; }
-  html:not(.welcome-static) .welcome-bubble { animation:welcome-bubble .32s cubic-bezier(.2,.8,.2,1) .9s both; }
-  html:not(.welcome-static) .welcome-brand { animation:welcome-fade .25s ease-out 1s both; }
-  html:not(.welcome-static) .welcome-title { animation:welcome-ink .5s cubic-bezier(.4,.1,.2,1) 1.05s both; }
-  html:not(.welcome-static) .welcome-lead { animation:welcome-fade .3s ease-out 1.3s both; }
-  html:not(.welcome-static) .welcome-actions,html:not(.welcome-static) .welcome-about { animation:welcome-fade .3s ease-out 1.45s both; }
+  /* Плавнее, чем было (2026-11-05): Бруно проходит короткий путь и проявляется на ходу, а не влетает из-за края экрана;
+     реплика и текст всплывают на 8 px с мягким замедлением, без «выстрела» с половинного размера. */
+  html:not(.welcome-static) .welcome-ground { animation:welcome-rule .9s cubic-bezier(.22,1,.36,1) both; }
+  html:not(.welcome-static) .welcome-bear { animation:welcome-walk-in 1.2s cubic-bezier(.3,.7,.4,1) both; }
+  html:not(.welcome-static) .welcome-bear .bruno-art { animation:welcome-step .4s cubic-bezier(.45,0,.55,1) 3 both; }
+  html:not(.welcome-static) .welcome-bubble { animation:welcome-rise .55s cubic-bezier(.22,1,.36,1) 1.25s both; }
+  html:not(.welcome-static) .welcome-brand { animation:welcome-rise .6s cubic-bezier(.22,1,.36,1) 1.1s both; }
+  html:not(.welcome-static) .welcome-title { animation:welcome-ink .8s cubic-bezier(.45,.05,.25,1) 1.2s both; }
+  html:not(.welcome-static) .welcome-lead { animation:welcome-rise .6s cubic-bezier(.22,1,.36,1) 1.5s both; }
+  html:not(.welcome-static) .welcome-actions,html:not(.welcome-static) .welcome-about { animation:welcome-rise .6s cubic-bezier(.22,1,.36,1) 1.65s both; }
 }
 /* Линейка тетради прочерчивается, по ней Бруно и приходит. */
 @keyframes welcome-rule { from { transform:scaleX(0); } }
-@keyframes welcome-walk-in { from { transform:translateX(calc(-50vw - 150px)); } }
+@keyframes welcome-walk-in { from { opacity:0; transform:translateX(-220px); } 30% { opacity:1; } }
 /* Шаг вперевалку: два шага за время входа, тело приподнимается на каждом; последний кадр ровный (раньше Бруно оставался наклонён на −3°). */
 @keyframes welcome-step { 0%,50%,100% { translate:0 0; rotate:0deg; } 25% { translate:0 -5px; rotate:-2.5deg; } 75% { translate:0 -5px; rotate:2.5deg; } }
-@keyframes welcome-bubble { from { opacity:0; transform:scale(.5); } }
-@keyframes welcome-fade { from { opacity:0; } }
+@keyframes welcome-rise { from { opacity:0; transform:translateY(8px); } }
 /* Заголовок проявляется слева направо, как строка, которую пишут в тетради. */
-@keyframes welcome-ink { from { clip-path:inset(0 100% 0 0); } to { clip-path:inset(0 0 0 0); } }
+@keyframes welcome-ink { from { clip-path:inset(0 100% 0 0); opacity:.4; } to { clip-path:inset(0 0 0 0); opacity:1; } }
