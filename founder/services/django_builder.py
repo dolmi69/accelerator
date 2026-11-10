@@ -20,7 +20,8 @@ from urllib.parse import urlsplit
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import httpx
-from runtime_support import file_lock, is_windows, runtime_environment, detached_process_options, stop_windows_process
+from runtime_support import (file_lock, is_windows, runtime_environment, detached_process_options,
+    stop_windows_process, windows_parent_pid)
 from django.conf import settings
 from founder.models import LabSiteVersion, StartupProfile
 from founder.blueprints.django_basic.core.design import theme_from_html, theme_styles
@@ -93,17 +94,36 @@ def _read_state(directory):
         return None
 
 
-def _healthy(state, project_id):
+def _health_pid(state, project_id):
+    """PID reported by this project's server on the state's port, or None."""
     if not state:
-        return False
+        return None
     try:
         response = httpx.get(f"http://127.0.0.1:{state['port']}/health/",
             headers={"Host": f"localhost:{state['port']}"}, timeout=0.5, trust_env=False)
         body = response.json()
-        return (response.status_code == 200 and body.get("project_id") == str(project_id)
-                and body.get("version_id") == state.get("version_id") and body.get("pid") == state.get("pid"))
+        if (response.status_code == 200 and body.get("project_id") == str(project_id)
+                and body.get("version_id") == state.get("version_id") and type(body.get("pid")) is int):
+            return body["pid"]
     except (httpx.HTTPError, ValueError, AttributeError):
-        return False
+        pass
+    return None
+
+
+def _healthy(state, project_id):
+    return state is not None and _health_pid(state, project_id) == state.get("pid")
+
+
+def _launched_server_pid(state, project_id, launched_pid):
+    """On Windows a venv python.exe is a launcher that starts the real
+    interpreter as its child, so the server reports the child's PID. Accept
+    only the launched process itself or its direct child."""
+    pid = _health_pid(state, project_id)
+    if pid is None:
+        return None
+    if pid == launched_pid or (is_windows() and windows_parent_pid(pid) == launched_pid):
+        return pid
+    return None
 
 
 def runtime_status(startup_id):
@@ -289,7 +309,10 @@ def start_runtime(version, *, launcher_origin=None, return_path=None, selection_
             state = {"pid": process.pid, "port": port, "version_id": str(version.pk), "build_hash": build_hash}
             deadline = time.monotonic() + 12
             while time.monotonic() < deadline and process.poll() is None:
-                if _healthy(state, version.startup_id):
+                server_pid = _launched_server_pid(state, version.startup_id, process.pid)
+                if server_pid:
+                    # Store the PID that answers /health/: stopping it also ends the launcher.
+                    state["pid"] = server_pid
                     _atomic_write(directory / "runtime.json", json.dumps(state).encode())
                     return _open_url(state,project)
                 time.sleep(0.2)

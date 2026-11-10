@@ -71,6 +71,36 @@ class PlatformAdapterTests(SimpleTestCase):
                 kill.assert_not_called()
 
 
+class LaunchedServerPidTests(SimpleTestCase):
+    """A venv python.exe on Windows is a launcher; the server is its child."""
+    state = {'port': 9001, 'version_id': 'v1', 'pid': 100}
+
+    def check(self, reported, *, windows, parent=None):
+        with patch.object(builder, '_health_pid', return_value=reported), \
+             patch.object(builder, 'is_windows', return_value=windows), \
+             patch.object(builder, 'windows_parent_pid', return_value=parent) as parent_of:
+            return builder._launched_server_pid(self.state, 'p1', 100), parent_of
+
+    def test_same_pid_is_accepted_everywhere(self):
+        self.assertEqual(self.check(100, windows=False)[0], 100)
+
+    def test_windows_child_of_launcher_is_accepted(self):
+        pid, parent_of = self.check(200, windows=True, parent=100)
+        self.assertEqual(pid, 200)
+        parent_of.assert_called_once_with(200)
+
+    def test_unrelated_or_posix_pid_is_rejected(self):
+        self.assertIsNone(self.check(200, windows=True, parent=999)[0])
+        self.assertIsNone(self.check(200, windows=True, parent=None)[0])
+        self.assertIsNone(self.check(200, windows=False, parent=100)[0])
+        self.assertIsNone(self.check(None, windows=True)[0])
+
+    def test_real_parent_pid_lookup_on_windows(self):
+        if not runtime.is_windows():
+            self.skipTest('Windows process table')
+        self.assertEqual(runtime.windows_parent_pid(os.getpid()), os.getppid())
+
+
 class NativeLabRuntimeTests(TestCase):
     def test_real_launch_stop_restart_with_cyrillic_and_spaces(self):
         # Separate root and DB: never touch a developer's active website.
