@@ -1,12 +1,12 @@
 /* Монеты, продвижение и команда проекта. */
-.coin-chip { display:inline-flex; align-items:center; gap:4px; padding:7px 12px; border-radius:16px; background:var(--cream); color:var(--cocoa); font-size:13px; font-weight:800; }
+.coin-chip { display:inline-flex; align-items:center; gap:4px; padding:7px 12px; border-radius:var(--r-lg); background:var(--cream); color:var(--cocoa); font-size:var(--fs-sm); font-weight:700; }
 .topnav .coin-chip:hover { color:var(--cocoa); background:var(--cream); }
-.coin-balance-big { display:inline-flex; align-items:center; gap:10px; padding:14px 22px; border-radius:16px; background:var(--cream); color:var(--cocoa); font-family:Manrope,sans-serif; font-size:31px; }
-.coin-balance-big strong { font-weight:800; }
-.coin-price { white-space:nowrap; font-weight:800; color:var(--cocoa); }
-.coin-amount { font-weight:800; color:var(--teal-dark); white-space:nowrap; }
+.coin-balance-big { display:inline-flex; align-items:center; gap:10px; padding:14px 22px; border-radius:var(--r-lg); background:var(--cream); color:var(--cocoa); font-family:var(--font-display); font-size:var(--fs-2xl); }
+.coin-balance-big strong { font-weight:700; }
+.coin-price { white-space:nowrap; font-weight:700; color:var(--cocoa); }
+.coin-amount { font-weight:700; color:var(--teal-dark); white-space:nowrap; }
 .coin-amount.negative { color:var(--danger); }
-.coin-toast { position:fixed; top:90px; left:50%; transform:translateX(-50%); z-index:60; padding:12px 18px; border-radius:10px; background:var(--navy); color:#fff; font-weight:800; box-shadow:0 10px 30px rgba(18,35,56,.25); animation:coin-pop .25s ease-out; }
+.coin-toast { position:fixed; top:90px; left:50%; transform:translateX(-50%); z-index:60; padding:12px 18px; border-radius:var(--r-md); background:var(--navy); color:#fff; font-weight:700; box-shadow:0 10px 30px rgba(18,35,56,.25); animation:coin-pop .25s ease-out; }
 @keyframes coin-pop { from { transform:translate(-50%,-10px); opacity:0; } to { transform:translateX(-50%); opacity:1; } }
 @media (prefers-reduced-motion: reduce) { .coin-toast { animation:none; } }
 
@@ -16,9 +16,9 @@
 .team-row p { margin:4px 0 0; }
 .team-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .team-actions form { display:flex; gap:6px; align-items:center; }
-.team-actions select, .team-invite-form input, .team-invite-form select { padding:9px 11px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface); }
+.team-actions select, .team-invite-form input, .team-invite-form select { padding:9px 11px; border:1px solid var(--line-strong); border-radius:var(--r-sm); background:var(--surface); }
 .team-invite-form { display:grid; gap:12px; margin:14px 0 6px; }
-.team-invite-form label { display:grid; gap:6px; font-size:13px; font-weight:700; }
+.team-invite-form label { display:grid; gap:6px; font-size:var(--fs-sm); font-weight:620; }
 .team-leave { margin-top:16px; }
 .invites-card { margin-bottom:22px; }
 .card-team { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 16px; }
@@ -27,8 +27,8 @@
 .coin-rule strong { color:var(--ink); }
 
 .promo-card.is-active { border:2px solid var(--orange); }
-.promo-status { color:var(--cocoa); font-weight:700; font-size:13px; }
-.promo-badge { margin-left:auto; margin-right:8px; padding:4px 10px; border-radius:16px; background:var(--cream); color:var(--cocoa); font-size:13px; font-weight:800; }
+.promo-status { color:var(--cocoa); font-weight:620; font-size:var(--fs-sm); }
+.promo-badge { margin-left:auto; margin-right:8px; padding:4px 10px; border-radius:var(--r-lg); background:var(--cream); color:var(--cocoa); font-size:var(--fs-sm); font-weight:700; }
 .discovery-card.is-highlighted { border:1px solid var(--line-teal); box-shadow:none; }
 
 .testers-wanted { margin:10px 0 26px; }
@@ -42,7 +42,7 @@
 
 @media (max-width:680px) {
   .team-row { flex-direction:column; align-items:flex-start; }
-  .coin-balance-big { font-size:20px; padding:10px 16px; }
+  .coin-balance-big { font-size:var(--fs-lg); padding:10px 16px; }
 }
 
 /* Гардероб Бруно. app.css обрезает вложенные svg позы, а шапкам нужно выходить за рамку. */
@@ -53,7 +53,7 @@
 .wardrobe-stage { position:sticky; top:20px; padding:24px; text-align:center; }
 .wardrobe-stage .bruno-art { width:260px; }
 .wardrobe-shelves { display:grid; gap:16px; }
-.wardrobe-item.is-worn strong::after { content:" · надето"; color:var(--teal); font-weight:700; font-size:13px; }
+.wardrobe-item.is-worn strong::after { content:" · надето"; color:var(--teal); font-weight:620; font-size:var(--fs-sm); }
 @media (max-width:760px) { .wardrobe-layout { grid-template-columns:1fr; } .wardrobe-stage { position:static; } }
 
 /* Серия дней */
@@ -65,9 +65,9 @@
 
 /* Награды тестировщикам */
 .bounty-form { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin-top:14px; }
-.bounty-form label { display:grid; gap:6px; font-size:13px; font-weight:700; }
-.bounty-form select, .bounty-form input { padding:9px 11px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface); width:150px; }
-.bounty-chip { justify-self:start; padding:3px 9px; border-radius:16px; background:var(--cream); color:var(--cocoa); font-size:13px; font-weight:800; }
+.bounty-form label { display:grid; gap:6px; font-size:var(--fs-sm); font-weight:620; }
+.bounty-form select, .bounty-form input { padding:9px 11px; border:1px solid var(--line-strong); border-radius:var(--r-sm); background:var(--surface); width:150px; }
+.bounty-chip { justify-self:start; padding:3px 9px; border-radius:var(--r-lg); background:var(--cream); color:var(--cocoa); font-size:var(--fs-sm); font-weight:700; }
 .bounty-notice { background:var(--cream); color:var(--cocoa); }
 
 /* Заявки в команду и лента */
@@ -75,13 +75,13 @@
 .join-details summary { list-style:none; cursor:pointer; text-align:center; }
 .join-details summary::-webkit-details-marker { display:none; }
 .join-form { display:grid; gap:10px; margin-top:10px; }
-.join-form label { display:grid; gap:6px; font-size:13px; font-weight:700; }
-.join-form textarea { padding:10px; border:1px solid var(--line-strong); border-radius:8px; resize:vertical; }
-.join-message { margin:8px 0 0; padding:10px 12px; border-radius:8px; background:var(--surface-2); font-size:16px; white-space:pre-line; }
+.join-form label { display:grid; gap:6px; font-size:var(--fs-sm); font-weight:620; }
+.join-form textarea { padding:10px; border:1px solid var(--line-strong); border-radius:var(--r-sm); resize:vertical; }
+.join-message { margin:8px 0 0; padding:10px 12px; border-radius:var(--r-sm); background:var(--surface-2); font-size:var(--fs-md); white-space:pre-line; }
 .join-request { align-items:flex-start; }
 .team-divider { border:0; border-top:1px solid var(--line); margin:18px 0; }
 .activity-feed { list-style:none; margin:0; padding:0; display:grid; gap:12px; }
-.activity-item { display:flex; gap:12px; align-items:flex-start; font-size:16px; line-height:1.5; }
+.activity-item { display:flex; gap:12px; align-items:flex-start; font-size:var(--fs-md); line-height:1.5; }
 .activity-item .muted { margin-left:6px; }
 .activity-dot { flex:none; width:10px; height:10px; margin-top:6px; border-radius:50%; background:var(--teal); }
 .activity-coins .activity-dot { background:var(--orange); }
@@ -89,10 +89,10 @@
 .activity-card { margin-bottom:22px; }
 
 /* Исполнитель задания */
-.task-assignee { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0; font-size:13px; font-weight:700; }
-.task-assignee select { padding:8px 10px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface); max-width:100%; }
+.task-assignee { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0; font-size:var(--fs-sm); font-weight:620; }
+.task-assignee select { padding:8px 10px; border:1px solid var(--line-strong); border-radius:var(--r-sm); background:var(--surface); max-width:100%; }
 .task-filter { display:flex; gap:8px; margin:0 0 16px; }
-.task-filter a { padding:7px 14px; border-radius:16px; border:1px solid var(--line-strong); font-size:13px; font-weight:700; color:var(--teal); background:var(--surface); }
+.task-filter a { padding:7px 14px; border-radius:var(--r-lg); border:1px solid var(--line-strong); font-size:var(--fs-sm); font-weight:620; color:var(--teal); background:var(--surface); }
 .task-filter a[aria-current="page"] { background:var(--teal); border-color:var(--teal); color:var(--on-accent); }
 .viewer-only { display:none; }
 .is-viewer .viewer-only { display:block; }

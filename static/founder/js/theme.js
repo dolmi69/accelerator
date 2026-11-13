@@ -1,22 +1,20 @@
-// Тема: «Как в системе», «Светлая», «Тёмная». Выбор живёт в браузере (localStorage) и ставится
+// Тема: «Светлая» (основная), «Тёмная», «Как в системе». Выбор живёт в браузере (localStorage) и ставится
 // скриптом в <head> до первой отрисовки; здесь — кнопки выбора, цвет панели браузера и тема Telegram.
 (() => {
   const root = document.documentElement;
-  const COLORS = {light: '#f5f4ef', dark: '#131920'};
+  const COLORS = {light: '#f3f5f7', dark: '#11171d'};
+  const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
   const stored = () => {
-    try { return localStorage.getItem('bl-theme') || 'system'; } catch { return 'system'; }
+    try { return localStorage.getItem('bl-theme') || 'light'; } catch { return 'light'; }
   };
   // В Telegram «как в системе» значит «как в Telegram»: у приложения своя тема, не всегда совпадающая с телефоном.
   const telegram = () => window.Telegram?.WebApp?.colorScheme;
 
   function apply(choice) {
-    const forced = choice === 'system' ? telegram() : choice;
-    if (forced === 'light' || forced === 'dark') root.dataset.theme = forced;
-    else delete root.dataset.theme;
-    document.querySelectorAll('meta[name="theme-color"]').forEach(meta => {
-      meta.content = COLORS[forced] || COLORS[(meta.media || '').includes('dark') ? 'dark' : 'light'];
-    });
+    const forced = choice === 'system' ? (telegram() || (systemDark.matches ? 'dark' : 'light')) : choice;
+    root.dataset.theme = forced === 'dark' ? 'dark' : 'light';
+    document.querySelectorAll('meta[name="theme-color"]').forEach(meta => { meta.content = COLORS[root.dataset.theme]; });
     document.querySelectorAll('[data-theme-choice]').forEach(button => {
       button.setAttribute('aria-pressed', String(button.dataset.themeChoice === choice));
     });
@@ -25,7 +23,7 @@
     if (app?.isVersionAtLeast?.('6.1')) {
       const style = getComputedStyle(root);
       app.setHeaderColor(style.getPropertyValue('--surface').trim() || '#ffffff');
-      app.setBackgroundColor(style.getPropertyValue('--bg').trim() || '#f5f4ef');
+      app.setBackgroundColor(style.getPropertyValue('--bg').trim() || '#f3f5f7');
     }
   }
 
@@ -34,8 +32,7 @@
     if (!button) return;
     const choice = button.dataset.themeChoice;
     try {
-      if (choice === 'system') localStorage.removeItem('bl-theme');
-      else localStorage.setItem('bl-theme', choice);
+      localStorage.setItem('bl-theme', choice);
     } catch { /* приватный режим: тема действует до перезагрузки */ }
     // Цвета перетекают за 250 мс, чтобы смена темы читалась как ответ на нажатие, а не как мигание.
     if (!reduce.matches) {
@@ -46,5 +43,6 @@
   });
 
   window.Telegram?.WebApp?.onEvent?.('themeChanged', () => apply(stored()));
+  systemDark.addEventListener?.('change', () => { if (stored() === 'system') apply('system'); });
   apply(stored());
 })();

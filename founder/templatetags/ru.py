@@ -23,3 +23,9 @@ def plural(number, forms):
     else:
         word = many
     return f"{value} {word}"
+
+
+@register.filter
+def plural_word(number, forms):
+    """Только слово без числа: {{ n|plural_word:"день,дня,дней" }} → «дня». Число стоит отдельно и крупно."""
+    return str(plural(number, forms)).partition(" ")[2]
