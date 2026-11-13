@@ -6,6 +6,12 @@
         <div>
             <h1>Мои проекты</h1>
             <p>Рядом с каждым проектом Бруно пишет, что проверить следующим.</p>
+            <dl class="heading-facts">
+                <div><dt>Проектов</dt><dd>{{ summary.total }}</dd></div>
+                <div><dt>С оценкой радара</dt><dd>{{ summary.assessed }}</dd></div>
+                <div><dt>Лучший балл</dt><dd>{% if summary.best is not None %}{{ summary.best }}<small>/100</small>{% else %}нет{% endif %}</dd></div>
+                <div><dt>В сообществе</dt><dd>{{ summary.published }}</dd></div>
+            </dl>
         </div>
         <a href="{% url 'startup_create' %}" class="button primary">
             {% include 'founder/_icon.html' with name='plus' %}

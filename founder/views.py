@@ -36,7 +36,7 @@ from founder.services import funding, panel
 from founder.services.pitch import finish_pitch
 from founder.services.radar_assessment import assess_startup
 from founder.services import activity
-from founder.services.coins import CHAT_MIN_LENGTH, award, balance, coins_note
+from founder.services.coins import CHAT_MIN_LENGTH, award, balance, coins_note, streak
 from founder.services.achievements import achievement_cards, award_achievements
 from founder.services.profile import evidence_display, grid_context, history_context, project_cards
 from founder.services.dashboard import workspace_context
@@ -68,8 +68,15 @@ def home(request):
     invites = list(pending_invites(request.user))
     if not cards and not invites:
         return redirect("startup_create")
+    # Сводка в шапке страницы: сколько проектов, у скольких есть оценка, лучший общий балл, сколько опубликовано.
+    scores = [card["latest"].overall_score for card in cards if card["latest"]]
+    summary = {
+        "total": len(cards), "assessed": len(scores), "best": max(scores) if scores else None,
+        "published": sum(1 for card in cards if card["published"]),
+    }
     return render(request, "founder/projects.html", {
-        "project_cards": cards, "invites": invites, "join_requests": list(join_requests_for(request.user)),
+        "project_cards": cards, "summary": summary,
+        "invites": invites, "join_requests": list(join_requests_for(request.user)),
         **grid_context(),
     })
 
@@ -306,6 +313,20 @@ def dashboard(request, startup_id):
     )
     from founder.services.daily_plan import display as display_daily_plan
     context['daily_focus'] = display_daily_plan(startup, can_edit=startup.user_role != 'viewer')
+    # Игровая полоса над радаром: серия дней, монеты, достижения, задачи.
+    context['game'] = {
+        'streak': streak(request.user),
+        'earned': sum(1 for badge in context['achievements'] if badge.get('earned_at')),
+        'total': len(context['achievements']),
+    }
+    # Путь проекта по стадиям: пройденные, текущая (на ней стоит Бруно), следующие.
+    stage_values = [value for value, _ in StartupProfile.Stage.choices]
+    current = stage_values.index(startup.stage) if startup.stage in stage_values else 0
+    context['game']['stages'] = [
+        {'label': label, 'state': 'done' if index < current else 'current' if index == current else 'next'}
+        for index, (_, label) in enumerate(StartupProfile.Stage.choices)
+    ]
+    context['game']['stage_progress'] = round(100 * current / max(1, len(stage_values) - 1))
     return render(request, "founder/dashboard.html", context)
 
 

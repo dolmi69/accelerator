@@ -4,19 +4,14 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="theme-color"
-              content="#f5f4ef"
-              media="(prefers-color-scheme: light)">
-        <meta name="theme-color"
-              content="#131920"
-              media="(prefers-color-scheme: dark)">
+        <meta name="theme-color" content="#f3f5f7">
         <script>
-            // Тема до первой отрисовки, без вспышки: сохранённый выбор «светлая» или «тёмная», иначе — как в системе (theme.js).
+            // Тема до первой отрисовки: светлая, пока в переключателе не выбрана другая (theme.js).
             (() => {
-                try {
-                    const theme = localStorage.getItem('bl-theme');
-                    if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
-                } catch (_) {}
+                let theme = 'light';
+                try { theme = localStorage.getItem('bl-theme') || 'light'; } catch (_) {}
+                if (theme === 'system') theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
             })();
         </script>
         {% if request.user.is_authenticated and workspace_tab != 'lab' %}
@@ -67,8 +62,8 @@
                     const url = new URL(link.href, location.href);
                     if (url.origin !== location.origin || url.pathname + url.search === location.pathname + location.search) return;
                     if (document.body.classList.contains('lab-shell')) return;
-                    // Внутри проекта страницы сменяет View Transition (project-work.css): своё затухание ему мешает.
-                    if (viewTransitions && location.pathname.startsWith('/startups/') && url.pathname.startsWith('/startups/')) return;
+                    // Страницы сменяет View Transition (fable.css, project-work.css): своё затухание ему мешает.
+                    if (viewTransitions) return;
                     root.classList.remove('page-enter', 'page-entered');
                     root.classList.add('page-leaving');
                     setTimeout(() => root.classList.remove('page-leaving'), 1500);
@@ -89,34 +84,30 @@
               content="Расскажите Бруно о своём сервисе и соберите понятную таблицу по пяти направлениям.">
         {% if request.telegram_miniapp %}<script src="https://telegram.org/js/telegram-web-app.js?63"></script>{% endif %}
         <link rel="preload"
-              href="{% static 'founder/fonts/golos-text-cyrillic.woff2' %}"
-              as="font"
-              type="font/woff2"
-              crossorigin>
-        <link rel="preload"
-              href="{% static 'founder/fonts/manrope-cyrillic.woff2' %}"
+              href="{% static 'founder/fonts/onest-cyrillic.woff2' %}"
               as="font"
               type="font/woff2"
               crossorigin>
         <link rel="stylesheet"
-              href="{% static 'founder/css/tailwind.css' %}?v=frontend-5">
+              href="{% static 'founder/css/tailwind.css' %}?v=fable-10">
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=redesign-2">
-        <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=redesign-2">
-        <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=redesign-1">
+              href="{% static 'founder/css/app.css' %}?v=fable-10">
+        <link rel="stylesheet" href="{% static 'founder/css/community.css' %}?v=fable-10">
+        <link rel="stylesheet" href="{% static 'founder/css/profiles.css' %}?v=fable-10">
         <link rel="stylesheet"
-              href="{% static 'founder/css/coins.css' %}?v=redesign-1">
+              href="{% static 'founder/css/coins.css' %}?v=fable-10">
         <link rel="stylesheet"
-              href="{% static 'founder/css/project-workspace.css' %}?v=redesign-1">
+              href="{% static 'founder/css/project-workspace.css' %}?v=fable-10">
         {% if startup %}
             <link rel="stylesheet"
-                  href="{% static 'founder/css/project-work.css' %}?v=merge-20261028">
+                  href="{% static 'founder/css/project-work.css' %}?v=fable-10">
         {% endif %}
         {% block extra_css %}{% endblock %}
         <link rel="stylesheet"
-              href="{% static 'founder/css/custom-select.css' %}?v=redesign-1">
+              href="{% static 'founder/css/custom-select.css' %}?v=fable-10">
+        <link rel="stylesheet" href="{% static 'founder/css/fable.css' %}?v=fable-10">
     </head>
-    <body class="{% if startup and request.user.is_authenticated %}project-shell {% endif %}{% if workspace_tab == 'lab' %}lab-shell {% endif %}{% if startup.user_role == 'viewer' %}is-viewer{% endif %}">
+    <body data-section="{{ workspace_tab|default:request.resolver_match.url_name }}" class="{% if startup and request.user.is_authenticated %}project-shell {% endif %}{% if workspace_tab == 'lab' %}lab-shell {% endif %}{% if startup.user_role == 'viewer' %}is-viewer{% endif %}">
         {% if request.user.is_authenticated and workspace_tab != 'lab' %}
             {% include 'founder/_intro.html' %}
         {% endif %}
@@ -244,7 +235,12 @@
             </main>
 
             <footer class="site-footer">
-                <span>Bruno<span class="brand-dot">Lab</span>, бета. <a href="{% url 'about' %}">О проекте</a></span>
+                <span>Bruno<span class="brand-dot">Lab</span>, бета. Наставник для первого стартапа.</span>
+                <nav class="footer-links" aria-label="Разделы сайта">
+                    <a href="{% url 'about' %}">О проекте</a>
+                    <a href="{% url 'community' %}">Сообщество</a>
+                    <a href="{% url 'tariffs' %}">Тарифы</a>
+                </nav>
                 {% include 'founder/_theme_switch.html' with id='footer' %}
             </footer>
         </div>
@@ -256,7 +252,8 @@
         {% endif %}
         <script src="{% static 'founder/js/bruno.js' %}?v=11" defer></script>
         <script src="{% static 'founder/js/copy.js' %}?v=1" defer></script>
-        <script src="{% static 'founder/js/theme.js' %}?v=redesign-1" defer></script>
+        <script src="{% static 'founder/js/theme.js' %}?v=fable-10" defer></script>
+        <script src="{% static 'founder/js/motion.js' %}?v=fable-10" defer></script>
         {% if request.user.is_authenticated and workspace_tab != 'lab' %}
             <script src="{% static 'founder/js/intro.js' %}?v=1" defer></script>
         {% endif %}

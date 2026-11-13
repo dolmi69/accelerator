@@ -3,7 +3,7 @@
 {% block title %}Радар · {{ startup.name }}{% endblock %}
 {% block extra_css %}
     <link rel="stylesheet"
-          href="{% static 'founder/css/radar.css' %}?v=merge-20261028">
+          href="{% static 'founder/css/radar.css' %}?v=fable-2">
 {% endblock %}
 {% block content %}
     <div class="radar-home">
@@ -12,9 +12,53 @@
             <div>
                 <h1>{{ startup.name }}</h1>
                 <p>{{ startup.one_line_pitch|default:"Добавьте описание проекта в одно предложение, чтобы Бруно точнее подсказывал." }}</p>
+                <dl class="heading-facts">
+                    <div><dt>Стадия</dt><dd>{{ startup.get_stage_display }}</dd></div>
+                    <div><dt>Команда</dt><dd>{{ overview_member_count|plural:"человек,человека,человек" }}</dd></div>
+                    <div><dt>Последняя оценка</dt><dd>{% if latest %}{{ latest.assessed_at|date:"j E" }}{% else %}нет{% endif %}</dd></div>
+                    <div><dt>Бесед с Бруно</dt><dd>{{ recent_sessions|length }}</dd></div>
+                </dl>
             </div>
             <a class="button ghost" href="{% url 'lab' startup.id %}">Открыть лабораторию</a>
         </header>
+        <ul class="game-strip" aria-label="Ваш прогресс">
+            <li class="game-tile game-streak">
+                <strong {% if game.streak %}data-count-up{% endif %}>{{ game.streak }}</strong>
+                <span>{{ game.streak|plural_word:"день,дня,дней" }} подряд</span>
+                <small>{% if game.streak %}Каждый пятый день приносит 20 монет.{% else %}Серия начнётся с первого действия сегодня.{% endif %}</small>
+            </li>
+            <li class="game-tile game-path">
+                <span class="game-path-title">Путь проекта</span>
+                <ol class="stage-path" style="--stage-progress:{{ game.stage_progress }}%">
+                    {% for stage in game.stages %}
+                        <li class="is-{{ stage.state }}"{% if stage.state == 'current' %} aria-current="step"{% endif %}>
+                            <span>{{ stage.label }}</span>
+                        </li>
+                    {% endfor %}
+                </ol>
+            </li>
+            <li class="game-tile game-coins">
+                <a href="{% url 'wallet' %}">
+                    <strong {% if request.user.coins %}data-count-up{% endif %}>{{ request.user.coins }}</strong>
+                    <span>{{ request.user.coins|plural_word:"монета,монеты,монет" }}</span>
+                    <small>За разговоры с Бруно, задания и отзывы.</small>
+                </a>
+            </li>
+            <li class="game-tile game-badges">
+                <a href="#bruno-conversations">
+                    <strong><span {% if game.earned %}data-count-up{% endif %}>{{ game.earned }}</span><i>/{{ game.total }}</i></strong>
+                    <span>{{ game.earned|plural_word:"достижение,достижения,достижений" }}</span>
+                    <small>Список в блоке Бруно справа.</small>
+                </a>
+            </li>
+            <li class="game-tile game-tasks">
+                <a href="{% url 'tasks' startup.id %}">
+                    <strong {% if overview_task_count %}data-count-up{% endif %}>{{ overview_task_count|default:0 }}</strong>
+                    <span>{{ overview_task_count|default:0|plural_word:"задача,задачи,задач" }} в плане</span>
+                    <small>Открыть работу над проектом.</small>
+                </a>
+            </li>
+        </ul>
         <section class="dashboard-grid radar-dashboard">
             {% include 'founder/_radar.html' %}
             <aside class="radar-sidebar">
@@ -47,5 +91,5 @@
     </div>
 {% endblock %}
 {% block scripts %}
-    <script src="{% static 'founder/js/dashboard.js' %}?v=radar-14" defer></script><script src="{% static 'founder/js/radar-compare.js' %}?v=redesign-3" defer></script><script src="{% static 'founder/js/workbench.js' %}" defer></script>
+    <script src="{% static 'founder/js/dashboard.js' %}?v=radar-15" defer></script><script src="{% static 'founder/js/radar-compare.js' %}?v=redesign-3" defer></script><script src="{% static 'founder/js/workbench.js' %}" defer></script>
 {% endblock %}

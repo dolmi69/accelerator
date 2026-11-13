@@ -1,52 +1,146 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}О проекте · BrunoLab{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'founder/css/about.css' %}?v=20261030">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'founder/css/about.css' %}?v=fable-8">{% endblock %}
+{% block scripts %}<script src="{% static 'founder/js/about.js' %}?v=1" defer></script>{% endblock %}
 {% block content %}
 <div class="about-page">
     <header class="about-hero">
         <div class="about-hero-copy">
-            <p class="about-eyebrow">BRUNOLAB / ОТ ИДЕИ К ПРОДУКТУ</p>
-            <h1>У вашей идеи<br>есть продолжение.</h1>
+            <h1 class="about-title"><span>У</span> <span>вашей</span> <span>идеи</span> <span>есть</span> <span>продолжение</span></h1>
             <p class="about-lead">Обсудите её с Бруно, соберите работающий прототип и дайте первым пользователям его попробовать. Всё в одном пространстве вашего проекта.</p>
-            {% if request.user.is_authenticated %}<a class="button primary" href="{% url 'home' %}">Открыть мои проекты ↗</a>{% else %}<a class="button primary" href="{% url 'register' %}">Начать свой проект ↗</a>{% endif %}
+            <div class="about-hero-actions">
+                {% if request.user.is_authenticated %}<a class="button primary" href="{% url 'home' %}">Открыть мои проекты</a>{% else %}<a class="button primary" href="{% url 'register' %}">Начать свой проект</a>{% endif %}
+                <a class="button ghost" href="#about-route">Как это устроено</a>
+            </div>
         </div>
-        <aside class="about-hero-note">
-            <img src="{% static 'founder/img/branding/bruno-logo.png' %}" alt="Медведь Бруно" width="180" height="180">
-            <strong>Знакомьтесь, Бруно.</strong>
-            <p>ИИ-наставник, который помнит контекст проекта и помогает двигаться дальше: от первого вопроса до следующей версии сайта.</p>
-        </aside>
+        {# Пример радара: показывает, как выглядит оценка проекта. Данные вымышленные, подпись об этом есть на карточке. #}
+        <figure class="about-demo" aria-label="Пример радара проекта. Точки можно двигать." data-demo-radar>
+            <div class="about-demo-sheet">
+                <div class="about-demo-top">
+                    <span class="about-demo-title">Радар проекта</span>
+                    <span class="about-demo-tag">Пример</span>
+                </div>
+                <p class="about-demo-score"><b data-demo-score>53</b><small>/100</small><span data-demo-delta>+24 с первой оценки</span></p>
+                <svg class="about-demo-radar" viewBox="-52 2 324 200" role="group" aria-label="Радар из пяти направлений">
+                    <polygon class="demo-grid" points="110,28 188,84.7 158.2,176.3 61.8,176.3 32,84.7" />
+                    <polygon class="demo-grid" points="110,48.5 168.5,91 146.2,159.8 73.8,159.8 51.5,91" />
+                    <polygon class="demo-grid" points="110,69 149,97.3 134.1,143.2 85.9,143.2 71,97.3" />
+                    <polygon class="demo-grid" points="110,89.5 129.5,103.7 122.1,126.6 97.9,126.6 90.5,103.7" />
+                    <polygon class="demo-first" points="110,85.4 125.6,104.9 114.8,116.6 90.7,136.5 74.9,98.6" />
+                    <g class="demo-now">
+                        <polygon data-demo-shape points="110,59.2 147.4,97.8 124.5,129.9 83.5,146.5 55.4,92.3" />
+                        <g class="demo-point" data-axis="0" role="slider" tabindex="0" aria-label="Продукт" aria-valuemin="0" aria-valuemax="100" aria-valuenow="62"><circle class="demo-hit" cx="110" cy="59.2" r="15" /><circle class="demo-dot" cx="110" cy="59.2" r="4" /></g>
+                        <g class="demo-point" data-axis="1" role="slider" tabindex="0" aria-label="Рынок" aria-valuemin="0" aria-valuemax="100" aria-valuenow="48"><circle class="demo-hit" cx="147.4" cy="97.8" r="15" /><circle class="demo-dot" cx="147.4" cy="97.8" r="4" /></g>
+                        <g class="demo-point" data-axis="2" role="slider" tabindex="0" aria-label="Экономика" aria-valuemin="0" aria-valuemax="100" aria-valuenow="30"><circle class="demo-hit" cx="124.5" cy="129.9" r="15" /><circle class="demo-dot" cx="124.5" cy="129.9" r="4" /></g>
+                        <g class="demo-point" data-axis="3" role="slider" tabindex="0" aria-label="Команда" aria-valuemin="0" aria-valuemax="100" aria-valuenow="55"><circle class="demo-hit" cx="83.5" cy="146.5" r="15" /><circle class="demo-dot" cx="83.5" cy="146.5" r="4" /></g>
+                        <g class="demo-point" data-axis="4" role="slider" tabindex="0" aria-label="Ясность идеи" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70"><circle class="demo-hit" cx="55.4" cy="92.3" r="15" /><circle class="demo-dot" cx="55.4" cy="92.3" r="4" /></g>
+                    </g>
+                    <text x="110" y="18" text-anchor="middle">Продукт</text>
+                    <text x="196" y="88" text-anchor="start">Рынок</text>
+                    <text x="164" y="194" text-anchor="middle">Экономика</text>
+                    <text x="56" y="194" text-anchor="middle">Команда</text>
+                    <text x="24" y="82" text-anchor="end"><tspan x="24">Ясность</tspan><tspan x="24" dy="13">идеи</tspan></text>
+                </svg>
+            </div>
+            <figcaption class="about-demo-note">
+                <img src="{% static 'founder/img/branding/bruno-logo.png' %}" alt="" width="44" height="44">
+                <p><strong>Бруно</strong><span data-demo-note aria-live="polite">Слабее всего экономика. Назовите цену и проверьте её на трёх семьях.</span></p>
+            </figcaption>
+            <p class="about-demo-hint">Потяните точки радара: Бруно скажет, что проверить.</p>
+        </figure>
     </header>
 
-    <section class="about-route" aria-label="Путь проекта">
-        <span><b>01</b> Проработайте идею</span><span><b>02</b> Выберите следующий шаг</span><span><b>03</b> Создайте сайт</span><span><b>04</b> Проверьте на людях</span>
+    <section class="about-story" id="about-route" aria-labelledby="about-story-title">
+        <h2 id="about-story-title">Четыре шага от идеи до первых отзывов</h2>
+        <p class="about-story-caption">На картинках пример: вымышленный проект «Холодильник на год».</p>
+        <ol class="story-steps">
+            <li>
+                <div class="story-copy"><strong>Проработайте идею</strong><span>Разговор с Бруно превращается в картину проекта.</span></div>
+                <div class="story-visual story-chat" aria-hidden="true">
+                    <p class="story-bubble is-user">Хочу помочь семьям планировать покупки на месяц.</p>
+                    <p class="story-bubble">Кто сейчас составляет список и как часто ходит в магазин?</p>
+                </div>
+            </li>
+            <li>
+                <div class="story-copy"><strong>Выберите следующий шаг</strong><span>Радар показывает, где не хватает доказательств.</span></div>
+                <div class="story-visual story-radar" aria-hidden="true">
+                    <svg viewBox="20 20 180 170"><polygon class="demo-grid" points="110,28 188,84.7 158.2,176.3 61.8,176.3 32,84.7" /><polygon class="demo-grid" points="110,69 149,97.3 134.1,143.2 85.9,143.2 71,97.3" /><polygon class="story-shape" points="110,59.2 147.4,97.8 124.5,129.9 83.5,146.5 55.4,92.3" /></svg>
+                    <ul><li><b>Экономика</b><i style="--v:30%"></i></li><li><b>Рынок</b><i style="--v:48%"></i></li><li><b>Продукт</b><i style="--v:62%"></i></li></ul>
+                </div>
+            </li>
+            <li>
+                <div class="story-copy"><strong>Создайте сайт</strong><span>Лаборатория собирает прототип из описания.</span></div>
+                <div class="story-visual story-site" aria-hidden="true">
+                    <div class="story-page"><b>Холодильник на год</b><span>Список покупок на месяц за пять минут</span><em>Попробовать</em></div>
+                </div>
+            </li>
+            <li>
+                <div class="story-copy"><strong>Проверьте на людях</strong><span>Сообщество пробует прототип и оставляет отзывы.</span></div>
+                <div class="story-visual story-people" aria-hidden="true">
+                    <p><i>А</i><span>Список собрался быстро, но не хватило напоминаний.</span><b>+10</b></p>
+                    <p><i>М</i><span>Понятно с первого экрана. Цена подписки не названа.</span><b>+10</b></p>
+                </div>
+            </li>
+        </ol>
     </section>
 
-    <section class="about-feature about-lab" aria-labelledby="about-lab">
-        <div class="about-feature-intro"><p class="about-eyebrow">ЛАБОРАТОРИЯ САЙТОВ</p><h2 id="about-lab">Идея обретает<br>работающую форму.</h2><p>Опишите, что хотите создать. Бруно использует контекст вашего проекта, чтобы собрать сайт, который можно открыть, проверить и доработать в диалоге.</p><p>Меняйте тексты и оформление, добавляйте функции, возвращайтесь к сохранённым версиям. Исходники можно скачать и продолжить разработку самостоятельно.</p></div>
-        <div class="about-capabilities">
-            <article><span>AI</span><h3>Создание через диалог</h3><p>Расскажите о нужном продукте обычными словами. Обсуждайте результат и просите изменить конкретные детали.</p></article>
-            <article><span>↗</span><h3>BrunoHost</h3><p>Публикуйте поддерживаемые сайты из лаборатории и делитесь ссылкой. Посетителям не нужен аккаунт BrunoLab.</p></article>
-            <article><span>↶</span><h3>Версии и контроль</h3><p>Храните историю изменений, сравнивайте результат и выбирайте версию для публикации.</p></article>
+    <section class="about-feature" aria-labelledby="about-lab">
+        <div class="about-feature-intro">
+            <h2 id="about-lab">Идея обретает работающую форму</h2>
+            <p>Опишите, что хотите создать. Бруно использует контекст вашего проекта, чтобы собрать сайт, который можно открыть, проверить и доработать в диалоге.</p>
+            <p>Меняйте тексты и оформление, добавляйте функции, возвращайтесь к сохранённым версиям. Исходники можно скачать и продолжить разработку самостоятельно.</p>
         </div>
+        <ul class="about-points">
+            <li>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6a2.5 2.5 0 0 1-2.5 2.5H11l-4 4v-4.2A2.5 2.5 0 0 1 5 12.5z" /><path d="M9 8.5h6M9 11.5h3.5" /></svg>
+                <div><h3>Создание через диалог</h3><p>Расскажите о нужном продукте обычными словами. Обсуждайте результат и просите изменить конкретные детали.</p></div>
+            </li>
+            <li>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5s-1.3 6.1-3.9 8.5c-2.600-2.400-3.900-5.200-3.900-8.500S9.400 5.900 12 3.500z" /></svg>
+                <div><h3>BrunoHost</h3><p>Публикуйте поддерживаемые сайты из лаборатории и делитесь ссылкой. Посетителям не нужен аккаунт BrunoLab.</p></div>
+            </li>
+            <li>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5" /><path d="M4 5v4h4M12 8v4.300l2.800 1.700" /></svg>
+                <div><h3>Версии и контроль</h3><p>Храните историю изменений, сравнивайте результат и выбирайте версию для публикации.</p></div>
+            </li>
+        </ul>
     </section>
 
-    <section class="about-feature" aria-labelledby="about-builder">
-        <div class="about-feature-intro"><p class="about-eyebrow">КОНСТРУКТОР BRUNO</p><h2 id="about-builder">Собирайте сами.<br>Меняйте как задумали.</h2><p>Создавайте страницы из шаблонов или работайте на свободном холсте. Перемещайте элементы, меняйте размеры, подбирайте оформление и добавляйте свои изображения.</p><p>Сайт, созданный ИИ, тоже можно редактировать вручную. Небольшая правка текста или картинки не требует нового запроса к нейросети.</p></div>
-        <ul class="about-builder-list"><li><strong>Страницы и блоки</strong><span>Соберите структуру сайта и настройте содержимое каждой страницы.</span></li><li><strong>Свободное размещение</strong><span>Двигайте элементы на холсте и выделяйте несколько объектов вместе.</span></li><li><strong>Вставка через Ctrl / ⌘V</strong><span>Вставляйте текст, картинки и ссылки прямо в редактор.</span></li><li><strong>Компьютер и телефон</strong><span>Проверяйте внешний вид и настраивайте расположение для разных экранов.</span></li></ul>
-    </section>
-
-    <section class="about-support" aria-labelledby="about-support"><div class="about-section-heading"><p class="about-eyebrow">БОЛЬШЕ, ЧЕМ РЕДАКТОР САЙТА</p><h2 id="about-support">У продукта есть основа.<br>У вас есть следующий шаг.</h2></div>
-        <div class="about-support-grid">
-            <article><h3>Бруно и контекст проекта</h3><p>Разберите проблему, аудиторию, ценность и способ заработка. Ответы складываются в карточку проекта, к которой можно возвращаться по мере развития идеи.</p></article>
-            <article><h3>Радар и приоритеты</h3><p>Оцените состояние проекта по пяти направлениям. Получайте задачи с инструкциями и оценками RICE и ICE, назначайте исполнителей в команде.</p></article>
-            <article><h3>Рынок и конкуренты</h3><p>Запускайте исследование открытых источников. Изучайте конкурентов, цены и рыночные сигналы со ссылками для проверки выводов.</p></article>
-            <article><h3>Тренировка питча</h3><p>Представьте проект панели из трёх ИИ-акул. Отработайте сложные вопросы и используйте разбор, чтобы подготовиться к настоящему выступлению.</p></article>
-            <article><h3>Сообщество и тестирование</h3><p>Опубликуйте карточку проекта, приглашайте пользователей попробовать прототип и собирайте обратную связь. За участие в тестировании предусмотрены внутренние монеты.</p></article>
-            <article><h3>Совместная работа</h3><p>Приглашайте участников в проект, распределяйте задачи и сохраняйте результаты проверок. Идея, действия и накопленные знания остаются рядом.</p></article>
+    <section class="about-feature about-feature-flip" aria-labelledby="about-builder">
+        <div class="about-feature-intro">
+            <h2 id="about-builder">Собирайте сами и меняйте как задумали</h2>
+            <p>Создавайте страницы из шаблонов или работайте на свободном холсте. Перемещайте элементы, меняйте размеры, подбирайте оформление и добавляйте свои изображения.</p>
+            <p>Сайт, созданный ИИ, тоже можно редактировать вручную. Небольшая правка текста или картинки не требует нового запроса к нейросети.</p>
         </div>
+        <dl class="about-list">
+            <div><dt>Страницы и блоки</dt><dd>Соберите структуру сайта и настройте содержимое каждой страницы.</dd></div>
+            <div><dt>Свободное размещение</dt><dd>Двигайте элементы на холсте и выделяйте несколько объектов вместе.</dd></div>
+            <div><dt>Вставка через Ctrl / ⌘V</dt><dd>Вставляйте текст, картинки и ссылки прямо в редактор.</dd></div>
+            <div><dt>Компьютер и телефон</dt><dd>Проверяйте внешний вид и настраивайте расположение для разных экранов.</dd></div>
+        </dl>
     </section>
-    <section class="about-closing"><h2>Начните с идеи.<br>Продолжите первым результатом.</h2><p>BrunoLab помогает пройти путь до прототипа и первых проверок. Решения о развитии проекта остаются за вами, а спрос проверяется на реальных пользователях.</p>{% if request.user.is_authenticated %}<a class="button primary" href="{% url 'home' %}">Перейти к проектам ↗</a>{% else %}<a class="button primary" href="{% url 'register' %}">Создать свой проект ↗</a>{% endif %}</section>
-    <footer class="about-credit"><span>BrunoLab</span><p>Проект выполнен Джафаровым Эльдаром.</p></footer>
+
+    <section class="about-support" aria-labelledby="about-support">
+        <h2 id="about-support">У продукта есть основа, у вас есть следующий шаг</h2>
+        <dl class="about-list about-list-wide">
+            <div><dt>Бруно и контекст проекта</dt><dd>Разберите проблему, аудиторию, ценность и способ заработка. Ответы складываются в карточку проекта, к которой можно возвращаться по мере развития идеи.</dd></div>
+            <div><dt>Радар и приоритеты</dt><dd>Оцените состояние проекта по пяти направлениям. Получайте задачи с инструкциями и оценками RICE и ICE, назначайте исполнителей в команде.</dd></div>
+            <div><dt>Рынок и конкуренты</dt><dd>Запускайте исследование открытых источников. Изучайте конкурентов, цены и рыночные сигналы со ссылками для проверки выводов.</dd></div>
+            <div><dt>Тренировка питча</dt><dd>Представьте проект панели из трёх ИИ-акул. Отработайте сложные вопросы и используйте разбор, чтобы подготовиться к настоящему выступлению.</dd></div>
+            <div><dt>Сообщество и тестирование</dt><dd>Опубликуйте карточку проекта, приглашайте пользователей попробовать прототип и собирайте обратную связь. За участие в тестировании предусмотрены внутренние монеты.</dd></div>
+            <div><dt>Совместная работа</dt><dd>Приглашайте участников в проект, распределяйте задачи и сохраняйте результаты проверок. Идея, действия и накопленные знания остаются рядом.</dd></div>
+        </dl>
+    </section>
+
+    <section class="about-closing">
+        <div>
+            <h2>Начните с идеи, продолжите первым результатом</h2>
+            <p>BrunoLab помогает пройти путь до прототипа и первых проверок. Решения о развитии проекта остаются за вами, а спрос проверяется на реальных пользователях.</p>
+            {% if request.user.is_authenticated %}<a class="button" href="{% url 'home' %}">Перейти к проектам</a>{% else %}<a class="button" href="{% url 'register' %}">Создать свой проект</a>{% endif %}
+        </div>
+        <img src="{% static 'founder/img/branding/bruno-logo.png' %}" alt="" width="200" height="200" loading="lazy">
+    </section>
+    <footer class="about-credit"><span>Bruno<i>Lab</i></span><p>Проект выполнен Джафаровым Эльдаром.</p></footer>
 </div>
 {% endblock %}

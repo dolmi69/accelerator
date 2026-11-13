@@ -162,3 +162,15 @@ document.querySelectorAll("[data-interactive-radar]").forEach((radar) => {
   }, {passive:true});
   syncSelection();
 });
+
+// Готовые вопросы под полем «Написать Бруно»: нажатие подставляет текст в поле, отправляет основатель сам.
+(() => {
+  document.addEventListener('click', event => {
+    const prompt = event.target.closest?.('[data-hub-prompt]');
+    const field = prompt?.closest('form')?.querySelector('textarea');
+    if (!field) return;
+    field.value = prompt.textContent.trim();
+    field.focus();
+    field.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+})();

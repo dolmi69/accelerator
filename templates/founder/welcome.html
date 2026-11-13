@@ -4,19 +4,14 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="theme-color"
-              content="#f5f4ef"
-              media="(prefers-color-scheme: light)">
-        <meta name="theme-color"
-              content="#131920"
-              media="(prefers-color-scheme: dark)">
+        <meta name="theme-color" content="#f3f5f7">
         <script>
-            // Тема до первой отрисовки: сохранённый выбор, иначе — как в системе (theme.js).
+            // Тема до первой отрисовки: светлая, пока в переключателе не выбрана другая (theme.js).
             (() => {
-                try {
-                    const theme = localStorage.getItem('bl-theme');
-                    if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
-                } catch (_) {}
+                let theme = 'light';
+                try { theme = localStorage.getItem('bl-theme') || 'light'; } catch (_) {}
+                if (theme === 'system') theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
             })();
         </script>
         <script>
@@ -40,19 +35,15 @@
               href="{% static 'founder/img/bruno-sprite.webp' %}"
               as="image">
         <link rel="preload"
-              href="{% static 'founder/fonts/golos-text-cyrillic.woff2' %}"
-              as="font"
-              type="font/woff2"
-              crossorigin>
-        <link rel="preload"
-              href="{% static 'founder/fonts/manrope-cyrillic.woff2' %}"
+              href="{% static 'founder/fonts/onest-cyrillic.woff2' %}"
               as="font"
               type="font/woff2"
               crossorigin>
         <link rel="stylesheet"
-              href="{% static 'founder/css/app.css' %}?v=redesign-2">
+              href="{% static 'founder/css/app.css' %}?v=fable-10">
         <link rel="stylesheet"
-              href="{% static 'founder/css/welcome.css' %}?v=redesign-1">
+              href="{% static 'founder/css/welcome.css' %}?v=fable-10">
+        <link rel="stylesheet" href="{% static 'founder/css/fable.css' %}?v=fable-10">
     </head>
     <body class="welcome-body">
         <main class="welcome" data-welcome>
