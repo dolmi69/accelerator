@@ -101,10 +101,10 @@ def start(version, *, launcher_origin=None, return_path=None, selection_token=No
     origin = urlsplit(launcher_origin or '')
     if origin.scheme != 'http' or origin.hostname not in {'127.0.0.1', 'localhost'}:
         raise BuilderError('Бэкенд модели запускается только из локальной лаборатории.')
-    # Different hosts, not just different ports: cookies of the platform must
-    # never be sent to the generated app. The frontend also uses another origin.
+    # Cookies ignore ports, so each project needs its own host as well as an
+    # isolated worker. The stable host keeps sessions across version changes.
     runtime_id = f'public-{version.startup_id}' if publication else version.startup_id
-    host = f'lab-{version.pk}.localhost' if publication else ('localhost' if origin.hostname == '127.0.0.1' else '127.0.0.1')
+    host = f'lab-{version.pk}.localhost' if publication else f'lab-project-{version.startup_id}.localhost'
     with _runtime_lock():
         if publication:
             pass  # Public viewing must never switch or stop the owner's editor.
@@ -115,7 +115,8 @@ def start(version, *, launcher_origin=None, return_path=None, selection_token=No
         else:
             _select_project(version.startup)
         old = status(runtime_id)
-        if old and old['version_id'] == str(version.pk) and old['host'] == host and old.get('parent') == launcher_origin:
+        if (old and old['version_id'] == str(version.pk) and old['host'] == host
+                and old.get('parent') == launcher_origin and old.get('partition_cookies')):
             return f"http://{host}:{old['port']}/"
         stop_unlocked(runtime_id)
         if not publication:
@@ -157,7 +158,8 @@ def start(version, *, launcher_origin=None, return_path=None, selection_token=No
         profile = _directory(runtime_id) / 'generated.sb'
         profile.write_text(sandbox_profile(project, interpreter, port))
         env = {'PATH': '/usr/bin:/bin', 'LANG': 'en_US.UTF-8', 'PYTHONDONTWRITEBYTECODE': '1'}
-        state = {'port': port, 'host': host, 'parent': launcher_origin, 'version_id': str(version.pk)}
+        state = {'port': port, 'host': host, 'parent': launcher_origin, 'version_id': str(version.pk),
+                 'partition_cookies': True}
         # A failed import may modify its database; preserve it for recovery.
         backup = _directory(runtime_id) / 'generated-start-backup.sqlite3'
         if database.exists():
@@ -166,7 +168,8 @@ def start(version, *, launcher_origin=None, return_path=None, selection_token=No
         with (_directory(runtime_id) / 'generated.log').open('wb') as log:
             process = subprocess.Popen(['/usr/bin/sandbox-exec', '-f', str(profile), interpreter, '-I', '-S',
                 str(project / 'start.py'), '--port', str(port), '--host', host,
-                '--version', str(version.pk), '--project', str(runtime_id), '--parent', launcher_origin],
+                '--version', str(version.pk), '--project', str(runtime_id), '--parent', launcher_origin,
+                '--partition-cookies'],
                 cwd=project, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
         state['pid'] = process.pid
         (_directory(runtime_id) / 'generated-state.json').write_text(json.dumps(state))

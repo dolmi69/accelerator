@@ -299,6 +299,9 @@
                             <strong>Предпросмотр</strong><span class="lab-viewer-hint">{{ startup.name }} · Esc для возврата</span>
                         </div>
                         <div class="lab-toolbar-actions">
+                            {% if selected.kind == 'generated' and runtime_available %}
+                                <button class="button ghost" type="submit" form="lab-preview-run" formtarget="_blank" data-lab-open-site>Открыть сайт ↗</button>
+                            {% endif %}
                             {% if startup.user_role != 'viewer' %}<a class="button primary lab-constructor-button" href="{% if selected and not selected.builder_document and selected.kind != 'django' %}{% url 'lab_manual' startup.pk selected.pk %}{% else %}{% url 'lab_builder' startup.pk %}{% if selected %}?version={{ selected.pk }}{% endif %}{% endif %}">Конструктор Bruno <span aria-hidden="true">↗</span></a>{% endif %}
                         <div class="lab-preview-devices" role="group" aria-label="Размер предпросмотра" data-lab-device-switch hidden>
                             <button type="button" data-lab-device="desktop" aria-pressed="true" title="На всю ширину предпросмотра">
@@ -351,12 +354,12 @@
                               action="{% url 'lab_run' startup.id selected.id %}"
                               id="lab-preview-run"
                               data-runtime-kind="{{ selected.kind }}"
+                              {% if selected.kind == 'generated' %}data-runtime-host="lab-project-{{ startup.pk }}.localhost"{% endif %}
+                              rel="noopener"
                               data-autostart="{% if runtime_paused %}0{% else %}1{% endif %}">
                             {% csrf_token %}
                             <input type="hidden" name="preview" value="1">
-                            <noscript>
-                                <button class="button primary" type="submit">Открыть сайт</button>
-                            </noscript>
+                            <noscript><button class="button primary" type="submit">Открыть сайт</button></noscript>
                         </form>
                     {% endif %}
                     <button class="button primary" type="button" data-lab-expand>На весь экран</button>
@@ -553,5 +556,5 @@
     <script src="{% static 'founder/js/lab-jobs.js' %}?v=4" defer></script>
     <script src="{% static 'founder/js/lab-split.js' %}?v=4" defer></script>
     <script src="{% static 'founder/js/lab-preview-device.js' %}?v=1" defer></script>
-    <script src="{% static 'founder/js/lab-chat.js' %}?v=4" defer></script><script src="{% static 'founder/js/lab.js' %}?v=16" defer></script><script src="{% static 'founder/js/lab-reply.js' %}?v=1" defer></script>
+    <script src="{% static 'founder/js/lab-chat.js' %}?v=4" defer></script><script src="{% static 'founder/js/lab.js' %}?v=18" defer></script><script src="{% static 'founder/js/lab-reply.js' %}?v=1" defer></script>
 {% endblock %}

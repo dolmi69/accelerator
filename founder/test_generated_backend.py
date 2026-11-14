@@ -2,6 +2,7 @@
 import io
 import json
 from pathlib import Path
+import socket
 import sqlite3
 import tempfile
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ from django.urls import reverse
 from founder.models import User, StartupProfile, LabSiteVersion
 from founder.services.generated_backend import generate_backend, validate_files, export_backend
 from founder.services.generated_runtime import available, start, stop_unlocked
+from founder.services.generated_worker import site_cookie
 from founder.services.qwen import CodeResult, QwenOutputError
 
 HTML = '<!doctype html><html><head><title>Записи</title></head><body><h1>Записи</h1></body></html>'
@@ -29,7 +31,13 @@ def application(environ, start_response):
             data = json.load(environ['wsgi.input'])
             db.execute('INSERT INTO items(name) VALUES (?)', (data['name'],))
         rows = db.execute('SELECT name FROM items').fetchall()
-    start_response('200 OK', [('Content-Type','application/json')])
+    headers = [('Content-Type', 'application/json')]
+    if environ['PATH_INFO'] == '/api/session':
+        headers.extend([
+            ('Set-Cookie', 'lab_session=fixture; Path=/; SameSite=Lax'),
+            ('Set-Cookie', 'sessionid=ignored; Path=/'),
+        ])
+    start_response('200 OK', headers)
     return [json.dumps(rows).encode()]
 '''
 REPORT = {'summary': 'Создал сервер для записей.', 'completed': ['SQLite и API'], 'not_done': []}
@@ -91,6 +99,33 @@ class GeneratedBackendTests(TestCase):
             self.assertIn('site/start.py', archive.namelist())
             self.assertFalse(any('.sqlite' in name or '.env' in name for name in archive.namelist()))
 
+    @override_settings(LAB_BACKEND_RUNTIME_ENABLED=True, ALLOWED_HOSTS=['127.0.0.1', 'demo.example'])
+    def test_generated_site_can_open_in_its_own_tab(self):
+        version = LabSiteVersion.objects.create(startup=self.startup, kind='generated',
+            html=HTML, backend_files=FILES, model='test')
+        lab_url = reverse('lab', args=[self.startup.pk])
+        run_url = reverse('lab_run', args=[self.startup.pk, version.pk])
+        page = self.client.get(lab_url, HTTP_HOST='127.0.0.1:8000')
+        self.assertContains(page, 'formtarget="_blank" data-lab-open-site', count=1)
+        self.assertContains(page, 'name="preview" value="1"')
+        self.assertContains(page, f'action="{run_url}"')
+        host = f'lab-project-{self.startup.pk}.localhost'
+        self.assertContains(page, f'data-runtime-host="{host}"')
+        with patch('founder.lab_views.start_runtime', return_value=f'http://{host}:9000/'):
+            response = self.client.post(run_url, {'preview': '1'}, HTTP_HOST='127.0.0.1:8000')
+        self.assertRedirects(response, f'http://{host}:9000/', fetch_redirect_response=False)
+        self.assertNotContains(self.client.get(lab_url, HTTP_HOST='demo.example'), 'data-lab-open-site')
+
+    def test_preview_session_sets_and_expires_partitioned_cookies(self):
+        for max_age in (3600, 0):
+            value = f'lab_session=token; Path=/; SameSite=Lax; Max-Age={max_age}; HttpOnly'
+            self.assertEqual(site_cookie(value, partitioned=True),
+                f'lab_session=token; Path=/; Max-Age={max_age}; HttpOnly; SameSite=None; Secure; Partitioned')
+            self.assertEqual(site_cookie(value),
+                f'lab_session=token; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax')
+        self.assertIsNone(site_cookie('lab_session=token; Domain=localhost', partitioned=True))
+        self.assertIsNone(site_cookie('sessionid=token', partitioned=True))
+
     def start_checked(self, version, directory):
         try:
             return start(version, launcher_origin='http://127.0.0.1:8000')
@@ -107,28 +142,43 @@ class GeneratedBackendTests(TestCase):
             version = LabSiteVersion.objects.create(startup=self.startup, kind='generated', html=HTML, backend_files=FILES, model='test')
             try:
                 url = self.start_checked(version, directory)
-                self.assertEqual(urlsplit(url).hostname, 'localhost')
+                self.assertEqual(urlsplit(url).hostname, f'lab-project-{self.startup.pk}.localhost')
+                parsed = urlsplit(url)
+                local_api = f'http://127.0.0.1:{parsed.port}/api/items'
+                headers = {'Host': parsed.netloc, 'Origin': url.rstrip('/')}
                 with httpx.Client(trust_env=False) as client:
-                    self.assertEqual(client.post(url+'api/items', json={'name': 'persisted'}).status_code, 403)
-                    reply = client.post(url+'api/items', headers={'Origin': url.rstrip('/')}, json={'name': 'persisted'})
+                    self.assertEqual(client.post(local_api, headers={'Host': parsed.netloc}, json={'name': 'persisted'}).status_code, 403)
+                    reply = client.post(local_api, headers=headers, json={'name': 'persisted'})
                     self.assertEqual(reply.json(), [['persisted']])
                     self.assertIn("connect-src 'self'", reply.headers['Content-Security-Policy'])
-                    self.assertEqual(client.get(url+'api/items', headers={'Host':'evil.example'}).status_code, 403)
+                    self.assertEqual(client.get(local_api, headers={'Host':'evil.example'}).status_code, 403)
+                response = self.runtime_get(url, 'api/session')
+                self.assertEqual(response.headers.get_list('Set-Cookie'), [
+                    'lab_session=fixture; Path=/; HttpOnly; SameSite=None; Secure; Partitioned',
+                ])
+                with socket.create_connection(('127.0.0.1', parsed.port), timeout=2) as incomplete:
+                    incomplete.sendall(b'GET / HTTP/1.1\r\n')
+                    self.assertEqual(self.runtime_get(url, 'api/items', timeout=2).json(), [['persisted']])
                 stop_unlocked(self.startup.pk)
                 url = self.start_checked(version, directory)
-                self.assertEqual(httpx.get(url+'api/items', trust_env=False).json(), [['persisted']])
+                self.assertEqual(self.runtime_get(url, 'api/items').json(), [['persisted']])
                 child = LabSiteVersion.objects.create(startup=self.startup, source=version, kind='generated', html=HTML, backend_files=FILES, model='test')
                 url = start(child, launcher_origin='http://127.0.0.1:8000')
-                self.assertEqual(httpx.get(url+'api/items', trust_env=False).json(), [['persisted']])
+                self.assertEqual(self.runtime_get(url, 'api/items').json(), [['persisted']])
                 skipped = LabSiteVersion.objects.create(startup=self.startup, source=child, kind='generated', html=HTML, backend_files=FILES, model='manual-editor')
                 latest = LabSiteVersion.objects.create(startup=self.startup, source=skipped, kind='generated', html=HTML, backend_files=FILES, model='manual-editor')
                 url = start(latest, launcher_origin='http://127.0.0.1:8000')
-                self.assertEqual(httpx.get(url+'api/items', trust_env=False).json(), [['persisted']])
+                self.assertEqual(self.runtime_get(url, 'api/items').json(), [['persisted']])
                 parent_db = Path(directory)/'.runtime/lab-backends'/str(self.startup.pk)/'generated-projects'/str(version.pk)/'data/data.sqlite3'
                 with sqlite3.connect(parent_db) as db:
                     self.assertEqual(db.execute('SELECT name FROM items').fetchall(), [('persisted',)])
             finally:
                 stop_unlocked(self.startup.pk)
+
+    def runtime_get(self, url, path, *, timeout=5):
+        parsed = urlsplit(url)
+        return httpx.get(f'http://127.0.0.1:{parsed.port}/{path}', headers={'Host': parsed.netloc},
+            timeout=timeout, trust_env=False)
 
     @skipUnless(available(), 'macOS isolated runtime')
     @override_settings(LAB_BACKEND_RUNTIME_ENABLED=True)
@@ -148,7 +198,7 @@ def application(environ,start_response):
             version = LabSiteVersion.objects.create(startup=self.startup, kind='generated', html=HTML, backend_files={'index.html':HTML,'app.py':app}, model='test')
             try:
                 url = self.start_checked(version, directory)
-                self.assertEqual(httpx.get(url+'probe', trust_env=False).json(), dict.fromkeys(['read','write','network','fork'],'blocked'))
+                self.assertEqual(self.runtime_get(url, 'probe').json(), dict.fromkeys(['read','write','network','fork'],'blocked'))
                 self.assertEqual(secret.read_text(),'not-for-generated-app')
             finally:
                 stop_unlocked(self.startup.pk)

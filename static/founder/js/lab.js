@@ -79,7 +79,7 @@
       preview.setAttribute('aria-hidden', 'true');
     }
     document.querySelectorAll('.lab-preview-actions, .lab-site-details, #lab-publication').forEach(node => { node.inert = true; });
-    document.querySelectorAll('[data-lab-expand]').forEach(node => { node.disabled = true; });
+    document.querySelectorAll('[data-lab-expand], [data-lab-open-site]').forEach(node => { node.disabled = true; });
     document.querySelector('.lab-preview-card')?.setAttribute('aria-busy', 'true');
     document.dispatchEvent(new Event('lab:preview-state'));
   }
@@ -90,7 +90,7 @@
     const preview = document.getElementById('lab-site-frame');
     if (preview) { preview.inert = false; preview.removeAttribute('aria-hidden'); }
     document.querySelectorAll('.lab-preview-actions, .lab-site-details, #lab-publication').forEach(node => { node.inert = false; });
-    document.querySelectorAll('[data-lab-expand]').forEach(node => { node.disabled = false; });
+    document.querySelectorAll('[data-lab-expand], [data-lab-open-site]').forEach(node => { node.disabled = false; });
     document.querySelector('.lab-preview-card')?.setAttribute('aria-busy', 'false');
     document.dispatchEvent(new Event('lab:preview-state'));
   });
@@ -209,10 +209,12 @@
       if (workspace && !workspace.active) return;
       if (!response.ok) throw new Error(data.error || 'Не удалось запустить сайт.');
       const url = new URL(data.url);
-      if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname)
+      const validHost = previewRun?.dataset.runtimeKind === 'generated'
+        ? url.hostname === previewRun.dataset.runtimeHost
+        : ['127.0.0.1', 'localhost'].includes(url.hostname);
+      if (url.protocol !== 'http:' || !validHost
           || Number(url.port) < 1024 || url.origin === window.location.origin
-          || url.username || url.password
-          || (run.dataset.runtimeKind === 'generated' && url.hostname === window.location.hostname)) {
+          || url.username || url.password) {
         throw new Error('Получен некорректный адрес предпросмотра.');
       }
       showSite(url.href, true);

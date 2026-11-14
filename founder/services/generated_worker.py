@@ -13,8 +13,24 @@ import runpy
 import sys
 import socket
 import socketserver
+from threading import BoundedSemaphore
 from urllib.parse import unquote
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
+
+
+def site_cookie(value, *, partitioned=False):
+    cookie, *attributes = value.split(';')
+    if not cookie.startswith('lab_') or '=' not in cookie:
+        return None
+    normalized = []
+    for attribute in attributes:
+        name = attribute.split('=', 1)[0].strip().casefold()
+        if name == 'domain':
+            return None
+        if name not in {'samesite', 'httponly', 'partitioned'} and not (name == 'secure' and partitioned):
+            normalized.append(attribute.strip())
+    policy = ['SameSite=None', 'Secure', 'Partitioned'] if partitioned else ['SameSite=Lax']
+    return '; '.join([cookie, *normalized, 'HttpOnly', *policy])
 
 
 def main():
@@ -25,6 +41,7 @@ def main():
     parser.add_argument('--project', default='export')
     parser.add_argument('--parent', default='')
     parser.add_argument('--socket', default='')
+    parser.add_argument('--partition-cookies', action='store_true')
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
     database = root / 'data' / 'data.sqlite3'
@@ -72,9 +89,9 @@ def main():
                 if '\r' in value or '\n' in value:
                     continue
                 if name == 'set-cookie':
-                    if not value.startswith('lab_') or 'domain=' in value.casefold():
+                    value = site_cookie(value, partitioned=args.partition_cookies)
+                    if value is None:
                         continue
-                    value += '; SameSite=Lax; HttpOnly'
                 if name not in {'content-security-policy', 'access-control-allow-origin', 'access-control-allow-credentials', 'server', 'location'}:
                     safe.append((key, value))
                 elif name == 'location' and value.startswith('/') and not value.startswith('//'):
@@ -120,6 +137,30 @@ def main():
     class QuietHandler(WSGIRequestHandler):
         def log_message(self, *args):
             pass
+
+    class TCPServer(socketserver.ThreadingMixIn, WSGIServer):
+        daemon_threads = True
+        connections = BoundedSemaphore(16)
+
+        def process_request(self, request, client_address):
+            # Browsers can leave speculative connections idle while issuing
+            # the real navigation or API request on another socket.
+            if not self.connections.acquire(blocking=False):
+                self.shutdown_request(request)
+                return
+            try:
+                request.settimeout(10)
+                super().process_request(request, client_address)
+            except BaseException:
+                self.connections.release()
+                raise
+
+        def process_request_thread(self, request, client_address):
+            try:
+                super().process_request_thread(request, client_address)
+            finally:
+                self.connections.release()
+
     class UnixServer(WSGIServer):
         address_family = socket.AF_UNIX
 
@@ -137,7 +178,7 @@ def main():
         server.set_app(application)
         os.chmod(args.socket, 0o600)
     else:
-        server = make_server('127.0.0.1', args.port, application, handler_class=QuietHandler)
+        server = make_server('127.0.0.1', args.port, application, server_class=TCPServer, handler_class=QuietHandler)
     with server:
         print(f'Listening on {origin}', flush=True)
         server.serve_forever()
