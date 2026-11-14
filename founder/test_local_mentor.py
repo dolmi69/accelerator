@@ -42,6 +42,20 @@ class LocalMentorTests(TestCase):
             self.assertEqual("".join(ai.stream_reply(self.session, messages, [])), "Сколько у вас клиентов?")
         cloud.assert_called_once()
 
+    def test_first_brunohost_publication_help_does_not_start_model(self):
+        with patch.object(ai, "_provider_stream") as cloud, patch.object(local_mentor, "stream") as model:
+            response = self.client.post(self.send_url, {
+                "content": "Куда нажать в BrunoHost для первой публикации сайта?",
+            })
+            body = b"".join(response.streaming_content).decode()
+        self.assertIn("«Опубликовать сайт»", body)
+        self.assertIn("«Копировать»", body)
+        self.assertNotIn("Бруно думает", body)
+        model.assert_not_called()
+        cloud.assert_not_called()
+        self.assertEqual(self.session.messages.filter(role=ChatMessage.Role.ASSISTANT).last().provider, "system")
+        self.assertIsNone(local_mentor.quick_reply("Почему в BrunoHost не работает кнопка «Опубликовать сайт»?"))
+
     def test_only_final_text_is_streamed(self):
         events = (
             {"message": {"thinking": "черновик"}, "done": False},

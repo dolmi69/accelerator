@@ -276,9 +276,9 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
     from founder.services import local_mentor
 
     use_local = local_mentor.enabled_for(session, messages)
-    if use_local and (hello := local_mentor.greeting(_last_founder_text(messages))):
+    if use_local and (quick_answer := local_mentor.quick_reply(_last_founder_text(messages))):
         session.mentor_plan = None
-        yield hello
+        yield quick_answer
         return
     if session.mode == ChatSession.Mode.PANEL and turn is None:
         from founder.services.panel import next_turn

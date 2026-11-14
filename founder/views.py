@@ -676,10 +676,10 @@ def chat_send(request, startup_id, session_id):
 
     context_messages, memories = conversation_context(session, user_message)
     use_local = local_mentor.enabled_for(session, context_messages)
-    local_greeting = use_local and local_mentor.greeting(user_message.content) and not extracted_text
+    local_quick_reply = use_local and not extracted_text and local_mentor.quick_reply(user_message.content)
     if use_local:
         provider, model_name = (
-            ("system", "") if local_greeting
+            ("system", "") if local_quick_reply
             else ("ollama", settings.BRUNO_OLLAMA_MODEL)
         )
     else:
@@ -698,7 +698,7 @@ def chat_send(request, startup_id, session_id):
                 deltas = panel.checked_reply(
                     session, turn, lambda attempt: stream_reply(session, context_messages, memories, turn=attempt))
             else:
-                if use_local and not local_greeting:
+                if use_local and not local_quick_reply:
                     yield _sse({"type": "status", "text": "Бруно думает над проектом…"})
                 elif (not use_local and session.mode == ChatSession.Mode.COFOUNDER and settings.BRUNO_MENTOR_PLAN
                         and settings.AI_PROVIDER != "demo"):
