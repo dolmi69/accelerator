@@ -139,6 +139,10 @@ LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "login"
 
 AI_PROVIDER = os.getenv("AI_PROVIDER", "demo").lower()
+# Optional local inference for ordinary Bruno mentor messages.
+BRUNO_LOCAL_CHAT = os.getenv("BRUNO_LOCAL_CHAT", "0") == "1" and sys.argv[1:2] != ["test"]
+BRUNO_OLLAMA_URL = os.getenv("BRUNO_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
+BRUNO_OLLAMA_MODEL = os.getenv("BRUNO_OLLAMA_MODEL", "gpt-oss:20b")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 GIGACHAT_MODEL = os.getenv("GIGACHAT_MODEL", "GigaChat-3-Pro")

@@ -273,7 +273,13 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
     plan — план наставника (mentor.prepare_turn); без него план готовится здесь.
     """
     from founder.services.bruno import founder_gender, polish_stream, tidy_stream
+    from founder.services import local_mentor
 
+    use_local = local_mentor.enabled_for(session, messages)
+    if use_local and (hello := local_mentor.greeting(_last_founder_text(messages))):
+        session.mentor_plan = None
+        yield hello
+        return
     if session.mode == ChatSession.Mode.PANEL and turn is None:
         from founder.services.panel import next_turn
 
@@ -285,7 +291,17 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
         return
     economics = None
     market = ""
-    if plan is AUTO_PLAN:
+    if use_local:
+        from founder.services import local_finance
+
+        if result := local_finance.monthly_reply(session.startup, messages):
+            session.mentor_plan = None
+            yield result
+            return
+        economics = local_finance.saved_context(session.startup, messages)
+        if plan is AUTO_PLAN:
+            plan = None
+    elif plan is AUTO_PLAN:
         from founder.services.mentor import prepare_turn
 
         if session.mode == ChatSession.Mode.COFOUNDER and settings.AI_PROVIDER != "demo":
@@ -307,6 +323,17 @@ def stream_reply(session, messages, memories, turn=None, plan=AUTO_PLAN):
     # View сохраняет идеи из плана под готовым ответом.
     session.mentor_plan = plan
     single_question = not long_answer_requested(session, messages)
+    if use_local:
+        focus = session.get_focus_axis_display() if session.focus_axis else ""
+        prompt = local_mentor.system_prompt(session.startup, messages, memories, economics, focus)
+        try:
+            # Local replies can arrive in very small chunks. Do not hold entire
+            # sentences or lists before passing them through to the client.
+            chunks = local_mentor.stream(prompt, messages, max_tokens=700 if single_question else 1400)
+            yield from tidy_stream(local_mentor.final_text(chunks), head_size=40)
+        except local_mentor.LocalMentorError as exc:
+            raise AIServiceError(str(exc)) from exc
+        return
     # Инвестор в тренировке обращается на «вы», там род не угадывается.
     gender = founder_gender(messages) if session.mode == ChatSession.Mode.COFOUNDER else "male"
     self_male = not _shark(turn).get("female")

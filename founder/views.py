@@ -23,7 +23,7 @@ from founder.models import (
     BrunoTask, BusinessAxis, ChatAttachment, ChatMessage, ChatSession, EvidenceConversation, IdeaRound, MascotState, MentorIdea, MessageFeedback,
     PanelVerdict, PitchReport, ProjectPicture, StartupProfile, CoinTransaction,
 )
-from founder.services import ideas as idea_service, mentor
+from founder.services import ideas as idea_service, local_mentor, mentor
 from founder.services.access import get_startup, has_team, join_requests_for, pending_invites
 from founder.services.ai import AIServiceError, provider_label, stream_reply
 from founder.services.bruno import looks_like_evidence
@@ -675,7 +675,15 @@ def chat_send(request, startup_id, session_id):
         remember_user_message(user_message)
 
     context_messages, memories = conversation_context(session, user_message)
-    provider, model_name = provider_label()
+    use_local = local_mentor.enabled_for(session, context_messages)
+    local_greeting = use_local and local_mentor.greeting(user_message.content) and not extracted_text
+    if use_local:
+        provider, model_name = (
+            ("system", "") if local_greeting
+            else ("ollama", settings.BRUNO_OLLAMA_MODEL)
+        )
+    else:
+        provider, model_name = provider_label()
     turn = panel.next_turn(session) if is_panel else None
 
     def generate():
@@ -690,7 +698,9 @@ def chat_send(request, startup_id, session_id):
                 deltas = panel.checked_reply(
                     session, turn, lambda attempt: stream_reply(session, context_messages, memories, turn=attempt))
             else:
-                if (session.mode == ChatSession.Mode.COFOUNDER and settings.BRUNO_MENTOR_PLAN
+                if use_local and not local_greeting:
+                    yield _sse({"type": "status", "text": "Бруно думает над проектом…"})
+                elif (not use_local and session.mode == ChatSession.Mode.COFOUNDER and settings.BRUNO_MENTOR_PLAN
                         and settings.AI_PROVIDER != "demo"):
                     searching = mentor.answer_kind(user_message.content) == "market"
                     yield _sse({"type": "status", "text": "Бруно ищет в открытых источниках…" if searching

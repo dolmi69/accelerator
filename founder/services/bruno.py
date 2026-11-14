@@ -246,11 +246,12 @@ SITUATION_RULES = (
 SITUATIONS = "Типичные ситуации:\n" + "\n".join(text for _, text in SITUATION_RULES)
 
 
-def situations_for(text):
+def situations_for(text, *, include_general=True):
     """Только ситуации, которые подходят к последней реплике основателя."""
     found = [rule for pattern, rule in SITUATION_RULES
-             if pattern is None or re.search(pattern, text or "", re.IGNORECASE)]
-    return "Типичные ситуации:\n" + "\n".join(found)
+             if (pattern is None and include_general)
+             or (pattern is not None and re.search(pattern, text or "", re.IGNORECASE))]
+    return "Типичные ситуации:\n" + "\n".join(found) if found else ""
 
 
 MENTOR_CHECKS = (
