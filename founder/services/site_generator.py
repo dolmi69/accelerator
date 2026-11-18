@@ -2,6 +2,7 @@
 
 import re
 import json
+import logging
 from dataclasses import replace
 from pathlib import Path
 from django.conf import settings
@@ -19,7 +20,8 @@ from founder.services.site_editor import customize
 from founder.services.lab_bruno import request_policy, protect_service_secrets, LabRequestRejected
 from founder.services.lab_recovery import aggregate, attempt_limit, exhausted, validate_candidate
 
-GENERATOR_REVISION = 'forge-scoped-recovery-v6'
+logger = logging.getLogger(__name__)
+GENERATOR_REVISION = 'forge-scoped-recovery-v7'
 DESIGN_GUIDE = Path(__file__).resolve().parent.parent / 'design_guides' / 'qwen_frontend.md'
 LUNA_GUIDE = DESIGN_GUIDE.with_name('luna_frontend.md')
 
@@ -117,6 +119,29 @@ BACKEND_FRONT_PROMPT = SITE_PROMPT.replace(
 HTML остаётся в изолированном предпросмотре; не используй window.parent/top."""
 
 
+class ResponseFormatError(QwenOutputError):
+    def __init__(self, code, detail):
+        self.code = code
+        super().__init__('Ошибка формата ответа: ' + detail + ' Предыдущая версия сохранена.')
+
+
+def _record_format_error(result, error):
+    logger.warning('Lab response format rejected: request=%s code=%s', result.request_id, error.code)
+    if not result.request_id:
+        return
+    folder = Path(settings.BASE_DIR) / '.runtime' / 'lab-ai-diagnostics'
+    # Only update an existing diagnostic for a provider-generated request ID.
+    if not re.fullmatch(r'[a-f0-9-]{36}', str(result.request_id)):
+        return
+    path = folder / (str(result.request_id) + '.json')
+    try:
+        diagnostic = json.loads(path.read_text(encoding='utf-8'))
+        diagnostic['validation_error'] = error.code
+        path.write_text(json.dumps(diagnostic), encoding='utf-8')
+    except (OSError, ValueError, TypeError):
+        logger.warning('Could not record lab response validation: %s', result.request_id)
+
+
 def generate_site(prompt, *, previous_html="", max_tokens=None, backend=False, edit_scope="auto", rebuild=False, project_context=None, report=False):
     trace = []
     limit = attempt_limit() if previous_html and not rebuild else 1
@@ -212,6 +237,10 @@ def _generate_site_once(prompt, *, previous_html="", max_tokens=None, backend=Fa
     intent = None
     added = []
     if report:
+        if patching:
+            # The patch-only example omitted the report required by this caller.
+            instruction = instruction.replace(PATCH_PROMPT.split('Не возвращай весь документ.', 1)[0],
+                                              'Доработай HTML по заданию.\n')
         # The old HTML-only instructions contradicted the response envelope.
         # Remove them rather than asking the model to silently override them.
         instruction = instruction.replace('Верни только один полный HTML-документ:', 'Создай один полный HTML-документ внутри JSON-поля html:')
@@ -235,42 +264,54 @@ def _generate_site_once(prompt, *, previous_html="", max_tokens=None, backend=Fa
     try:
         output, feedback = result.text, {}
         if report:
-            fence = re.fullmatch(r'```(?:json)?\s*\n(.*?)\n```', output.strip(), re.S | re.I)
-            data = json.loads(fence[1] if fence else output)
+            fence = re.fullmatch(r'```(?:json)?\s*\n(.*?)\n```', output.strip().lstrip("\ufeff"), re.S | re.I)
+            try:
+                data = json.loads(fence[1] if fence else output.strip().lstrip("\ufeff"))
+            except json.JSONDecodeError as error:
+                raise ResponseFormatError("invalid_json", f"JSON повреждён на строке {error.lineno}, столбце {error.colno}. Экранируй кавычки, обратные слеши и переводы строк внутри кода.") from None
             content_key = 'changes' if patching else 'html'
             if not isinstance(data, dict):
-                raise ValueError
+                raise ResponseFormatError("root_not_object", "Весь ответ должен быть одним JSON-объектом.")
             if data.get('route') == 'template' and patching and edit_scope == 'auto':
                 intent = parse_intent(json.dumps({key: value for key, value in data.items() if key != 'report'}))
             elif (not {content_key, 'report'} <= set(data)
                   or not set(data) <= {content_key, 'report', 'add_modules'}):
-                raise ValueError
+                raise ResponseFormatError("envelope_fields", f"Обязательны поля {content_key} и report. Допустимые поля верхнего уровня: {content_key}, report, add_modules.")
             added = data.get('add_modules', [])
             if (not isinstance(added, list) or len(added) > len(OPTIONAL_MODULES)
                     or any(not isinstance(key, str) or key not in OPTIONAL_MODULES for key in added)
                     or len(set(added)) != len(added) or (added and not backend)):
-                raise ValueError
+                raise ResponseFormatError("invalid_modules", "add_modules должен быть списком уникальных доступных модулей. Для статического сайта верни пустой список.")
             feedback = data['report']
-            if (not isinstance(feedback, dict) or set(feedback) != {'summary', 'completed', 'not_done'}
-                    or not isinstance(feedback['summary'], str) or not feedback['summary'].strip()
-                    or len(feedback['summary']) > 700): raise ValueError
+            if not isinstance(feedback, dict) or set(feedback) != {'summary', 'completed', 'not_done'}:
+                raise ResponseFormatError('report_fields', 'report должен содержать ровно summary, completed и not_done.')
+            if not isinstance(feedback['summary'], str) or not feedback['summary'].strip() or len(feedback['summary']) > 700:
+                raise ResponseFormatError('report_summary', 'report.summary должен быть непустой строкой до 700 символов.')
             for key in ('completed', 'not_done'):
                 # Harmless extra report bullets must not discard valid code.
                 # Keep bounded input for the local contract check.
                 if (not isinstance(feedback[key], list) or len(feedback[key]) > 20
-                        or any(not isinstance(item, str) or not item.strip() or len(item) > 400 for item in feedback[key])): raise ValueError
+                        or any(not isinstance(item, str) or not item.strip() or len(item) > 400 for item in feedback[key])):
+                    raise ResponseFormatError('report_items', f'report.{key} должен быть списком до 20 непустых строк по 400 символов максимум.')
             if sum(len(item) for key in ('completed', 'not_done') for item in feedback[key]) > 3000:
-                raise ValueError
+                raise ResponseFormatError('report_length', 'Суммарная длина строк completed и not_done должна быть не больше 3000 символов.')
             output = (customize(working_html, {**(project_context or {}).get('appearance', {}), **intent['settings']}) if intent
                       else json.dumps({'changes': data['changes']}, ensure_ascii=False) if patching else data['html'])
-            if not isinstance(output, str): raise ValueError
+            if not isinstance(output, str):
+                raise ResponseFormatError("html_not_text", "Поле html должно быть строкой с полным HTML-документом.")
         html = apply_patch_response(working_html, regions, output) if patching and not intent else output
+    except ResponseFormatError as error:
+        reject_output(result.request_id)
+        _record_format_error(result, error)
+        raise
     except QwenOutputError:
         reject_output(result.request_id)
         raise
     except (ValueError, KeyError, TypeError, RecursionError):
         reject_output(result.request_id)
-        raise QwenOutputError('Генератор не вернул корректный сайт и отчёт. Предыдущая версия сохранена.') from None
+        error = ResponseFormatError('invalid_structure', 'Проверь структуру JSON и настройки route/settings по указанной схеме.')
+        _record_format_error(result, error)
+        raise error from None
     fence = re.fullmatch(r"```(?:html)?\s*\n(.*?)\n```", html, re.DOTALL | re.IGNORECASE)
     if fence:
         html = fence[1].strip()

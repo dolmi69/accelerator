@@ -119,18 +119,20 @@ def apply_patch_response(html, regions, response):
     except (ValueError, RecursionError):
         raise QwenOutputError(error) from None
     if not isinstance(data, dict) or set(data) != {"changes"} or not isinstance(data["changes"], list) or not 1 <= len(data["changes"]) <= 8:
-        raise QwenOutputError(error)
+        raise QwenOutputError(error + " Ответ должен содержать список changes от 1 до 8 замен.")
     candidates = []
     targets = {part.key: part for part in regions}
     for change in data["changes"]:
         if not isinstance(change, dict) or set(change) != {"target", "find", "replace"} or not all(isinstance(value, str) for value in change.values()):
-            raise QwenOutputError(error)
+            raise QwenOutputError(error + " Каждая замена должна содержать только строковые поля target, find и replace.")
         part = targets.get(change["target"])
         find, replacement = change["find"], change["replace"]
-        if (not part or not find or find == replacement
+        if not part:
+            raise QwenOutputError(error + " target должен совпадать с id одного из переданных фрагментов.")
+        if (not find or find == replacement
                 or len(find) > settings.LAB_PATCH_MAX_FIND_CHARS
                 or len(replacement) > settings.LAB_PATCH_MAX_REPLACEMENT_CHARS):
-            raise QwenOutputError(error)
+            raise QwenOutputError(error + " find должен быть непустым, replace должен менять его. Соблюдай ограничения размера замен.")
         original = html[part.start:part.end]
         positions = []
         offset = original.find(find)
@@ -138,8 +140,10 @@ def apply_patch_response(html, regions, response):
             start = part.start + offset
             positions.append((start, start + len(find), replacement))
             offset = original.find(find, offset + 1)
-        if not 1 <= len(positions) <= 8:
-            raise QwenOutputError(error)
+        if not positions:
+            raise QwenOutputError(error + " Строка find не найдена в выбранном фрагменте. Скопируй её дословно с пробелами, кавычками и тегами из исходника.")
+        if len(positions) > 8:
+            raise QwenOutputError(error + " Строка find повторяется слишком часто. Добавь окружающий контекст из исходника.")
         candidates.append(positions)
     # A repeated label in body+script is resolvable if another precise edit pins
     # down the script occurrence. Accept only ONE non-overlapping final patch;
@@ -162,7 +166,7 @@ def apply_patch_response(html, regions, response):
     resolve(0, [])
     if len(solutions) != 1 or visited > 4096:
         logger.warning("Lab patch rejected: ambiguous or overlapping replacements")
-        raise QwenOutputError(error)
+        raise QwenOutputError(error + " Замены неоднозначны или пересекаются. Используй уникальный контекст и объедини пересекающиеся изменения в одну замену.")
     changes = next(iter(solutions))
     for start, end, replacement in reversed(changes):
         html = html[:start] + replacement + html[end:]

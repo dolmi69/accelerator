@@ -3,7 +3,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 from django.conf import settings
@@ -290,6 +290,23 @@ class QwenTests(TestCase):
             self.assertNotIn('PRIVATE', json.dumps(record))
             self.assertNotIn(HTML, json.dumps(record))
             self.assertEqual(LabAIUsage.objects.get().status, 'output_error')
+
+    def test_responses_stream_preserves_sanitized_filter_metadata(self):
+        from types import SimpleNamespace
+        from founder.services.qwen import _consume_responses_stream, _filter_metadata
+
+        final = SimpleNamespace(output_text='', status='incomplete', usage=None, output=[],
+            incomplete_details=SimpleNamespace(reason='content_filter'),
+            content_filter_results={'protected_material_code': {'filtered': True, 'citation': 'PRIVATE'}},
+            prompt_filter_results=[{'content_filter_results': {'violence': {'filtered': False, 'severity': 'safe'}}}])
+        stream = MagicMock()
+        stream.__enter__.return_value = stream
+        stream.__iter__.return_value = iter([SimpleNamespace(type='response.incomplete', response=final)])
+        response = _consume_responses_stream(stream, {'events': 0})
+        metadata = _filter_metadata(response, None)
+        self.assertEqual(metadata, {'output': {'protected_material_code': {'filtered': True}},
+                                    'input': [{'violence': {'filtered': False, 'severity': 'safe'}}]})
+        self.assertNotIn('PRIVATE', json.dumps(metadata))
 
     @override_settings(LAB_CODE_PROVIDER='ofox', OFOX_CODE_API='responses', OFOX_PROVIDER_TYPE='',
                        OFOX_CODE_MODEL='openai/gpt-6-luna', OFOX_PRICE_MODEL='openai/gpt-6-luna')

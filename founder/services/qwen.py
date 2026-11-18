@@ -94,7 +94,9 @@ def _consume_responses_stream(stream, stats):
     return SimpleNamespace(output_text=text, status=getattr(final, 'status', None),
         usage=getattr(final, 'usage', None), output=getattr(final, 'output', None),
         incomplete_details=getattr(final, 'incomplete_details', None), error=getattr(final, 'error', None),
-        id=getattr(final, 'id', None), _request_id=getattr(final, '_request_id', None))
+        id=getattr(final, 'id', None), _request_id=getattr(final, '_request_id', None),
+        content_filter_results=getattr(final, 'content_filter_results', None),
+        prompt_filter_results=getattr(final, 'prompt_filter_results', None))
 
 
 def _token_count(usage, field):
@@ -125,7 +127,8 @@ def _filter_metadata(response, choice):
                 result[name] = fields
         return result
     prompts = getattr(response, 'prompt_filter_results', None)
-    return {'output': summarize(getattr(choice, 'content_filter_results', None)),
+    return {'output': summarize(getattr(choice, 'content_filter_results', None)
+                                or getattr(response, 'content_filter_results', None)),
             'input': [summarize(item.get('content_filter_results')) for item in prompts[:10]
                       if isinstance(item, dict)] if isinstance(prompts, list) else []}
 

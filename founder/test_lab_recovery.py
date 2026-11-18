@@ -1,6 +1,9 @@
 """Completed bad outputs are corrected within bounds; real failures stay honest."""
 import json
 import os
+import tempfile
+from pathlib import Path
+from uuid import uuid4
 from types import SimpleNamespace
 from unittest.mock import patch
 from django.test import SimpleTestCase, override_settings
@@ -128,6 +131,47 @@ class RecoveryTests(SimpleTestCase):
             result=generate_site('Назови кнопку Добавить',previous_html=HTML,report=True)
         self.assertEqual(api.call_count,2)
         self.assertIn('Добавить',result.text)
+
+    def test_missing_report_gets_precise_repair_and_one_consistent_example(self):
+        changes = [{'target': 'full', 'find': 'Выбрать', 'replace': 'Далее'}]
+        answers = [self.result({'changes': changes}, 'bad'),
+                   self.result({'changes': changes, 'report': REPORT}, 'good')]
+        with patch('founder.services.site_generator.generate_code', side_effect=answers) as api:
+            result = generate_site('Название кнопки Далее', previous_html=HTML, report=True)
+        self.assertEqual(result.text, HTML.replace('Выбрать', 'Далее'))
+        self.assertEqual(api.call_count, 2)
+        instruction = api.call_args.args[0]
+        self.assertNotIn('Верни только JSON:', instruction)
+        self.assertIn('"report"', instruction)
+        self.assertIn('Обязательны поля changes и report', api.call_args.args[1][-1]['content'])
+        self.assertEqual(result.request_ids, ('bad', 'good'))
+
+    @override_settings(LAB_EDIT_REPAIR_ATTEMPTS=1)
+    def test_bad_json_persists_only_error_code_and_reports_location(self):
+        request_id = str(uuid4())
+        with tempfile.TemporaryDirectory() as folder, override_settings(BASE_DIR=Path(folder)):
+            directory = Path(folder) / '.runtime' / 'lab-ai-diagnostics'
+            directory.mkdir(parents=True)
+            diagnostic = directory / (request_id + '.json')
+            diagnostic.write_text(json.dumps({'finish_reason': 'stop'}))
+            bad = CodeResult('{"changes": PRIVATE malformed content', lab_models.LUNA, 10, 20,
+                             request_id=request_id)
+            with patch('founder.services.site_generator.generate_code', return_value=bad) as api:
+                with self.assertRaisesMessage(QwenOutputError, 'JSON повреждён на строке 1'):
+                    generate_site('Правка', previous_html=HTML, report=True)
+            api.assert_called_once()
+            self.assertEqual(json.loads(diagnostic.read_text()),
+                             {'finish_reason': 'stop', 'validation_error': 'invalid_json'})
+            self.assertNotIn('PRIVATE', diagnostic.read_text())
+
+    def test_static_missing_literal_repair_explains_exact_failure(self):
+        def changes(old):
+            return {'changes': [{'target': 'full', 'find': old, 'replace': 'Далее'}], 'report': REPORT}
+        with patch('founder.services.site_generator.generate_code', side_effect=[
+            self.result(changes('missing'), 'bad'), self.result(changes('Выбрать'), 'good')]) as api:
+            result = generate_site('Название кнопки Далее', previous_html=HTML, report=True)
+        self.assertIn('Строка find не найдена', api.call_args.args[1][-1]['content'])
+        self.assertIn('Далее', result.text)
 
     def test_static_filtered_output_stops_without_retry(self):
         with patch('founder.services.site_generator.generate_code',side_effect=QwenOutputError('content_filter')) as api:
