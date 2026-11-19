@@ -16,11 +16,29 @@ class RequestLimitExceeded(Exception):
         self.retry_after = max(1, math.ceil(retry_after))
 
 
+def _limit_key(identity):
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+
+def remaining_limit(identity, limit):
+    count = RequestLimit.objects.filter(key=_limit_key(identity),
+        expires_at__gt=timezone.now()).values_list("count", flat=True).first()
+    return max(0, limit - (count or 0))
+
+
+def check_limit(identity, limit, message):
+    now = timezone.now()
+    deadline = RequestLimit.objects.filter(key=_limit_key(identity), expires_at__gt=now,
+        count__gte=limit).values_list("expires_at", flat=True).first()
+    if deadline:
+        raise RequestLimitExceeded(message, (deadline - now).total_seconds())
+
+
 def consume_limit(identity, limit, seconds):
     """Conditional updates avoid read/increment races, including on SQLite."""
     # Both local origins use the same DB but deliberately different session keys.
     # A stable digest keeps their quotas shared, even after secret rotation.
-    key = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+    key = _limit_key(identity)
     now = timezone.now()
     expires = now + timedelta(seconds=seconds)
     _, created = RequestLimit.objects.get_or_create(key=key, defaults={"expires_at": expires})

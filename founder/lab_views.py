@@ -32,7 +32,10 @@ from founder.services.django_builder import BuilderError, RuntimeSelectionChange
 from founder.services.ai_costs import billing_scope, usage_summary
 from founder.services.site_editor import customize, simple_command, text_command, replace_visible_text
 from founder.services.backend_modules import module_command, normalize_modules, MODULES, OPTIONAL_MODULES, DEFAULT_OPTIONAL, MODULE_GROUPS
-from founder.services.request_limits import RequestLimitExceeded, acquire_ai_lease, consume_limit, release_ai_lease
+from founder.services.request_limits import (
+    RequestLimitExceeded, acquire_ai_lease, check_limit, consume_limit, release_ai_lease, remaining_limit,
+)
+from founder.services.plans import lab_period, lab_plan_request, quota
 from founder.services import lab_models
 
 
@@ -85,16 +88,11 @@ def _model_label(model):
             'anthropic/claude-sonnet-5.5': 'Claude Sonnet 5.5'}.get(model, model)
 
 
-def _consume_lab_limits(user, *, personal=False):
+def _consume_lab_limits(user):
     if settings.LAB_UNRESTRICTED_TEST_MODE:
         return
     consume_limit(f'ai-minute:{user.pk}', settings.AI_REQUESTS_PER_MINUTE, 60)
     consume_limit(f'ai-day:{user.pk}', settings.AI_REQUESTS_PER_DAY, 86400)
-    if personal:
-        from founder.services.plans import quota
-        daily_limit = quota(user, 'lab_requests_per_day')
-        if daily_limit > 0:
-            consume_limit(f'lab-day:{user.pk}', daily_limit, 86400)
     consume_limit('lab-global-day', settings.LAB_GLOBAL_REQUESTS_PER_DAY, 86400)
 
 
@@ -154,8 +152,12 @@ def _lab_page(request, startup, form=None, *, status=200):
                 initial['kind'] = selected.kind
         form = LabPromptForm(source=selected, initial=initial)
     from founder.hosting import context as hosting_context
+    daily_limit = 0 if settings.LAB_UNRESTRICTED_TEST_MODE else quota(request.user, 'lab_requests_per_day')
     return render(request, "founder/lab.html", {
         "hosting": hosting_context(startup, selected),
+        "shared_tables": [{**t, 'fields': list(t['fields'].values())} for t in selected.shared_schema['tables'].values()]
+                         if selected and selected.kind == 'shared' else [],
+        "shared_roles": list(selected.shared_schema['roles'].items()) if selected and selected.kind == 'shared' else [],
         "startup": startup,
         "lab_handoff": handoff,
         "lab_history_entry": selected.progress_entry if selected and hasattr(selected, "progress_entry") else None,
@@ -163,7 +165,6 @@ def _lab_page(request, startup, form=None, *, status=200):
         "lab_job_active": bool(job and job.status in ACTIVE and job.mode == "edit"),
         "workspace_tab": "lab",
         "raw_ai_test": settings.LAB_RAW_AI_TEST_MODE,
-        "backend_staged": settings.LAB_BACKEND_STAGED_GENERATION,
         "lab_model_label": _model_label(settings.OFOX_CODE_MODEL if settings.LAB_CODE_PROVIDER == 'ofox' else settings.QWEN_CODE_MODEL),
         "lab_provider_label": 'Ofox' if settings.LAB_CODE_PROVIDER == 'ofox' else 'Cloud.ru',
         "lab_model_routing": lab_models.enabled(),
@@ -173,6 +174,9 @@ def _lab_page(request, startup, form=None, *, status=200):
         'lab_section': section,
         'backend_labels':[MODULES[key][0] for key in normalize_modules(selected.backend_modules)] if selected and selected.kind == 'django' else [],
         "usage": usage_summary(request.user, startup),
+        "daily_edit_limit": daily_limit,
+        "daily_edits_left": remaining_limit(f'lab-day:{request.user.pk}', daily_limit) if daily_limit > 0 else None,
+        "lab_plan": lab_period(request.user),
         "selected": selected,
         "lab_reply": reply,
         "lab_reply_key": reply_key if selected or status >= 400 else '',
@@ -224,7 +228,7 @@ def generation_key(startup, source, prompt, kind, scope="auto", rebuild=False, m
         settings.LAB_RAW_AI_TEST_MODE,
         hashlib.sha256(source.html.encode()).hexdigest() if source else None,
         prompt, kind, scope, rebuild, code_profile,
-        settings.LAB_CREATE_MAX_TOKENS, settings.LAB_PATCH_MAX_TOKENS,
+        settings.LAB_CREATE_MAX_TOKENS, settings.LAB_PATCH_MAX_TOKENS, settings.LAB_SOL_PATCH_MAX_TOKENS,
         settings.QWEN_CODE_MAX_TOKENS, settings.LAB_CREATE_TEMPERATURE, settings.LAB_PATCH_TEMPERATURE,
         modules if modules is not None else source.backend_modules if source else [],
         context, lab_models.POLICY if code_model else None,
@@ -242,7 +246,12 @@ def lab_generate(request, startup_id):
 
     if request.POST.get("start_new"):
         source = None
-    if source and not getattr(source, 'builder_document', {}) and not form.cleaned_data['rebuild']:
+    if source and source.kind == 'shared':
+        from founder.services.shared_schema import enabled
+        if not enabled():
+            form.add_error(None, 'Доработка на общем сервере сейчас приостановлена. Версия сохранена.')
+            return _lab_page(request, startup, form, status=503)
+    if source and source.kind != 'shared' and not getattr(source, 'builder_document', {}) and not form.cleaned_data['rebuild']:
         from founder.services.site_names import rename_site
         from founder.services.lab_task_history import validate_context
         try:
@@ -266,9 +275,13 @@ def lab_generate(request, startup_id):
         except QwenOutputError as exc:
             form.add_error(None, str(exc))
             return _lab_page(request, startup, form, status=400)
-    if request.POST.get('automatic') == '1':
-        return _lab_automatic(request, startup, source, form)
-    return _lab_execute(request, startup, source, form)
+    can_start = source is None or design_pending(source)
+    mode = form.cleaned_data.get('message_mode') or ('auto' if request.POST.get('automatic') == '1' else 'edit')
+    introductory = can_start and route_message(form.cleaned_data['prompt'], mode, has_site=False) == 'edit'
+    with lab_plan_request(request.user, introductory=introductory):
+        if request.POST.get('automatic') == '1':
+            return _lab_automatic(request, startup, source, form)
+        return _lab_execute(request, startup, source, form)
 
 
 def _lab_automatic(request, startup, source, form):
@@ -306,12 +319,6 @@ def _lab_automatic(request, startup, source, form):
                 'suggestion': decision['suggestion'], 'local': False}, result)
             return _lab_discuss(request, startup, source, form)
         form.cleaned_data['kind'] = decision['kind']
-        # Personal generation quota is checked only for a real edit.
-        if not settings.LAB_UNRESTRICTED_TEST_MODE:
-            from founder.services.plans import quota
-            daily_limit = quota(request.user, 'lab_requests_per_day')
-            if daily_limit > 0:
-                consume_limit(f'lab-day:{request.user.pk}', daily_limit, 86400)
         return _lab_execute(request, startup, source, form)
     except (QwenError, RequestLimitExceeded, LabRequestRejected, OperationalError) as exc:
         error = 'Сервис занят. Попробуйте позже.' if isinstance(exc, OperationalError) else str(exc)
@@ -327,6 +334,20 @@ def _lab_automatic(request, startup, source, form):
 
 
 def _lab_execute(request, startup, source, form):
+    own_lease = not getattr(request, 'ai_lease', None)
+    try:
+        return _lab_execute_with_lease(request, startup, source, form)
+    finally:
+        token = getattr(request, 'ai_lease', None)
+        if own_lease and token:
+            try:
+                release_ai_lease(request.user.pk, token)
+            except OperationalError:
+                pass
+            request.ai_lease = None
+
+
+def _lab_execute_with_lease(request, startup, source, form):
     prompt = form.cleaned_data["prompt"]
     # Legacy clients explicitly call the generator. The new composer sends auto.
     if not getattr(request, 'lab_automatic_decision', None) and route_message(prompt, form.cleaned_data.get('message_mode') or 'edit', has_site=bool(source)) == 'discuss':
@@ -343,6 +364,18 @@ def _lab_execute(request, startup, source, form):
            or form.cleaned_data['kind'] == LabSiteVersion.Kind.GENERATED)
     kind = (LabSiteVersion.Kind.GENERATED if form.cleaned_data['kind'] == LabSiteVersion.Kind.GENERATED
             else LabSiteVersion.Kind.STATIC if raw else form.cleaned_data["kind"])
+    if form.cleaned_data['kind'] == 'shared' or (source and source.kind == 'shared'):
+        from founder.services.shared_schema import enabled, bind_space
+        if not enabled() or (source and source.kind != 'shared'):
+            form.add_error(None, 'Общий сервер доступен на PostgreSQL. Для переноса старого сайта нужна проверенная миграция.')
+            return _lab_page(request, startup, form, status=409)
+        try:
+            with transaction.atomic():
+                bind_space(startup.pk)
+        except QwenOutputError as exc:
+            form.add_error(None, str(exc))
+            return _lab_page(request, startup, form, status=503)
+        kind, raw = LabSiteVersion.Kind.SHARED, True
     if source and getattr(source, 'builder_document', {}):
         kind, raw = LabSiteVersion.Kind.STATIC, False
     chosen = [] if raw else source.backend_modules if source and source.kind == 'django' else normalize_modules() if kind == 'django' else []
@@ -402,7 +435,10 @@ def _lab_execute(request, startup, source, form):
     # rebuild control may bypass file-scoped edits of an existing application.
     context['full_rebuild'] = bool(form.cleaned_data['rebuild'])
     if raw:
-        context['mode'] = 'generated_backend' if kind == LabSiteVersion.Kind.GENERATED else 'raw_static_experiment'
+        context['mode'] = {
+            LabSiteVersion.Kind.GENERATED: 'generated_backend',
+            LabSiteVersion.Kind.SHARED: 'shared',
+        }.get(kind, 'raw_static_experiment')
     # An experiment must invoke the model even for identical prompts.
     model_route = lab_models.generation_route(source, automatic, kind=kind, rebuild=form.cleaned_data['rebuild'], prompt=prompt)
     key = None if raw else generation_key(startup, source, prompt, kind, scope, rebuild, chosen, context,
@@ -429,11 +465,15 @@ def _lab_execute(request, startup, source, form):
                         (8 if source else 2 if kind == LabSiteVersion.Kind.GENERATED and settings.LAB_BACKEND_STAGED_GENERATION else 1) + 180))
                 from founder.services.lab_jobs import remember_lease
                 remember_lease(request, request.ai_lease)
-                _consume_lab_limits(request.user, personal=True)
+                _consume_lab_limits(request.user)
         # A concurrent request may have completed between cache lookup and lease.
         cached = startup.lab_versions.filter(generation_key=key).first() if key else None
         if cached:
             return _reply_redirect(request, startup, cached, source, cached=True)
+        daily_limit = 0 if settings.LAB_UNRESTRICTED_TEST_MODE else quota(request.user, 'lab_requests_per_day')
+        daily_key = f'lab-day:{request.user.pk}'
+        if daily_limit > 0:
+            check_limit(daily_key, daily_limit, 'На сегодня правки с Бруно закончились. Можно обсудить сайт или открыть конструктор.')
         generating_design = True
         from founder.services.lab_jobs import remember_model_route
         remember_model_route(request, model_route)
@@ -450,6 +490,8 @@ def _lab_execute(request, startup, source, form):
             chosen = normalize_modules([*chosen, *result.add_modules])
             kind = LabSiteVersion.Kind.DJANGO
         if getattr(result, 'builder_document', {}):
+            feedback = result.report
+        elif kind == LabSiteVersion.Kind.SHARED:
             feedback = result.report
         elif kind == LabSiteVersion.Kind.GENERATED:
             feedback = {**result.report, 'checks': {'generation_mode': 'generated_backend',
@@ -477,24 +519,28 @@ def _lab_execute(request, startup, source, form):
     except QwenError as exc:
         form.add_error(None, str(exc))
         return _lab_page(request, startup, form, status=503)
-    finally:
-        # ASGI clients can disconnect before response middleware runs. The
-        # synchronous AI work still ends here, so release its exact lease token.
-        token = getattr(request, "ai_lease", None)
-        if token is not None:
-            try:
-                release_ai_lease(request.user.pk, token)
-            except OperationalError:
-                pass  # Expiry remains the fallback if the database is unavailable.
-
-    version = _create_version(
-        startup=startup, source=source, prompt=prompt, kind=kind,
-        html=result.text, model=result.model,
-        input_tokens=result.input_tokens, output_tokens=result.output_tokens,
-        generation_key=key, edit_method=result.edit_method,
-        presentation=presentation, backend_modules=chosen, backend_files=result.backend_files, builder_document=getattr(result, 'builder_document', {}), feedback=feedback,
-        routing=model_route,
-    )
+    # Record the user's quota and the saved version together.
+    try:
+        with transaction.atomic():
+            if daily_limit > 0 and not intent:
+                consume_limit(daily_key, daily_limit, 86400)
+            version = _create_version(
+                startup=startup, source=source, prompt=prompt, kind=kind,
+                html=result.text, model=result.model,
+                input_tokens=result.input_tokens, output_tokens=result.output_tokens,
+                generation_key=key, edit_method=result.edit_method,
+                presentation=presentation, backend_modules=chosen, backend_files=result.backend_files,
+                builder_document=getattr(result, 'builder_document', {}), shared_schema=result.shared_schema,
+                feedback=feedback, routing=model_route,
+            )
+            if version.kind == 'shared':
+                from founder.services.shared_schema import activate
+                activate(version, live=False)
+                from founder.shared_api import check_release
+                check_release(version, live=False)
+    except QwenOutputError as exc:
+        form.add_error(None, str(exc))
+        return _lab_page(request, startup, form, status=503)
     if result.request_id or result.request_ids:
         LabAIUsage.objects.filter(pk__in=result.request_ids or (result.request_id,), user=request.user, startup=startup).update(version=version)
     if version.builder_document and source:
@@ -538,7 +584,8 @@ def lab_discuss(request, startup_id):
     form = LabPromptForm(request.POST, source=source)
     if not form.is_valid():
         return JsonResponse({'error': 'Напишите сообщение до 2000 символов.'}, status=400)
-    return _lab_discuss(request, startup, source, form)
+    with lab_plan_request(request.user):
+        return _lab_discuss(request, startup, source, form)
 
 
 def _lab_discuss(request, startup, source, form):
@@ -619,6 +666,10 @@ def _generate_design(request, startup, source, prompt, kind, scope, rebuild, cho
             return generate(prompt, source)
     full_rebuild = context.get('full_rebuild', rebuild)
     context = {key:value for key,value in context.items() if key != 'full_rebuild'}
+    if kind == LabSiteVersion.Kind.SHARED:
+        from founder.services.shared_generation import generate
+        with billing_scope(request.user, startup, 'patch' if source else 'create'):
+            return generate(prompt, source, context)
     if kind == LabSiteVersion.Kind.GENERATED:
         from founder.services.generated_backend import generate_backend
         with billing_scope(request.user, startup, 'patch' if source else 'create'):
@@ -677,6 +728,8 @@ def lab_customize(request, startup_id):
     if settings.LAB_RAW_AI_TEST_MODE:
         return JsonResponse({'error': 'Готовые настройки отключены на время сырого тестирования. Отправьте изменение модели.'}, status=409)
     source = _version(startup, request.POST.get("source_version"))
+    if source.kind == 'shared':
+        return JsonResponse({'error':'Опишите изменение в чате лаборатории.'}, status=409)
     if source.builder_document:
         messages.info(request, 'Оформление этой версии меняется в визуальном конструкторе.')
         return redirect(reverse('lab_builder', args=[startup.pk]) + '?version=' + str(source.pk))
@@ -824,6 +877,9 @@ def lab_stop(request, startup_id):
 def lab_preview(request, startup_id, version_id):
     startup = _owned_startup(request, startup_id, edit=False)
     version = get_object_or_404(startup.lab_versions, pk=version_id)
+    if version.kind == 'shared':
+        from founder.shared_api import serve
+        return serve(request, version, live=False, root=request.path)
     if version.builder_document:
         from founder.builder_views import version_preview
         return version_preview(request, startup, version)

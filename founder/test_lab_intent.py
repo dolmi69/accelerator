@@ -125,6 +125,48 @@ class AutomaticLabJobTests(TransactionTestCase):
         self.assertEqual(generator.call_args.args[4], 'generated')
         self.assertEqual(generator.call_args.args[8]['interpreted_request'], data['task'])
 
+    @override_settings(LAB_CODE_PROVIDER='ofox', LAB_MODEL_ROUTING=True)
+    def test_pro_balance_applies_to_both_phases_of_automatic_jobs(self):
+        from founder.models import LabAIUsage
+        from founder.services import lab_models, plans
+        from founder.services.ai_costs import billing_scope, reserve, settle
+
+        def record_call():
+            model = lab_models.active_model()
+            usage = reserve(model, [{'content': 'test'}], 100, pricing=('10', '50'))
+            settle(usage, input_tokens=10, output_tokens=20, status='success')
+            return model
+
+        def plan(*args):
+            data = decision()
+            return data, CodeResult(json.dumps(data), record_call(), 10, 20)
+
+        def generate(request, startup, source, *_args):
+            with billing_scope(request.user, startup, 'patch' if source else 'create'):
+                return CodeResult(HTML, record_call(), 10, 20)
+
+        plans.activate_pro(self.user, 30)
+        with patch('founder.services.lab_intent.decide', side_effect=plan), \
+             patch('founder.lab_views._generate_design', side_effect=generate), \
+             patch('founder.lab_views.validate_result', return_value={}):
+            first_id = self.submit(prompt='Создай сайт').json()['job']['id']
+            run(first_id)
+            first = LabGenerationJob.objects.get(pk=first_id)
+            self.assertEqual(first.status, 'succeeded', first.error)
+            second_id = self.submit(prompt='Измени цвет кнопки', source_version=first.version_id).json()['job']['id']
+            run(second_id)
+            second = LabGenerationJob.objects.get(pk=second_id)
+            self.assertEqual(second.status, 'succeeded', second.error)
+
+        period = plans.lab_period(self.user)
+        self.assertTrue(period.intro_used)
+        self.assertEqual(period.remaining_units, 9_999_780)
+        self.assertEqual(list(LabAIUsage.objects.filter(plan_period=period).order_by('created_at')
+            .values_list('operation', 'model', 'plan_units')), [
+                ('intent', lab_models.SOL, 0), ('create', lab_models.SOL, 0),
+                ('intent', lab_models.LUNA, 110), ('patch', lab_models.LUNA, 110),
+            ])
+
     def test_invalid_plan_never_reaches_generation_and_keeps_old_version(self):
         old = LabSiteVersion.objects.create(startup=self.project, kind='static', html=HTML, prompt='old', model='test')
         job_id = self.submit(source_version=old.pk).json()['job']['id']
@@ -146,7 +188,7 @@ class AutomaticLabJobTests(TransactionTestCase):
              patch('founder.lab_views._generate_design', return_value=CodeResult(HTML, 'test', 1, 2)), \
              patch('founder.lab_views.validate_result', return_value={}), \
              patch('founder.lab_views._consume_lab_limits') as general_quota, \
-             patch('founder.services.plans.quota', return_value=5), \
+             patch('founder.lab_views.quota', return_value=5), \
              patch('founder.lab_views.consume_limit') as personal_quota, \
              patch('founder.lab_views.acquire_ai_lease', wraps=acquire_ai_lease) as lease:
             run(job_id)

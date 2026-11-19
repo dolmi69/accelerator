@@ -82,7 +82,7 @@ class ProfileTests(TestCase):
         self.assertEqual(avatar_response['Content-Type'], 'image/jpeg')
         self.assertEqual(avatar_response['X-Content-Type-Options'], 'nosniff')
         self.assertEqual(avatar_response['Cache-Control'], 'private, no-cache')
-        avatar_response.close()
+        self.assertTrue(b''.join(avatar_response.streaming_content))
         self.client.logout()
         self.assertEqual(self.client.get(reverse('user_avatar', args=[self.owner.pk])).status_code, 302)
 

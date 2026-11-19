@@ -99,14 +99,6 @@ class RequestProtectionTests(TestCase):
         self.assertEqual(self.client.post(self.url, {}).status_code, 400)
         acquire_ai_lease(self.user.pk)
 
-    def test_closing_unstarted_response_releases_lease(self):
-        request = RequestFactory().post(self.url)
-        request.user = self.user
-        request.ai_lease = acquire_ai_lease(self.user.pk)
-        response = RequestProtectionMiddleware(lambda r: None).process_response(request, StreamingHttpResponse(iter([b"x"])))
-        response.close()
-        acquire_ai_lease(self.user.pk)
-
     def test_runaway_reply_is_cut_off_and_not_saved(self):
         with patch("founder.views.stream_reply", return_value=iter(["слово " * 12_000])):
             response = self.client.post(self.url, {"content": "Вопрос"})
@@ -194,6 +186,15 @@ class RequestProtectionTests(TestCase):
 
 @override_settings(AI_PROVIDER="demo", CHAT_BUFFERED_RESPONSES=True)
 class ConcurrentRequestTests(TransactionTestCase):
+    def test_closing_unstarted_response_releases_lease(self):
+        user = User.objects.create_user("abandoned", email="abandoned@example.test")
+        request = RequestFactory().post("/")
+        request.user = user
+        request.ai_lease = acquire_ai_lease(user.pk)
+        response = RequestProtectionMiddleware(lambda r: None).process_response(request, StreamingHttpResponse(iter([b"x"])))
+        response.close()
+        acquire_ai_lease(user.pk)
+
     def test_two_tabs_cannot_start_two_ai_operations_at_once(self):
         user = User.objects.create_user("concurrent", email="concurrent@example.test")
         startup = StartupProfile.objects.create(owner=user, name="Parallel test")

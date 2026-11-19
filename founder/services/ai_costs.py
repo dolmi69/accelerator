@@ -13,6 +13,7 @@ from django.db import OperationalError, transaction
 from django.db.models import F, Sum
 from django.utils import timezone
 from founder.models import LabAIUsage, LabSpendBucket
+from founder.services import plans
 
 logger = logging.getLogger(__name__)
 _scope = ContextVar("lab_billing_scope", default=(None, None, "code"))
@@ -63,10 +64,10 @@ def reserve(model, normalized, output_limit, *, pricing=None):
     input_bound = sum(len(m["content"].encode("utf-8")) + 128 for m in normalized) + 512
     unrestricted = settings.LAB_UNRESTRICTED_TEST_MODE
     if not unrestricted and input_bound > settings.QWEN_INPUT_BYTE_LIMIT:
-        raise CostLimitError("Слишком большой контекст. Выберите отдельный блок для правки или сократите описание.")
+        raise CostLimitError("Для этой правки нужно обработать слишком много кода. Опишите одно изменение за раз.")
     amount = cost(input_bound, output_limit, input_price, output_price)
     if not unrestricted and amount > micro_rub(settings.LAB_MAX_REQUEST_RUB):
-        raise CostLimitError("Запрос превышает установленный бюджет одной генерации. Упростите задачу.")
+        raise CostLimitError("Эта задача может превысить бюджет генерации. Попробуйте разделить её на несколько шагов.")
     user_id, startup_id, operation = _scope.get()
     date = timezone.localdate()
     periods = [(f"global:day:{date}", settings.LAB_GLOBAL_DAILY_RUB),
@@ -74,6 +75,8 @@ def reserve(model, normalized, output_limit, *, pricing=None):
     if user_id:
         periods.extend([(f"user:{user_id}:day:{date}", settings.LAB_USER_DAILY_RUB),
                         (f"user:{user_id}:month:{date:%Y-%m}", settings.LAB_USER_MONTHLY_RUB)])
+    plan_request = plans.current_lab_plan_request()
+    plan_units, using_intro = 0, False
     try:
         with transaction.atomic():
             for key, rub_limit in periods:
@@ -83,11 +86,20 @@ def reserve(model, normalized, output_limit, *, pricing=None):
                     continue
                 limit = micro_rub(rub_limit)
                 if amount > limit or not LabSpendBucket.objects.filter(pk=key, micro_rub__lte=limit-amount).update(micro_rub=F("micro_rub")+amount):
-                    raise CostLimitError("Бюджет AI-генерации на этот период исчерпан. Правки без AI остаются доступны.")
-            return LabAIUsage.objects.create(user_id=user_id, startup_id=startup_id, model=model,
+                    raise CostLimitError("Бюджета на генерацию сейчас не хватает. Сайт можно редактировать в конструкторе.")
+            if plan_request:
+                units = plans.lab_units(model, input_bound, output_limit, amount)
+                plan_units, using_intro = plans.reserve_lab_units(plan_request, units)
+            usage = LabAIUsage.objects.create(user_id=user_id, startup_id=startup_id, model=model,
                 operation=operation, input_bound=input_bound, output_limit=output_limit,
                 input_price=input_price, output_price=output_price, accounted_micro_rub=amount,
+                plan_period=plan_request.period if plan_request else None, plan_units=plan_units,
                 bucket_keys=[key for key, _ in periods])
+        if using_intro:
+            plan_request.using_intro = True
+        return usage
+    except plans.PlanBalanceError as exc:
+        raise CostLimitError(str(exc)) from None
     except OperationalError:
         raise CostLimitError("Не удалось проверить бюджет. Повторите запрос позже.") from None
 
@@ -95,16 +107,20 @@ def reserve(model, normalized, output_limit, *, pricing=None):
 def settle(usage, *, input_tokens=None, output_tokens=None, status="unknown"):
     known = input_tokens is not None and output_tokens is not None
     amount = cost(input_tokens, output_tokens, usage.input_price, usage.output_price) if known else usage.accounted_micro_rub
+    units = (plans.lab_units(usage.model, input_tokens, output_tokens, amount)
+        if known and usage.plan_period_id and usage.plan_units else usage.plan_units)
     try:
         with transaction.atomic():
             # Only one settlement may refund a reservation.
             changed = LabAIUsage.objects.filter(pk=usage.pk, status="reserved").update(
                 status=status if known else "unknown", input_tokens=input_tokens, output_tokens=output_tokens,
-                accounted_micro_rub=amount, finished_at=timezone.now())
+                accounted_micro_rub=amount, plan_units=units, finished_at=timezone.now())
             if changed:
                 delta = amount - usage.accounted_micro_rub
                 for key in usage.bucket_keys:
                     LabSpendBucket.objects.filter(pk=key).update(micro_rub=F("micro_rub")+delta)
+                if usage.plan_period_id:
+                    plans.settle_lab_units(usage.plan_period_id, units - usage.plan_units)
     except OperationalError:
         # The reservation stays charged. Never start a paid retry to recover this.
         logger.warning("Could not settle lab usage; reservation retained: %s", usage.pk)

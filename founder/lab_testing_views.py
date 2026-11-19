@@ -50,6 +50,8 @@ def lab_publish(request, startup_id):
             messages.success(request, 'Прототип убран из карточки. Результаты тестов сохранены.')
         else:
             version = _version(startup, request.POST.get('version'))
+            if version.kind == 'shared':
+                return HttpResponse('Для этого сайта используйте ссылку BrunoHost в лаборатории.', status=409)
             visibility = visibility or (previous.visibility if previous else LabPublication.Visibility.PUBLIC)
             LabPublication.objects.update_or_create(startup=startup, defaults={
                 'version': version, 'published_at': timezone.now(), 'visibility': visibility})

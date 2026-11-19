@@ -146,7 +146,7 @@
     status.hidden = true;
     // A repeated launch of the same build must not reset an open inner page.
     if (frame.dataset.siteUrl !== url) {
-      frame.setAttribute('sandbox', backend
+      frame.setAttribute('sandbox', backend || frame.dataset.shared === '1'
         ? 'allow-scripts allow-same-origin allow-forms allow-downloads' : 'allow-scripts');
       frame.src = url;
       frame.dataset.siteUrl = url;

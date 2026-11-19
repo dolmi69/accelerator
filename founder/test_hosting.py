@@ -1,4 +1,5 @@
 """Releases, guest access and real isolated persistence, without paid AI calls."""
+import base64
 import json
 import os
 from pathlib import Path
@@ -290,6 +291,39 @@ def application(environ, start_response):
         self.assertEqual(self.guest('/api/items').json(), [['Visitor record']])
         self.publish(action='stop')
         self.assertEqual(self.guest().status_code, 404)
+
+    def test_public_runtime_upload_and_download_match_the_preview(self):
+        app = """
+import base64
+import json
+from pathlib import Path
+import os
+
+photo = Path(os.environ['LAB_DATABASE']).with_name('photo.png')
+
+def application(environ, start_response):
+    if environ['REQUEST_METHOD'] == 'POST':
+        photo.write_bytes(base64.b64decode(json.load(environ['wsgi.input'])['photo']))
+        start_response('201 Created', [('Content-Type', 'application/json')])
+        return [b'{}']
+    start_response('200 OK', [('Content-Type', 'image/png')])
+    return [photo.read_bytes()]
+"""
+        self.version.kind = 'generated'
+        self.version.backend_files = {**FILES, 'app.py': app}
+        self.version.save()
+        self.publish()
+        site = HostedSite.objects.get(startup=self.startup)
+        self.addCleanup(hosting_runtime.stop, site)
+        origin = site_url(site).rstrip('/')
+        self.assertIn("img-src 'self' data: blob:;", self.guest()['Content-Security-Policy'])
+        photo = b'p' * (5 * 1024 * 1024)
+        response = self.guest('/api/upload', method='post', content_type='application/json',
+            HTTP_ORIGIN=origin, data=json.dumps({'photo': base64.b64encode(photo).decode('ascii')}))
+        self.assertEqual(response.status_code, 201)
+        response = self.guest('/api/photo')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, photo)
 
 
 @override_settings(DEBUG=True, BRUNOHOST_BASE_URL='http://localhost:8000', BRUNOHOST_ENGINE='disabled')

@@ -18,6 +18,11 @@ from urllib.parse import unquote
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 
+# A 5 MiB photo needs almost 7 MiB once Base64-encoded in JSON.
+MAX_REQUEST_BYTES = 8 * 1024 * 1024
+MAX_RESPONSE_BYTES = 6 * 1024 * 1024
+
+
 def site_cookie(value, *, partitioned=False):
     cookie, *attributes = value.split(';')
     if not cookie.startswith('lab_') or '=' not in cookie:
@@ -76,8 +81,10 @@ def main():
             length = int(environ.get('CONTENT_LENGTH') or 0)
         except ValueError:
             return respond('400 Bad Request', b'{}')
-        if not 0 <= length <= 1_000_000:
-            return respond('413 Payload Too Large', b'{}')
+        if not 0 <= length <= MAX_REQUEST_BYTES:
+            return respond('413 Payload Too Large', json.dumps({'error': {
+                'code': 'body_too_large', 'message': 'Запрос превышает 8 МиБ.',
+            }}, ensure_ascii=False).encode())
         environ['wsgi.input'] = io.BytesIO(environ['wsgi.input'].read(length))
         # Parent app cookies and HTTP auth never reach the generated application.
         environ['HTTP_COOKIE'] = '; '.join(item.strip() for item in environ.get('HTTP_COOKIE', '').split(';') if item.strip().startswith('lab_'))
@@ -96,7 +103,7 @@ def main():
                     safe.append((key, value))
                 elif name == 'location' and value.startswith('/') and not value.startswith('//'):
                     safe.append((key, value))
-            safe.extend([('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; form-action 'self'; object-src 'none'; base-uri 'none'; frame-ancestors " + (args.parent or "'none'")),
+            safe.extend([('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; form-action 'self'; object-src 'none'; base-uri 'none'; frame-ancestors " + (args.parent or "'none'")),
                 ('X-Content-Type-Options', 'nosniff'), ('Cache-Control', 'no-store')])
             return start_response(status, safe, exc_info)
         if method in {'GET', 'HEAD'} and (path in {'/', '/index.html'} or path.startswith('/assets/')):
@@ -120,14 +127,14 @@ def main():
                     if not isinstance(chunk, bytes):
                         raise ValueError('Invalid response chunk')
                     total += len(chunk)
-                    if total > 4_000_000:
+                    if total > MAX_RESPONSE_BYTES:
                         raise ValueError('Response too large')
                     chunks.append(chunk)
                 output = b''.join(chunks)
             finally:
                 if hasattr(response, 'close'):
                     response.close()
-            if len(output) > 4_000_000 or not captured:
+            if not captured:
                 raise ValueError('Invalid response')
             secured_start(*captured)
             return [] if method == 'HEAD' else [output]

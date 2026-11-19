@@ -1,4 +1,4 @@
-from founder import lab_job_views, history_views, hosting, builder_views, manual_views, auth_views as founder_auth_views
+from founder import shared_views, lab_job_views, history_views, hosting, builder_views, manual_views, auth_views as founder_auth_views
 from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.urls import reverse_lazy
@@ -57,6 +57,8 @@ urlpatterns = [
     path('community/<uuid:startup_id>/lab/tests/<uuid:session_id>/preview/', lab_testing_views.lab_test_preview, name='lab_test_preview'),
     path('community/<uuid:startup_id>/lab/tests/<uuid:session_id>/events/', lab_testing_views.lab_test_events, name='lab_test_events'),
     path('community/<uuid:startup_id>/lab/tests/<uuid:session_id>/finish/', lab_testing_views.lab_test_finish, name='lab_test_finish'),
+    path('startups/<uuid:startup_id>/lab/<uuid:version_id>/preview/<path:endpoint>', shared_views.preview, name='shared_preview_api'),
+    path('startups/<uuid:startup_id>/lab/<uuid:version_id>/roles/', shared_views.grant, name='shared_grant'),
     path('startups/<uuid:startup_id>/lab/<uuid:version_id>/preview/', lab_views.lab_preview, name='lab_preview'),
     path('startups/<uuid:startup_id>/work/focus/', workbench_views.work_focus, name='work_focus'),
     path('startups/<uuid:startup_id>/tasks/', workbench_views.tasks, name='tasks'),

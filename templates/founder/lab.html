@@ -234,32 +234,24 @@
                 </dialog>
             {% endif %}
             <div class="lab-editor-footer">
+                {% if daily_edit_limit %}
+                    <p class="muted small">Осталось правок с Бруно на сегодня: <strong>{{ daily_edits_left }} из {{ daily_edit_limit }}</strong>.</p>
+                {% endif %}
+                {% if lab_plan %}
+                    <p class="muted small">Осталось <strong>{{ lab_plan.remaining_units|floatformat:"0g" }}</strong> из {{ lab_plan.included_units|floatformat:"0g" }} токенов Pro до {{ lab_plan.ends_at|date:"d.m.Y" }}.</p>
+                    {% if not lab_plan.intro_used %}<p class="muted small">Есть один запрос на первую сборку сайта.</p>{% endif %}
+                {% endif %}
                 <details class="project-fold lab-generation-help">
-                    <summary>Как работает доработка и расход</summary>
+                    <summary>Как изменить сайт</summary>
                     <div class="project-fold-body">
-                        {% if raw_ai_test %}
-                            <p class="lab-composer-note">
-                                Интерфейс и нужную серверную часть пишет модель.
-                                Определение задачи — отдельный короткий AI-запрос; при правке затем запускается генерация.
-                                {% if backend_staged %}
-                                    Бэкенд собирается в 2 этапа: сервер, затем интерфейс. Завершённый сервер сохраняется при сбое второго этапа. Каждый новый этап расходует токены.
-                                {% else %}
-                                    Готовые инструменты отключены.
-                                {% endif %}
-                            </p>
-                            <p class="muted small">
-                                Бруно определяет задачу по сообщению и текущему сайту. Если нужны регистрация, заказы или сохранение данных, он добавляет серверную часть. Неясный запрос сначала уточняет.
-                            </p>
-                            <p class="muted small">
-                                Данные серверного сайта сохраняются в отдельной SQLite-базе. Автозапуск кода модели пока доступен на macOS; исходники можно скачать. Внешние платежи и API не подключаются автоматически.
-                            </p>
+                        <p class="muted small">Опишите, что хотите изменить. Если нужны детали, Бруно задаст вопрос. Новую версию можно проверить справа.</p>
+                        {% if lab_plan %}
+                            <p class="muted small">Токены Pro расходуются на вызовы моделей, включая обсуждения и попытки исправления. Ручные правки в конструкторе токены не расходуют.</p>
                         {% else %}
-                            <p class="muted small">
-                                Бруно сам определяет, нужно ответить, уточнить задачу или изменить сайт. Определение задачи и генерация расходуют токены; готовые инструменты не требуют генерации кода.
-                            </p>
+                            <p class="muted small">Одна правка списывается, когда Бруно сохраняет результат. Обсуждение и правки в конструкторе доступны отдельно.</p>
                         {% endif %}
-                        {% if not selected or design_pending %}
-                            <p class="muted small">Первый дизайн получает больше времени и объёма для проработки.</p>
+                        {% if selected.is_backend %}
+                            <p class="muted small">Перед публикацией проверьте вход, формы и сохранение данных на сайте.</p>
                         {% endif %}
                     </div>
                 </details>
@@ -269,8 +261,9 @@
                    role="status"
                    aria-live="polite"></p>
                 <details class="lab-cost-details">
-                    <summary>Токены <strong>{{ usage.input_tokens|add:usage.output_tokens }}</strong></summary>
-                    <p class="muted small">{{ usage.attempts }} запросов.</p>
+                    <summary>Расход моделей <strong>{{ usage.input_tokens|add:usage.output_tokens }} токенов</strong></summary>
+                    {% if not usage.measuring %}<p class="muted small">Расход вашей лаборатории за этот месяц по всем проектам.</p>{% endif %}
+                    <p class="muted small">Вызовов моделей: {{ usage.attempts }}. Включает обсуждения и попытки исправления.</p>
                     <p class="muted small">{{ usage.input_tokens }} входных и {{ usage.output_tokens }} выходных токенов.</p>
                 </details>
             </div>
@@ -299,10 +292,12 @@
                             <strong>Предпросмотр</strong><span class="lab-viewer-hint">{{ startup.name }} · Esc для возврата</span>
                         </div>
                         <div class="lab-toolbar-actions">
-                            {% if selected.kind == 'generated' and runtime_available %}
+                            {% if selected.kind == 'shared' %}
+                                <a class="button ghost" href="{% url 'lab_preview' startup.id selected.id %}" target="_blank" rel="noopener">Открыть сайт ↗</a>
+                            {% elif selected.kind == 'generated' and runtime_available %}
                                 <button class="button ghost" type="submit" form="lab-preview-run" formtarget="_blank" data-lab-open-site>Открыть сайт ↗</button>
                             {% endif %}
-                            {% if startup.user_role != 'viewer' %}<a class="button primary lab-constructor-button" href="{% if selected and not selected.builder_document and selected.kind != 'django' %}{% url 'lab_manual' startup.pk selected.pk %}{% else %}{% url 'lab_builder' startup.pk %}{% if selected %}?version={{ selected.pk }}{% endif %}{% endif %}">Конструктор Bruno <span aria-hidden="true">↗</span></a>{% endif %}
+                            {% if startup.user_role != 'viewer' and selected.kind != 'shared' %}<a class="button primary lab-constructor-button" href="{% if selected and not selected.builder_document and selected.kind != 'django' %}{% url 'lab_manual' startup.pk selected.pk %}{% else %}{% url 'lab_builder' startup.pk %}{% if selected %}?version={{ selected.pk }}{% endif %}{% endif %}">Конструктор Bruno <span aria-hidden="true">↗</span></a>{% endif %}
                         <div class="lab-preview-devices" role="group" aria-label="Размер предпросмотра" data-lab-device-switch hidden>
                             <button type="button" data-lab-device="desktop" aria-pressed="true" title="На всю ширину предпросмотра">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 21h8m-4-5v5"/></svg>
@@ -343,7 +338,8 @@
                                 id="lab-site-frame"
                                 title="Предпросмотр сайта для проекта {{ startup.name }}"
                                 {% if selected.is_backend and runtime_available %}hidden{% else %}src="{% url 'lab_preview' startup.id selected.id %}"{% endif %}
-                                sandbox="{% if selected.builder_document %}allow-same-origin{% else %}allow-scripts{% endif %}"
+                                {% if selected.kind == 'shared' %}data-shared="1"{% endif %}
+                                sandbox="{% if selected.kind == 'shared' %}allow-same-origin allow-scripts allow-forms{% elif selected.builder_document %}allow-same-origin{% else %}allow-scripts{% endif %}"
                                 referrerpolicy="no-referrer"></iframe>
                         </div>
                     </div>
@@ -381,7 +377,11 @@
                         <p class="muted small" role="status">Готовая основа работает. Индивидуальный дизайн ещё не создан.</p>
                     {% endif %}
 
-                    {% include 'founder/_lab_publication.html' %}
+                    {% if selected.kind == 'shared' %}
+                        {% include 'founder/_shared_settings.html' %}
+                    {% else %}
+                        {% include 'founder/_lab_publication.html' %}
+                    {% endif %}
 
                     <p class="muted small">{{ selected.prompt }}</p>
                     {% if selected.kind == 'generated' %}

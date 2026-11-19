@@ -66,6 +66,12 @@ BRUNOHOST_ROOT = Path(os.getenv('BRUNOHOST_ROOT', str(BASE_DIR / '.runtime' / 'h
 BRUNOHOST_ENGINE = os.getenv('BRUNOHOST_ENGINE', 'sandbox' if DEBUG and sys.platform == 'darwin' else 'disabled')
 BRUNOHOST_DOCKER_IMAGE = os.getenv('BRUNOHOST_DOCKER_IMAGE', 'brunohost-worker:1')
 BRUNOHOST_MAX_RUNNING = int(os.getenv('BRUNOHOST_MAX_RUNNING', '5'))
+# Shared records and the release pointer commit in the same PostgreSQL transaction.
+BRUNOHOST_SHARED_ENABLED = os.getenv('BRUNOHOST_SHARED_ENABLED', '0') == '1'
+BRUNOHOST_SHARED_FILE_BYTES = int(os.getenv('BRUNOHOST_SHARED_FILE_BYTES', 4 * 1024**2))
+BRUNOHOST_SHARED_STORAGE_BYTES = int(os.getenv('BRUNOHOST_SHARED_STORAGE_BYTES', 64 * 1024**2))
+BRUNOHOST_SHARED_RECORDS = int(os.getenv('BRUNOHOST_SHARED_RECORDS', 20000))
+BRUNOHOST_SHARED_MEMBERS = int(os.getenv('BRUNOHOST_SHARED_MEMBERS', 1000))
 # Restrict generated backend publishing to reviewed projects during a beta.
 BRUNOHOST_BACKEND_PROJECTS = frozenset(
     str(UUID(project.strip())) for project in os.getenv('BRUNOHOST_BACKEND_PROJECTS', '').split(',')
@@ -177,17 +183,17 @@ OFOX_OUTPUT_USD_PER_MILLION = os.getenv("OFOX_OUTPUT_USD_PER_MILLION", "10")
 OFOX_USD_RUB_RATE = os.getenv("OFOX_USD_RUB_RATE", "100")
 # Independent from AI_PROVIDER: website generation must not switch Bruno's model.
 QWEN_CODE_MODEL = os.getenv("QWEN_CODE_MODEL", "Qwen/Qwen3-Coder-Next")
-QWEN_CODE_MAX_TOKENS = int(os.getenv("QWEN_CODE_MAX_TOKENS", "16384"))
+QWEN_CODE_MAX_TOKENS = int(os.getenv("QWEN_CODE_MAX_TOKENS", "24576"))
 QWEN_CODE_TIMEOUT = float(os.getenv("QWEN_CODE_TIMEOUT", "300"))
 LAB_REQUESTS_PER_DAY = int(os.getenv("LAB_REQUESTS_PER_DAY", "10"))
-LAB_PRO_REQUESTS_PER_DAY = int(os.getenv("LAB_PRO_REQUESTS_PER_DAY", "50"))
-LAB_GLOBAL_REQUESTS_PER_DAY = int(os.getenv("LAB_GLOBAL_REQUESTS_PER_DAY", "30"))
+LAB_GLOBAL_REQUESTS_PER_DAY = int(os.getenv("LAB_GLOBAL_REQUESTS_PER_DAY", "300"))
 # Trusted local blueprint only. Public deployment needs a separate runtime host.
 LAB_BACKEND_RUNTIME_ENABLED = os.getenv("LAB_BACKEND_RUNTIME_ENABLED", "1" if DEBUG else "0") == "1"
 LAB_BACKEND_MAX_RUNNING = 3
 # A complete first design gets room to finish; edits remain small JSON patches.
-LAB_CREATE_MAX_TOKENS = int(os.getenv("LAB_CREATE_MAX_TOKENS", "16384"))
-LAB_PATCH_MAX_TOKENS = int(os.getenv("LAB_PATCH_MAX_TOKENS", "2048"))
+LAB_CREATE_MAX_TOKENS = int(os.getenv("LAB_CREATE_MAX_TOKENS", "24576"))
+LAB_PATCH_MAX_TOKENS = int(os.getenv("LAB_PATCH_MAX_TOKENS", "8192"))
+LAB_SOL_PATCH_MAX_TOKENS = int(os.getenv("LAB_SOL_PATCH_MAX_TOKENS", "16384"))
 LAB_EDIT_REPAIR_ATTEMPTS = max(1, min(3, int(os.getenv('LAB_EDIT_REPAIR_ATTEMPTS', '3'))))
 LAB_CHAT_MAX_TOKENS = int(os.getenv("LAB_CHAT_MAX_TOKENS", "2048"))
 LAB_PATCH_MAX_RESPONSE_CHARS = int(os.getenv("LAB_PATCH_MAX_RESPONSE_CHARS", "24000"))
@@ -195,13 +201,9 @@ LAB_PATCH_MAX_FIND_CHARS = int(os.getenv("LAB_PATCH_MAX_FIND_CHARS", "6000"))
 LAB_PATCH_MAX_REPLACEMENT_CHARS = int(os.getenv("LAB_PATCH_MAX_REPLACEMENT_CHARS", "12000"))
 LAB_CREATE_TEMPERATURE = float(os.getenv("LAB_CREATE_TEMPERATURE", "0.6"))
 LAB_PATCH_TEMPERATURE = float(os.getenv("LAB_PATCH_TEMPERATURE", "0.2"))
-QWEN_INPUT_BYTE_LIMIT = int(os.getenv("QWEN_INPUT_BYTE_LIMIT", "32000"))
+QWEN_INPUT_BYTE_LIMIT = int(os.getenv("QWEN_INPUT_BYTE_LIMIT", "160000"))
 if LAB_UNRESTRICTED_TEST_MODE:
-    # Catalog maximum for the current Ofox Sonnet/GPT models, not an app budget.
-    QWEN_CODE_MAX_TOKENS = 128000
-    LAB_CREATE_MAX_TOKENS = 128000
-    LAB_PATCH_MAX_TOKENS = 128000
-    LAB_CHAT_MAX_TOKENS = 128000
+    # Raw tests can inspect large diffs without inflating provider output budgets.
     LAB_PATCH_MAX_RESPONSE_CHARS = 1024000
     LAB_PATCH_MAX_FIND_CHARS = 1024000
     LAB_PATCH_MAX_REPLACEMENT_CHARS = 1024000
@@ -210,11 +212,11 @@ if LAB_UNRESTRICTED_TEST_MODE:
 QWEN_PRICE_MODEL = os.getenv("QWEN_PRICE_MODEL", "Qwen/Qwen3-Coder-Next")
 QWEN_INPUT_RUB_PER_MILLION = os.getenv("QWEN_INPUT_RUB_PER_MILLION", "122")
 QWEN_OUTPUT_RUB_PER_MILLION = os.getenv("QWEN_OUTPUT_RUB_PER_MILLION", "244")
-LAB_MAX_REQUEST_RUB = os.getenv("LAB_MAX_REQUEST_RUB", "10")
-LAB_USER_DAILY_RUB = os.getenv("LAB_USER_DAILY_RUB", "20")
-LAB_USER_MONTHLY_RUB = os.getenv("LAB_USER_MONTHLY_RUB", "100")
-LAB_GLOBAL_DAILY_RUB = os.getenv("LAB_GLOBAL_DAILY_RUB", "200")
-LAB_GLOBAL_MONTHLY_RUB = os.getenv("LAB_GLOBAL_MONTHLY_RUB", "2000")
+LAB_MAX_REQUEST_RUB = os.getenv("LAB_MAX_REQUEST_RUB", "60")
+LAB_USER_DAILY_RUB = os.getenv("LAB_USER_DAILY_RUB", "100")
+LAB_USER_MONTHLY_RUB = os.getenv("LAB_USER_MONTHLY_RUB", "500")
+LAB_GLOBAL_DAILY_RUB = os.getenv("LAB_GLOBAL_DAILY_RUB", "1000")
+LAB_GLOBAL_MONTHLY_RUB = os.getenv("LAB_GLOBAL_MONTHLY_RUB", "10000")
 AI_MAX_OUTPUT_TOKENS = 900
 # How many members must report a card before everyone sees "Опасно!" on it.
 # The member who reported always sees the mark on their own screen.
@@ -276,8 +278,9 @@ PAYMENTS_RECEIVE_INDEX = int(os.getenv("PAYMENTS_RECEIVE_INDEX", "0"))
 
 # --- Тарифы: цена Pro для страницы тарифов ---
 # Ориентир: python manage.py lab_usage --ai-budget <руб.> --margin-percent <%>
-PRO_PRICE_RUB = os.getenv("PRO_PRICE_RUB", "0")
+PRO_PRICE_RUB = os.getenv("PRO_PRICE_RUB", "350")
 PRO_DAYS = int(os.getenv("PRO_DAYS", "30"))
+PRO_TEST_CHECKOUT_ENABLED = DEBUG and os.getenv("PRO_TEST_CHECKOUT_ENABLED", "1") == "1"
 
 # Дочитывать страницы конкурентов целиком (agent-reach). В тестах сеть не трогаем, даже если поиск включён.
 MARKET_READ_PAGES = sys.argv[1:2] != ["test"] and os.getenv("MARKET_READ_PAGES", "1") == "1"

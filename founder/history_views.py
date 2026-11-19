@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction, OperationalError
+from django.db.models import Prefetch
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -29,6 +30,13 @@ def _uuid(value):
 
 def conversation_url(startup, conversation):
     return reverse('result_tell', args=[startup.pk]) + '?draft=' + str(conversation.pk)
+
+
+def _lock_with_task(queryset):
+    # The optional task needs a separate row lock before checking its revision.
+    return queryset.select_for_update().prefetch_related(
+        Prefetch('task', queryset=BrunoTask.objects.select_for_update())
+    )
 
 
 @login_required
@@ -58,7 +66,7 @@ def tell(request, startup_id):
             if not conversation:
                 raise Http404('Черновик не найден')
             with transaction.atomic():
-                conversation = EvidenceConversation.objects.select_for_update().select_related('task').get(pk=conversation.pk)
+                conversation = _lock_with_task(EvidenceConversation.objects).get(pk=conversation.pk)
                 if conversation.entry_id:
                     return redirect('evidence_list', startup_id=startup.pk)
                 proposal = conversation.proposal
@@ -91,7 +99,7 @@ def tell(request, startup_id):
                     conversation, _ = EvidenceConversation.objects.get_or_create(id=key, defaults={'startup':startup, 'author':request.user, 'task':task})
                     if conversation.startup_id != startup.pk or conversation.author_id != request.user.pk:
                         raise Http404('Разговор не найден')
-                conversation = EvidenceConversation.objects.select_for_update().select_related('task','startup').get(pk=conversation.pk)
+                conversation = _lock_with_task(EvidenceConversation.objects).get(pk=conversation.pk)
                 if conversation.processing or conversation.request_key == key:
                     return redirect(conversation_url(startup, conversation))
                 if len(conversation.messages) >= 24:
@@ -134,7 +142,7 @@ def tell(request, startup_id):
 def verify_result(request, startup_id, entry_id):
     startup = get_startup(request, startup_id, edit=True)
     with transaction.atomic():
-        entry = get_object_or_404(startup.evidence_entries.select_for_update().select_related('task'), pk=entry_id, origin='lab')
+        entry = get_object_or_404(_lock_with_task(startup.evidence_entries), pk=entry_id, origin='lab')
         if entry.progress.get('verification') != 'needs_check':
             return redirect('evidence_list', startup_id=startup.pk)
         if not entry.task_id or entry.task.status != 'todo':

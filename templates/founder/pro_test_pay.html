@@ -5,10 +5,11 @@
   <div class="pay-card">
     <h1>Оформление Pro</h1>
     <p class="pay-lead">{{ price_rub }} ₽ за {{ pro_days }} дней</p>
+    <p>{{ plan_units|floatformat:"0g" }} токенов лаборатории и одна первая сборка сайта.</p>
 
     <div class="flash flash-warning">Тестовый режим: деньги не списываются.</div>
     {% if is_pro %}
-      <p class="pay-hint">Pro уже активен. Подтверждение продлит подписку ещё на {{ pro_days }} дней.</p>
+      <p class="pay-hint">Новый баланс начислится после окончания текущего периода.</p>
     {% endif %}
 
     <form method="post" action="{% url 'pro_test_pay_confirm' %}">

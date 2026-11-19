@@ -19,6 +19,7 @@ from founder.services.backend_modules import MODULES, OPTIONAL_MODULES
 from founder.services.site_editor import customize
 from founder.services.lab_bruno import request_policy, protect_service_secrets, LabRequestRejected
 from founder.services.lab_recovery import aggregate, attempt_limit, exhausted, validate_candidate
+from founder.services.lab_models import edit_token_limit
 
 logger = logging.getLogger(__name__)
 GENERATOR_REVISION = 'forge-scoped-recovery-v7'
@@ -194,7 +195,7 @@ def _generate_site_once(prompt, *, previous_html="", max_tokens=None, backend=Fa
         backend = False
     patching = bool(previous_html) and not rebuild
     working_html = previous_html if raw else model_source(previous_html)
-    cap = settings.LAB_PATCH_MAX_TOKENS if patching else settings.LAB_CREATE_MAX_TOKENS
+    cap = edit_token_limit() if patching else settings.LAB_CREATE_MAX_TOKENS
     limit = min(cap, settings.QWEN_CODE_MAX_TOKENS, max_tokens or settings.QWEN_CODE_MAX_TOKENS)
     request_policy(prompt)
     protect_service_secrets(previous_html + context)

@@ -493,8 +493,8 @@ def adopt_jobs(canvas):
     if not jobs:
         raise ValueError('Сначала нажмите «Сформулировать ценность».')
     known = {item.get('question', '').casefold() for item in canvas.jobs}
-    added = [{'kind': kind, 'question': text, 'value': '', 'chosen': True}
-             for kind, text in jobs.items() if text.casefold() not in known]
+    added = [{'kind': kind, 'question': jobs[kind], 'value': '', 'chosen': True}
+             for kind in JOB_KINDS if kind in jobs and jobs[kind].casefold() not in known]
     canvas.jobs = canvas.jobs + added
     canvas.save(update_fields=['jobs', 'updated_at'])
     return len(added)

@@ -48,6 +48,7 @@ class CodeResult:
     add_modules: tuple = ()
     backend_files: dict = field(default_factory=dict)
     builder_document: dict = field(default_factory=dict)
+    shared_schema: dict = field(default_factory=dict)
 
 
 class StreamInterrupted(QwenError):
@@ -199,8 +200,8 @@ def generate_code(system_prompt, messages, *, max_tokens=None, temperature=0.3, 
                 or not isinstance(message.get("content"), str) or not message["content"].strip()):
             raise QwenError("Некорректное сообщение генератору.")
         normalized.append({"role": message["role"], "content": message["content"]})
-    if sum(len(message["content"]) for message in normalized) > 140_000:
-        raise QwenError("Слишком большой контекст генерации. Сократите описание или исходный сайт.")
+    if sum(len(message["content"].encode("utf-8")) for message in normalized) > 200_000:
+        raise QwenError("Для этой правки нужно обработать слишком много кода. Опишите одно изменение за раз.")
 
     try:
         usage_record = reserve(model, normalized, tokens, pricing=pricing)

@@ -4,14 +4,14 @@
 <section class="plans-wrap">
   <span class="eyebrow">Тарифы</span>
   <h1>Free и Pro</h1>
-  <p class="plans-lead">Pro подключается на {{ pro_days }} дней, продление вручную. «Безлимит» не продаём: у Pro конечная дневная квота.</p>
+  <p class="plans-lead">Pro действует {{ pro_days }} дней. В начале нового периода начисляется новый запас токенов.</p>
 
   <div class="plans-grid">
     <article class="plan-card">
       <h2>Free</h2>
       <p class="plan-price">0 ₽</p>
       <ul>
-        <li>До {{ free_quota }} запросов к лаборатории в сутки</li>
+        {% if free_quota %}<li>До {{ free_quota }} сохранённых AI-правок в день</li>{% endif %}
         <li>Бруно, радар, задания, питч, лаборатория</li>
       </ul>
       {% if not is_pro %}<p class="plan-current">Ваш текущий тариф</p>{% endif %}
@@ -19,16 +19,22 @@
 
     <article class="plan-card plan-card--pro">
       <h2>Pro <span class="plan-tag">PRO</span></h2>
-      <p class="plan-price">{{ price_rub }} ₽<span class="plan-per">/мес</span></p>
+      <p class="plan-price">{{ price_rub }} ₽ <span class="plan-per">за {{ pro_days }} дней</span></p>
       <ul>
-        <li>До {{ pro_quota }} запросов к лаборатории в сутки</li>
-        <li>Бейдж Pro в шапке</li>
-        <li>Оплата в тестовом режиме, деньги не списываются</li>
+        <li>Один запрос на первую сборку сайта включён отдельно</li>
+        <li>{{ plan_units|floatformat:"0g" }} токенов лаборатории на период</li>
+        <li>Сложные задачи расходуют больше токенов. Остаток виден в лаборатории.</li>
       </ul>
       {% if is_pro %}
         <p class="plan-current">Pro активен до {{ pro_until|date:"d.m.Y" }}</p>
-      {% else %}
-        <a class="pay-button" href="{% url 'pro_test_pay' %}">Оформить</a>
+      {% endif %}
+      {% if lab_plan %}
+        <p>Осталось {{ lab_plan.remaining_units|floatformat:"0g" }} токенов до {{ lab_plan.ends_at|date:"d.m.Y" }}.</p>
+      {% endif %}
+      {% if test_checkout %}
+        <a class="pay-button" href="{% url 'pro_test_pay' %}">{% if is_pro %}Продлить Pro в тесте{% else %}Попробовать Pro{% endif %}</a>
+      {% elif not is_pro %}
+        <p class="plans-lead">Подключение скоро откроется.</p>
       {% endif %}
     </article>
   </div>

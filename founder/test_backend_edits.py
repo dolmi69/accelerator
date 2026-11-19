@@ -77,6 +77,21 @@ class ScopedBackendTests(SimpleTestCase):
         self.assertEqual(result.request_ids,('plan-id','patch-id'))
         self.assertEqual((result.input_tokens,result.output_tokens),(12,23))
 
+    @override_settings(LAB_PATCH_MAX_TOKENS=8192, LAB_SOL_PATCH_MAX_TOKENS=16384, QWEN_CODE_MAX_TOKENS=24576)
+    def test_selected_files_and_model_specific_output_limits(self):
+        marker = 'UNRELATED_PRIVATE_CODE'
+        source = SimpleNamespace(backend_files={**FILES, 'app.py': FILES['app.py'] + '\n#' + 'x'*2000 + marker})
+        answer = self.answer([{'file':'assets/site.css','op':'replace','old':'red','new':'blue'}])
+        for model, expected_limit in ((lab_models.LUNA, 8192), (lab_models.SOL, 16384)):
+            with self.subTest(model=model), lab_models.model_scope(model), \
+                    patch('founder.services.backend_edits.generate_code', return_value=answer) as api:
+                result = edit_backend('Цвет кнопки', source=source, context={'edit_files':['assets/site.css']})
+                payload = json.loads(api.call_args.args[1][0]['content'])
+                self.assertEqual(payload['previous_files'], {'assets/site.css': FILES['assets/site.css']})
+                self.assertNotIn(marker, str(payload))
+                self.assertEqual(result.backend_files['app.py'], source.backend_files['app.py'])
+                self.assertEqual(api.call_args.kwargs['max_tokens'], expected_limit)
+
     def test_ambiguous_missing_noop_and_invalid_patch_leave_source_unchanged(self):
         for edit in [[], [{'file':'app.py','op':'replace','old':'not found','new':'x'}],
                      [{'file':'app.py','op':'replace','old':'import','new':'from'}],

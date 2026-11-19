@@ -1,0 +1,19 @@
+<h3>Данные сайта</h3>
+{% for table in shared_tables %}
+<details><summary>{{ table.label }}</summary>
+<ul>{% for field in table.fields %}<li>{{ field.label }}{% if field.required %} · обязательно{% endif %}</li>{% endfor %}</ul>
+{% if table.booking %}<p>Сервер проверяет, свободен ли ресурс на выбранное время.</p>{% endif %}
+</details>
+{% endfor %}
+<p>Для проверки используйте аккаунты предпросмотра. На опубликованном сайте отдельные аккаунты и записи.</p>
+{% if startup.user_role == 'owner' %}
+<form method="post" action="{% url 'shared_grant' startup.pk selected.pk %}">
+    {% csrf_token %}
+    <h3>Назначить роль</h3>
+    <label>Где изменить права <select name="environment"><option value="draft">Предпросмотр</option>
+        {% if hosting.up_to_date %}<option value="live">Опубликованный сайт</option>{% endif %}</select></label>
+    <label>Логин зарегистрированного пользователя <input name="username" required maxlength="60"></label>
+    <label>Роль <select name="role">{% for key,label in shared_roles %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+    <button type="submit" class="button">Сохранить права</button>
+</form>
+{% endif %}

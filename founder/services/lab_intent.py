@@ -76,6 +76,8 @@ def decide(startup, source, prompt):
         'last_change': source.prompt[:2000] if source else '',
         'last_report': str(source.bruno_report)[:3000] if source else '',
     }
+    if source and source.kind == 'shared':
+        payload['current_source_excerpt'] = json.dumps(source.shared_schema, ensure_ascii=False)
     if source and getattr(source, 'builder_document', {}):
         payload['visual_builder'] = {'pages': [{'id': p['id'], 'title': p['title'], 'slug': p['slug'], 'blocks': [{'id': b['id'], 'type': b['type'], 'title': b['props'].get('title', '')[:150]} for b in p['blocks']]} for p in source.builder_document['pages']]}
     if files:
@@ -86,7 +88,17 @@ def decide(startup, source, prompt):
         payload['file_inventory'] = [{'path':'index.html','characters':len(source.html)}]
     text = json.dumps(payload, ensure_ascii=False)
     protect_service_secrets(text)
-    result = generate_code(SYSTEM, [{'role': 'user', 'content': text}],
+    from founder.services.shared_schema import enabled
+    shared = enabled() and (source is None or source.kind == 'shared')
+    system = SYSTEM
+    if shared:
+        system += (' Доступен третий kind shared. Для нового сайта выбирай shared, если достаточно входа, '
+                   'ролей, таблиц, ссылок, фото, назначения участника и брони ресурса на интервал. '
+                   'Интерфейс shared — формы и списки. Для произвольного дизайна, вычислений, интеграций '
+                   'или иной логики выбирай generated. Для существующего shared выбирай shared при совместимой правке. '
+                   'При несовместимой правке существующего shared верни clarify и объясни, что нужна отдельная '
+                   'серверная версия и перенос данных. Не обещай автоматического переноса.')
+    result = generate_code(system, [{'role': 'user', 'content': text}],
         max_tokens=min(1800, settings.QWEN_CODE_MAX_TOKENS), reasoning_effort='low')
     try:
         data = load_model_json(result.text)
@@ -100,7 +112,8 @@ def decide(startup, source, prompt):
         data['complexity_reason'] = reason.strip()[:300] if isinstance(reason, str) else ''
         if data['complexity'] == 'complex' and not data['complexity_reason']:
             data['complexity'] = 'standard'
-        if data['action'] not in {'discuss', 'clarify', 'edit'} or data['kind'] not in {'static', 'generated'}:
+        kinds = {'static', 'generated', 'shared'} if shared else {'static', 'generated'}
+        if data['action'] not in {'discuss', 'clarify', 'edit'} or data['kind'] not in kinds:
             raise ValueError
         for key, limit in [('answer', 4000), ('suggestion', 1000), ('task', 2000)]:
             if not isinstance(data[key], str) or len(data[key]) > limit:
@@ -110,7 +123,10 @@ def decide(startup, source, prompt):
             if not data['task'] or data['answer'] or data['suggestion']:
                 raise ValueError
             # A visual edit must never silently discard a running backend.
-            if source and source.kind in {'generated', 'django'}:
+            if source and source.kind == 'shared' and data['kind'] == 'generated':
+                data.update(action='clarify', kind='shared', task='',
+                            answer='Для этой функции нужен отдельный сервер. Можно создать новый проект с изолированным сервером. Действующие записи потребуется перенести отдельно.')
+            elif source and source.kind in {'generated', 'django', 'shared'}:
                 data['kind'] = source.kind
             if source and (source.kind == 'generated' or (source.kind == 'static' and data['kind'] == 'generated')) and 'edit_files' in data:
                 from founder.services.backend_edits import validate_plan

@@ -33,6 +33,7 @@ def value_page(request, startup_id):
     order = list(service.GRADES)
     segments = sorted(enumerate(canvas.segments), key=lambda pair: order.index(pair[1].get('grade', 'X')))
     options = canvas.options or {}
+    offered_jobs = options.get('jobs') or {}
     return render(request, 'founder/value.html', {
         'startup': startup, 'workspace_tab': 'value', 'canvas': canvas,
         'segments': [{**item, 'index': index} for index, item in segments],
@@ -49,8 +50,8 @@ def value_page(request, startup_id):
         'unknown_labels': [label for key, label in AREA_LABELS if key in options.get('unknown', [])],
         'everyone': options.get('everyone', False),
         'problem_harms': [service.HARMS[key] for key in (options.get('problem') or {}).get('harm', [])],
-        'offered_jobs': [(kind, service.JOB_KINDS[kind], text) for kind, text in (options.get('jobs') or {}).items()
-                         if kind in service.JOB_KINDS],
+        'offered_jobs': [(kind, label, offered_jobs[kind]) for kind, label in service.JOB_KINDS.items()
+                         if kind in offered_jobs],
         'can_edit': startup.user_role != 'viewer',
     })
 

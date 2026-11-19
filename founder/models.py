@@ -257,6 +257,7 @@ class LabSiteVersion(models.Model):
     class Kind(models.TextChoices):
         STATIC = "static", "Статический сайт"
         DJANGO = "django", "Django: готовые модули"
+        SHARED = "shared", "Общий сервер BrunoHost"
         GENERATED = "generated", "Сайт с бэкендом модели"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -269,6 +270,7 @@ class LabSiteVersion(models.Model):
     presentation = models.JSONField(default=dict, blank=True)
     backend_modules = models.JSONField(default=list, blank=True)
     backend_files = models.JSONField(default=dict, blank=True)
+    shared_schema = models.JSONField(default=dict, blank=True)
     builder_document = models.JSONField(default=dict, blank=True)
     generation_key = models.CharField(max_length=64, unique=True, null=True, blank=True)
     edit_method = models.CharField(max_length=20, default="full")
@@ -350,6 +352,25 @@ class LabConversationTurn(models.Model):
         ordering = ['-created_at', '-id']
 
 
+class LabPlanPeriod(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lab_plan_periods')
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    included_units = models.PositiveBigIntegerField()
+    used_units = models.PositiveBigIntegerField(default=0)
+    intro_used = models.BooleanField(default=False)
+
+    @property
+    def remaining_units(self):
+        return max(0, self.included_units - self.used_units)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'starts_at'], name='lab_unique_plan_period'),
+            models.CheckConstraint(condition=models.Q(ends_at__gt=models.F('starts_at')), name='lab_plan_valid_period'),
+        ]
+
+
 class LabAIUsage(models.Model):
     """One paid attempt, including rejected output or uncertain provider billing."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -366,6 +387,8 @@ class LabAIUsage(models.Model):
     input_price = models.DecimalField(max_digits=12, decimal_places=4)
     output_price = models.DecimalField(max_digits=12, decimal_places=4)
     accounted_micro_rub = models.PositiveBigIntegerField()
+    plan_period = models.ForeignKey(LabPlanPeriod, on_delete=models.SET_NULL, null=True, blank=True)
+    plan_units = models.PositiveBigIntegerField(default=0)
     bucket_keys = models.JSONField(default=list)
     created_at = models.DateTimeField(default=timezone.now)
     finished_at = models.DateTimeField(null=True, blank=True)
@@ -1196,3 +1219,6 @@ class EvidenceConversation(models.Model):
 
     class Meta:
         ordering = ['-updated_at']
+
+
+from founder.shared_models import SharedBooking, SharedFile, SharedMember, SharedRecord, SharedSpace  # noqa: E402,F401

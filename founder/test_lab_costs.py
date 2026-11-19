@@ -88,7 +88,6 @@ class CostTests(TestCase):
     def test_unrestricted_mode_bypasses_caps_but_keeps_accounting(self):
         from founder.lab_views import _consume_lab_limits
         with patch('founder.lab_views.consume_limit') as limit:
-            _consume_lab_limits(self.user, personal=True)
             _consume_lab_limits(self.user)
             limit.assert_not_called()
         usage = self.reserve()
@@ -167,6 +166,17 @@ class CostTests(TestCase):
             self.assertEqual(self.startup.lab_versions.count(), 1)
             self.assertEqual(paid.call_count, 1)
             self.assertEqual(self.client.post(route, {'prompt':'Other'}).status_code, 429)
+
+    @override_settings(LAB_REQUESTS_PER_DAY=1)
+    def test_failed_generation_keeps_the_users_last_edit(self):
+        route = reverse('lab_generate', args=[self.startup.pk])
+        outcomes = [QwenError('Провайдер недоступен'), CodeResult(HTML, MODEL, 10, 20)]
+        with patch('founder.lab_views.generate_site', side_effect=outcomes) as paid:
+            self.assertEqual(self.client.post(route, {'prompt': 'Первая попытка'}).status_code, 503)
+            self.assertEqual(self.client.post(route, {'prompt': 'Вторая попытка'}).status_code, 302)
+            self.assertEqual(self.client.post(route, {'prompt': 'Другая задача'}).status_code, 429)
+        self.assertEqual(paid.call_count, 2)
+        self.assertContains(self.client.get(reverse('lab', args=[self.startup.pk])), '0 из 1')
 
     def test_free_controls_and_cache_do_not_cross_ownership(self):
         source = LabSiteVersion.objects.create(startup=self.startup, prompt='Initial', html=HTML, model=MODEL)

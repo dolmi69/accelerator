@@ -25,6 +25,10 @@ def active_model():
                                else settings.QWEN_CODE_MODEL)
 
 
+def edit_token_limit():
+    return settings.LAB_SOL_PATCH_MAX_TOKENS if override_model() == SOL else settings.LAB_PATCH_MAX_TOKENS
+
+
 @contextmanager
 def model_scope(model):
     if model is not None and model not in LABELS:

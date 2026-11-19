@@ -31,6 +31,7 @@ from founder.models import HostedSite, LabSiteVersion, StartupProfile
 from founder.services.access import get_startup
 from founder.services.django_builder import BuilderError
 from founder.services.generated_backend import validate_files
+from founder.services.generated_worker import MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES
 from founder.services.lab_bruno import protect_service_secrets
 from founder.services.qwen import QwenOutputError
 from founder.services.request_limits import consume_limit, RequestLimitExceeded
@@ -82,15 +83,18 @@ def backend_allowed(startup_id):
 
 def context(startup, selected):
     site = HostedSite.objects.filter(startup=startup).select_related('version').first()
-    supported = selected and selected.kind in {'static', 'generated'}
+    from founder.services.shared_schema import enabled as shared_enabled
+    supported = selected and selected.kind in {'static', 'generated', 'shared'}
     reason = ''
     if not base_url():
         reason = 'Для публикации подключите отдельный домен BrunoHost.'
-    elif settings.BRUNOHOST_PATH_MODE and selected and selected.kind != 'static':
+    elif selected and selected.kind == 'shared' and not shared_enabled():
+        reason = 'Для общего сервера нужна подключённая PostgreSQL.'
+    elif settings.BRUNOHOST_PATH_MODE and selected and selected.kind not in {'static','shared'}:
         reason = 'По временным ссылкам доступны сайты без собственного сервера.'
     elif selected and selected.kind == 'django':
         reason = 'Публикация готовых Django-модулей ещё не подключена. Сейчас поддерживаются HTML-сайты и сайты с сервером модели.'
-    elif selected and selected.kind == 'generated' and not backend_allowed(startup.pk):
+    elif selected and selected.kind in {'generated', 'shared'} and not backend_allowed(startup.pk):
         reason = 'Публикация сайтов с сервером пока доступна только выбранным проектам беты.'
     elif selected and selected.kind == 'generated' and not hosting_runtime.enabled():
         reason = 'Для серверных сайтов ещё не подключён изолированный исполнитель BrunoHost.'
@@ -119,7 +123,10 @@ def manage(request, startup_id):
             info = context(startup, version)
             if not info['can_publish']:
                 raise BuilderError(info['reason'] or 'Эту версию пока нельзя опубликовать.')
-            if version.kind == 'generated':
+            if version.kind == 'shared':
+                from founder.services.shared_schema import validate
+                validate(version.shared_schema)
+            elif version.kind == 'generated':
                 validate_files(version.backend_files)
             else:
                 if version.builder_document:
@@ -136,7 +143,9 @@ def manage(request, startup_id):
         # startup lock prevents two random addresses from being allocated at once.
         root = Path(settings.BRUNOHOST_ROOT)
         root.mkdir(parents=True, exist_ok=True)
-        with file_lock(root / f'publish-{startup.pk}.lock'):
+        with file_lock(root / f'publish-{startup.pk}.lock'), transaction.atomic():
+            # Across app instances the database lock must precede the first slug lookup.
+            StartupProfile.objects.select_for_update().get(pk=startup.pk)
             site = HostedSite.objects.filter(startup=startup).first()
             if not site and action == 'stop':
                 return redirect(destination)
@@ -150,7 +159,6 @@ def manage(request, startup_id):
                 previous = HostedSite.objects.filter(pk=site.pk).select_related('version', 'startup').first() if site.pk else None
                 try:
                     with transaction.atomic():
-                        StartupProfile.objects.select_for_update().get(pk=startup.pk)
                         if action == 'stop':
                             site.active = False
                             hosting_runtime.stop(site)
@@ -158,11 +166,20 @@ def manage(request, startup_id):
                             site.version = version
                             site.active = True
                             site.published_at = timezone.now()
-                            if version.kind == 'generated':
+                            if previous and previous.version and (previous.version.kind == 'shared' and version.kind != 'shared' or
+                                    previous.version.kind == 'generated' and version.kind == 'shared'):
+                                raise BuilderError('Для смены типа опубликованного сайта нужен отдельный перенос данных. Предыдущая версия сохранена.')
+                            if version.kind == 'shared':
+                                from founder.services.shared_schema import activate
+                                activate(version, live=True)
+                            elif version.kind == 'generated':
                                 hosting_runtime.ensure(site)  # Health check before exposing the release.
                             else:
                                 hosting_runtime.stop(site)
                         site.save()
+                        if action == 'publish' and version.kind == 'shared':
+                            from founder.shared_api import check_release
+                            check_release(version, live=True)
                 except Exception:
                     # The previous release stays published if startup/import fails.
                     if previous and previous.active and previous.version and previous.version.kind == 'generated':
@@ -182,8 +199,8 @@ def manage(request, startup_id):
     return redirect(destination)
 
 
-def secured(response):
-    response['Content-Security-Policy'] = CSP
+def secured(response, *, generated=False):
+    response['Content-Security-Policy'] = CSP.replace("img-src 'self' data:;", "img-src 'self' data: blob:;") if generated else CSP
     response['X-Content-Type-Options'] = 'nosniff'
     response['X-Frame-Options'] = 'DENY'
     response['Referrer-Policy'] = 'no-referrer'
@@ -275,7 +292,7 @@ class HostedSiteMiddleware:
             return error_response(503, 'Сайт временно недоступен. Попробуйте позже.')
 
     def serve_path(self, request, base):
-        """Static-only path hosting: no sessions, no authenticated routes, opaque JS origin."""
+        """First-party shared apps use scoped sessions; static sites keep an opaque origin."""
         if not request.path.startswith('/sites/'):
             return self.get_response(request)
         if request.get_host() != base.netloc or (base.scheme == 'https' and not request.is_secure()):
@@ -286,6 +303,12 @@ class HostedSiteMiddleware:
         slug, path = match.groups()
         if not path:
             return secured(redirect(f'/sites/{slug}/'))
+        if HostedSite.objects.filter(slug=slug, active=True, version__kind='shared').exists():
+            # Only the first-party declarative renderer may use a non-opaque path origin.
+            try:
+                return self.serve(request, slug, shared_path=path)
+            except RequestLimitExceeded as error:
+                return error_response(429, str(error))
         if request.method not in {'GET', 'HEAD'}:
             return error_response(405, 'Это статический сайт.')
         if not HostedSite.objects.filter(slug=slug, active=True, version__kind='static').exists():
@@ -345,24 +368,34 @@ class HostedSiteMiddleware:
             response.content = b''
         return secured(response)
 
-    def serve(self, request, slug):
-        site = HostedSite.objects.select_related('version', 'startup__owner').filter(
+    def serve(self, request, slug, *, shared_path=None):
+        site = HostedSite.objects.select_related('version', 'startup__owner').defer('version__shared_schema').filter(
             slug=slug, active=True, version__isnull=False, startup__owner__is_active=True).first()
         if not site or site.version.startup_id != site.startup_id:
             return error_response(404, 'Сайт не опубликован или снят с публикации.')
+        if shared_path is not None and site.version.kind != 'shared':
+            return error_response(404, 'Версия сайта изменилась.')
+        if getattr(request, 'brunohost_prefix', '') and site.version.kind != 'static':
+            return error_response(404, 'Версия сайта изменилась.')
         if request.path.startswith('/__lab_'):
             return error_response(404, 'Страница не найдена.')
         if request.method not in {'GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'}:
             return error_response(405, 'Метод не поддерживается.')
-        if request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.headers.get('Origin') != site_url(site).rstrip('/'):
+        if request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.headers.get('Origin') != site_url(site).split('/sites/')[0].rstrip('/'):
             return error_response(403, 'Запрос с другого сайта отклонён.')
         consume_limit(f'host:{slug}:{request.META.get("REMOTE_ADDR", "")}', 180, 60)
         try:
             length = int(request.META.get('CONTENT_LENGTH') or '0')
         except ValueError:
             return error_response(400, 'Некорректный запрос.')
-        if not 0 <= length <= 1_000_000:
+        if not 0 <= length <= MAX_REQUEST_BYTES:
             return error_response(413, 'Запрос слишком большой.')
+        if site.version.kind == 'shared':
+            if not backend_allowed(site.startup_id):
+                return error_response(404, 'Сайт не опубликован.')
+            from founder.shared_api import serve
+            return serve(request, site.version, live=True, endpoint=(shared_path or request.path).lstrip('/'),
+                         root=f'/sites/{slug}/' if shared_path is not None else '/')
         if site.version.kind == 'static' and re.fullmatch(r'/assets/bruno-images/[0-9a-f-]{36}\.webp', request.path):
             if request.method not in {'GET', 'HEAD'}:
                 return error_response(405, 'Это статический сайт.')
@@ -394,6 +427,10 @@ class HostedSiteMiddleware:
             return secured(response)
         if site.version.kind != 'generated':
             return error_response(503, 'Этот тип приложения пока не поддерживается.')
+        # Bound the read separately from the platform's form-handling limits.
+        body = request.read(MAX_REQUEST_BYTES + 1)
+        if len(body) > MAX_REQUEST_BYTES:
+            return error_response(413, 'Запрос слишком большой.')
         with site_lock(site):
             # Recheck after waiting for an in-progress update/unpublication.
             site.refresh_from_db()
@@ -409,18 +446,13 @@ class HostedSiteMiddleware:
             cookie = '; '.join(item.strip() for item in request.headers.get('Cookie', '').split(';') if item.strip().startswith('lab_'))
             if cookie:
                 headers['Cookie'] = cookie
-            # Bound this read ourselves: platform form limits are deliberately
-            # smaller and must not turn a hosted JSON request into a debug page.
-            body = request.read(1_000_001)
-            if len(body) > 1_000_000:
-                return error_response(413, 'Запрос слишком большой.')
             try:
                 with hosting_runtime.client(state) as connection:
                     with connection.stream(request.method, hosting_runtime.target(state) + request.get_full_path(), content=body, headers=headers) as upstream:
                         chunks, size = [], 0
                         for chunk in upstream.iter_bytes():
                             size += len(chunk)
-                            if size > 4_000_000:
+                            if size > MAX_RESPONSE_BYTES:
                                 return error_response(502, 'Ответ сайта слишком большой.')
                             chunks.append(chunk)
                         response = HttpResponse(b''.join(chunks), status=upstream.status_code,
@@ -442,7 +474,7 @@ class HostedSiteMiddleware:
                                     expires=morsel['expires'] if not max_age else None)
                         if request.method == 'GET' and request.headers.get('Sec-Fetch-Dest', 'document') in {'document', 'iframe'}:
                             add_branding(response)
-                        return secured(response)
+                        return secured(response, generated=True)
             except httpx.HTTPError:
                 hosting_runtime.stop(site)
                 return error_response(503, 'Сайт временно недоступен. Попробуйте позже.')

@@ -201,6 +201,9 @@ class LabPromptForm(forms.Form):
     def __init__(self, *args, source=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.source = source
+        from founder.services.shared_schema import enabled as shared_enabled
+        if not shared_enabled() and not (source and source.kind == 'shared'):
+            self.fields['kind'].choices = [(code, label) for code, label in self.fields['kind'].choices if code != 'shared']
         if source:
             from founder.services.site_patches import fragments
             self.fields["edit_scope"].choices += [(part.key, part.label) for part in fragments(source.html)]

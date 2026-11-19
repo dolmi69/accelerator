@@ -6,7 +6,7 @@ class TelegramFrameMiddleware:
     def __call__(self, request):
         request.telegram_miniapp = True
         response = self.get_response(request)
-        if not request.path.startswith("/admin/"):
+        if not request.path.startswith("/admin/") and not getattr(response, 'brunohost_shared', False):
             response.headers.pop("X-Frame-Options", None)
             response["Content-Security-Policy"] = "frame-ancestors 'self' https://web.telegram.org;"
         return response

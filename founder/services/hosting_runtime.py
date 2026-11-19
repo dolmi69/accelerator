@@ -3,6 +3,7 @@
 macOS: deny-by-default sandbox. Linux: prebuilt container, no network, Unix
 socket transport. No unconfined subprocess fallback on unsupported machines.
 """
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -131,11 +132,14 @@ def ensure(site):
     if not enabled():
         raise BuilderError('Для серверного сайта нужен изолированный исполнитель BrunoHost. Сейчас он не подключён.')
     files = validate_files(site.version.backend_files)
+    worker_source = Path(__file__).with_name('generated_worker.py').read_bytes()
+    worker_revision = hashlib.sha256(worker_source).hexdigest()
     root = Path(settings.BRUNOHOST_ROOT)
     root.mkdir(parents=True, exist_ok=True)
     with file_lock(root / 'runtime.lock'):
         state = _read(site)
-        if healthy(state, site) and state['version'] == str(site.version_id):
+        if (state and state.get('worker_revision') == worker_revision
+                and state.get('version') == str(site.version_id) and healthy(state, site)):
             return state
         # Stop the old release before changing files; SQLite stays in app/data.
         _stop(site)
@@ -179,12 +183,12 @@ def ensure(site):
             file.write_text(content, encoding='utf-8')
         from founder.services.manual_assets import stage as stage_manual_assets
         stage_manual_assets(site.version, app)
-        shutil.copyfile(Path(__file__).with_name('generated_worker.py'), app / 'start.py')
+        (app / 'start.py').write_bytes(worker_source)
         _checked_database(database)
         if database.exists():
             with sqlite3.connect(f'{database.as_uri()}?mode=ro', uri=True) as source, sqlite3.connect(backup) as destination:
                 source.backup(destination)
-        state = {'slug': site.slug, 'version': str(site.version_id)}
+        state = {'slug': site.slug, 'version': str(site.version_id), 'worker_revision': worker_revision}
         try:
             if settings.BRUNOHOST_ENGINE == 'sandbox':
                 with socket.socket() as probe:

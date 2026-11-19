@@ -1,4 +1,5 @@
 """Backend generation contracts and real isolated SQLite persistence."""
+import base64
 import io
 import json
 from pathlib import Path
@@ -71,7 +72,9 @@ class GeneratedBackendTests(TestCase):
         response = {'changes':[{'file':'index.html','op':'replace','old':'<h1>Записи</h1>','new':'<h1>Записи</h1><button>Добавить</button>'}],'report':REPORT}
         with patch('founder.services.backend_edits.generate_code', return_value=CodeResult(json.dumps(response), 'test', 10, 20)) as api:
             result = generate_backend('Добавь кнопку', source=source, context={'edit_files':['index.html']})
-        self.assertEqual(json.loads(api.call_args.args[1][0]['content'])['previous_files']['app.py'], APP)
+        payload = json.loads(api.call_args.args[1][0]['content'])
+        self.assertEqual(payload['previous_files'], {'index.html': HTML})
+        self.assertEqual(payload['read_only_excerpts']['app.py'], APP)
         self.assertEqual(result.backend_files['app.py'], APP)
         self.assertIn('<button>Добавить</button>', result.text)
 
@@ -179,6 +182,51 @@ class GeneratedBackendTests(TestCase):
         parsed = urlsplit(url)
         return httpx.get(f'http://127.0.0.1:{parsed.port}/{path}', headers={'Host': parsed.netloc},
             timeout=timeout, trust_env=False)
+
+    @skipUnless(available(), 'macOS isolated runtime')
+    @override_settings(LAB_BACKEND_RUNTIME_ENABLED=True)
+    def test_preview_accepts_and_serves_five_mib_uploads(self):
+        app = """
+import base64
+import json
+
+def application(environ, start_response):
+    if environ['PATH_INFO'] == '/api/oversize':
+        picture = b'x' * (6 * 1024 * 1024 + 1)
+    else:
+        picture = base64.b64decode(json.load(environ['wsgi.input'])['photo'])
+    start_response('200 OK', [('Content-Type', 'image/png')])
+    return [picture]
+"""
+        with tempfile.TemporaryDirectory() as directory, override_settings(BASE_DIR=Path(directory)):
+            version = LabSiteVersion.objects.create(startup=self.startup, kind='generated', html=HTML,
+                backend_files={'index.html': HTML, 'app.py': app}, model='test')
+            try:
+                url = self.start_checked(version, directory)
+                state_file = Path(directory)/'.runtime/lab-backends'/str(self.startup.pk)/'generated-state.json'
+                state = json.loads(state_file.read_text())
+                state_file.write_text(json.dumps({**state, 'worker_revision': 'old'}))
+                url = self.start_checked(version, directory)
+                self.assertNotEqual(json.loads(state_file.read_text())['pid'], state['pid'])
+                parsed = urlsplit(url)
+                photo = b'x' * (5 * 1024 * 1024)
+                with httpx.Client(trust_env=False, base_url=f'http://127.0.0.1:{parsed.port}',
+                        headers={'Host': parsed.netloc, 'Origin': url.rstrip('/')}) as client:
+                    page = client.get('/')
+                    csp = page.headers['Content-Security-Policy']
+                    self.assertIn("img-src 'self' data: blob:;", csp)
+                    self.assertIn("script-src 'self' 'unsafe-inline';", csp)
+                    response = client.post('/api/photo', json={'photo': base64.b64encode(photo).decode('ascii')})
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.content, photo)
+                    self.assertEqual(client.get('/api/oversize').status_code, 500)
+                with socket.create_connection(('127.0.0.1', parsed.port), timeout=3) as request:
+                    request.sendall((f'POST /api/photo HTTP/1.1\r\nHost: {parsed.netloc}\r\n'
+                                     f'Origin: {url.rstrip("/")}\r\nContent-Length: 8388609\r\n\r\n').encode())
+                    with request.makefile('rb') as response:
+                        self.assertIn(b'413', response.readline())
+            finally:
+                stop_unlocked(self.startup.pk)
 
     @skipUnless(available(), 'macOS isolated runtime')
     @override_settings(LAB_BACKEND_RUNTIME_ENABLED=True)
