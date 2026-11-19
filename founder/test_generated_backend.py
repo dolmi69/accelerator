@@ -99,7 +99,8 @@ class GeneratedBackendTests(TestCase):
         version = SimpleNamespace(backend_files=FILES)
         with ZipFile(export_backend(version)) as archive:
             self.assertEqual(archive.read('site/app.py').decode(), APP)
-            self.assertIn('site/start.py', archive.namelist())
+            worker_source = Path(__file__).with_name('services') / 'generated_worker.py'
+            self.assertEqual(archive.read('site/start.py'), worker_source.read_bytes())
             self.assertFalse(any('.sqlite' in name or '.env' in name for name in archive.namelist()))
 
     @override_settings(LAB_BACKEND_RUNTIME_ENABLED=True, ALLOWED_HOSTS=['127.0.0.1', 'demo.example'])

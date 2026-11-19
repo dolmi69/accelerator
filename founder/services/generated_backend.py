@@ -128,7 +128,7 @@ def export_backend(version):
         if getattr(version, 'presentation', {}).get('manual_assets'):
             for name, content in binaries(version).items():
                 archive.writestr('site/' + name, content)
-        archive.writestr('site/start.py', Path(__file__).with_name('generated_worker.py').read_text())
+        archive.writestr('site/start.py', Path(__file__).with_name('generated_worker.py').read_bytes())
         archive.writestr('site/README.txt', 'Python 3.11+ (без pip). Запуск: python start.py\nОткройте http://127.0.0.1:8099/\nДанные: data/data.sqlite3. Архив содержит исходники, без базы и секретов.\nЭто локальный тестовый сервер. Перед публичным размещением нужен отдельный аудит приложения.\n')
     stream.seek(0)
     return stream
