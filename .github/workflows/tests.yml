@@ -26,6 +26,25 @@ jobs:
         run: python manage.py test founder payments
       - name: Тесты экспортируемого сайта
         run: python manage.py test_blueprint
+      - name: Первый локальный запуск с PostgreSQL
+        if: runner.os == 'Linux'
+        run: |
+          python manage.py migrate --noinput
+          python manage.py shell -c "from founder.models import User, StartupProfile; u=User.objects.create_user('migration-check', email='migration-check@example.test'); StartupProfile.objects.create(owner=u, name='Existing project')"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from start_local_database import local_database_env, manage
+
+          base = Path.cwd()
+          env = local_database_env(base, dict(os.environ), 8000)
+          assert env["DATABASE_URL"].startswith("postgresql://")
+          assert env["BRUNOHOST_SHARED_ENABLED"] == "1"
+          assert (base / ".runtime" / "local-postgres" / "ready").exists()
+          manage(base, env, "shell", "-c",
+                 "from founder.models import StartupProfile; assert StartupProfile.objects.filter(name='Existing project', owner__username='migration-check').exists()")
+          assert local_database_env(base, dict(os.environ), 8000)["DATABASE_URL"] == env["DATABASE_URL"]
+          PY
 
   javascript:
     strategy:

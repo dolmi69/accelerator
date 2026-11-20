@@ -11,6 +11,7 @@ from urllib.request import ProxyHandler, build_opener
 import webbrowser
 
 from start_shared_events import ensure_shared_events
+from start_local_database import local_database_env
 
 BASE = Path(__file__).resolve().parent
 
@@ -29,6 +30,7 @@ def main():
         check.bind(('127.0.0.1', args.port))  # do not migrate/open somebody else's server
     ensure_shared_events()
     env = {**os.environ, 'PYTHONUTF8': '1', 'PYTHONIOENCODING': 'utf-8'}
+    env = local_database_env(BASE, env, args.port)
     subprocess.run([sys.executable, 'manage.py', 'migrate', '--noinput'], cwd=BASE, env=env, check=True)
     process = subprocess.Popen([sys.executable, 'manage.py', 'runserver',
                                 f'127.0.0.1:{args.port}', '--noreload'], cwd=BASE, env=env)
