@@ -378,7 +378,7 @@ class LabAIUsage(models.Model):
     startup = models.ForeignKey(StartupProfile, on_delete=models.SET_NULL, null=True, blank=True)
     version = models.ForeignKey(LabSiteVersion, on_delete=models.SET_NULL, null=True, blank=True)
     model = models.CharField(max_length=100)
-    operation = models.CharField(max_length=20, default="code")
+    operation = models.CharField(max_length=64, default="code")
     status = models.CharField(max_length=20, default="reserved")
     input_bound = models.PositiveIntegerField()
     output_limit = models.PositiveIntegerField()
