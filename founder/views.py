@@ -20,7 +20,7 @@ from django.views.decorators.cache import never_cache
 from founder.forms import ChatSendForm, EvidenceForm, IdeaCardForm, MetricsForm, RegisterForm, StartupForm
 from founder.models import (
     BrunoTask, BusinessAxis, ChatAttachment, ChatMessage, ChatSession, EvidenceConversation, IdeaRound, MascotState, MentorIdea, MessageFeedback,
-    PanelVerdict, PitchReport, ProjectPicture, CoinTransaction,
+    PanelVerdict, PitchReport, ProjectPicture, StartupProfile, CoinTransaction,
 )
 from founder.services import ideas as idea_service, local_mentor, mentor
 from founder.services.access import get_startup, has_team, join_requests_for, pending_invites
@@ -35,7 +35,7 @@ from founder.services import funding, panel
 from founder.services.pitch import finish_pitch
 from founder.services.radar_assessment import assess_startup
 from founder.services import activity
-from founder.services.coins import CHAT_MIN_LENGTH, award, balance, coins_note
+from founder.services.coins import CHAT_MIN_LENGTH, award, balance, coins_note, streak
 from founder.services.achievements import achievement_cards, award_achievements
 from founder.services.profile import evidence_display, grid_context, history_context, project_cards
 from founder.services.dashboard import workspace_context
@@ -54,38 +54,9 @@ def register(request):
     return render(request, "registration/register.html", {"form": form})
 
 
-# Пример для «О проекте»: радар дорисовывается от первой оценки к текущей. Меняются только направления,
-# по которым в журнале есть доказательство, как и в настоящем проекте. Данные подписаны на странице как пример.
-ABOUT_RADAR_FIRST = {"product": 22, "market": 18, "finance": 10, "team": 30, "pitch": 26}
-ABOUT_RADAR_NOW = {"product": 48, "market": 41, "finance": 24, "team": 30, "pitch": 26}
-
-
-def _about_radar():
-    class Scores:
-        def __init__(self, values):
-            self.__dict__.update(values)
-
-    label_positions = [(110, 8, "middle"), (203, 82, "start"),
-                       (169, 196, "middle"), (51, 196, "middle"), (17, 82, "end")]
-    axes = []
-    for (key, label), (x, y, anchor) in zip(AXES, label_positions):
-        lines = label.split(" ", 1) if anchor != "middle" else [label]
-        axes.append({"key": key, "label_x": x, "label_y": y, "label_anchor": anchor, "label_lines": lines,
-                     "first": ABOUT_RADAR_FIRST[key], "now": ABOUT_RADAR_NOW[key],
-                     "delta": ABOUT_RADAR_NOW[key] - ABOUT_RADAR_FIRST[key]})
-    return {
-        **{f"radar_grid_{size}": radar_grid(size) for size in (25, 50, 75, 100)},
-        "first_points": radar_points(Scores(ABOUT_RADAR_FIRST)),
-        "now_points": radar_points(Scores(ABOUT_RADAR_NOW)),
-        "first_score": round(sum(ABOUT_RADAR_FIRST.values()) / len(AXES)),
-        "now_score": round(sum(ABOUT_RADAR_NOW.values()) / len(AXES)),
-        "axes": axes,
-    }
-
-
 @require_GET
 def about(request):
-    return render(request, "founder/about.html", {"about_radar": _about_radar()})
+    return render(request, "founder/about.html")
 
 
 def home(request):
@@ -96,8 +67,15 @@ def home(request):
     invites = list(pending_invites(request.user))
     if not cards and not invites:
         return redirect("startup_create")
+    # Сводка в шапке страницы: сколько проектов, у скольких есть оценка, лучший общий балл, сколько опубликовано.
+    scores = [card["latest"].overall_score for card in cards if card["latest"]]
+    summary = {
+        "total": len(cards), "assessed": len(scores), "best": max(scores) if scores else None,
+        "published": sum(1 for card in cards if card["published"]),
+    }
     return render(request, "founder/projects.html", {
-        "project_cards": cards, "invites": invites, "join_requests": list(join_requests_for(request.user)),
+        "project_cards": cards, "summary": summary,
+        "invites": invites, "join_requests": list(join_requests_for(request.user)),
         **grid_context(),
     })
 
@@ -334,6 +312,23 @@ def dashboard(request, startup_id):
     )
     from founder.services.daily_plan import display as display_daily_plan
     context['daily_focus'] = display_daily_plan(startup, can_edit=startup.user_role != 'viewer')
+    # Игровая полоса над радаром: серия дней, монеты, достижения, задачи.
+    context['game'] = {
+        'streak': streak(request.user),
+        'earned': sum(1 for badge in context['achievements'] if badge.get('earned_at')),
+        'total': len(context['achievements']),
+    }
+    # Самое слабое направление радара: под диаграммой предлагаем заняться им в первую очередь.
+    scored = [row for row in context['radar_rows'] if row.get('score') is not None]
+    context['weakest'] = min(scored, key=lambda row: row['score']) if scored and context.get('radar_is_latest') else None
+    # Путь проекта по стадиям: пройденные, текущая (на ней стоит Бруно), следующие.
+    stage_values = [value for value, _ in StartupProfile.Stage.choices]
+    current = stage_values.index(startup.stage) if startup.stage in stage_values else 0
+    context['game']['stages'] = [
+        {'label': label, 'state': 'done' if index < current else 'current' if index == current else 'next'}
+        for index, (_, label) in enumerate(StartupProfile.Stage.choices)
+    ]
+    context['game']['stage_progress'] = round(100 * current / max(1, len(stage_values) - 1))
     return render(request, "founder/dashboard.html", context)
 
 

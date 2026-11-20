@@ -100,6 +100,17 @@
             {% endfor %}
         </ul>
     </div>
+    {% if weakest and startup.user_role != 'viewer' %}
+        <form class="radar-next" method="post" action="{% url 'chat_refine' startup.id weakest.key %}">
+            {% csrf_token %}
+            <div>
+                <span class="radar-next-label">С чего начать</span>
+                <strong>{{ weakest.label }}: {{ weakest.score }} из 100, меньше всего доказательств</strong>
+                {% if weakest.reason %}<p>{{ weakest.reason|truncatechars:150 }}</p>{% endif %}
+            </div>
+            <button class="button primary" type="submit">Разобрать с Бруно</button>
+        </form>
+    {% endif %}
     {% if history_selected %}
         <p class="muted small radar-note">
             Баллы показывают, сколько у проекта доказательств, и ничего не говорят о том, хороша ли идея.
