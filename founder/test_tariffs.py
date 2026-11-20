@@ -26,7 +26,7 @@ class TariffViewTests(TestCase):
     def test_tariffs_page_shows_price(self):
         resp = self.client.get("/tariffs/")
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, '350 ₽ <span class="plan-per">за 30 дней</span>', html=True)
+        self.assertContains(resp, '<p class="plan-price">350 ₽<span class="plan-per">за 30 дней</span></p>', html=True)
         self.assertContains(resp, 'Один запрос на первую сборку')
 
     def test_test_pay_activates_pro(self):

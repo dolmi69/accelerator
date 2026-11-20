@@ -21,10 +21,10 @@ from founder.services import market as market_service
 from founder.services.ai import AIServiceError
 from founder.services.funding import INVESTORS, KIND_LABELS, KINDS, founder_funding
 from founder.services.panel import ORDER as SHARK_ORDER, audience_of, audience_view, shark_info
-from founder.services.access import assignable_users, get_startup, has_team
+from founder.services.access import assignable_users, get_startup
 from founder.services import activity
 from founder.services.coins import award, coins_note
-from founder.services.review import create_review, context_digest, guess_axis, step_to_task, populate_tasks, task_priorities
+from founder.services.review import create_review, context_digest, guess_axis, step_to_task, populate_tasks
 from founder.services.readiness import readiness_context
 
 

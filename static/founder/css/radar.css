@@ -1,7 +1,7 @@
 .radar-dashboard { align-items:stretch; }
 .unified-radar { min-width:0; scroll-margin-top:24px; }
 .unified-radar-body { display:flex; flex-wrap:wrap; align-items:center; gap:24px 32px; margin:24px 0 16px; }
-.radar-chart-column { flex:1 1 260px; max-width:340px; margin:0 auto; }
+.radar-chart-column { flex:1.15 1 280px; max-width:380px; margin:0 auto; }
 .interactive-radar-chart { position:relative; width:100%; }
 .interactive-radar-chart .radar-svg { display:block; overflow:visible; }
 .radar-point,.radar-axis-label { cursor:pointer; outline:none; }
@@ -107,7 +107,7 @@
 .team-preview-member { display:flex; align-items:center; gap:12px; padding:10px 0; text-decoration:none; color:var(--ink); }
 .team-preview-member strong { font-size:16px; }
 .team-preview-member small { display:block; font-size:13px; color:var(--muted); margin-top:4px; }
-.team-preview-member>span:last-child { color:var(--muted); margin-left:auto; }
+.team-preview-member>span:last-child { min-width:0; overflow-wrap:anywhere; }
 .team-preview-member .member-avatar { width:38px; height:38px; flex:0 0 38px; }
 .radar-secondary { display:grid; gap:12px; margin-top:28px; }
 .radar-fold { padding:0 24px; }
@@ -289,10 +289,16 @@ body:has(.radar-home) .bruno-pet { display:none; }
 
 .daily-focus-card { display:flex; flex-direction:column; }
 .daily-focus-card .module-heading { margin-bottom:12px; }
-.daily-focus-content { display:flex; flex:1; align-items:center; gap:18px; }
+.daily-focus-content { display:flex; flex:1; align-items:flex-start; gap:18px; }
 .daily-focus-plan { flex:1; min-width:0; }
 .daily-focus-summary { margin:0 0 18px; color:var(--muted); font-size:13px; line-height:1.7; }
-.daily-focus-empty-title { margin:8px 0 12px; font-size:20px; line-height:1.35; }
+.daily-focus-empty-title { margin:0 0 8px; font-size:20px; line-height:1.35; text-wrap:balance; }
+/* Пустой план — незаполненная страница тетради: пунктир 1 px вместо пустого поля посреди карточки. */
+.daily-focus-empty { padding:20px; border:1px dashed var(--line-strong); border-radius:10px; }
+.daily-focus-empty .daily-focus-summary { margin-bottom:8px; }
+.daily-focus-empty .muted { margin:0; }
+.daily-focus-card:has(.daily-focus-empty) .daily-focus-content { flex:0 0 auto; }
+.daily-focus-card:has(.daily-focus-empty) .daily-focus-refresh { margin-top:16px; padding-top:0; border-top:0; }
 .daily-focus-mascot { flex:0 0 150px; align-self:end; }
 .daily-focus-mascot .bruno-art { width:150px; max-width:100%; margin:0; }
 .daily-focus-mascot .bruno-greet { display:none; }
@@ -382,8 +388,10 @@ body:has(.radar-home) .bruno-pet { display:none; }
 .radar-axis-delta { color:var(--muted); font-size:13px; font-weight:600; white-space:nowrap; transition:opacity .25s ease-out; }
 .radar-axis-delta.positive { color:var(--fact); }
 .radar-axis-delta.negative { color:var(--danger); }
-/* Узкий экран: метка уходит под название, балл справа на две строки. */
-@media(max-width:480px) {
+/* Узкий список (телефон или колонка рядом с радаром на компьютере): метка уходит под комментарий,
+   балл справа на две строки. Иначе метка съедает ширину и комментарий Бруно обрезается на полуслове. */
+.radar-axis-list { container-type:inline-size; }
+@container (max-width:440px) {
   .radar-axis-row { grid-template-columns:minmax(0,1fr) auto; }
   .radar-chip { grid-row:2; grid-column:1; justify-self:start; }
   .radar-axis-score { grid-row:1 / span 2; grid-column:2; }

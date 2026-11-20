@@ -1,5 +1,5 @@
 /* Монеты, продвижение и команда проекта. */
-.coin-chip { display:inline-flex; align-items:center; gap:4px; padding:7px 12px; border-radius:16px; background:var(--cream); color:var(--cocoa); font-size:13px; font-weight:800; }
+.coin-chip { display:inline-flex; align-items:center; gap:4px; padding:7px 12px; border-radius:999px; background:var(--cream); color:var(--cocoa); font-size:13px; font-weight:800; }
 .topnav .coin-chip:hover { color:var(--cocoa); background:var(--cream); }
 .coin-balance-big { display:inline-flex; align-items:center; gap:10px; padding:14px 22px; border-radius:16px; background:var(--cream); color:var(--cocoa); font-family:Manrope,sans-serif; font-size:31px; }
 .coin-balance-big strong { font-weight:800; }
@@ -52,6 +52,8 @@
 .wardrobe-layout { display:grid; grid-template-columns:minmax(220px,320px) 1fr; gap:20px; align-items:start; }
 .wardrobe-stage { position:sticky; top:20px; padding:24px; text-align:center; }
 .wardrobe-stage .bruno-art { width:260px; }
+/* Пояснение под Бруно длиннее трёх строк: по центру его тяжело читать, поэтому выравнивание по левому краю. */
+.wardrobe-stage p { text-align:left; }
 .wardrobe-shelves { display:grid; gap:16px; }
 .wardrobe-item.is-worn strong::after { content:" · надето"; color:var(--teal); font-weight:700; font-size:13px; }
 @media (max-width:760px) { .wardrobe-layout { grid-template-columns:1fr; } .wardrobe-stage { position:static; } }

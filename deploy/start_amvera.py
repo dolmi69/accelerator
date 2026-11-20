@@ -24,5 +24,10 @@ if not os.environ.get("DATABASE_URL") and database.exists():
     with sqlite3.connect(str(database)) as source, sqlite3.connect(str(backup_dir / f"before-migrate-{stamp}.sqlite3")) as target:
         source.backup(target)
     print("Database backup saved before migrations.", flush=True)
+    # A copy is made on every container start (deploys and restarts), so old copies would fill /data.
+    # Keep the newest ones; names sort by their UTC timestamp.
+    keep = max(1, int(os.environ.get("BRUNOLAB_KEEP_BACKUPS", "20")))
+    for old in sorted(backup_dir.glob("before-migrate-*.sqlite3"))[:-keep]:
+        old.unlink(missing_ok=True)
 subprocess.run([sys.executable, "manage.py", "migrate", "--noinput"], check=True)
 os.execvp("daphne", ["daphne", "-b", "0.0.0.0", "-p", "8080", "config.asgi:application"])

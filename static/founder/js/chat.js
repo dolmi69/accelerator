@@ -47,7 +47,19 @@
     node.classList.add("is-new");
     const avatar = document.createElement("div");
     avatar.className = "message-avatar";
-    avatar.textContent = role === "user" ? "В" : "Б";
+    // Как в разметке сервера: у основателя первая буква имени, у Бруно медведь. Иначе после перезагрузки аватар меняется.
+    if (role === "user") {
+      avatar.textContent = list.dataset.userInitial || "В";
+    } else if (list.dataset.brunoAvatar) {
+      const bear = document.createElement("img");
+      bear.src = list.dataset.brunoAvatar;
+      bear.width = 26;
+      bear.height = 26;
+      bear.alt = "";
+      avatar.append(bear);
+    } else {
+      avatar.textContent = "Б";
+    }
     const body = document.createElement("div");
     body.className = "message-body";
     const meta = document.createElement("div");

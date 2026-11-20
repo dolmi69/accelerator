@@ -23,6 +23,20 @@ class BrunoPetTests(TestCase):
         self.assertContains(response, reverse('chat_detail', args=[self.project.pk, chat.pk]))
         self.assertEqual(ChatSession.objects.count(), 2)
 
+    def test_inside_the_project_pet_does_not_invite_back_to_it(self):
+        response = self.client.get(reverse('dashboard', args=[self.project.pk]))
+        self.assertTrue(response.context['bruno_pet']['here'])
+        self.assertNotContains(response, 'К вашему проекту?')
+        self.assertContains(response, 'Открыть радар проекта My project')
+        self.assertContains(self.client.get(reverse('home')), 'К вашему проекту?')
+
+    def test_project_list_note_points_to_the_weakest_axis_when_radar_exists(self):
+        from founder.models import StartupMetrics
+        StartupMetrics.objects.create(startup=self.project, product=40, market=30, finance=6, team=20, pitch=25)
+        response = self.client.get(reverse('home'))
+        self.assertContains(response, 'Слабее всего сейчас «Экономика»: 6\u00a0из\u00a0100.')
+        self.assertNotContains(response, 'Оценки пока нет')
+
     def test_stale_foreign_project_is_never_exposed(self):
         foreign = StartupProfile.objects.create(owner=self.other, name='Private project')
         session = self.client.session

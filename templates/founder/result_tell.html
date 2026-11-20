@@ -3,7 +3,7 @@
 {% block title %}Расскажите Бруно · {{ startup.name }}{% endblock %}
 {% block extra_css %}
     <link rel="stylesheet"
-          href="{% static 'founder/css/project-history.css' %}?v=redesign-1">
+          href="{% static 'founder/css/project-history.css' %}?v=front-20261104">
 {% endblock %}
 {% block content %}
     {% include 'founder/_workspace_nav.html' %}
@@ -11,7 +11,6 @@
         <a class="history-back" href="{% url 'evidence_list' startup.id %}">← История проекта</a>
         <header class="history-heading">
             <div>
-                <span class="eyebrow">Сохраним ваш следующий шаг</span>
                 <h1>
                     {% if task %}
                         Записать решение

@@ -1,4 +1,4 @@
-// Заставка: Бруно доходит до середины (CSS, 0,8 с), останавливается и машет. Клик или клавиша показывают итог сразу.
+// Заставка: Бруно доходит до середины (CSS, 1,2 с), останавливается и машет. Клик или клавиша показывают итог сразу.
 (() => {
   const root = document.documentElement;
   const scene = document.querySelector('[data-welcome]');
@@ -6,7 +6,7 @@
   if (!bear) return;
   const wave = animate => window.Bruno?.pose('wave', bear, {animate, base: true});
   if (root.classList.contains('welcome-static')) { wave(false); return; }
-  const arrive = setTimeout(() => wave(true), 800);
+  const arrive = setTimeout(() => wave(true), 1200);
   const skip = () => {
     clearTimeout(arrive);
     root.classList.add('welcome-static');
@@ -17,5 +17,5 @@
   setTimeout(() => {
     window.removeEventListener('keydown', skip);
     scene.removeEventListener('pointerdown', skip);
-  }, 1800);
+  }, 2300);
 })();

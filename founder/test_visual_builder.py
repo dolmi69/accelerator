@@ -54,6 +54,12 @@ class VisualBuilderTests(TestCase):
         document['pages'].insert(1, {'id':'about-page','title':'О проекте','slug':'about','description':'Наша история','blocks':[builder.new_block('text')]})
         return document
 
+    def test_customize_form_sends_builder_versions_back_to_the_builder(self):
+        version=self.version()
+        response=self.client.post(reverse('lab_customize', args=[self.startup.pk]), {'source_version':version.pk,'palette':'blue'})
+        self.assertRedirects(response, self.url('')+f'?version={version.pk}', fetch_redirect_response=False)
+        self.assertEqual(self.startup.lab_versions.count(), 1)
+
     def test_starter_has_editable_pages_working_local_links_and_no_required_uploads(self):
         document=builder.validate_document(self.document)
         self.assertEqual([p['slug'] for p in document['pages']], ['', 'features', 'guide'])

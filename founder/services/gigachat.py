@@ -1,7 +1,6 @@
 """GigaChat REST API: OAuth, TLS и потоковые ответы без Python SDK."""
 
 import hashlib
-import json
 import os
 import ssl
 import threading

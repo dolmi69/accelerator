@@ -57,22 +57,10 @@
                     {% if history_first_points %}<polygon points="{{ history_first_points }}" class="radar-previous radar-first" />{% endif %}
                     {% if history_points %}<polygon points="{{ history_points }}" class="radar-value" data-now="{{ history_points }}" data-first="{{ history_first_points }}" />{% endif %}
                     {% for row in radar_rows %}
-                        <g class="radar-axis-label" data-radar-axis="{{ row.key }}" data-label="{{ row.label }}" data-score="{{ row.score|default_if_none:'—' }}" role="button" tabindex="0" aria-label="{{ row.label }}:
-                        {% if row.score is not None %}
-                            {{ row.score }} из 100
-                        {% else %}
-                            нет оценки
-                        {% endif %}
-                        . Открыть комментарий" aria-controls="radar-detail-{{ row.key }}" aria-expanded="false" aria-haspopup="dialog">
+                        <g class="radar-axis-label" data-radar-axis="{{ row.key }}" data-label="{{ row.label }}" data-score="{{ row.score|default_if_none:'—' }}" role="button" tabindex="0" aria-label="{{ row.label }}: {% if row.score is not None %}{{ row.score }} из 100{% else %}нет оценки{% endif %}. Открыть комментарий" aria-controls="radar-detail-{{ row.key }}" aria-expanded="false" aria-haspopup="dialog">
                         <text x="{{ row.label_x }}" y="{{ row.label_y }}" text-anchor="{{ row.label_anchor }}">{% for line in row.label_lines %}<tspan x="{{ row.label_x }}" dy="{% if not forloop.first %}1.2em{% elif row.label_lines|length > 1 %}-0.5em{% else %}0{% endif %}">{{ line }}</tspan>{% endfor %}</text>
                         </g>
-                        <g class="radar-point" data-radar-axis="{{ row.key }}" data-label="{{ row.label }}" data-score="{{ row.score|default_if_none:'—' }}" role="button" tabindex="0" aria-label="{{ row.label }}:
-                        {% if row.score is not None %}
-                            {{ row.score }} из 100
-                        {% else %}
-                            нет оценки
-                        {% endif %}
-                        . Открыть комментарий" aria-controls="radar-detail-{{ row.key }}" aria-expanded="false" aria-haspopup="dialog">
+                        <g class="radar-point" data-radar-axis="{{ row.key }}" data-label="{{ row.label }}" data-score="{{ row.score|default_if_none:'—' }}" role="button" tabindex="0" aria-label="{{ row.label }}: {% if row.score is not None %}{{ row.score }} из 100{% else %}нет оценки{% endif %}. Открыть комментарий" aria-controls="radar-detail-{{ row.key }}" aria-expanded="false" aria-haspopup="dialog">
                         <circle cx="{{ row.x }}" cy="{{ row.y }}" r="18" class="radar-point-hit" data-now="{{ row.x }},{{ row.y }}" data-first="{{ row.first_x }},{{ row.first_y }}" />
                         <circle cx="{{ row.x }}" cy="{{ row.y }}" r="4" class="radar-point-dot" data-now="{{ row.x }},{{ row.y }}" data-first="{{ row.first_x }},{{ row.first_y }}" />
                         </g>

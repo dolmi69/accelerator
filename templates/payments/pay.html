@@ -5,7 +5,7 @@
 <section class="pay-card-wrap">
   <div class="pay-card" id="invoice-card" data-status-url="{% url 'invoice_status' invoice.id %}"
        data-confirmations="{{ required }}">
-    <span class="eyebrow">СЧЁТ {{ invoice.order_id }}</span>
+    <span class="eyebrow">Счёт {{ invoice.order_id }}</span>
     <h1>{{ invoice.amount_expected_text }} USDT</h1>
     {% if invoice.description %}<p class="pay-lead">{{ invoice.description }}</p>{% endif %}
 
@@ -31,13 +31,13 @@
 </section>
 <style>
   .pay-card-wrap { max-width: 520px; margin: 32px auto; padding: 0 16px; }
-  .pay-card { background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:28px;
+  .pay-card { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:28px;
               box-shadow:0 12px 40px rgba(18,35,56,.06); text-align:center; }
   .pay-card h1 { margin:.2em 0 .4em; font-size:25px; }
   .pay-lead { color:var(--muted); margin-bottom:16px; }
   .pay-qr { margin:12px auto; }
-  .pay-qr img { border-radius:12px; }
-  .pay-label { font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+  .pay-qr img { border-radius:10px; }
+  .pay-label { font-size:13px; font-weight:600; color:var(--muted); margin-bottom:6px; }
   .pay-address { display:block; word-break:break-all; background:var(--surface-2); border-radius:10px;
                  padding:10px 12px; font-size:16px; }
   .pay-badge { display:inline-block; padding:6px 14px; border-radius:999px; font-weight:600; margin-top:12px; }

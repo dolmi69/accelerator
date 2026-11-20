@@ -33,13 +33,13 @@ def project_cards(user):
             "startup": startup, "latest": latest, "points": radar_points(latest) if latest else "",
             "role": role, "role_label": ROLE_LABELS[role] if startup.is_shared else "",
             "published": startup.id in published,
-            "note": _bruno_note(startup),
+            "note": _bruno_note(startup, latest),
             "axes": [(label, getattr(latest, key, None)) for key, label in AXES],
         })
     return cards
 
 
-def _bruno_note(startup):
+def _bruno_note(startup, latest=None):
     """Заметка Бруно на полях списка проектов: последний вывод талисмана о проекте."""
     try:
         state = startup.mascot_state
@@ -47,6 +47,12 @@ def _bruno_note(startup):
         state = None
     if state and state.reason:
         return {"text": state.reason, "date": state.updated_at}
+    if latest:
+        # Радар уже есть, а вывода Бруно нет: подсказываем самое слабое направление, а не «оценки пока нет».
+        key, label = min(AXES, key=lambda axis: getattr(latest, axis[0]))
+        return {"text": f"Слабее всего сейчас «{label}»: {getattr(latest, key)}\u00a0из\u00a0100. "
+                        "Откройте проект, и Бруно подскажет, с чего начать проверку.",
+                "date": latest.assessed_at}
     return {"text": "Оценки пока нет. Расскажите Бруно, кто будет платить и сколько, и он соберёт первый радар.",
             "date": None}
 

@@ -213,15 +213,7 @@
 
 .radar-work-summary > .evidence-link { display:inline-block; margin-top:10px; }
 
-/* Переходы между разделами проекта (View Transitions между документами). Файл подключается только
-   на страницах проекта, поэтому переход действует внутри проекта. Шапка и меню разделов стоят на месте,
-   плавно меняется только содержимое. Замер 2026-10-27 — DESIGN.md → Движение. */
+/* Переходы между разделами проекта: общий View Transition задан в app.css, здесь на месте остаётся ещё и меню разделов. */
 @media (prefers-reduced-motion:no-preference) {
-  @view-transition { navigation:auto; }
-  .topbar { view-transition-name:topbar; }
   .project-sidebar { view-transition-name:project-sidebar; }
-  ::view-transition-old(root) { animation:160ms ease-in both vt-fade-out; }
-  ::view-transition-new(root) { animation:240ms cubic-bezier(.2,.7,.2,1) both vt-fade-in; }
 }
-@keyframes vt-fade-out { to { opacity:0; } }
-@keyframes vt-fade-in { from { opacity:0; transform:translateY(6px); } }

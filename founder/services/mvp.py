@@ -4,8 +4,7 @@ from decimal import Decimal
 
 from founder.services.kano_availability import enabled as kano_enabled
 from django.db import transaction
-from django.utils import timezone
-from founder.models import FeatureCandidate, KanoResponse, BrunoTask, EvidenceEntry, StartupProfile
+from founder.models import BrunoTask, EvidenceEntry, StartupProfile
 
 KANO_TABLE = (
     ('Q','A','A','A','O'),

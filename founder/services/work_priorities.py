@@ -4,7 +4,7 @@ from urllib.parse import urlencode
 from founder.services.kano_availability import enabled as kano_enabled
 from django.urls import reverse
 
-from founder.models import BrunoTask, TaskEstimate
+from founder.models import TaskEstimate
 from founder.services import mvp
 from founder.services.priority_estimates import resolve_estimate
 

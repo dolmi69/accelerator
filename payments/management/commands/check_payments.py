@@ -23,7 +23,8 @@ class Command(BaseCommand):
             stats = check_all()
             line = (
                 f"{datetime.now():%Y-%m-%d %H:%M:%S} "
-                f"checked={stats['checked']} paid={stats['paid']} errors={stats['errors']}"
+                f"checked={stats['checked']} paid={stats['paid']} errors={stats['errors']} "
+                f"ambiguous={stats.get('ambiguous', 0)}"
             )
         except Exception as exc:  # noqa: BLE001 — поллер не должен падать молча
             line = f"{datetime.now():%Y-%m-%d %H:%M:%S} ERROR {type(exc).__name__}: {exc}"

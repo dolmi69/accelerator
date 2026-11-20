@@ -10,7 +10,6 @@ import uuid
 from html import escape
 from urllib.parse import urlsplit
 
-from django.urls import reverse
 from founder.services import free_canvas
 
 MAX_DOCUMENT_BYTES = 200_000

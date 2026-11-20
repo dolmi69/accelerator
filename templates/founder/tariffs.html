@@ -2,37 +2,38 @@
 {% block title %}Тарифы · BrunoLab{% endblock %}
 {% block content %}
 <section class="plans-wrap">
-  <span class="eyebrow">Тарифы</span>
-  <h1>Free и Pro</h1>
+  <h1>Тарифы</h1>
   <p class="plans-lead">Pro действует {{ pro_days }} дней. В начале нового периода начисляется новый запас токенов.</p>
 
   <div class="plans-grid">
-    <article class="plan-card">
-      <h2>Free</h2>
-      <p class="plan-price">0 ₽</p>
-      <ul>
-        {% if free_quota %}<li>До {{ free_quota }} сохранённых AI-правок в день</li>{% endif %}
-        <li>Бруно, радар, задания, питч, лаборатория</li>
+    <article class="plan-card{% if not is_pro %} is-current{% endif %}">
+      <div class="plan-head">
+        <h2>Free</h2>
+        {% if not is_pro %}<span class="plan-tag">Ваш тариф</span>{% endif %}
+      </div>
+      <p class="plan-price">0&nbsp;₽</p>
+      <ul class="plan-features">
+        {% if free_quota %}<li>{% include 'founder/_icon.html' with name='check' %}До {{ free_quota }} сохранённых AI-правок в день</li>{% endif %}
+        <li>{% include 'founder/_icon.html' with name='check' %}Бруно, радар, задания, питч и лаборатория</li>
       </ul>
-      {% if not is_pro %}<p class="plan-current">Ваш текущий тариф</p>{% endif %}
     </article>
 
-    <article class="plan-card plan-card--pro">
-      <h2>Pro <span class="plan-tag">PRO</span></h2>
-      <p class="plan-price">{{ price_rub }} ₽ <span class="plan-per">за {{ pro_days }} дней</span></p>
-      <ul>
-        <li>Один запрос на первую сборку сайта включён отдельно</li>
-        <li>{{ plan_units|floatformat:"0g" }} токенов лаборатории на период</li>
-        <li>Сложные задачи расходуют больше токенов. Остаток виден в лаборатории.</li>
+    <article class="plan-card plan-card--pro{% if is_pro %} is-current{% endif %}">
+      <div class="plan-head">
+        <h2>Pro</h2>
+        {% if is_pro %}<span class="plan-tag">Активен до {{ pro_until|date:"d.m.Y" }}</span>{% endif %}
+      </div>
+      <p class="plan-price">{{ price_rub }}&nbsp;₽<span class="plan-per">за {{ pro_days }} дней</span></p>
+      <ul class="plan-features">
+        <li>{% include 'founder/_icon.html' with name='check' %}Один запрос на первую сборку сайта включён отдельно</li>
+        <li>{% include 'founder/_icon.html' with name='check' %}{{ plan_units|floatformat:"0g" }} токенов лаборатории на период</li>
+        <li>{% include 'founder/_icon.html' with name='check' %}Сложные задачи расходуют больше токенов. Остаток виден в лаборатории.</li>
       </ul>
-      {% if is_pro %}
-        <p class="plan-current">Pro активен до {{ pro_until|date:"d.m.Y" }}</p>
-      {% endif %}
       {% if lab_plan %}
-        <p>Осталось {{ lab_plan.remaining_units|floatformat:"0g" }} токенов до {{ lab_plan.ends_at|date:"d.m.Y" }}.</p>
+        <p class="plans-lead">Осталось {{ lab_plan.remaining_units|floatformat:"0g" }} токенов до {{ lab_plan.ends_at|date:"d.m.Y" }}.</p>
       {% endif %}
       {% if test_checkout %}
-        <a class="pay-button" href="{% url 'pro_test_pay' %}">{% if is_pro %}Продлить Pro в тесте{% else %}Попробовать Pro{% endif %}</a>
+        <a class="button primary plan-action" href="{% url 'pro_test_pay' %}">{% if is_pro %}Продлить Pro в тесте{% else %}Попробовать Pro{% endif %}</a>
       {% elif not is_pro %}
         <p class="plans-lead">Подключение скоро откроется.</p>
       {% endif %}
@@ -40,19 +41,21 @@
   </div>
 </section>
 <style>
-  .plans-wrap { max-width: 820px; margin: 32px auto; padding: 0 16px; }
-  .plans-lead { color:var(--muted); }
-  .plans-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:20px; }
-  @media (max-width:680px){ .plans-grid{ grid-template-columns:1fr; } }
-  .plan-card { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:24px; }
-  .plan-card--pro { border-color:#f5a623; box-shadow:0 10px 30px rgba(245,166,35,.15); }
-  .plan-card h2 { margin:0 0 8px; }
-  .plan-price { font-size:25px; font-weight:800; color:var(--ink); margin:0 0 12px; }
-  .plan-per { font-size:13px; font-weight:600; color:var(--muted); }
-  .plan-card ul { margin:0 0 16px; padding-left:18px; color:var(--muted); }
-  .plan-card li { margin:6px 0; }
-  .plan-tag { font-size:13px; font-weight:800; color:#3a2600; background:#f5a623; border-radius:999px; padding:3px 8px; vertical-align:middle; }
-  .plan-current { color:var(--fact); font-weight:600; }
-  .pay-button { display:inline-block; background:var(--teal); color:var(--on-accent); border:0; border-radius:10px; padding:12px 20px; font-weight:600; text-decoration:none; }
+  .plans-wrap { max-width:820px; margin:32px auto; padding:0 16px; }
+  .plans-lead { max-width:60ch; color:var(--muted); line-height:1.6; }
+  .plans-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:24px; }
+  @media (max-width:680px) { .plans-grid { grid-template-columns:1fr; } }
+  /* Карточки одной высоты, кнопка внизу. Выбранный тариф отмечен бирюзовой границей, без свечения и сторонних цветов. */
+  .plan-card { display:flex; flex-direction:column; gap:16px; padding:24px; background:var(--surface); border:1px solid var(--line); border-radius:16px; }
+  .plan-card.is-current { border-color:var(--line-teal); box-shadow:inset 0 0 0 1px var(--line-teal); }
+  .plan-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .plan-head h2 { margin:0; font-size:20px; }
+  .plan-tag { display:inline-flex; align-items:center; min-height:24px; padding:0 10px; border-radius:999px; background:var(--tint); color:var(--teal-dark); font-size:13px; font-weight:600; white-space:nowrap; }
+  .plan-price { display:flex; align-items:baseline; gap:8px; margin:0; font-family:Manrope,sans-serif; font-size:31px; font-weight:800; letter-spacing:-.02em; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .plan-per { font-family:'Golos Text',sans-serif; font-size:13px; font-weight:600; letter-spacing:0; color:var(--muted); }
+  .plan-features { display:grid; gap:10px; margin:0; padding:16px 0 0; border-top:1px solid var(--line); list-style:none; color:var(--ink); line-height:1.5; }
+  .plan-features li { display:flex; align-items:flex-start; gap:10px; }
+  .plan-features .icon { margin-top:2px; color:var(--teal); }
+  .plan-action { align-self:flex-start; margin-top:auto; }
 </style>
 {% endblock %}

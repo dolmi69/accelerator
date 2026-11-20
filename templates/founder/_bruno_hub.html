@@ -1,7 +1,6 @@
 <div class="bruno-hub-intro">
     {% include 'founder/_bruno.html' with investor=False instance_id='radar-home' %}
     <div>
-        <span class="eyebrow">Ваш помощник</span>
         <h2>Что сделаем вместе?</h2>
         <p>
             {% if hub_lab_job %}
@@ -46,7 +45,7 @@
             <a href="{% url 'result_tell' startup.id %}?draft={{ hub_result_draft.pk }}"><span><strong>{{ hub_result_draft.task.title|default:'Незавершённый рассказ о результате'|truncatechars:55 }}</strong><small>Продолжить рассказ Бруно</small></span></a>
         {% endif %}
         {% if recent_sessions %}
-            <a href="{% url 'chat_detail' startup.id recent_sessions.0.id %}"><span><strong>{{ recent_sessions.0.title|default:'Последний разговор'|truncatechars:55 }}</strong><small>Вернуться к беседе · {{ recent_sessions.0.created_at|date:'d.m' }}</small></span></a>
+            <a href="{% url 'chat_detail' startup.id recent_sessions.0.id %}"><span><strong>{{ recent_sessions.0.title|default:'Последний разговор'|truncatechars:55 }}</strong><small>Беседа от {{ recent_sessions.0.created_at|date:'j E' }}</small></span></a>
         {% endif %}
     </section>
 {% endif %}

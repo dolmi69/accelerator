@@ -7,26 +7,23 @@
                 <span class="module-status">Участников: {{ overview_member_count }}</span>
             </div>
             <div class="team-preview">
-                <a class="team-preview-member"
-                   href="{{ startup.owner.get_absolute_url }}">
+                <a class="team-preview-member" href="{{ startup.owner.get_absolute_url }}">
                     {% include 'profiles/_avatar.html' with member=startup.owner %}
-                    <span><strong>{{ startup.owner.public_name }}</strong><small>Владелец</small></span></a>
+                    <span><strong>{{ startup.owner.public_name }}</strong><small>Владелец</small></span>
+                </a>
                 {% for member in overview_members %}
                     <a class="team-preview-member" href="{{ member.user.get_absolute_url }}">
                         {% include 'profiles/_avatar.html' with member=member.user %}
-                        <span><strong>{{ member.user.public_name }}</strong><small>{{ member.get_role_display }}</small></span></a>{% empty %}
-                            <p class="muted small">Пригласите соавтора, чтобы распределить работу.</p>
-                        {% endfor %}
-                    </div>
-                    <div class="module-actions">
-                        <a class="button ghost" href="{% url 'team' startup.id %}">
-                            {% if startup.user_role == 'owner' %}
-                                Открыть команду
-                            {% else %}
-                                Открыть команду
-                            {% endif %}</a>
-                    </div>
-                </section>
-                {% include 'founder/_participant_actions.html' %}
+                        <span><strong>{{ member.user.public_name }}</strong><small>{{ member.get_role_display }}</small></span>
+                    </a>
+                {% empty %}
+                    <p class="muted small">Пригласите соавтора, чтобы распределить работу.</p>
+                {% endfor %}
             </div>
-        </div>
+            <div class="module-actions">
+                <a class="button ghost" href="{% url 'team' startup.id %}">Открыть команду</a>
+            </div>
+        </section>
+        {% include 'founder/_participant_actions.html' %}
+    </div>
+</div>

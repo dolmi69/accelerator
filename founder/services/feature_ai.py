@@ -2,7 +2,7 @@
 import json
 from django.conf import settings
 from founder.services.kano_availability import enabled as kano_enabled
-from founder.services.ai import complete_text,AIServiceError,AIResponseFormatError,startup_profile_context,provider_label
+from founder.services.ai import complete_text,AIServiceError,AIResponseFormatError,startup_profile_context
 from founder.services.model_json import load_model_json
 from founder.services.workbench import evidence_context
 from founder.services.lab_bruno import protect_service_secrets

@@ -108,7 +108,7 @@ def render(props,*,image_url,href,editor=False):
             body=f'<img src="{val(image_url(content["image"]))}" alt="{val(content["alt"])}" draggable="false">'if content['image']else'<span class="bb-free-placeholder" aria-hidden="true">＋ Изображение</span>'
         elif kind=='art':body='<div class="bb-art" aria-hidden="true"><div class="bb-art-orbit"></div><div class="bb-art-disc"></div><div class="bb-art-tile">✳</div>'+('<span class="bb-art-note">'+text+'</span>'if text else'')+'</div>'
         elif kind=='faq':body='<details class="bb-faq bb-free-faq" open><summary>'+text+'<span>+</span></summary><p>'+escape(content['alt']).replace('\n','<br>')+'</p></details>'
-        elif kind in {'text','button'}:body=f'<span class="bb-free-copy"'+(' data-free-text="true"'if editor else '')+'>'+text+'</span>'
+        elif kind in {'text','button'}:body='<span class="bb-free-copy"'+(' data-free-text="true"'if editor else '')+'>'+text+'</span>'
         else:body=''
         if kind=='button'and style.get('trailingIcon'):body+='<span class="bb-free-icon" aria-hidden="true">↗</span>'
         tag='a'if kind=='button'else'div';link=f' href="{href(content["link"])}"'if tag=='a'else''

@@ -5,7 +5,7 @@
 .history-overview{display:grid;grid-template-columns:minmax(0,1fr) 240px;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin:30px 0 34px}
 .history-overview-copy{padding:30px 34px}
 .history-caption{font-size:13px;color:var(--muted);font-weight:650}
-.history-overview h2{font-size:25px;line-height:1.45;letter-spacing:-.025em;max-width:680px;margin:14px 0 12px}
+.history-overview h2{font-size:25px;line-height:1.25;letter-spacing:-.025em;max-width:680px;margin:14px 0 12px}
 .history-overview p{font-size:13px;color:var(--muted);line-height:1.8;max-width:630px}
 .history-overview a,.history-page a:not(.button){color:var(--teal);text-decoration:none}
 .history-page a:hover{text-decoration:underline}
@@ -25,13 +25,13 @@
 .history-timeline:before{content:"";position:absolute;top:18px;bottom:30px;left:13px;width:1px;background:var(--tint)}
 .history-step{position:relative;scroll-margin-top:100px;margin-bottom:22px}
 .history-step-node{position:absolute;left:-40px;top:24px;width:27px;height:27px;display:grid;place-items:center;border-radius:50%;background:var(--tint);color:var(--teal-dark);border:4px solid var(--line);font-size:13px}
-.history-step-card{border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:22px 26px;box-shadow:0 5px 20px #213b2503}
+.history-step-card{border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:22px 26px}
 .history-step-card>header,.history-step-card>footer{display:flex;justify-content:space-between;align-items:center;gap:15px}
 .history-step-meta{display:flex;align-items:center;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--muted)}
 .history-step-card code{font-size:13px;color:var(--muted)}
 .history-source{border-radius:8px;padding:4px 7px;font-size:13px;background:var(--tint);color:var(--muted);display:inline-block}
 .history-source-lab{color:var(--teal-dark);background:var(--tint)}
-.history-step h3{font-size:20px;line-height:1.5;letter-spacing:-.025em;margin:14px 0 10px}
+.history-step h3{font-size:20px;line-height:1.3;letter-spacing:-.025em;margin:14px 0 10px}
 .history-status{display:flex;gap:10px;font-size:13px;color:var(--muted);margin-bottom:15px}
 .history-status-needs_check{color:var(--warn)}
 .history-status-confirmed,.history-status-verified{color:var(--teal)}
